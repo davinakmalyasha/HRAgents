@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from uuid import UUID, uuid4
 
 from pydantic import Field
 
@@ -41,6 +42,7 @@ class PolicyEvaluation(StrictModel):
 class HitlOverride(StrictModel):
     """A named human sign-off or course correction on a gated decision."""
 
+    id: UUID = Field(default_factory=uuid4)
     evaluation_id: str
     reviewer_id: str
     reviewer_role: str

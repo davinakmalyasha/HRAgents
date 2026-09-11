@@ -24,6 +24,7 @@ Postgres adapters arrive in the integrations phase behind the same interfaces.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -113,11 +114,26 @@ class StoredDocument:
 
 
 class DocumentService:
-    """Store uploaded documents with content hashing and size enforcement."""
+    """Store uploaded documents with content hashing and size enforcement.
+
+    Database adapters override the ``_load_document``/``_iter_documents``/
+    ``_store_document`` primitives; validation and auditing stay here.
+    """
 
     def __init__(self, *, audit: AuditChain | None = None) -> None:
         self._documents: dict[UUID, StoredDocument] = {}
         self._audit = audit or AuditChain()
+
+    # persistence primitives (overridden by database adapters)
+
+    def _load_document(self, document_id: UUID) -> StoredDocument | None:
+        return self._documents.get(document_id)
+
+    def _iter_documents(self) -> Iterator[StoredDocument]:
+        return iter(self._documents.values())
+
+    def _store_document(self, document: StoredDocument) -> None:
+        self._documents[document.id] = document
 
     def upload(
         self,
@@ -148,7 +164,7 @@ class DocumentService:
             content=content,
             uploaded_by=uploaded_by,
         )
-        self._documents[document.id] = document
+        self._store_document(document)
         self._audit.append(
             actor=self._actor(uploaded_by),
             action="document.uploaded",
@@ -159,13 +175,13 @@ class DocumentService:
         return document
 
     def get(self, document_id: UUID) -> StoredDocument:
-        document = self._documents.get(document_id)
+        document = self._load_document(document_id)
         if document is None:
             raise RecruitingError(f"unknown document {document_id}")
         return document
 
     def list_all(self) -> list[StoredDocument]:
-        return sorted(self._documents.values(), key=lambda item: item.uploaded_at)
+        return sorted(self._iter_documents(), key=lambda item: item.uploaded_at)
 
     @staticmethod
     def _actor(actor_id: str) -> AuditActor:
@@ -182,11 +198,25 @@ class DocumentService:
 
 
 class JobService:
-    """Job specification CRUD with a guarded status lifecycle."""
+    """Job specification CRUD with a guarded status lifecycle.
+
+    Database adapters override ``_load_job``/``_iter_jobs``/``_persist_job``.
+    """
 
     def __init__(self, *, audit: AuditChain | None = None) -> None:
         self._jobs: dict[UUID, JobSpecification] = {}
         self._audit = audit or AuditChain()
+
+    # persistence primitives (overridden by database adapters)
+
+    def _load_job(self, job_id: UUID) -> JobSpecification | None:
+        return self._jobs.get(job_id)
+
+    def _iter_jobs(self) -> Iterator[JobSpecification]:
+        return iter(self._jobs.values())
+
+    def _persist_job(self, job: JobSpecification) -> None:
+        self._jobs[job.id] = job
 
     def create(
         self,
@@ -216,7 +246,7 @@ class JobService:
             status=status,
             created_by=created_by,
         )
-        self._jobs[job.id] = job
+        self._persist_job(job)
         self._audit.append(
             actor=self._actor(created_by),
             action="job.created",
@@ -227,13 +257,13 @@ class JobService:
         return job
 
     def get(self, job_id: UUID) -> JobSpecification:
-        job = self._jobs.get(job_id)
+        job = self._load_job(job_id)
         if job is None:
             raise RecruitingError(f"unknown job {job_id}")
         return job
 
     def list_all(self, *, status: JobStatus | None = None) -> list[JobSpecification]:
-        jobs = sorted(self._jobs.values(), key=lambda item: item.created_at)
+        jobs = sorted(self._iter_jobs(), key=lambda item: item.created_at)
         if status is not None:
             jobs = [job for job in jobs if job.status is status]
         return jobs
@@ -273,7 +303,7 @@ class JobService:
                 updates[name] = value
 
         updated = job.model_copy(update=updates)
-        self._jobs[updated.id] = updated
+        self._persist_job(updated)
         self._audit.append(
             actor=self._actor(by),
             action="job.updated",
@@ -288,7 +318,7 @@ class JobService:
         if target not in JOB_TRANSITIONS[job.status]:
             raise RecruitingError(f"cannot move job from {job.status.value} to {target.value}")
         updated = job.model_copy(update={"status": target, "updated_at": utc_now()})
-        self._jobs[updated.id] = updated
+        self._persist_job(updated)
         self._audit.append(
             actor=self._actor(by),
             action="job.status_changed",
@@ -328,7 +358,11 @@ class OverrideOutcome:
 
 
 class EvaluationService:
-    """Registered evaluations, append-only human overrides, and feedback."""
+    """Registered evaluations, append-only human overrides, and feedback.
+
+    Database adapters override the ``_load_*``/``_iter_*``/``_persist_*``/
+    ``_append_override`` primitives.
+    """
 
     def __init__(
         self,
@@ -341,6 +375,29 @@ class EvaluationService:
         self._feedback: dict[UUID, FeedbackReport] = {}  # candidate id → stored report
         self._audit = audit or AuditChain()
         self._applications = applications
+
+    # persistence primitives (overridden by database adapters)
+
+    def _load_record(self, evaluation_id: UUID) -> EvaluationRecord | None:
+        return self._records.get(evaluation_id)
+
+    def _iter_records(self) -> Iterator[EvaluationRecord]:
+        return iter(self._records.values())
+
+    def _persist_record(self, record: EvaluationRecord) -> None:
+        self._records[record.evaluation.id] = record
+
+    def _load_overrides(self, evaluation_id: UUID) -> list[HitlOverride]:
+        return list(self._overrides.get(evaluation_id, []))
+
+    def _append_override(self, override: HitlOverride) -> None:
+        self._overrides.setdefault(UUID(override.evaluation_id), []).append(override)
+
+    def _load_feedback(self, candidate_id: UUID) -> FeedbackReport | None:
+        return self._feedback.get(candidate_id)
+
+    def _persist_feedback(self, candidate_id: UUID, report: FeedbackReport, *, by: str) -> None:
+        self._feedback[candidate_id] = report
 
     # registration
 
@@ -355,7 +412,7 @@ class EvaluationService:
         source: str = "pipeline",
     ) -> EvaluationRecord:
         """Register a pipeline result. The pipeline owns computation; the API reads."""
-        if evaluation.id in self._records:
+        if self._load_record(evaluation.id) is not None:
             raise RecruitingError(f"evaluation {evaluation.id} is already registered")
         resolved_policy = policy or evaluate_policy(
             s_tech=evaluation.s_tech,
@@ -372,7 +429,7 @@ class EvaluationService:
             policy=resolved_policy,
             source=source,
         )
-        self._records[evaluation.id] = record
+        self._persist_record(record)
 
         if self._applications is not None:
             self._sync_application_for_evaluation(record)
@@ -393,19 +450,19 @@ class EvaluationService:
         return record
 
     def get(self, evaluation_id: UUID) -> EvaluationRecord:
-        record = self._records.get(evaluation_id)
+        record = self._load_record(evaluation_id)
         if record is None:
             raise RecruitingError(f"unknown evaluation {evaluation_id}")
         return record
 
     def get_by_application(self, application_id: UUID) -> EvaluationRecord:
-        for record in self._records.values():
+        for record in self._iter_records():
             if record.application_id == application_id:
                 return record
         raise RecruitingError(f"no evaluation for application {application_id}")
 
     def get_by_candidate(self, candidate_id: UUID) -> EvaluationRecord:
-        for record in self._records.values():
+        for record in self._iter_records():
             if record.candidate_id == candidate_id:
                 return record
         raise RecruitingError(f"no evaluation for candidate {candidate_id}")
@@ -442,7 +499,7 @@ class EvaluationService:
             reason_code=reason_code,
             notes=notes,
         )
-        self._overrides.setdefault(evaluation_id, []).append(override)
+        self._append_override(override)
 
         if self._applications is not None:
             self._apply_override_status(record, override_decision)
@@ -463,13 +520,13 @@ class EvaluationService:
 
     def list_overrides(self, evaluation_id: UUID) -> list[HitlOverride]:
         self.get(evaluation_id)
-        return list(self._overrides.get(evaluation_id, []))
+        return self._load_overrides(evaluation_id)
 
     # feedback
 
     def save_feedback(self, candidate_id: UUID, report: FeedbackReport, *, by: str) -> None:
         """Store an agent-authored report; it takes precedence over synthesis."""
-        self._feedback[candidate_id] = report
+        self._persist_feedback(candidate_id, report, by=by)
         self._audit.append(
             actor=DocumentService._actor(by),
             action="feedback.saved",
@@ -480,7 +537,7 @@ class EvaluationService:
 
     def feedback_for(self, candidate_id: UUID, *, language: str = "en") -> FeedbackReport:
         """Return the stored report, else synthesize deterministically."""
-        stored = self._feedback.get(candidate_id)
+        stored = self._load_feedback(candidate_id)
         if stored is not None:
             return stored
         record = self.get_by_candidate(candidate_id)
@@ -628,7 +685,11 @@ class SchedulingProposalRecord(StrictModel):
 
 
 class SchedulingService:
-    """Interviewer availability registry and deterministic slot proposals."""
+    """Interviewer availability registry and deterministic slot proposals.
+
+    Database adapters override the ``_load_*``/``_iter_*``/``_persist_*``
+    primitives.
+    """
 
     def __init__(
         self,
@@ -643,12 +704,31 @@ class SchedulingService:
         self._audit = audit or AuditChain()
         self._applications = applications
 
+    # persistence primitives (overridden by database adapters)
+
+    def _load_availability(self, interviewer_id: UUID) -> list[TimeSlot]:
+        return list(self._availability.get(interviewer_id, []))
+
+    def _persist_availability(
+        self, interviewer_id: UUID, slots: list[TimeSlot], *, by: str
+    ) -> None:
+        self._availability[interviewer_id] = list(slots)
+
+    def _load_proposal(self, proposal_id: UUID) -> SchedulingProposalRecord | None:
+        return self._proposals.get(proposal_id)
+
+    def _iter_proposals(self) -> Iterator[SchedulingProposalRecord]:
+        return iter(self._proposals.values())
+
+    def _persist_proposal(self, proposal: SchedulingProposalRecord) -> None:
+        self._proposals[proposal.id] = proposal
+
     def set_availability(
         self, interviewer_id: UUID, *, slots: list[TimeSlot], by: str
     ) -> list[TimeSlot]:
         """Replace an interviewer's free slots (calendar provider feeds this later)."""
         ordered = sorted(slots, key=lambda slot: slot.start_utc)
-        self._availability[interviewer_id] = ordered
+        self._persist_availability(interviewer_id, ordered, by=by)
         self._audit.append(
             actor=DocumentService._actor(by),
             action="scheduling.availability_set",
@@ -659,7 +739,7 @@ class SchedulingService:
         return ordered
 
     def get_availability(self, interviewer_id: UUID) -> list[TimeSlot]:
-        return list(self._availability.get(interviewer_id, []))
+        return self._load_availability(interviewer_id)
 
     def propose(
         self,
@@ -677,7 +757,7 @@ class SchedulingService:
         record = self._evaluations.get_by_candidate(candidate_id)
 
         common = self._common_slots(interviewer_ids)
-        availability_present = any(self._availability.get(iid) for iid in interviewer_ids)
+        availability_present = any(self._load_availability(iid) for iid in interviewer_ids)
         if not availability_present:
             raise RecruitingError("no interviewer availability recorded for this request")
 
@@ -712,7 +792,7 @@ class SchedulingService:
             needs_human_reconciliation=needs_reconciliation,
             created_by=created_by,
         )
-        self._proposals[proposal.id] = proposal
+        self._persist_proposal(proposal)
 
         if auto and self._applications is not None:
             for application in self._applications.find_by_candidate(candidate_id):
@@ -737,18 +817,18 @@ class SchedulingService:
         return proposal
 
     def get(self, proposal_id: UUID) -> SchedulingProposalRecord:
-        proposal = self._proposals.get(proposal_id)
+        proposal = self._load_proposal(proposal_id)
         if proposal is None:
             raise RecruitingError(f"unknown scheduling proposal {proposal_id}")
         return proposal
 
     def list_all(self) -> list[SchedulingProposalRecord]:
-        return sorted(self._proposals.values(), key=lambda item: item.created_at)
+        return sorted(self._iter_proposals(), key=lambda item: item.created_at)
 
     # internals
 
     def _common_slots(self, interviewer_ids: list[UUID]) -> list[TimeSlot]:
-        lists = [self._availability.get(iid, []) for iid in interviewer_ids]
+        lists = [self._load_availability(iid) for iid in interviewer_ids]
         if any(not slots for slots in lists):
             return []
         keys = {(slot.start_utc, slot.end_utc) for slot in lists[0]}
@@ -760,7 +840,7 @@ class SchedulingService:
         seen: set[tuple[datetime, datetime]] = set()
         union: list[TimeSlot] = []
         for interviewer_id in interviewer_ids:
-            for slot in self._availability.get(interviewer_id, []):
+            for slot in self._load_availability(interviewer_id):
                 key = (slot.start_utc, slot.end_utc)
                 if key in seen:
                     continue

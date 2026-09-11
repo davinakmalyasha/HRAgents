@@ -5,7 +5,8 @@ against PostgreSQL in CI (see the ``postgres`` marker).
 """
 
 from collections.abc import Iterator
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import create_engine, select, update
@@ -16,12 +17,36 @@ from hr_agents.db import tables as t
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.base import Base
-from hr_agents.models import ActorType, AuditActor, Recommendation
+from hr_agents.db.recruiting import (
+    DbDocumentService,
+    DbEvaluationService,
+    DbJobService,
+    DbSchedulingService,
+)
+from hr_agents.models import (
+    ActorType,
+    AuditActor,
+    DimensionScore,
+    EvaluationFlag,
+    FeedbackReport,
+    JobSpecification,
+    JobStatus,
+    PolicyDecision,
+    Recommendation,
+    ScoreDimension,
+    ScoreVector,
+    ScoringRun,
+    Seniority,
+    TechnicalEvaluation,
+    TimeSlot,
+)
 from hr_agents.services.ingestion import (
+    ApplicationRecord,
     ApplicationStatus,
     SubmissionConflictError,
     SubmissionInput,
 )
+from hr_agents.services.recruiting import RecruitingError
 
 
 @pytest.fixture
@@ -181,3 +206,217 @@ def test_application_lists_rank_by_priority(factory: sessionmaker[Session]) -> N
         assert candidate.primary_email == "sari@example.com"
         applications = session.execute(select(t.Application)).scalars().all()
         assert len(applications) == 2
+
+
+# --- recruitment adapters -------------------------------------------------------
+
+
+def make_evaluation(
+    *,
+    candidate_id: UUID,
+    job_id: UUID,
+    s_tech: float = 0.90,
+    sigma: float = 0.0,
+    flags: list[EvaluationFlag] | None = None,
+) -> TechnicalEvaluation:
+    vector = ScoreVector(
+        technical_depth=s_tech,
+        stack_alignment=s_tech,
+        systems_literacy=s_tech,
+        verifiable_certifications=s_tech,
+    )
+    return TechnicalEvaluation(
+        candidate_id=candidate_id,
+        job_id=job_id,
+        runs=[ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector)],
+        mean_vector=vector,
+        s_tech=s_tech,
+        sigma=sigma,
+        breakdown=[
+            DimensionScore(
+                dimension=dimension, score=s_tech, weight=0.25, rationale=f"{dimension.value} ok"
+            )
+            for dimension in ScoreDimension
+        ],
+        flags=flags or [],
+        recommendation=Recommendation.AUTO_SCHEDULE,
+    )
+
+
+def make_slots(count: int) -> list[TimeSlot]:
+    base = datetime(2026, 10, 1, 1, 0, tzinfo=UTC)
+    return [
+        TimeSlot(
+            start_utc=base + timedelta(hours=index),
+            end_utc=base + timedelta(hours=index + 1),
+        )
+        for index in range(count)
+    ]
+
+
+def _seeded(
+    factory: sessionmaker[Session],
+) -> tuple[DbAuditChain, JobSpecification, DbApplicationStore, ApplicationRecord]:
+    audit = DbAuditChain(factory)
+    jobs = DbJobService(session_factory=factory, audit=audit)
+    applications = DbApplicationStore(factory)
+    job = jobs.create(title="Backend Engineer", created_by="hr-admin")
+    record, _ = applications.submit(_submission(job_id=job.id))
+    return audit, job, applications, record
+
+
+def _status(store: DbApplicationStore, application_id: UUID) -> ApplicationStatus:
+    record = store.get(application_id)
+    assert record is not None
+    return record.status
+
+
+def test_document_adapter_round_trip(factory: sessionmaker[Session]) -> None:
+    audit = DbAuditChain(factory)
+    documents = DbDocumentService(session_factory=factory, audit=audit)
+    content = b"Budi Santoso - backend engineer"
+    document = documents.upload(
+        filename="cv.txt", kind="cv", content=content, uploaded_by="hr-admin"
+    )
+
+    fresh = DbDocumentService(session_factory=factory)
+    loaded = fresh.get(document.id)
+    assert loaded.sha256 == document.sha256
+    assert loaded.content == content
+    assert [item.id for item in fresh.list_all()] == [document.id]
+    assert audit.verify() == -1
+
+    with pytest.raises(RecruitingError):
+        fresh.get(uuid4())
+
+
+def test_job_adapter_lifecycle(factory: sessionmaker[Session]) -> None:
+    audit = DbAuditChain(factory)
+    jobs = DbJobService(session_factory=factory, audit=audit)
+    weights = {
+        ScoreDimension.TECHNICAL_DEPTH: 0.5,
+        ScoreDimension.STACK_ALIGNMENT: 0.2,
+        ScoreDimension.SYSTEMS_LITERACY: 0.2,
+        ScoreDimension.VERIFIABLE_CERTIFICATIONS: 0.1,
+    }
+    job = jobs.create(
+        title="Backend Engineer",
+        created_by="hr-admin",
+        seniority=Seniority.SENIOR,
+        dimension_weights=weights,
+    )
+
+    fresh = DbJobService(session_factory=factory)
+    loaded = fresh.get(job.id)
+    assert loaded.title == "Backend Engineer"
+    assert loaded.dimension_weights == weights
+    assert [item.id for item in fresh.list_all(status=JobStatus.DRAFT)] == [job.id]
+
+    fresh.transition(job.id, target=JobStatus.OPEN, by="hr-admin")
+    fresh.update(job.id, by="hr-admin", title="Senior Backend Engineer")
+    updated = fresh.get(job.id)
+    assert updated.status is JobStatus.OPEN
+    assert updated.title == "Senior Backend Engineer"
+    assert updated.seniority is Seniority.SENIOR
+
+    fresh.transition(job.id, target=JobStatus.CLOSED, by="hr-admin")
+    with pytest.raises(RecruitingError):
+        fresh.update(job.id, by="hr-admin", title="Nope")
+    assert audit.verify() == -1
+
+
+def test_evaluation_adapter_registration_and_overrides(factory: sessionmaker[Session]) -> None:
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluation = make_evaluation(candidate_id=record.candidate_id, job_id=job.id)
+    registered = evaluations.register(
+        application_id=record.id,
+        evaluation=evaluation,
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    assert registered.evaluation.id == evaluation.id
+    assert _status(applications, record.id) is ApplicationStatus.EVALUATED
+
+    fresh = DbEvaluationService(
+        session_factory=factory, audit=DbAuditChain(factory), applications=applications
+    )
+    loaded = fresh.get(evaluation.id)
+    assert loaded.candidate_name == "Sari Dewi"
+    assert loaded.policy.decision is PolicyDecision.AUTO_SCHEDULE
+    assert fresh.get_by_application(record.id).evaluation.id == evaluation.id
+    assert fresh.get_by_candidate(record.candidate_id).evaluation.id == evaluation.id
+
+    outcome = fresh.record_override(
+        evaluation.id,
+        reviewer_id="lead-1",
+        reviewer_role="engineering_lead",
+        override_decision=PolicyDecision.HITL_SOFT_REJECTION,
+        reason_code="evidence_insufficient",
+        notes="Reviewed together",
+    )
+    overrides = fresh.list_overrides(evaluation.id)
+    assert [item.id for item in overrides] == [outcome.override.id]
+    assert _status(applications, record.id) is ApplicationStatus.GATED
+
+    with factory() as session:
+        assert session.get(t.EvaluationOverrideRecord, outcome.override.id) is not None
+
+
+def test_feedback_adapter_stores_agent_report(factory: sessionmaker[Session]) -> None:
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    report = FeedbackReport(
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+        language="en",
+        summary="Structured evaluation summary.",
+        process_note="Generated from evidence.",
+        correction_notice="Contact HR for corrections.",
+    )
+    evaluations.save_feedback(record.candidate_id, report, by="agent:feedback_writer")
+
+    fresh = DbEvaluationService(session_factory=factory, audit=DbAuditChain(factory))
+    assert fresh.feedback_for(record.candidate_id).summary == report.summary
+
+
+def test_scheduling_adapter_availability_and_proposal(factory: sessionmaker[Session]) -> None:
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluation = make_evaluation(candidate_id=record.candidate_id, job_id=job.id)
+    evaluations.register(
+        application_id=record.id,
+        evaluation=evaluation,
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+
+    scheduling = DbSchedulingService(
+        evaluations=evaluations,
+        session_factory=factory,
+        audit=audit,
+        applications=applications,
+    )
+    interviewer = uuid4()
+    slots = make_slots(2)
+    scheduling.set_availability(interviewer, slots=slots, by="hr-admin")
+    assert [slot.start_utc for slot in scheduling.get_availability(interviewer)] == [
+        slot.start_utc for slot in slots
+    ]
+
+    proposal = scheduling.propose(
+        candidate_id=record.candidate_id, job_id=job.id, interviewer_ids=[interviewer]
+    )
+    assert proposal.payload.auto_scheduled is True
+    assert _status(applications, record.id) is ApplicationStatus.SCHEDULED
+
+    fresh = DbSchedulingService(evaluations=evaluations, session_factory=factory)
+    assert [item.id for item in fresh.list_all()] == [proposal.id]
+    assert fresh.get(proposal.id).payload.slots[0].start_utc == slots[0].start_utc
+    assert audit.verify() == -1
