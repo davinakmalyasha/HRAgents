@@ -91,4 +91,3 @@ The first live run surfaced two real production risks that are now fixed in code
    Pydantic.
 2. **Transient upstream errors (HTTP 524)** occur under load. Fix: bounded output
    retries (default 3) + the provider health/fallback chain.
-

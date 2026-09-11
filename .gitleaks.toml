@@ -1,0 +1,13 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholder credentials used in tests, docs, and examples"
+regexTarget = "match"
+regexes = [
+  '''sk-ant-1234''',
+  '''sk-ant-secret-abcd''',
+  '''sk-ant-test''',
+  '''sk-ant-\.\.\.''',
+  '''cmd-\.\.\.''',
+]
