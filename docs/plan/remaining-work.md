@@ -224,7 +224,14 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 - [ ] Demo video / GIF walkthrough (2–3 minutes: ingest → review → override → schedule)
 - [ ] API docs site (OpenAPI rendered) + operator runbooks (backup, upgrade, provider failures,
       incident response with the breach workflow)
-- [ ] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates, security policy
+- [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates, security policy, ADRs, release
+      process (landed early with the repo-infrastructure work — see `master-build-plan.md` Phase 1)
+- [ ] Docs site (mkdocs-material + GitHub Pages), versioned with releases
+- [ ] Container image on GHCR: multi-arch, Trivy-scanned (needs `Dockerfile`, Phase 9)
+- [ ] SBOM + build provenance attestations attached to releases
+- [ ] PyPI publishing — only if a library use case appears (currently deferred)
+- [ ] GitHub social preview image + demo assets (screenshots/GIF)
+- [ ] Immutable releases for tags, once the release flow has settled
 - [ ] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps
 
 **Exit criteria:** a stranger can evaluate the product from the README alone, reproduce the

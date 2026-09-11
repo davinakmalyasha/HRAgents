@@ -88,6 +88,14 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] CI workflow (ruff, format, mypy, pytest)
 - [x] FastAPI app factory + `/healthz`
 - [x] `.gitignore`, `.env.example`, repo layout
+- [x] CI hardening: `quality` · `migrations` (pgvector upgrade/drift/downgrade) · `windows` ·
+      `secrets` (gitleaks history scan); actions SHA-pinned; coverage floor 90%
+- [x] CodeQL, Dependabot (uv + actions), release-please, release-artifacts workflow
+- [x] Community health: `CONTRIBUTING`, `SECURITY`, `CODE_OF_CONDUCT`, issue forms, PR template,
+      `CODEOWNERS`
+- [x] pre-commit hooks (ruff, formatting, private-key detection) + `scripts/check.py`
+- [x] ADRs (`docs/adr/`), release process (`docs/plan/release-process.md`), `CITATION.cff`,
+      `AGENTS.md`
 
 ## Phase 2 — Contracts & data model `DONE`
 
@@ -431,7 +439,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [ ] README "Work with the author / freelance integration" section: name, product, contact, services offered
 - [ ] Demo video / GIF walkthrough
 - [ ] API docs site + operator runbooks
-- [ ] `CONTRIBUTING.md` + `CODE_OF_CONDUCT.md`
+- [x] `CONTRIBUTING.md` + `CODE_OF_CONDUCT.md` (landed early — see Phase 1)
 - [ ] Public release on GitHub (Apache-2.0), tagged version, release notes
 
 ---

@@ -7,6 +7,11 @@
 offers paid integration services for companies that want it running without the
 technical work — see [Work with the author](#work-with-the-author).
 
+[![CI](https://github.com/davinakmalyasha/HRAgents/actions/workflows/ci.yml/badge.svg)](https://github.com/davinakmalyasha/HRAgents/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/davinakmalyasha/HRAgents/actions/workflows/codeql.yml/badge.svg)](https://github.com/davinakmalyasha/HRAgents/actions/workflows/codeql.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
+
 **Status:** active development. Platform core, agents, recruitment API surface, and all
 Wave-1 department engines are operational (731 tests, 92% coverage); the dashboard, MCP
 layer, and public release are next. No public release yet — see the
@@ -106,6 +111,8 @@ landing/           public site (Next.js) — planned
 
 - [Master build plan](docs/plan/master-build-plan.md) — the full checklist: phases, departments, progress
 - [Remaining work](docs/plan/remaining-work.md) — MCP layer → dashboard → evals → ops → paper & release
+- [Release process](docs/plan/release-process.md) — versioning, branching, how releases are cut
+- [Architecture decisions (ADRs)](docs/adr/README.md) — the reasoning behind the locked choices
 - [Problem statement](docs/plan/problem-statement.md) — the systemic problem this exists to solve
 - [Product concept](docs/plan/product-concept.md) — value, workspaces, dashboard UX, design system
 - [HR domain guide](docs/plan/hr-domain-guide.md) — how HR actually works, Indonesian specifics, glossary
@@ -154,6 +161,15 @@ the author offers freelance integration services.
 
 > **Davin Akmal Yasha** · GitHub [@davinakmalyasha](https://github.com/davinakmalyasha) ·
 > open an issue or reach out via the GitHub profile.
+
+## Contributing
+
+Contributions are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md) first. The short
+version: trunk-based branches, Conventional Commits with DCO sign-off, and a green
+`uv run python scripts/check.py` before opening a PR. Security reports go through the
+[private advisory flow](SECURITY.md); everyone follows the
+[Code of Conduct](CODE_OF_CONDUCT.md). If you use HRAgents in academic work, cite it via
+[CITATION.cff](CITATION.cff).
 
 ## License
 
