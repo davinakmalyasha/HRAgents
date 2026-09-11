@@ -4,14 +4,12 @@ The adapters use plain SQLAlchemy so the same code path is exercised here and
 against PostgreSQL in CI (see the ``postgres`` marker).
 """
 
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import create_engine, select, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from hr_agents.db import tables as t
 from hr_agents.db.application import DbApplicationStore
@@ -47,18 +45,6 @@ from hr_agents.services.ingestion import (
     SubmissionInput,
 )
 from hr_agents.services.recruiting import RecruitingError
-
-
-@pytest.fixture
-def factory() -> Iterator[sessionmaker[Session]]:
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    yield sessionmaker(engine, expire_on_commit=False, autoflush=False)
-    engine.dispose()
 
 
 def _submission(**overrides: object) -> SubmissionInput:
