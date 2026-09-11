@@ -14,13 +14,21 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 
 ## 0. Known leftovers before the MCP layer (small, tracked here for completeness)
 
-- [ ] **Postgres-backed persistence for the new surfaces.** Documents, jobs, evaluations,
+> **Progress (2026-09-12, PR #2):** persistence foundation landed — ADR 0005 (sync domain
+> layer), migration `0005_persistence`, `DbAuditChain` (hash chain in `audit_log`,
+> tamper-tested), `DbApplicationStore` (idempotent submissions, candidates/applications
+> rows), SQLite adapter tests, and the polish backlog. The remaining store adapters and
+> app wiring are in progress on `feat/async-persistence`.
+
+- [~] **Postgres-backed persistence for the new surfaces.** Documents, jobs, evaluations,
       overrides, feedback, scheduling proposals, compliance, growth, and offboarding currently use
       in-memory stores behind stable interfaces. Migration `0001`–`0004` already define all tables;
-      the adapters still need to be written and wired (Phase 7 integration work).
-- [ ] **Audit-chain persistence.** The hash chain lives in process memory; a DB-backed sink with a
+      the adapters still need to be written and wired (Phase 7 integration work). *Audit chain and
+      applications are done; the rest follow on the same branch.*
+- [~] **Audit-chain persistence.** The hash chain lives in process memory; a DB-backed sink with a
       periodic verification job is required for restart-safe tamper evidence (planned with the
-      Postgres audit-log table from `0001`).
+      Postgres audit-log table from `0001`). *DB sink done and tested; scheduled verification job
+      still open.*
 - [ ] **End-to-end pipeline test through the API.** `POST /v1/applications` → worker → extraction →
       scoring → `evaluation.registered` → queue reflects the route. Today the pipeline is tested
       directly and the API surface is tested directly; the seam between them is exercised manually.
