@@ -1,0 +1,116 @@
+[project]
+name = "hr-agents"
+dynamic = ["version"]
+description = "Deterministic, auditable multi-agent candidate evaluation engine for technical recruitment"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Davin Akmal Yasha" }]
+keywords = ["hr", "recruiting", "ats", "ai-agents", "human-in-the-loop", "indonesia"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Natural Language :: Indonesian",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business",
+]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.10",
+    "email-validator>=2.2",
+    "pydantic-settings>=2.6",
+    "pydantic-ai>=0.0.20",
+    "httpx>=0.27",
+    "redis>=5.1",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.13",
+    "pgvector>=0.3.6",
+    "python-multipart>=0.0.12",
+    "pypdf>=5.1",
+    "radon>=6.0",
+    "lizard>=1.17",
+    "structlog>=24.4",
+    "tenacity>=9.0",
+    "orjson>=3.10",
+    "pyyaml>=6.0",
+    "opentelemetry-sdk>=1.28",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    "opentelemetry-exporter-otlp-proto-http>=1.28",
+    "openpyxl>=3.1.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/davinakmalyasha/HRAgents"
+Repository = "https://github.com/davinakmalyasha/HRAgents"
+Issues = "https://github.com/davinakmalyasha/HRAgents/issues"
+Changelog = "https://github.com/davinakmalyasha/HRAgents/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/davinakmalyasha/HRAgents/tree/main/docs"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "fakeredis>=2.26",
+    "respx>=0.22",
+    "anyio>=4.6",
+    "aiosqlite>=0.20",
+    "pre-commit>=3.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/hr_agents/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hr_agents"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning:hr_agents.*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# Mathematical notation used intentionally in docstrings (formulas, thresholds).
+allowed-confusables = [
+    "α", "β", "γ", "δ", "λ", "σ", "Δ", "̄",
+    "∧", "→", "⇒", "∈", "≥", "≤", "−", "·",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["hr_agents"]
+
+[tool.mypy]
+python_version = "3.14"
+mypy_path = "src"
+files = ["src", "tests"]
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_unreachable = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/hr_agents"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

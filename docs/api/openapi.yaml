@@ -1,0 +1,828 @@
+openapi: 3.0.3
+info:
+  title: HRAgents Ingestion & Decision API
+  version: 0.1.0
+  description: |
+    Deterministic, auditable candidate evaluation for technical roles.
+
+    **Architecture guarantee:** LLM agents only *extract* structured evidence.
+    Scoring is deterministic and inspectable. Every rejection above the technical-merit
+    floor (`S_tech >= 0.70`) requires a named human sign-off before notification.
+
+    ## Implementation status
+    Implemented: applications, documents, jobs, evaluations + HITL overrides, queue,
+    scheduling proposals (+ availability registry), and candidate feedback.
+    Messaging webhooks (`/v1/webhooks/messaging/{provider}`) land with the Phase 7
+    integrations. The live FastAPI schema at `/openapi.json` is the executable contract;
+    deviations are tracked in `docs/plan/remaining-work.md`.
+
+    ## Throughput contract
+    - Sustained ingestion: **10,000 requests/minute** per deployment (horizontal scale-out).
+    - Batch endpoint: up to **500 submissions per request**.
+    - `GET /v1/queue` priority reads target **< 50 ms p99** (served from a Redis sorted set).
+    - Ingestion returns `202 Accepted` quickly; processing is asynchronous by design.
+
+    ## Conventions
+    - Idempotency via the `Idempotency-Key` header on all POST endpoints.
+    - Errors follow RFC 7807 (`application/problem+json`).
+    - Rate limiting headers are returned on every response; `429` includes `Retry-After`.
+  contact:
+    name: HRAgents
+  license:
+    name: TBD
+servers:
+  - url: https://api.hragents.example.com
+    description: Production
+  - url: http://localhost:8000
+    description: Local development
+
+security:
+  - ApiKeyAuth: []
+
+tags:
+  - name: system
+    description: Health and readiness
+  - name: applications
+    description: Application ingestion and status
+  - name: documents
+    description: Document upload (CVs, portfolios, questionnaires)
+  - name: evaluations
+    description: Deterministic evaluation results and human overrides
+  - name: jobs
+    description: Job specifications used as scoring references
+  - name: queue
+    description: Priority-ranked candidate queues
+  - name: scheduling
+    description: Interview slot proposals and confirmations
+  - name: webhooks
+    description: Inbound events from messaging providers
+  - name: feedback
+    description: Candidate-facing feedback reports
+
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, enum: [ok] }
+                  version: { type: string }
+                  environment: { type: string }
+
+  /v1/documents:
+    post:
+      tags: [documents]
+      summary: Upload a source document (CV, portfolio, questionnaire)
+      description: |
+        Stores the document, records its hash, and returns a `document_id` for use in
+        an application submission. PII redaction runs before any LLM processing.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, kind]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                kind:
+                  type: string
+                  enum: [cv, portfolio, questionnaire, linkedin_export, other]
+      responses:
+        "201":
+          description: Document stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentUploadResponse"
+        "413":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/applications:
+    post:
+      tags: [applications]
+      summary: Ingest a single application
+      description: |
+        Creates a candidate + application pair (or attaches to an existing candidate),
+        enqueues extraction and evaluation work, and returns immediately with `202`.
+
+        The same `Idempotency-Key` always yields the same `application_id`.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationSubmission"
+            examples:
+              minimal:
+                summary: CV via API with consent
+                value:
+                  job_id: "8f14e45f-ea3d-4e6b-9c1a-2f7b3d9e5a01"
+                  source_channel: api
+                  consent:
+                    granted: true
+                    policy_version: "1.0"
+                  documents:
+                    - document_id: "3c9f1b2a-7d4e-4a51-b8c2-9e0f1a2b3c4d"
+                      kind: cv
+                  candidate:
+                    full_name: "Budi Santoso"
+                    emails: ["budi@example.com"]
+                    links:
+                      github_url: "https://github.com/budisantoso"
+      responses:
+        "202":
+          description: Application accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationAccepted"
+        "409":
+          description: Idempotency key conflict with a different payload
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "422":
+          $ref: "#/components/responses/ProblemResponse"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/applications/batch:
+    post:
+      tags: [applications]
+      summary: Ingest up to 500 applications
+      description: |
+        Batch ingestion for ATS exports and migrations. Each item is processed
+        independently; partial success is expressed per item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 500
+                  items:
+                    $ref: "#/components/schemas/ApplicationSubmission"
+      responses:
+        "202":
+          description: Batch accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchAccepted"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/applications/{application_id}:
+    get:
+      tags: [applications]
+      summary: Application status and timeline
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Application status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApplicationStatus"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/applications/{application_id}/evaluation:
+    get:
+      tags: [evaluations]
+      summary: Deterministic evaluation result for an application
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TechnicalEvaluation"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/evaluations/{evaluation_id}/overrides:
+    post:
+      tags: [evaluations]
+      summary: Human-in-the-loop override (mandatory for gated rejections)
+      description: |
+        Records a named reviewer decision. Required before sending any rejection
+        notification when `0.70 <= S_tech < auto threshold`, or when flags are present.
+        Overrides are append-only; a new override supersedes but never deletes an earlier one.
+      parameters:
+        - $ref: "#/components/parameters/EvaluationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HitlOverride"
+      responses:
+        "201":
+          description: Override recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditReceipt"
+        "403":
+          $ref: "#/components/responses/ProblemResponse"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/jobs:
+    get:
+      tags: [jobs]
+      summary: List job specifications
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobSpecification"
+    post:
+      tags: [jobs]
+      summary: Create a job specification
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JobSpecification"
+      responses:
+        "201":
+          description: Job created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobSpecification"
+        "422":
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/queue:
+    get:
+      tags: [queue]
+      summary: Priority-ranked candidates for a job
+      description: |
+        Returns candidates ordered by the queue priority formula
+        `P = α·S̄ + β·e^(−λ·Δt) + γ·A − δ·R`. Served from a Redis sorted set; target p99 < 50 ms.
+      parameters:
+        - name: job_id
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Ranked queue
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QueueEntry"
+                  next_cursor:
+                    type: string
+                    nullable: true
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /v1/scheduling/proposals:
+    post:
+      tags: [scheduling]
+      summary: Propose interview slots (auto or HITL-gated)
+      description: |
+        If policy permits (`S_tech >= 0.85`, `sigma <= 0.05`, no flags, at least
+        `min_interviewer_slots` mutual slots), the proposal is auto-sent. Otherwise
+        it is routed to a human queue and the response marks `requires_human_approval: true`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchedulingProposalRequest"
+      responses:
+        "201":
+          description: Scheduling proposal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchedulingPayload"
+        "409":
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/webhooks/messaging/{provider}:
+    post:
+      tags: [webhooks]
+      summary: Inbound messaging webhook (WhatsApp / Telegram / Email)
+      description: |
+        Receives candidate replies. Signature verification is mandatory; unsigned or
+        replayed payloads are rejected. Message content is untrusted input and is
+        sanitized before any agent processing.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [whatsapp, telegram, email] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "202":
+          description: Event accepted
+        "401":
+          $ref: "#/components/responses/ProblemResponse"
+
+  /v1/candidates/{candidate_id}/feedback:
+    get:
+      tags: [feedback]
+      summary: Candidate-facing feedback report
+      description: |
+        Generated from the deterministic score breakdown and evidence references.
+        Excluded: protected attributes, internal reviewer notes, and raw model output.
+      parameters:
+        - $ref: "#/components/parameters/CandidateId"
+      responses:
+        "200":
+          description: Feedback report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackReport"
+        "404":
+          $ref: "#/components/responses/ProblemResponse"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Service-to-service key scoped per organization.
+    OAuth2ClientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.hragents.example.com/oauth/token
+          scopes:
+            applications:write: Ingest applications
+            evaluations:read: Read evaluations
+            evaluations:override: Perform human overrides
+            jobs:write: Manage jobs
+            scheduling:write: Manage scheduling
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, maxLength: 200 }
+      description: |
+        Client-generated key ensuring exactly-once semantics. Replays return the
+        original result; conflicting payloads with the same key return `409`.
+    ApplicationId:
+      name: application_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EvaluationId:
+      name: evaluation_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CandidateId:
+      name: candidate_id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    ProblemResponse:
+      description: Error
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Seconds to wait before retrying
+        X-RateLimit-Limit:
+          schema: { type: integer }
+        X-RateLimit-Remaining:
+          schema: { type: integer }
+        X-RateLimit-Reset:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+
+    DocumentUploadResponse:
+      type: object
+      required: [document_id, sha256, kind]
+      properties:
+        document_id: { type: string, format: uuid }
+        sha256: { type: string, pattern: "^[a-f0-9]{64}$" }
+        kind: { type: string }
+        size_bytes: { type: integer }
+
+    ConsentInput:
+      type: object
+      required: [granted]
+      properties:
+        granted: { type: boolean }
+        policy_version: { type: string, default: "1.0" }
+        granted_at: { type: string, format: date-time, nullable: true }
+
+    CandidateInput:
+      type: object
+      properties:
+        full_name: { type: string, minLength: 1 }
+        headline: { type: string, nullable: true }
+        emails:
+          type: array
+          items: { type: string, format: email }
+        phones:
+          type: array
+          items: { type: string }
+        links:
+          type: object
+          properties:
+            github_url: { type: string, format: uri, nullable: true }
+            linkedin_url: { type: string, format: uri, nullable: true }
+            website_url: { type: string, format: uri, nullable: true }
+            orcid: { type: string, nullable: true }
+        location:
+          type: object
+          properties:
+            city: { type: string, nullable: true }
+            country_code: { type: string, minLength: 2, maxLength: 2, nullable: true }
+            timezone: { type: string, nullable: true }
+
+    DocumentRef:
+      type: object
+      required: [document_id, kind]
+      properties:
+        document_id: { type: string, format: uuid }
+        kind: { type: string, enum: [cv, portfolio, questionnaire, linkedin_export, other] }
+
+    ApplicationSubmission:
+      type: object
+      required: [job_id, source_channel, consent]
+      properties:
+        job_id: { type: string, format: uuid }
+        source_channel:
+          type: string
+          enum: [api, email, whatsapp, telegram, linkedin, portal, batch]
+        consent:
+          $ref: "#/components/schemas/ConsentInput"
+        candidate:
+          $ref: "#/components/schemas/CandidateInput"
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentRef"
+        questionnaire:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ApplicationAccepted:
+      type: object
+      required: [application_id, candidate_id, status]
+      properties:
+        application_id: { type: string, format: uuid }
+        candidate_id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, processing, evaluated, gated, scheduled, rejected] }
+        status_url: { type: string, format: uri }
+        queued_at: { type: string, format: date-time }
+
+    BatchAccepted:
+      type: object
+      required: [accepted, items]
+      properties:
+        accepted: { type: integer }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              application_id: { type: string, format: uuid, nullable: true }
+              status: { type: string }
+              error: { type: string, nullable: true }
+
+    ApplicationStatus:
+      type: object
+      required: [application_id, candidate_id, status, received_at]
+      properties:
+        application_id: { type: string, format: uuid }
+        candidate_id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [queued, processing, evaluated, gated, scheduled, rejected, withdrawn]
+        received_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              at: { type: string, format: date-time }
+              event: { type: string }
+              actor: { type: string }
+
+    ScoreVector:
+      type: object
+      description: "S in [0,1]^4"
+      required: [technical_depth, stack_alignment, systems_literacy, verifiable_certifications]
+      properties:
+        technical_depth: { type: number, minimum: 0, maximum: 1 }
+        stack_alignment: { type: number, minimum: 0, maximum: 1 }
+        systems_literacy: { type: number, minimum: 0, maximum: 1 }
+        verifiable_certifications: { type: number, minimum: 0, maximum: 1 }
+
+    DimensionScore:
+      type: object
+      required: [dimension, score, weight, rationale]
+      properties:
+        dimension:
+          type: string
+          enum: [technical_depth, stack_alignment, systems_literacy, verifiable_certifications]
+        score: { type: number, minimum: 0, maximum: 1 }
+        weight: { type: number, minimum: 0 }
+        rationale: { type: string }
+        evidence:
+          type: array
+          items:
+            type: object
+            properties:
+              source_type: { type: string }
+              locator: { type: string }
+              excerpt: { type: string, nullable: true }
+              confidence: { type: number, minimum: 0, maximum: 1 }
+
+    EvaluationFlag:
+      type: string
+      enum:
+        - anomaly_experience_format
+        - low_confidence_extraction
+        - inconsistent_runs
+        - certification_mismatch
+        - injection_suspected
+        - calendar_constraint
+
+    Recommendation:
+      type: string
+      enum: [auto_schedule, human_review, reject_requires_signoff, reject]
+
+    PolicyDecision:
+      type: string
+      enum:
+        - auto_schedule
+        - hitl_soft_rejection
+        - hitl_anomaly
+        - hitl_calendar
+        - hitl_manual
+        - reject_auto
+
+    PolicyEvaluation:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          $ref: "#/components/schemas/PolicyDecision"
+        reasons:
+          type: array
+          items: { type: string }
+        thresholds:
+          type: object
+          properties:
+            auto_schedule_min_score: { type: number, default: 0.85 }
+            auto_schedule_max_variance: { type: number, default: 0.05 }
+            soft_rejection_floor: { type: number, default: 0.70 }
+            min_interviewer_slots: { type: integer, default: 2 }
+        evaluated_at: { type: string, format: date-time }
+
+    TechnicalEvaluation:
+      type: object
+      required: [id, candidate_id, s_tech, sigma, mean_vector, recommendation]
+      properties:
+        id: { type: string, format: uuid }
+        candidate_id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid, nullable: true }
+        s_tech: { type: number, minimum: 0, maximum: 1 }
+        sigma: { type: number, minimum: 0 }
+        mean_vector:
+          $ref: "#/components/schemas/ScoreVector"
+        dimension_stddev:
+          type: object
+          additionalProperties: { type: number }
+        weights:
+          type: object
+          additionalProperties: { type: number }
+        breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/DimensionScore"
+        flags:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvaluationFlag"
+        recommendation:
+          $ref: "#/components/schemas/Recommendation"
+        policy:
+          $ref: "#/components/schemas/PolicyEvaluation"
+        policy_version: { type: string }
+        created_at: { type: string, format: date-time }
+
+    HitlOverride:
+      type: object
+      required: [reviewer_id, reviewer_role, override_decision, reason_code]
+      properties:
+        reviewer_id: { type: string }
+        reviewer_role: { type: string, enum: [engineering_lead, recruiter_lead, hr_partner] }
+        override_decision:
+          $ref: "#/components/schemas/PolicyDecision"
+        reason_code: { type: string }
+        notes: { type: string, maxLength: 2000, nullable: true }
+
+    AuditReceipt:
+      type: object
+      required: [entry_id, seq, entry_hash, created_at]
+      properties:
+        entry_id: { type: string, format: uuid }
+        seq: { type: integer }
+        entry_hash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        prev_hash: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    JobSpecification:
+      type: object
+      required: [id, title, seniority, status]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, minLength: 1 }
+        seniority:
+          type: string
+          enum: [intern, junior, mid, senior, lead, principal]
+        description: { type: string }
+        responsibilities:
+          type: array
+          items: { type: string }
+        must_have_skills:
+          type: array
+          items: { type: string }
+        nice_to_have_skills:
+          type: array
+          items: { type: string }
+        stack:
+          type: array
+          items: { type: string }
+        min_years_experience: { type: integer, minimum: 0 }
+        dimension_weights:
+          type: object
+          description: Must sum to 1.0 when provided
+          additionalProperties: { type: number, minimum: 0 }
+        status:
+          type: string
+          enum: [draft, open, paused, closed]
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    QueueEntry:
+      type: object
+      required: [application_id, candidate_id, priority_score]
+      properties:
+        application_id: { type: string, format: uuid }
+        candidate_id: { type: string, format: uuid }
+        priority_score: { type: number }
+        s_tech: { type: number, nullable: true }
+        hours_waiting: { type: number }
+        availability_completeness: { type: number, minimum: 0, maximum: 1 }
+        risk_flags:
+          type: array
+          items: { type: string }
+
+    TimeSlot:
+      type: object
+      required: [start_utc, end_utc]
+      properties:
+        start_utc: { type: string, format: date-time }
+        end_utc: { type: string, format: date-time }
+        tentative: { type: boolean, default: false }
+
+    SchedulingProposalRequest:
+      type: object
+      required: [candidate_id, job_id, interviewer_ids]
+      properties:
+        candidate_id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid }
+        interviewer_ids:
+          type: array
+          minItems: 1
+          items: { type: string, format: uuid }
+        requested_channels:
+          type: array
+          items: { type: string, enum: [email, whatsapp, telegram, calendar_invite] }
+        notes: { type: string, nullable: true }
+
+    SchedulingPayload:
+      type: object
+      required: [candidate_id, job_id, interviewer_ids, slots, auto_scheduled]
+      properties:
+        candidate_id: { type: string, format: uuid }
+        job_id: { type: string, format: uuid }
+        interviewer_ids:
+          type: array
+          items: { type: string, format: uuid }
+        slots:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TimeSlot"
+        timezone: { type: string }
+        channel:
+          type: string
+          enum: [email, whatsapp, telegram, calendar_invite]
+        auto_scheduled: { type: boolean }
+        requires_human_approval: { type: boolean }
+        policy:
+          $ref: "#/components/schemas/PolicyEvaluation"
+
+    FeedbackReport:
+      type: object
+      required: [candidate_id, generated_at, summary]
+      properties:
+        candidate_id: { type: string, format: uuid }
+        generated_at: { type: string, format: date-time }
+        summary: { type: string }
+        strengths:
+          type: array
+          items: { type: string }
+        growth_areas:
+          type: array
+          items: { type: string }
+        dimension_breakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/DimensionScore"
