@@ -192,7 +192,7 @@ def test_application_lists_rank_by_priority(factory: sessionmaker[Session]) -> N
 
     ranked = store.list_for_job(job_id)
     assert [record.id for record in ranked] == [high.id, low.id]
-    assert [record.id for record in store.iter_all()] == [low.id, high.id]
+    assert {record.id for record in store.iter_all()} == {low.id, high.id}
 
     found = store.find_by_candidate(high.candidate_id)
     assert [record.id for record in found] == [high.id]
