@@ -37,7 +37,7 @@ def _row_values(model: BaseModel, record_cls: type[OrmBase]) -> dict[str, Any]:
     }
 
 
-def _model_from_row[ModelT: BaseModel](model_cls: type[ModelT], row: Any) -> ModelT:
+def model_from_row[ModelT: BaseModel](model_cls: type[ModelT], row: Any) -> ModelT:
     values: dict[str, Any] = {}
     for column in row.__table__.columns:
         value = getattr(row, column.name)
@@ -72,7 +72,7 @@ def get_model[ModelT: BaseModel](
 ) -> ModelT | None:
     with sync_session_scope(factory) as session:
         row = session.get(record_cls, key)
-        return None if row is None else _model_from_row(model_cls, row)
+        return None if row is None else model_from_row(model_cls, row)
 
 
 def list_models[ModelT: BaseModel](
@@ -82,4 +82,4 @@ def list_models[ModelT: BaseModel](
 ) -> list[ModelT]:
     with sync_session_scope(factory) as session:
         rows = session.execute(select(record_cls)).scalars().all()
-        return [_model_from_row(model_cls, row) for row in rows]
+        return [model_from_row(model_cls, row) for row in rows]
