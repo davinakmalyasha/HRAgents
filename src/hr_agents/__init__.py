@@ -1,3 +1,5 @@
 """HRAgents — deterministic, auditable multi-agent candidate evaluation engine."""
 
-__version__ = "0.1.0"
+from importlib.metadata import version
+
+__version__ = version("hr-agents")

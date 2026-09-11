@@ -1,6 +1,6 @@
 [project]
 name = "hr-agents"
-dynamic = ["version"]
+version = "0.1.0"
 description = "Deterministic, auditable multi-agent candidate evaluation engine for technical recruitment"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -67,9 +67,6 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.hatch.version]
-path = "src/hr_agents/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hr_agents"]

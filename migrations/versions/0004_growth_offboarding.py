@@ -12,11 +12,14 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0004_growth_offboarding"
 down_revision: str | None = "0003_compliance"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
+JSONB = postgresql.JSONB(astext_type=sa.Text())
 
 
 def upgrade() -> None:
@@ -51,7 +54,7 @@ def upgrade() -> None:
         sa.Column("reviewer_role", sa.String(length=40), nullable=False),
         sa.Column("status", sa.String(length=16), nullable=False),
         sa.Column("due_on", sa.Date(), nullable=True),
-        sa.Column("ratings", sa.JSON(), nullable=False),
+        sa.Column("ratings", JSONB, nullable=False),
         sa.Column("comments", sa.Text(), nullable=False, server_default=""),
         sa.Column("submitted_by", sa.String(length=200), nullable=True),
         sa.Column("submitted_at", sa.DateTime(timezone=True), nullable=True),
@@ -106,7 +109,7 @@ def upgrade() -> None:
         sa.Column("start_on", sa.Date(), nullable=True),
         sa.Column("due_on", sa.Date(), nullable=True),
         sa.Column("created_by", sa.String(length=200), nullable=False),
-        sa.Column("updates", sa.JSON(), nullable=False),
+        sa.Column("updates", JSONB, nullable=False),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
@@ -122,9 +125,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("description", sa.Text(), nullable=False, server_default=""),
-        sa.Column("applies_to_reasons", sa.JSON(), nullable=False),
-        sa.Column("applies_to_roles", sa.JSON(), nullable=False),
-        sa.Column("steps", sa.JSON(), nullable=False),
+        sa.Column("applies_to_reasons", JSONB, nullable=False),
+        sa.Column("applies_to_roles", JSONB, nullable=False),
+        sa.Column("steps", JSONB, nullable=False),
         sa.Column("active", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
@@ -143,8 +146,8 @@ def upgrade() -> None:
         sa.Column("template_id", sa.Uuid(), nullable=False),
         sa.Column("template_name", sa.Text(), nullable=False),
         sa.Column("template_version_hash", sa.String(length=64), nullable=False),
-        sa.Column("steps", sa.JSON(), nullable=False),
-        sa.Column("handover_notes", sa.JSON(), nullable=False),
+        sa.Column("steps", JSONB, nullable=False),
+        sa.Column("handover_notes", JSONB, nullable=False),
         sa.Column("final_pay_run_id", sa.Uuid(), nullable=True),
         sa.Column(
             "started_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False

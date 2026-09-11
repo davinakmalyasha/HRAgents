@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "HRAgents: a virtual HR team for the HR department of one"
+abstract: >-
+  HRAgents is a self-hostable, open-source multi-agent system for small HR teams.
+  LLM agents extract structured evidence from documents; a hand-specified deterministic
+  function scores it; every consequential decision is gated by a named human; and every
+  step lands on a hash-chained audit log.
+authors:
+  - family-names: Yasha
+    given-names: Davin Akmal
+    alias: davinakmalyasha
+    website: "https://github.com/davinakmalyasha"
+repository-code: "https://github.com/davinakmalyasha/HRAgents"
+url: "https://github.com/davinakmalyasha/HRAgents"
+license: Apache-2.0
+license-url: "https://github.com/davinakmalyasha/HRAgents/blob/main/LICENSE"
+version: 0.1.0
+date-released: "2026-09-12"
+keywords:
+  - human resources
+  - recruitment
+  - applicant tracking
+  - multi-agent systems
+  - human-in-the-loop
+  - responsible AI
+  - Indonesia
