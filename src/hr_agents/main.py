@@ -28,6 +28,9 @@ from hr_agents.api.routers import onboarding as onboarding_router
 from hr_agents.api.routers import payroll as payroll_router
 from hr_agents.api.routers import people as people_router
 from hr_agents.config import Settings, get_settings
+from hr_agents.db import create_sync_engine, create_sync_session_factory
+from hr_agents.db.application import DbApplicationStore
+from hr_agents.db.audit import DbAuditChain
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.services import ApplicationStore, AuditChain, JobQueue
 from hr_agents.services.people import PeopleServices
@@ -38,7 +41,7 @@ logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Application lifespan: configure logging and announce startup."""
+    """Application lifespan: configure logging, then dispose the DB engine."""
     settings: Settings = get_settings()
     configure_logging(settings.log_level)
     logger.info(
@@ -46,8 +49,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app=settings.app_name,
         environment=settings.environment,
         version=__version__,
+        store_backend=settings.store_backend,
     )
     yield
+    engine = getattr(app.state, "db_engine", None)
+    if engine is not None:
+        engine.dispose()
     logger.info("application_shutdown", app=settings.app_name)
 
 
@@ -80,15 +87,28 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Process-local state; replaced with Postgres/Redis-backed adapters in the
-    # integrations phase through the same interfaces.
-    audit = AuditChain()
-    store = ApplicationStore()
-    people_services = PeopleServices()
+    # Persistence: in-memory by default (zero-config dev, tests); Postgres-backed
+    # stores when HRAGENTS_STORE_BACKEND=postgres (ADR 0005).
+    audit: AuditChain
+    store: ApplicationStore
+    if settings.store_backend == "postgres":
+        engine = create_sync_engine(settings)
+        session_factory = create_sync_session_factory(engine)
+        audit = DbAuditChain(session_factory)
+        store = DbApplicationStore(session_factory)
+        app.state.db_engine = engine
+    else:
+        session_factory = None
+        audit = AuditChain()
+        store = ApplicationStore()
+
     app.state.store = store
     app.state.audit = audit
     app.state.job_queue = JobQueue()
-    app.state.recruiting = RecruitingServices(audit=audit, applications=store)
+    app.state.recruiting = RecruitingServices(
+        audit=audit, applications=store, session_factory=session_factory
+    )
+    people_services = PeopleServices(audit=audit, session_factory=session_factory)
     app.state.people = people_services
     app.state.onboarding = people_services.onboarding
     app.state.leave = people_services.leave

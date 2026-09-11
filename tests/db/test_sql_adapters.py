@@ -63,6 +63,15 @@ def _actor(actor_id: str = "hr-admin") -> AuditActor:
     return AuditActor(actor_type=ActorType.HUMAN, actor_id=actor_id)
 
 
+def _seed_job(factory: sessionmaker[Session]) -> UUID:
+    """Applications carry a job FK that Postgres enforces; create a real job."""
+    return (
+        DbJobService(session_factory=factory, audit=DbAuditChain(factory))
+        .create(title="Backend Engineer", created_by="hr-admin")
+        .id
+    )
+
+
 def test_metadata_registers_persistence_tables() -> None:
     assert {
         "candidate_documents",
@@ -114,7 +123,7 @@ def test_audit_chain_detects_tampering(factory: sessionmaker[Session]) -> None:
 
 def test_application_submit_is_idempotent(factory: sessionmaker[Session]) -> None:
     store = DbApplicationStore(factory)
-    submission = _submission()
+    submission = _submission(job_id=_seed_job(factory))
 
     record, created = store.submit(submission, idempotency_key="key-1")
     assert created is True
@@ -126,12 +135,15 @@ def test_application_submit_is_idempotent(factory: sessionmaker[Session]) -> Non
     assert store.get(record.id) is not None
 
     with pytest.raises(SubmissionConflictError):
-        store.submit(_submission(candidate_name="Budi"), idempotency_key="key-1")
+        store.submit(
+            _submission(job_id=submission.job_id, candidate_name="Budi"),
+            idempotency_key="key-1",
+        )
 
 
 def test_application_status_and_timeline_persist(factory: sessionmaker[Session]) -> None:
     store = DbApplicationStore(factory)
-    record, _ = store.submit(_submission())
+    record, _ = store.submit(_submission(job_id=_seed_job(factory)))
 
     updated = store.set_status(record.id, ApplicationStatus.PROCESSING, event="worker.claimed")
     assert updated is not None
@@ -146,7 +158,7 @@ def test_application_status_and_timeline_persist(factory: sessionmaker[Session])
 
 def test_application_scoring_save_round_trip(factory: sessionmaker[Session]) -> None:
     store = DbApplicationStore(factory)
-    record, _ = store.submit(_submission())
+    record, _ = store.submit(_submission(job_id=_seed_job(factory)))
 
     record.s_tech = 0.91
     record.sigma = 0.02
@@ -167,7 +179,7 @@ def test_application_scoring_save_round_trip(factory: sessionmaker[Session]) -> 
 
 def test_application_lists_rank_by_priority(factory: sessionmaker[Session]) -> None:
     store = DbApplicationStore(factory)
-    job_id = uuid4()
+    job_id = _seed_job(factory)
     low, _ = store.submit(_submission(job_id=job_id, candidate_name="Low"))
     high, _ = store.submit(_submission(job_id=job_id, candidate_name="High"))
 

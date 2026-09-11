@@ -63,6 +63,34 @@ jobs:
           uv run alembic downgrade base
           uv run alembic upgrade head
 
+  postgres-adapters:
+    name: postgres-adapters
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: hragents
+          POSTGRES_PASSWORD: hragents
+          POSTGRES_DB: hragents
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hragents -d hragents"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      HRAGENTS_TEST_DB_URL: postgresql+psycopg://hragents:hragents@localhost:5432/hragents
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+      - run: uv python install 3.14
+      - run: uv sync --locked --all-groups
+      - run: uv run pytest tests/db -q
+
   windows:
     name: windows
     runs-on: windows-latest

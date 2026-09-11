@@ -27,6 +27,7 @@ import hashlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from pydantic import Field
@@ -56,6 +57,9 @@ from hr_agents.models import (
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
 from hr_agents.services.policy import evaluate_policy
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session, sessionmaker
 
 # --- shared constants ---------------------------------------------------------
 
@@ -854,10 +858,15 @@ class SchedulingService:
 
 @dataclass
 class RecruitingServices:
-    """All recruitment-side services sharing one audit chain."""
+    """All recruitment-side services sharing one audit chain.
+
+    Pass ``session_factory`` to build Postgres-backed services (ADR 0005);
+    omit it for the in-memory contract used by tests and zero-config dev.
+    """
 
     audit: AuditChain = field(default_factory=AuditChain)
     applications: ApplicationStore | None = None
+    session_factory: sessionmaker[Session] | None = None
 
     documents: DocumentService = field(init=False)
     jobs: JobService = field(init=False)
@@ -865,11 +874,32 @@ class RecruitingServices:
     scheduling: SchedulingService = field(init=False)
 
     def __post_init__(self) -> None:
-        self.documents = DocumentService(audit=self.audit)
-        self.jobs = JobService(audit=self.audit)
-        self.evaluations = EvaluationService(audit=self.audit, applications=self.applications)
-        self.scheduling = SchedulingService(
-            evaluations=self.evaluations, audit=self.audit, applications=self.applications
+        if self.session_factory is None:
+            self.documents = DocumentService(audit=self.audit)
+            self.jobs = JobService(audit=self.audit)
+            self.evaluations = EvaluationService(audit=self.audit, applications=self.applications)
+            self.scheduling = SchedulingService(
+                evaluations=self.evaluations, audit=self.audit, applications=self.applications
+            )
+            return
+
+        from hr_agents.db.recruiting import (
+            DbDocumentService,
+            DbEvaluationService,
+            DbJobService,
+            DbSchedulingService,
+        )
+
+        self.documents = DbDocumentService(session_factory=self.session_factory, audit=self.audit)
+        self.jobs = DbJobService(session_factory=self.session_factory, audit=self.audit)
+        self.evaluations = DbEvaluationService(
+            session_factory=self.session_factory, audit=self.audit, applications=self.applications
+        )
+        self.scheduling = DbSchedulingService(
+            evaluations=self.evaluations,
+            session_factory=self.session_factory,
+            audit=self.audit,
+            applications=self.applications,
         )
 
 
