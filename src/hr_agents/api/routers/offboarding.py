@@ -53,12 +53,12 @@ def _not_found(detail: str) -> HTTPException:
 
 
 @router.get("/templates/default", response_model=TemplateView)
-async def default_template() -> TemplateView:
+def default_template() -> TemplateView:
     return TemplateView.from_model(default_offboarding_template())
 
 
 @router.post("/templates", status_code=status.HTTP_201_CREATED, response_model=TemplateView)
-async def create_template(payload: TemplateCreate, offboarding: OffboardingDep) -> TemplateView:
+def create_template(payload: TemplateCreate, offboarding: OffboardingDep) -> TemplateView:
     template = offboarding.create_template(
         name=payload.name,
         steps=payload.to_steps(),
@@ -71,12 +71,12 @@ async def create_template(payload: TemplateCreate, offboarding: OffboardingDep) 
 
 
 @router.get("/templates", response_model=list[TemplateView])
-async def list_templates(offboarding: OffboardingDep) -> list[TemplateView]:
+def list_templates(offboarding: OffboardingDep) -> list[TemplateView]:
     return [TemplateView.from_model(item) for item in offboarding.list_templates()]
 
 
 @router.get("/templates/{template_id}", response_model=TemplateView)
-async def get_template(template_id: UUID, offboarding: OffboardingDep) -> TemplateView:
+def get_template(template_id: UUID, offboarding: OffboardingDep) -> TemplateView:
     try:
         return TemplateView.from_model(offboarding.get_template(template_id))
     except OffboardingError as exc:
@@ -87,7 +87,7 @@ async def get_template(template_id: UUID, offboarding: OffboardingDep) -> Templa
 
 
 @router.post("/plans", status_code=status.HTTP_201_CREATED, response_model=PlanView)
-async def start_plan(payload: PlanCreate, offboarding: OffboardingDep) -> PlanView:
+def start_plan(payload: PlanCreate, offboarding: OffboardingDep) -> PlanView:
     try:
         plan = offboarding.start_plan(
             employee_id=payload.employee_id,
@@ -102,12 +102,12 @@ async def start_plan(payload: PlanCreate, offboarding: OffboardingDep) -> PlanVi
 
 
 @router.get("/plans", response_model=list[PlanView])
-async def list_plans(offboarding: OffboardingDep) -> list[PlanView]:
+def list_plans(offboarding: OffboardingDep) -> list[PlanView]:
     return [PlanView.from_model(item) for item in offboarding.active_plans()]
 
 
 @router.get("/plans/{plan_id}", response_model=PlanView)
-async def get_plan(plan_id: UUID, offboarding: OffboardingDep) -> PlanView:
+def get_plan(plan_id: UUID, offboarding: OffboardingDep) -> PlanView:
     try:
         return PlanView.from_model(offboarding.get_plan(plan_id))
     except OffboardingError as exc:
@@ -115,12 +115,12 @@ async def get_plan(plan_id: UUID, offboarding: OffboardingDep) -> PlanView:
 
 
 @router.get("/employees/{employee_id}/plans", response_model=list[PlanView])
-async def plans_for_employee(employee_id: UUID, offboarding: OffboardingDep) -> list[PlanView]:
+def plans_for_employee(employee_id: UUID, offboarding: OffboardingDep) -> list[PlanView]:
     return [PlanView.from_model(item) for item in offboarding.plans_for_employee(employee_id)]
 
 
 @router.post("/plans/{plan_id}/steps/{step_key}/complete", response_model=PlanView)
-async def complete_step(
+def complete_step(
     plan_id: UUID, step_key: str, payload: StepAction, offboarding: OffboardingDep
 ) -> PlanView:
     try:
@@ -131,7 +131,7 @@ async def complete_step(
 
 
 @router.post("/plans/{plan_id}/steps/{step_key}/waive", response_model=PlanView)
-async def waive_step(
+def waive_step(
     plan_id: UUID, step_key: str, payload: StepAction, offboarding: OffboardingDep
 ) -> PlanView:
     if not payload.reason:
@@ -147,7 +147,7 @@ async def waive_step(
 
 
 @router.post("/plans/{plan_id}/exit-interview", response_model=PlanView)
-async def schedule_exit_interview(
+def schedule_exit_interview(
     plan_id: UUID, payload: ExitInterviewSchedule, offboarding: OffboardingDep
 ) -> PlanView:
     try:
@@ -160,9 +160,7 @@ async def schedule_exit_interview(
 
 
 @router.post("/plans/{plan_id}/handover", response_model=PlanView)
-async def add_handover(
-    plan_id: UUID, payload: HandoverCreate, offboarding: OffboardingDep
-) -> PlanView:
+def add_handover(plan_id: UUID, payload: HandoverCreate, offboarding: OffboardingDep) -> PlanView:
     try:
         plan = offboarding.add_handover_note(
             plan_id, content=payload.content, authored_by=payload.authored_by
@@ -173,7 +171,7 @@ async def add_handover(
 
 
 @router.post("/plans/{plan_id}/final-pay", response_model=PlanView)
-async def coordinate_final_pay(
+def coordinate_final_pay(
     plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep
 ) -> PlanView:
     try:
@@ -184,9 +182,7 @@ async def coordinate_final_pay(
 
 
 @router.post("/plans/{plan_id}/complete", response_model=PlanView)
-async def complete_plan(
-    plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep
-) -> PlanView:
+def complete_plan(plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep) -> PlanView:
     try:
         plan = offboarding.complete_plan(plan_id, by=payload.by)
     except OffboardingError as exc:
@@ -195,9 +191,7 @@ async def complete_plan(
 
 
 @router.post("/plans/{plan_id}/finalize-employee", response_model=PlanView)
-async def finalize_employee(
-    plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep
-) -> PlanView:
+def finalize_employee(plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep) -> PlanView:
     try:
         offboarding.finalize_employee_exit(plan_id, by=payload.by)
         plan = offboarding.get_plan(plan_id)
@@ -210,7 +204,7 @@ async def finalize_employee(
 
 
 @router.post("/assets", status_code=status.HTTP_201_CREATED, response_model=AssetView)
-async def register_asset(payload: AssetCreate, offboarding: OffboardingDep) -> AssetView:
+def register_asset(payload: AssetCreate, offboarding: OffboardingDep) -> AssetView:
     try:
         asset = offboarding.register_asset(**payload.model_dump())
     except OffboardingError as exc:
@@ -219,7 +213,7 @@ async def register_asset(payload: AssetCreate, offboarding: OffboardingDep) -> A
 
 
 @router.get("/assets", response_model=list[AssetView])
-async def list_assets(
+def list_assets(
     offboarding: OffboardingDep,
     employee_id: UUID | None = None,
     plan_id: UUID | None = None,
@@ -229,20 +223,18 @@ async def list_assets(
 
 
 @router.get("/employees/{employee_id}/assets", response_model=list[AssetView])
-async def employee_assets(employee_id: UUID, offboarding: OffboardingDep) -> list[AssetView]:
+def employee_assets(employee_id: UUID, offboarding: OffboardingDep) -> list[AssetView]:
     return [AssetView.from_model(item) for item in offboarding.list_assets(employee_id=employee_id)]
 
 
 @router.get("/employees/{employee_id}/clearance", response_model=list[AssetView])
-async def asset_clearance(employee_id: UUID, offboarding: OffboardingDep) -> list[AssetView]:
+def asset_clearance(employee_id: UUID, offboarding: OffboardingDep) -> list[AssetView]:
     """Assets that still block exit clearance for this employee."""
     return [AssetView.from_model(item) for item in offboarding.asset_clearance(employee_id)]
 
 
 @router.post("/assets/{asset_id}/return", response_model=AssetView)
-async def return_asset(
-    asset_id: UUID, payload: AssetReturn, offboarding: OffboardingDep
-) -> AssetView:
+def return_asset(asset_id: UUID, payload: AssetReturn, offboarding: OffboardingDep) -> AssetView:
     try:
         asset = offboarding.mark_asset_returned(
             asset_id, by=payload.by, note=payload.note, returned_on=payload.returned_on
@@ -253,7 +245,7 @@ async def return_asset(
 
 
 @router.post("/assets/{asset_id}/missing", response_model=AssetView)
-async def mark_asset_missing(
+def mark_asset_missing(
     asset_id: UUID, payload: AssetMissing, offboarding: OffboardingDep
 ) -> AssetView:
     try:
@@ -264,7 +256,7 @@ async def mark_asset_missing(
 
 
 @router.post("/assets/{asset_id}/write-off", response_model=AssetView)
-async def write_off_asset(
+def write_off_asset(
     asset_id: UUID, payload: AssetWriteOff, offboarding: OffboardingDep
 ) -> AssetView:
     try:

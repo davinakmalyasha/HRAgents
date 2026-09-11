@@ -13,11 +13,13 @@ from uuid import UUID
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     String,
     Text,
     Uuid,
@@ -90,6 +92,12 @@ class Application(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     source_channel: Mapped[str] = mapped_column(String(32), nullable=False)
     idempotency_key: Mapped[str | None] = mapped_column(String(200), unique=True)
+    payload_hash: Mapped[str | None] = mapped_column(String(64))
+    consent: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant)
+    s_tech: Mapped[float | None] = mapped_column(Float)
+    sigma: Mapped[float | None] = mapped_column(Float)
+    recommendation: Mapped[str | None] = mapped_column(String(32))
+    timeline: Mapped[list[Any] | None] = mapped_column(JSONVariant)
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -111,12 +119,17 @@ class Evaluation(Base):
     candidate_id: Mapped[UUID] = mapped_column(
         ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
     )
+    application_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)
     job_id: Mapped[UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    candidate_name: Mapped[str | None] = mapped_column(Text)
+    job_title: Mapped[str | None] = mapped_column(Text)
     s_tech: Mapped[float] = mapped_column(Float, nullable=False)
     sigma: Mapped[float] = mapped_column(Float, nullable=False)
     recommendation: Mapped[str] = mapped_column(String(32), nullable=False)
     policy_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    source: Mapped[str | None] = mapped_column(String(32))
     document: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    policy: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -132,6 +145,9 @@ class ScheduleProposal(Base):
     job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    requires_human_approval: Mapped[bool | None] = mapped_column(Boolean)
+    needs_human_reconciliation: Mapped[bool | None] = mapped_column(Boolean)
+    created_by: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -201,3 +217,65 @@ class MessageRecord(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     conversation: Mapped[ConversationRecord | None] = relationship(back_populates="messages")
+
+
+class CandidateDocumentRecord(Base):
+    __tablename__ = "candidate_documents"
+    __table_args__ = (Index("ix_candidate_documents_sha256", "sha256"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    filename: Mapped[str | None] = mapped_column(Text)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    uploaded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class EvaluationOverrideRecord(Base):
+    __tablename__ = "evaluation_overrides"
+    __table_args__ = (Index("ix_evaluation_overrides_evaluation", "evaluation_id"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    evaluation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("evaluations.id", ondelete="CASCADE"), nullable=False
+    )
+    reviewer_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    reviewer_role: Mapped[str] = mapped_column(String(40), nullable=False)
+    override_decision: Mapped[str] = mapped_column(String(40), nullable=False)
+    reason_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class FeedbackReportRecord(Base):
+    __tablename__ = "feedback_reports"
+
+    candidate_id: Mapped[UUID] = mapped_column(
+        ForeignKey("candidates.id", ondelete="CASCADE"), primary_key=True
+    )
+    language: Mapped[str] = mapped_column(String(8), nullable=False)
+    report: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    saved_by: Mapped[str] = mapped_column(String(200), nullable=False, default="system")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class SchedulingAvailabilityRecord(Base):
+    __tablename__ = "scheduling_availability"
+
+    interviewer_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    slots: Mapped[list[dict[str, Any]]] = mapped_column(JSONVariant, nullable=False, default=list)
+    updated_by: Mapped[str] = mapped_column(String(200), nullable=False, default="system")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

@@ -509,6 +509,7 @@ class EvaluationService:
         application.status = target
         application.note(f"application.evaluated.{target.value}")
         application.refresh_priority(risk_flag_count=len(record.evaluation.flags))
+        self._applications.save(application)
 
     def _apply_override_status(self, record: EvaluationRecord, decision: PolicyDecision) -> None:
         assert self._applications is not None
@@ -521,6 +522,7 @@ class EvaluationService:
         }.get(decision, ApplicationStatus.GATED)
         application.status = target
         application.note(f"evaluation.override.{decision.value}")
+        self._applications.save(application)
 
 
 def synthesize_feedback(
@@ -716,6 +718,7 @@ class SchedulingService:
             for application in self._applications.find_by_candidate(candidate_id):
                 application.status = ApplicationStatus.SCHEDULED
                 application.note("scheduling.proposal_auto_scheduled")
+                self._applications.save(application)
 
         self._audit.append(
             actor=DocumentService._actor(created_by),

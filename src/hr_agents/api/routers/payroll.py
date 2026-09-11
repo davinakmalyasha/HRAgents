@@ -35,7 +35,7 @@ def _not_found(detail: str) -> HTTPException:
 
 
 @router.post("/runs", status_code=status.HTTP_201_CREATED, response_model=RunView)
-async def create_run(payload: RunCreate, payroll: PayrollDep) -> RunView:
+def create_run(payload: RunCreate, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.create_run(
             period_year=payload.period_year,
@@ -49,12 +49,12 @@ async def create_run(payload: RunCreate, payroll: PayrollDep) -> RunView:
 
 
 @router.get("/runs", response_model=list[RunView])
-async def list_runs(payroll: PayrollDep) -> list[RunView]:
+def list_runs(payroll: PayrollDep) -> list[RunView]:
     return [RunView.from_model(run) for run in payroll.list_runs()]
 
 
 @router.get("/runs/{run_id}", response_model=RunView)
-async def get_run(run_id: UUID, payroll: PayrollDep) -> RunView:
+def get_run(run_id: UUID, payroll: PayrollDep) -> RunView:
     try:
         return RunView.from_model(payroll.get_run(run_id))
     except PayrollError as exc:
@@ -62,7 +62,7 @@ async def get_run(run_id: UUID, payroll: PayrollDep) -> RunView:
 
 
 @router.put("/runs/{run_id}/inputs", response_model=RunView)
-async def set_inputs(run_id: UUID, payload: InputsSet, payroll: PayrollDep) -> RunView:
+def set_inputs(run_id: UUID, payload: InputsSet, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.set_inputs(
             run_id, inputs=[item.to_model() for item in payload.inputs], by=payload.by
@@ -73,7 +73,7 @@ async def set_inputs(run_id: UUID, payload: InputsSet, payroll: PayrollDep) -> R
 
 
 @router.post("/runs/{run_id}/compute", response_model=RunView)
-async def compute_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
+def compute_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.compute(run_id, by=payload.by)
     except PayrollError as exc:
@@ -82,7 +82,7 @@ async def compute_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> 
 
 
 @router.post("/runs/{run_id}/submit", response_model=RunView)
-async def submit_for_signoff(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
+def submit_for_signoff(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.submit_for_signoff(run_id, by=payload.by)
     except PayrollError as exc:
@@ -91,7 +91,7 @@ async def submit_for_signoff(run_id: UUID, payload: RunAction, payroll: PayrollD
 
 
 @router.post("/approvals/{approval_id}/sync", response_model=RunView)
-async def sync_decision(approval_id: UUID, payroll: PayrollDep) -> RunView:
+def sync_decision(approval_id: UUID, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.apply_decision(approval_id)
     except PayrollError as exc:
@@ -100,7 +100,7 @@ async def sync_decision(approval_id: UUID, payroll: PayrollDep) -> RunView:
 
 
 @router.post("/runs/{run_id}/export", response_model=RunView)
-async def export_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
+def export_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.mark_exported(run_id, by=payload.by)
     except PayrollError as exc:
@@ -109,7 +109,7 @@ async def export_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> R
 
 
 @router.get("/runs/{run_id}/packet.xlsx")
-async def download_packet(run_id: UUID, payroll: PayrollDep) -> Response:
+def download_packet(run_id: UUID, payroll: PayrollDep) -> Response:
     try:
         content = payroll.build_review_packet_xlsx(run_id)
     except PayrollError as exc:
@@ -125,7 +125,7 @@ async def download_packet(run_id: UUID, payroll: PayrollDep) -> Response:
 
 
 @router.post("/runs/{run_id}/cancel", response_model=RunView)
-async def cancel_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
+def cancel_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
     if not payload.reason:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

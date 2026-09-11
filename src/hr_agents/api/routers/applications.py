@@ -58,7 +58,7 @@ def _submit_one(
     response_model=ApplicationAccepted,
     summary="Ingest a single application",
 )
-async def submit_application(
+def submit_application(
     submission: ApplicationSubmission,
     store: Annotated[ApplicationStore, Depends(get_store)],
     audit: Annotated[AuditChain, Depends(get_audit)],
@@ -76,7 +76,7 @@ async def submit_application(
     response_model=BatchAccepted,
     summary="Ingest up to 500 applications",
 )
-async def submit_batch(
+def submit_batch(
     payload: BatchSubmissionRequest,
     store: Annotated[ApplicationStore, Depends(get_store)],
     audit: Annotated[AuditChain, Depends(get_audit)],
@@ -102,7 +102,7 @@ async def submit_batch(
     response_model=ApplicationStatusResponse,
     summary="Application status and timeline",
 )
-async def get_application(
+def get_application(
     application_id: UUID,
     store: Annotated[ApplicationStore, Depends(get_store)],
 ) -> ApplicationStatusResponse:

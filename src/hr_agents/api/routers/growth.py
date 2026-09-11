@@ -52,7 +52,7 @@ def _not_found(detail: str) -> HTTPException:
 
 
 @router.post("/cycles", status_code=status.HTTP_201_CREATED, response_model=CycleView)
-async def create_cycle(payload: CycleCreate, growth: GrowthDep) -> CycleView:
+def create_cycle(payload: CycleCreate, growth: GrowthDep) -> CycleView:
     try:
         cycle = growth.create_cycle(**payload.model_dump())
     except GrowthError as exc:
@@ -61,14 +61,14 @@ async def create_cycle(payload: CycleCreate, growth: GrowthDep) -> CycleView:
 
 
 @router.get("/cycles", response_model=list[CycleView])
-async def list_cycles(
+def list_cycles(
     growth: GrowthDep, cycle_status: ReviewCycleStatus | None = None
 ) -> list[CycleView]:
     return [CycleView.from_model(item) for item in growth.list_cycles(status=cycle_status)]
 
 
 @router.get("/cycles/{cycle_id}", response_model=CycleView)
-async def get_cycle(cycle_id: UUID, growth: GrowthDep) -> CycleView:
+def get_cycle(cycle_id: UUID, growth: GrowthDep) -> CycleView:
     try:
         return CycleView.from_model(growth.get_cycle(cycle_id))
     except GrowthError as exc:
@@ -76,7 +76,7 @@ async def get_cycle(cycle_id: UUID, growth: GrowthDep) -> CycleView:
 
 
 @router.post("/cycles/{cycle_id}/activate", response_model=CycleView)
-async def activate_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
+def activate_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
     try:
         cycle = growth.activate_cycle(cycle_id, by=payload.by)
     except GrowthError as exc:
@@ -85,7 +85,7 @@ async def activate_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep
 
 
 @router.post("/cycles/{cycle_id}/reviewing", response_model=CycleView)
-async def advance_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
+def advance_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
     try:
         cycle = growth.advance_to_reviewing(cycle_id, by=payload.by)
     except GrowthError as exc:
@@ -94,7 +94,7 @@ async def advance_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep)
 
 
 @router.post("/cycles/{cycle_id}/close", response_model=CycleView)
-async def close_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
+def close_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
     try:
         cycle = growth.close_cycle(cycle_id, by=payload.by)
     except GrowthError as exc:
@@ -103,7 +103,7 @@ async def close_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -
 
 
 @router.post("/cycles/{cycle_id}/cancel", response_model=CycleView)
-async def cancel_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
+def cancel_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) -> CycleView:
     if not payload.reason:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -124,9 +124,7 @@ async def cancel_cycle(cycle_id: UUID, payload: CycleAction, growth: GrowthDep) 
     status_code=status.HTTP_201_CREATED,
     response_model=AssignmentView,
 )
-async def add_assignment(
-    cycle_id: UUID, payload: AssignmentCreate, growth: GrowthDep
-) -> AssignmentView:
+def add_assignment(cycle_id: UUID, payload: AssignmentCreate, growth: GrowthDep) -> AssignmentView:
     try:
         assignment = growth.add_assignment(
             cycle_id,
@@ -142,7 +140,7 @@ async def add_assignment(
 
 
 @router.get("/cycles/{cycle_id}/assignments", response_model=list[AssignmentView])
-async def list_assignments(cycle_id: UUID, growth: GrowthDep) -> list[AssignmentView]:
+def list_assignments(cycle_id: UUID, growth: GrowthDep) -> list[AssignmentView]:
     try:
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
@@ -151,7 +149,7 @@ async def list_assignments(cycle_id: UUID, growth: GrowthDep) -> list[Assignment
 
 
 @router.get("/assignments", response_model=list[AssignmentView])
-async def assignments_for_reviewer(
+def assignments_for_reviewer(
     growth: GrowthDep, reviewer_id: Annotated[str, Query(min_length=1)]
 ) -> list[AssignmentView]:
     return [
@@ -160,7 +158,7 @@ async def assignments_for_reviewer(
 
 
 @router.post("/assignments/{assignment_id}/submit", response_model=AssignmentView)
-async def submit_assignment(
+def submit_assignment(
     assignment_id: UUID, payload: AssignmentSubmit, growth: GrowthDep
 ) -> AssignmentView:
     try:
@@ -173,7 +171,7 @@ async def submit_assignment(
 
 
 @router.post("/assignments/{assignment_id}/skip", response_model=AssignmentView)
-async def skip_assignment(
+def skip_assignment(
     assignment_id: UUID, payload: AssignmentSkip, growth: GrowthDep
 ) -> AssignmentView:
     try:
@@ -187,7 +185,7 @@ async def skip_assignment(
 
 
 @router.post("/summaries", status_code=status.HTTP_201_CREATED, response_model=SummaryView)
-async def draft_summary(payload: SummaryDraft, growth: GrowthDep) -> SummaryView:
+def draft_summary(payload: SummaryDraft, growth: GrowthDep) -> SummaryView:
     try:
         summary = growth.draft_summary(
             payload.cycle_id,
@@ -201,7 +199,7 @@ async def draft_summary(payload: SummaryDraft, growth: GrowthDep) -> SummaryView
 
 
 @router.get("/summaries/{summary_id}", response_model=SummaryView)
-async def get_summary(summary_id: UUID, growth: GrowthDep) -> SummaryView:
+def get_summary(summary_id: UUID, growth: GrowthDep) -> SummaryView:
     try:
         return SummaryView.from_model(growth.get_summary(summary_id))
     except GrowthError as exc:
@@ -209,7 +207,7 @@ async def get_summary(summary_id: UUID, growth: GrowthDep) -> SummaryView:
 
 
 @router.get("/cycles/{cycle_id}/summaries", response_model=list[SummaryView])
-async def list_summaries(cycle_id: UUID, growth: GrowthDep) -> list[SummaryView]:
+def list_summaries(cycle_id: UUID, growth: GrowthDep) -> list[SummaryView]:
     try:
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
@@ -218,9 +216,7 @@ async def list_summaries(cycle_id: UUID, growth: GrowthDep) -> list[SummaryView]
 
 
 @router.post("/summaries/{summary_id}/finalize", response_model=SummaryView)
-async def finalize_summary(
-    summary_id: UUID, payload: SummaryFinalize, growth: GrowthDep
-) -> SummaryView:
+def finalize_summary(summary_id: UUID, payload: SummaryFinalize, growth: GrowthDep) -> SummaryView:
     try:
         summary = growth.finalize_summary(summary_id, by=payload.by, final_text=payload.final_text)
     except GrowthError as exc:
@@ -232,7 +228,7 @@ async def finalize_summary(
 
 
 @router.post("/goals", status_code=status.HTTP_201_CREATED, response_model=GoalView)
-async def create_goal(payload: GoalCreate, growth: GrowthDep) -> GoalView:
+def create_goal(payload: GoalCreate, growth: GrowthDep) -> GoalView:
     try:
         goal = growth.create_goal(**payload.model_dump())
     except GrowthError as exc:
@@ -241,7 +237,7 @@ async def create_goal(payload: GoalCreate, growth: GrowthDep) -> GoalView:
 
 
 @router.get("/goals", response_model=list[GoalView])
-async def list_goals(
+def list_goals(
     growth: GrowthDep,
     employee_id: UUID | None = None,
     goal_status: GoalStatus | None = None,
@@ -251,12 +247,12 @@ async def list_goals(
 
 
 @router.get("/goals/overdue", response_model=list[GoalView])
-async def overdue_goals(growth: GrowthDep) -> list[GoalView]:
+def overdue_goals(growth: GrowthDep) -> list[GoalView]:
     return [GoalView.from_model(item) for item in growth.overdue_goals()]
 
 
 @router.get("/goals/{goal_id}", response_model=GoalView)
-async def get_goal(goal_id: UUID, growth: GrowthDep) -> GoalView:
+def get_goal(goal_id: UUID, growth: GrowthDep) -> GoalView:
     try:
         return GoalView.from_model(growth.get_goal(goal_id))
     except GrowthError as exc:
@@ -264,7 +260,7 @@ async def get_goal(goal_id: UUID, growth: GrowthDep) -> GoalView:
 
 
 @router.post("/goals/{goal_id}/activate", response_model=GoalView)
-async def activate_goal(goal_id: UUID, payload: ByActor, growth: GrowthDep) -> GoalView:
+def activate_goal(goal_id: UUID, payload: ByActor, growth: GrowthDep) -> GoalView:
     try:
         goal = growth.activate_goal(goal_id, by=payload.by)
     except GrowthError as exc:
@@ -273,7 +269,7 @@ async def activate_goal(goal_id: UUID, payload: ByActor, growth: GrowthDep) -> G
 
 
 @router.post("/goals/{goal_id}/progress", response_model=GoalView)
-async def update_goal_progress(goal_id: UUID, payload: GoalProgress, growth: GrowthDep) -> GoalView:
+def update_goal_progress(goal_id: UUID, payload: GoalProgress, growth: GrowthDep) -> GoalView:
     try:
         goal = growth.update_progress(
             goal_id, percent=payload.percent, by=payload.by, note=payload.note
@@ -284,7 +280,7 @@ async def update_goal_progress(goal_id: UUID, payload: GoalProgress, growth: Gro
 
 
 @router.post("/goals/{goal_id}/complete", response_model=GoalView)
-async def complete_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep) -> GoalView:
+def complete_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep) -> GoalView:
     try:
         goal = growth.complete_goal(goal_id, by=payload.by, note=payload.note)
     except GrowthError as exc:
@@ -293,7 +289,7 @@ async def complete_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep) -
 
 
 @router.post("/goals/{goal_id}/cancel", response_model=GoalView)
-async def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep) -> GoalView:
+def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep) -> GoalView:
     if not payload.reason:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -310,6 +306,6 @@ async def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep) -> 
 
 
 @router.post("/reminders/run", response_model=list[ReminderView])
-async def run_reminders(payload: RemindersRun, growth: GrowthDep) -> list[ReminderView]:
+def run_reminders(payload: RemindersRun, growth: GrowthDep) -> list[ReminderView]:
     created = growth.run_reminders(as_of=payload.as_of, window_days=payload.window_days)
     return [ReminderView.from_model(item) for item in created]

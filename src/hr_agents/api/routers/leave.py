@@ -44,7 +44,7 @@ def _not_found(detail: str) -> HTTPException:
 
 
 @router.put("/policies", response_model=PolicyView)
-async def set_policy(payload: PolicySet, leave: LeaveDep) -> PolicyView:
+def set_policy(payload: PolicySet, leave: LeaveDep) -> PolicyView:
     try:
         policy = leave.set_policy(payload.to_policy(), by=payload.by)
     except (ValueError, LeaveError) as exc:
@@ -53,12 +53,12 @@ async def set_policy(payload: PolicySet, leave: LeaveDep) -> PolicyView:
 
 
 @router.get("/policies", response_model=list[PolicyView])
-async def list_policies(leave: LeaveDep) -> list[PolicyView]:
+def list_policies(leave: LeaveDep) -> list[PolicyView]:
     return [PolicyView.from_model(policy) for policy in leave.list_policies()]
 
 
 @router.put("/calendar/holidays", response_model=dict)
-async def set_holidays(payload: HolidaySet, leave: LeaveDep) -> dict[str, int]:
+def set_holidays(payload: HolidaySet, leave: LeaveDep) -> dict[str, int]:
     count = leave.set_holidays(payload.holidays, by=payload.by)
     return {"holidays_set": count}
 
@@ -67,7 +67,7 @@ async def set_holidays(payload: HolidaySet, leave: LeaveDep) -> dict[str, int]:
 
 
 @router.get("/balances/{employee_id}", response_model=list[BalanceView])
-async def employee_balances(
+def employee_balances(
     employee_id: UUID,
     leave: LeaveDep,
     year: Annotated[int | None, Query(ge=2000, le=2100)] = None,
@@ -80,7 +80,7 @@ async def employee_balances(
 
 
 @router.get("/balances/{employee_id}/{leave_type}", response_model=BalanceView)
-async def employee_balance(
+def employee_balance(
     employee_id: UUID,
     leave_type: LeaveType,
     leave: LeaveDep,
@@ -94,7 +94,7 @@ async def employee_balance(
 
 
 @router.post("/balances/{employee_id}/{leave_type}/adjust", response_model=BalanceView)
-async def adjust_balance(
+def adjust_balance(
     employee_id: UUID,
     leave_type: LeaveType,
     payload: BalanceAdjust,
@@ -118,7 +118,7 @@ async def adjust_balance(
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=LeaveRequestView)
-async def submit_request(payload: LeaveRequestCreate, leave: LeaveDep) -> LeaveRequestView:
+def submit_request(payload: LeaveRequestCreate, leave: LeaveDep) -> LeaveRequestView:
     try:
         request = leave.request(**payload.model_dump())
     except LeaveError as exc:
@@ -127,7 +127,7 @@ async def submit_request(payload: LeaveRequestCreate, leave: LeaveDep) -> LeaveR
 
 
 @router.get("", response_model=list[LeaveRequestView])
-async def list_requests(
+def list_requests(
     leave: LeaveDep,
     employee_id: Annotated[UUID | None, Query()] = None,
     pending_only: Annotated[bool, Query()] = False,
@@ -142,7 +142,7 @@ async def list_requests(
 
 
 @router.get("/calendar", response_model=list[LeaveRequestView])
-async def calendar(
+def calendar(
     leave: LeaveDep,
     on_date: Annotated[date | None, Query()] = None,
 ) -> list[LeaveRequestView]:
@@ -150,7 +150,7 @@ async def calendar(
 
 
 @router.get("/requests/{request_id}", response_model=LeaveRequestView)
-async def get_request(request_id: UUID, leave: LeaveDep) -> LeaveRequestView:
+def get_request(request_id: UUID, leave: LeaveDep) -> LeaveRequestView:
     try:
         return LeaveRequestView.from_model(leave.get_request(request_id))
     except LeaveError as exc:
@@ -158,9 +158,7 @@ async def get_request(request_id: UUID, leave: LeaveDep) -> LeaveRequestView:
 
 
 @router.post("/requests/{request_id}/cancel", response_model=LeaveRequestView)
-async def cancel_request(
-    request_id: UUID, payload: RequestAction, leave: LeaveDep
-) -> LeaveRequestView:
+def cancel_request(request_id: UUID, payload: RequestAction, leave: LeaveDep) -> LeaveRequestView:
     try:
         request = leave.cancel(request_id, by=payload.by)
     except LeaveError as exc:
@@ -169,7 +167,7 @@ async def cancel_request(
 
 
 @router.post("/approvals/{approval_id}/sync", response_model=LeaveRequestView)
-async def sync_from_approval(approval_id: UUID, leave: LeaveDep) -> LeaveRequestView:
+def sync_from_approval(approval_id: UUID, leave: LeaveDep) -> LeaveRequestView:
     """Sync a leave request with its approval's outcome (called after a decision)."""
     try:
         request = leave.apply_decision(approval_id)
