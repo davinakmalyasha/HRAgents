@@ -12,11 +12,14 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0002_people"
 down_revision: str | None = "0001_initial"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
+JSONB = postgresql.JSONB(astext_type=sa.Text())
 
 
 def upgrade() -> None:
@@ -46,7 +49,7 @@ def upgrade() -> None:
         sa.Column("hire_date", sa.Date(), nullable=True),
         sa.Column("probation_end_date", sa.Date(), nullable=True),
         sa.Column("offboarded_on", sa.Date(), nullable=True),
-        sa.Column("emergency_contact", sa.JSON(), nullable=True),
+        sa.Column("emergency_contact", JSONB, nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
@@ -125,7 +128,7 @@ def upgrade() -> None:
         sa.Column("subject_id", sa.String(length=200), nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("summary", sa.Text(), nullable=False, server_default=""),
-        sa.Column("payload", sa.JSON(), nullable=False),
+        sa.Column("payload", JSONB, nullable=False),
         sa.Column("requested_by", sa.String(length=200), nullable=False),
         sa.Column("requested_by_agent", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("assignee_role", sa.String(length=40), nullable=False),
@@ -181,7 +184,7 @@ def upgrade() -> None:
         sa.Column("kind", sa.String(length=40), nullable=False),
         sa.Column("name", sa.Text(), nullable=False),
         sa.Column("jurisdiction", sa.String(length=2), nullable=False, server_default="ID"),
-        sa.Column("entries", sa.JSON(), nullable=False),
+        sa.Column("entries", JSONB, nullable=False),
         sa.Column("effective_from", sa.Date(), nullable=True),
         sa.Column("effective_to", sa.Date(), nullable=True),
         sa.Column("verified", sa.Boolean(), nullable=False, server_default=sa.false()),

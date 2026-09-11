@@ -12,11 +12,14 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0003_compliance"
 down_revision: str | None = "0002_people"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
+JSONB = postgresql.JSONB(astext_type=sa.Text())
 
 
 def upgrade() -> None:
@@ -102,7 +105,7 @@ def upgrade() -> None:
         sa.Column("decision_reason", sa.Text(), nullable=True),
         sa.Column("executed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("executed_by", sa.String(length=200), nullable=True),
-        sa.Column("dispositions", sa.JSON(), nullable=False),
+        sa.Column("dispositions", JSONB, nullable=False),
         sa.Column("consents_revoked", sa.Integer(), nullable=False, server_default="0"),
         sa.Column(
             "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
@@ -122,8 +125,8 @@ def upgrade() -> None:
         sa.Column("discovered_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("discovered_by", sa.String(length=200), nullable=False),
         sa.Column("template_name", sa.String(length=160), nullable=False),
-        sa.Column("steps", sa.JSON(), nullable=False),
-        sa.Column("notifications", sa.JSON(), nullable=False),
+        sa.Column("steps", JSONB, nullable=False),
+        sa.Column("notifications", JSONB, nullable=False),
         sa.Column("contained_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("notified_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("closed_at", sa.DateTime(timezone=True), nullable=True),
