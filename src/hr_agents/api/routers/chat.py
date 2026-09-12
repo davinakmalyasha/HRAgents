@@ -110,9 +110,12 @@ def request_handoff(
 @router.get(
     "/handoffs",
     response_model=list[HandoffView],
-    summary="Open handoffs queued for one workspace",
+    summary="Open handoffs, optionally filtered to one workspace",
 )
-def list_handoffs(workspace: WorkspaceId, handoffs: HandoffDep) -> list[HandoffView]:
+def list_handoffs(
+    handoffs: HandoffDep,
+    workspace: WorkspaceId | None = None,
+) -> list[HandoffView]:
     return [HandoffView.from_model(record) for record in handoffs.open_for(workspace)]
 
 

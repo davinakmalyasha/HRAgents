@@ -85,7 +85,7 @@ def test_open_for_filters_by_target_workspace_and_status() -> None:
         source_workspace=WorkspaceId.POLICY,
         target_workspace=WorkspaceId.ONBOARDING,
     )
-    service.request(
+    payroll = service.request(
         message="Prepare THR",
         principal=PRINCIPAL,
         source_workspace=WorkspaceId.POLICY,
@@ -93,6 +93,8 @@ def test_open_for_filters_by_target_workspace_and_status() -> None:
     )
 
     assert [item.id for item in service.open_for(WorkspaceId.ONBOARDING)] == [onboarding.id]
+    assert [item.id for item in service.open_for()] == [onboarding.id, payroll.id]
 
     onboarding.status = RequestStatus.CLAIMED
     assert service.open_for(WorkspaceId.ONBOARDING) == []
+    assert [item.id for item in service.open_for()] == [payroll.id]

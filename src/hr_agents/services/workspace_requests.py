@@ -116,11 +116,13 @@ class HandoffService:
         )
         return record
 
-    def open_for(self, workspace: WorkspaceId) -> list[WorkspaceRequest]:
-        """Open requests queued for one workspace, oldest first."""
-        self._registry.get(workspace)
+    def open_for(self, workspace: WorkspaceId | None = None) -> list[WorkspaceRequest]:
+        """Open requests, oldest first; filtered to one workspace when given."""
+        if workspace is not None:
+            self._registry.get(workspace)
         return [
             item
             for item in self._store.list_all()
-            if item.target_workspace is workspace and item.status is RequestStatus.OPEN
+            if item.status is RequestStatus.OPEN
+            and (workspace is None or item.target_workspace is workspace)
         ]

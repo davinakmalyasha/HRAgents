@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import EmailStr, Field
@@ -19,6 +19,7 @@ from hr_agents.models import (
     Employee,
     EmployeeDocument,
     EmployeeStatus,
+    RateTable,
     RateTableKind,
     StrictModel,
     TaskItem,
@@ -192,8 +193,8 @@ class ApprovalView(StrictModel):
     urgency: Urgency
     status: ApprovalStatus
     escalation_count: int
-    created_at: object
-    sla_deadline: object
+    created_at: datetime
+    sla_deadline: datetime | None
     is_overdue: bool
 
     @classmethod
@@ -294,7 +295,7 @@ class RateTableView(StrictModel):
     source_note: str | None
 
     @classmethod
-    def from_model(cls, table: object) -> RateTableView:
+    def from_model(cls, table: RateTable) -> RateTableView:
         from hr_agents.models import RateTable
 
         assert isinstance(table, RateTable)

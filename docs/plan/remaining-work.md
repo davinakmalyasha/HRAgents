@@ -114,11 +114,10 @@ documented.
 - [ ] Mobile-first check at 390px (queues, approvals, chat)
 
 ### 2.3 Attention-first home
-- [ ] "Needs you today" wired to real queues: pending approvals (SLA-ordered), review queues,
-      overdue tasks, anomalies awaiting sign-off
-- [ ] "Watching" section: in-flight work that does not need action yet (processing applications,
-      active onboarding plans, upcoming contract expiries)
-- [ ] No vanity metrics; every card deep-links to the action
+- [x] "Needs you today" wired to real queues: overdue approvals, overdue tasks, open handoffs
+      (role-scoped 403s degrade to empty sections rather than error walls)
+- [x] "Watching" section: pending approvals within SLA and open tasks
+- [x] No vanity metrics; every item deep-links to the workspace queue (`/w/{id}?room=queue`)
 
 ### 2.4 Recruitment workspace
 - [ ] Pipeline board (kanban: received → screened → interview → offer) with dnd-kit, status

@@ -356,7 +356,9 @@
             "$ref": "#/components/schemas/ApproverRole"
           },
           "created_at": {
-            "title": "Created At"
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
           },
           "escalation_count": {
             "title": "Escalation Count",
@@ -380,6 +382,15 @@
             "type": "boolean"
           },
           "sla_deadline": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Sla Deadline"
           },
           "status": {
@@ -8066,6 +8077,15 @@
             "type": "array"
           },
           "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Completed At"
           },
           "employee_id": {
@@ -8087,7 +8107,9 @@
             "type": "number"
           },
           "started_at": {
-            "title": "Started At"
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
           },
           "steps": {
             "items": {
@@ -9089,9 +9111,17 @@
           {
             "in": "query",
             "name": "workspace",
-            "required": true,
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/WorkspaceId"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/WorkspaceId"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workspace"
             }
           },
           {
@@ -9137,7 +9167,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Open handoffs queued for one workspace",
+        "summary": "Open handoffs, optionally filtered to one workspace",
         "tags": [
           "chat"
         ]
