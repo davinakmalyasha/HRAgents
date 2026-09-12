@@ -16,7 +16,7 @@ router = APIRouter(prefix="/v1/queue", tags=["queue"], dependencies=[Depends(req
 
 
 @router.get("", response_model=QueueResponse, summary="Priority-ranked candidates for a job")
-async def get_queue(
+def get_queue(
     store: Annotated[ApplicationStore, Depends(get_store)],
     job_id: Annotated[UUID, Query()],
     limit: Annotated[int, Query(ge=1, le=200)] = 50,

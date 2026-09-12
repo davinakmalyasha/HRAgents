@@ -7,6 +7,7 @@ without cryptography infrastructure.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from hr_agents.models import ActorType, AuditActor, AuditEntry
@@ -14,6 +15,18 @@ from hr_agents.models import ActorType, AuditActor, AuditEntry
 
 class AuditChainError(RuntimeError):
     """Raised when a chain write would break integrity."""
+
+
+def verify_entries(entries: Sequence[AuditEntry]) -> int:
+    """Return -1 when the chain is intact, else the first invalid ``seq``."""
+    expected_prev: str | None = None
+    for entry in entries:
+        if entry.prev_hash != expected_prev:
+            return entry.seq
+        if not entry.verify():
+            return entry.seq
+        expected_prev = entry.entry_hash
+    return -1
 
 
 class AuditChain:
@@ -81,11 +94,4 @@ class AuditChain:
         Returns ``-1`` when the chain is intact, otherwise the ``seq`` of the
         first invalid entry.
         """
-        expected_prev: str | None = None
-        for entry in self._entries:
-            if entry.prev_hash != expected_prev:
-                return entry.seq
-            if not entry.verify():
-                return entry.seq
-            expected_prev = entry.entry_hash
-        return -1
+        return verify_entries(self._entries)

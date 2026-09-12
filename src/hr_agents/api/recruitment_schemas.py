@@ -174,6 +174,7 @@ class OverrideCreate(StrictModel):
 
 
 class OverrideView(StrictModel):
+    id: UUID
     evaluation_id: str
     reviewer_id: str
     reviewer_role: str

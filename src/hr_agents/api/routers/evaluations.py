@@ -43,9 +43,7 @@ def _conflict(exc: Exception) -> HTTPException:
     response_model=EvaluationView,
     summary="Deterministic evaluation result for an application",
 )
-async def get_application_evaluation(
-    application_id: UUID, evaluations: EvaluationsDep
-) -> EvaluationView:
+def get_application_evaluation(application_id: UUID, evaluations: EvaluationsDep) -> EvaluationView:
     try:
         return EvaluationView.from_record(evaluations.get_by_application(application_id))
     except RecruitingError as exc:
@@ -57,7 +55,7 @@ async def get_application_evaluation(
     response_model=EvaluationView,
     summary="Evaluation by id",
 )
-async def get_evaluation(evaluation_id: UUID, evaluations: EvaluationsDep) -> EvaluationView:
+def get_evaluation(evaluation_id: UUID, evaluations: EvaluationsDep) -> EvaluationView:
     try:
         return EvaluationView.from_record(evaluations.get(evaluation_id))
     except RecruitingError as exc:
@@ -69,7 +67,7 @@ async def get_evaluation(evaluation_id: UUID, evaluations: EvaluationsDep) -> Ev
     response_model=list[OverrideView],
     summary="Override history (append-only)",
 )
-async def list_overrides(evaluation_id: UUID, evaluations: EvaluationsDep) -> list[OverrideView]:
+def list_overrides(evaluation_id: UUID, evaluations: EvaluationsDep) -> list[OverrideView]:
     try:
         overrides = evaluations.list_overrides(evaluation_id)
     except RecruitingError as exc:
@@ -83,7 +81,7 @@ async def list_overrides(evaluation_id: UUID, evaluations: EvaluationsDep) -> li
     response_model=AuditReceipt,
     summary="Human-in-the-loop override (mandatory for gated rejections)",
 )
-async def record_override(
+def record_override(
     evaluation_id: UUID, payload: OverrideCreate, evaluations: EvaluationsDep
 ) -> AuditReceipt:
     try:

@@ -41,7 +41,7 @@ def _not_found(detail: str) -> HTTPException:
     response_model=list[TimeSlot],
     summary="Ops: register interviewer free slots (calendar provider feeds this later)",
 )
-async def set_availability(payload: AvailabilitySet, scheduling: SchedulingDep) -> list[TimeSlot]:
+def set_availability(payload: AvailabilitySet, scheduling: SchedulingDep) -> list[TimeSlot]:
     return scheduling.set_availability(payload.interviewer_id, slots=payload.slots, by=payload.by)
 
 
@@ -51,7 +51,7 @@ async def set_availability(payload: AvailabilitySet, scheduling: SchedulingDep) 
     response_model=SchedulingProposalView,
     summary="Propose interview slots (auto or HITL-gated)",
 )
-async def create_proposal(
+def create_proposal(
     payload: SchedulingProposalRequest, scheduling: SchedulingDep
 ) -> SchedulingProposalView:
     try:
@@ -69,12 +69,12 @@ async def create_proposal(
 
 
 @router.get("/proposals", response_model=list[SchedulingProposalView])
-async def list_proposals(scheduling: SchedulingDep) -> list[SchedulingProposalView]:
+def list_proposals(scheduling: SchedulingDep) -> list[SchedulingProposalView]:
     return [SchedulingProposalView.from_record(item) for item in scheduling.list_all()]
 
 
 @router.get("/proposals/{proposal_id}", response_model=SchedulingProposalView)
-async def get_proposal(proposal_id: UUID, scheduling: SchedulingDep) -> SchedulingProposalView:
+def get_proposal(proposal_id: UUID, scheduling: SchedulingDep) -> SchedulingProposalView:
     try:
         return SchedulingProposalView.from_record(scheduling.get(proposal_id))
     except RecruitingError as exc:

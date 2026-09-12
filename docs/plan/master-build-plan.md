@@ -157,7 +157,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
   - [x] `analyze_repo_ast`, `detect_frameworks` (radon + lizard, sandboxed to analysis root)
   - [x] `lookup_publication` (Crossref-style index; live adapter later), `verify_credential` (registry snapshot)
   - [x] `get_candidate_profile`, `capture_consent`, `record_availability`, `escalate_to_human`
-  - [ ] `get_evaluation_breakdown` — API surface now exists (`services/recruiting.py`); tool wiring pending
+  - [x] `get_evaluation_breakdown` — read-only tool allowlisted to `feedback_writer`/`screening_coordinator`
 - [x] Tool permission tests (denied calls audited, cross-agent isolation verified)
 - [ ] Sandbox/dry-run default for external tools — Phase 7 external integrations
 
@@ -187,9 +187,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] **Recruitment API surface** (`services/recruiting.py` + 5 routers, 15 endpoints): document upload with hashing/size gate, jobs CRUD + guarded lifecycle, evaluation read (`/v1/applications/{id}/evaluation`), append-only HITL overrides with audit receipts and role enforcement, feedback reports (stored agent report or deterministic EN/ID synthesis), scheduling proposals gated by the policy engine with an availability registry
 - [x] Application store: status sync from evaluation results and human overrides, candidate lookup
 - [ ] Orchestrator as pydantic-graph state machine (current: explicit async pipeline; graph upgrade when retries/checkpoints demand)
-- [ ] HITL overrides persisted to Postgres (store is append-only in memory; DB sink with audit chain — Phase 7)
-- [ ] Audit chain persistence to Postgres (DB-backed chain, verification job)
-- [ ] End-to-end integration test through the API: submit → evaluate → gate → queue (seam test; pipeline itself is covered)
+- [x] HITL overrides persisted to Postgres (append-only `evaluation_overrides` table + `DbEvaluationService`)
+- [x] Audit chain persistence to Postgres (migration `0005` + `DbAuditChain`; `scripts/verify_audit.py`; cron wiring in Phase 9)
+- [x] End-to-end integration test through the API: submit → worker → evaluation → queue (`tests/api/test_pipeline_seam.py`)
 
 ### 4.6 Provider layer (adaptive integrations) `IN PROGRESS`
 - [x] Spec written: `docs/architecture/providers.md`

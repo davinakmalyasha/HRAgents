@@ -72,7 +72,7 @@ def _raise(exc: Exception) -> HTTPException:
 
 
 @router.post("/consents", status_code=status.HTTP_201_CREATED, response_model=ConsentView)
-async def record_consent(payload: ConsentCreate, compliance: ComplianceDep) -> ConsentView:
+def record_consent(payload: ConsentCreate, compliance: ComplianceDep) -> ConsentView:
     record = compliance.record_consent(
         subject_kind=payload.subject_kind,
         subject_id=payload.subject_id,
@@ -89,7 +89,7 @@ async def record_consent(payload: ConsentCreate, compliance: ComplianceDep) -> C
 
 
 @router.get("/consents", response_model=list[ConsentView])
-async def list_consents(
+def list_consents(
     compliance: ComplianceDep,
     subject_kind: SubjectKind | None = None,
     subject_id: str | None = None,
@@ -99,7 +99,7 @@ async def list_consents(
 
 
 @router.get("/consents/status", response_model=ConsentStatusView)
-async def consent_status(
+def consent_status(
     compliance: ComplianceDep,
     subject_kind: SubjectKind,
     subject_id: str,
@@ -114,7 +114,7 @@ async def consent_status(
 
 
 @router.post("/consents/{consent_id}/revoke", response_model=ConsentView)
-async def revoke_consent(
+def revoke_consent(
     consent_id: UUID, payload: ConsentRevoke, compliance: ComplianceDep
 ) -> ConsentView:
     try:
@@ -128,7 +128,7 @@ async def revoke_consent(
 
 
 @router.put("/retention/policies", response_model=PolicyView)
-async def set_policy(payload: PolicySet, compliance: ComplianceDep) -> PolicyView:
+def set_policy(payload: PolicySet, compliance: ComplianceDep) -> PolicyView:
     try:
         policy = compliance.set_policy(
             entity=payload.entity,
@@ -146,12 +146,12 @@ async def set_policy(payload: PolicySet, compliance: ComplianceDep) -> PolicyVie
 
 
 @router.get("/retention/policies", response_model=list[PolicyView])
-async def list_policies(compliance: ComplianceDep) -> list[PolicyView]:
+def list_policies(compliance: ComplianceDep) -> list[PolicyView]:
     return [PolicyView.from_model(item) for item in compliance.list_policies()]
 
 
 @router.post("/retention/records", status_code=status.HTTP_201_CREATED, response_model=RecordView)
-async def track_record(payload: RecordTrack, compliance: ComplianceDep) -> RecordView:
+def track_record(payload: RecordTrack, compliance: ComplianceDep) -> RecordView:
     record = compliance.track_record(
         entity=payload.entity,
         subject_kind=payload.subject_kind,
@@ -165,7 +165,7 @@ async def track_record(payload: RecordTrack, compliance: ComplianceDep) -> Recor
 
 
 @router.get("/retention/records", response_model=list[RecordView])
-async def list_records(
+def list_records(
     compliance: ComplianceDep,
     subject_kind: SubjectKind | None = None,
     subject_id: str | None = None,
@@ -182,7 +182,7 @@ async def list_records(
 
 
 @router.post("/retention/records/{record_id}/hold", response_model=RecordView)
-async def set_legal_hold(
+def set_legal_hold(
     record_id: UUID, payload: LegalHoldRequest, compliance: ComplianceDep
 ) -> RecordView:
     try:
@@ -195,12 +195,12 @@ async def set_legal_hold(
 
 
 @router.get("/retention/scan", response_model=ScanView)
-async def scan_retention(compliance: ComplianceDep, as_of: UtcDateTime | None = None) -> ScanView:
+def scan_retention(compliance: ComplianceDep, as_of: UtcDateTime | None = None) -> ScanView:
     return ScanView.from_model(compliance.scan(as_of=as_of))
 
 
 @router.post("/retention/purge", response_model=PurgeReportView)
-async def execute_purge(payload: PurgeRequest, compliance: ComplianceDep) -> PurgeReportView:
+def execute_purge(payload: PurgeRequest, compliance: ComplianceDep) -> PurgeReportView:
     try:
         report = compliance.execute_purge(
             by=payload.by, as_of=payload.as_of, dry_run=payload.dry_run
@@ -214,7 +214,7 @@ async def execute_purge(payload: PurgeRequest, compliance: ComplianceDep) -> Pur
 
 
 @router.post("/erasures", status_code=status.HTTP_201_CREATED, response_model=ErasureView)
-async def create_erasure(payload: ErasureCreate, compliance: ComplianceDep) -> ErasureView:
+def create_erasure(payload: ErasureCreate, compliance: ComplianceDep) -> ErasureView:
     request = compliance.create_erasure_request(
         subject_kind=payload.subject_kind,
         subject_id=payload.subject_id,
@@ -226,12 +226,12 @@ async def create_erasure(payload: ErasureCreate, compliance: ComplianceDep) -> E
 
 
 @router.get("/erasures", response_model=list[ErasureView])
-async def list_erasures(compliance: ComplianceDep) -> list[ErasureView]:
+def list_erasures(compliance: ComplianceDep) -> list[ErasureView]:
     return [ErasureView.from_model(item) for item in compliance.list_erasures()]
 
 
 @router.get("/erasures/{request_id}", response_model=ErasureView)
-async def get_erasure(request_id: UUID, compliance: ComplianceDep) -> ErasureView:
+def get_erasure(request_id: UUID, compliance: ComplianceDep) -> ErasureView:
     try:
         return ErasureView.from_model(compliance.get_erasure(request_id))
     except ComplianceError as exc:
@@ -239,7 +239,7 @@ async def get_erasure(request_id: UUID, compliance: ComplianceDep) -> ErasureVie
 
 
 @router.post("/erasures/{request_id}/verify", response_model=ErasureView)
-async def verify_erasure_identity(
+def verify_erasure_identity(
     request_id: UUID, payload: ErasureVerify, compliance: ComplianceDep
 ) -> ErasureView:
     try:
@@ -250,7 +250,7 @@ async def verify_erasure_identity(
 
 
 @router.post("/erasures/{request_id}/submit", response_model=ErasureView)
-async def submit_erasure(
+def submit_erasure(
     request_id: UUID, payload: ErasureAction, compliance: ComplianceDep
 ) -> ErasureView:
     try:
@@ -261,7 +261,7 @@ async def submit_erasure(
 
 
 @router.post("/erasures/approvals/{approval_id}/sync", response_model=ErasureView)
-async def sync_erasure_decision(approval_id: UUID, compliance: ComplianceDep) -> ErasureView:
+def sync_erasure_decision(approval_id: UUID, compliance: ComplianceDep) -> ErasureView:
     try:
         request = compliance.apply_decision(approval_id)
     except ComplianceError as exc:
@@ -270,7 +270,7 @@ async def sync_erasure_decision(approval_id: UUID, compliance: ComplianceDep) ->
 
 
 @router.post("/erasures/{request_id}/execute", response_model=ErasureView)
-async def execute_erasure(
+def execute_erasure(
     request_id: UUID, payload: ErasureAction, compliance: ComplianceDep
 ) -> ErasureView:
     try:
@@ -284,12 +284,12 @@ async def execute_erasure(
 
 
 @router.get("/breaches/template", response_model=BreachTemplateView)
-async def breach_template() -> BreachTemplateView:
+def breach_template() -> BreachTemplateView:
     return BreachTemplateView.from_model(default_breach_template())
 
 
 @router.post("/breaches", status_code=status.HTTP_201_CREATED, response_model=BreachView)
-async def create_breach(payload: BreachCreate, compliance: ComplianceDep) -> BreachView:
+def create_breach(payload: BreachCreate, compliance: ComplianceDep) -> BreachView:
     incident = compliance.create_incident(
         title=payload.title,
         description=payload.description,
@@ -302,19 +302,19 @@ async def create_breach(payload: BreachCreate, compliance: ComplianceDep) -> Bre
 
 
 @router.get("/breaches", response_model=list[BreachView])
-async def list_breaches(compliance: ComplianceDep) -> list[BreachView]:
+def list_breaches(compliance: ComplianceDep) -> list[BreachView]:
     return [BreachView.from_model(item) for item in compliance.list_incidents()]
 
 
 @router.get("/breaches/overdue", response_model=list[OverdueStepView])
-async def overdue_breach_steps(
+def overdue_breach_steps(
     compliance: ComplianceDep, as_of: UtcDateTime | None = None
 ) -> list[OverdueStepView]:
     return [OverdueStepView.from_model(item) for item in compliance.overdue_steps(as_of=as_of)]
 
 
 @router.get("/breaches/{incident_id}", response_model=BreachView)
-async def get_breach(incident_id: UUID, compliance: ComplianceDep) -> BreachView:
+def get_breach(incident_id: UUID, compliance: ComplianceDep) -> BreachView:
     try:
         return BreachView.from_model(compliance.get_incident(incident_id))
     except ComplianceError as exc:
@@ -322,7 +322,7 @@ async def get_breach(incident_id: UUID, compliance: ComplianceDep) -> BreachView
 
 
 @router.post("/breaches/{incident_id}/steps/{step_key}/complete", response_model=BreachView)
-async def complete_breach_step(
+def complete_breach_step(
     incident_id: UUID, step_key: str, payload: StepComplete, compliance: ComplianceDep
 ) -> BreachView:
     try:
@@ -335,7 +335,7 @@ async def complete_breach_step(
 
 
 @router.post("/breaches/{incident_id}/notifications", response_model=BreachView)
-async def record_breach_notification(
+def record_breach_notification(
     incident_id: UUID, payload: NotificationCreate, compliance: ComplianceDep
 ) -> BreachView:
     try:
@@ -353,7 +353,7 @@ async def record_breach_notification(
 
 
 @router.post("/breaches/{incident_id}/status", response_model=BreachView)
-async def transition_breach(
+def transition_breach(
     incident_id: UUID, payload: BreachTransition, compliance: ComplianceDep
 ) -> BreachView:
     try:
@@ -369,5 +369,5 @@ async def transition_breach(
 
 
 @router.get("/audit/verify", response_model=AuditVerifyView)
-async def verify_audit(compliance: ComplianceDep, checked_by: str = "system") -> AuditVerifyView:
+def verify_audit(compliance: ComplianceDep, checked_by: str = "system") -> AuditVerifyView:
     return AuditVerifyView.from_model(compliance.verify_audit_chain(checked_by=checked_by))

@@ -29,7 +29,7 @@ EvaluationsDep = Annotated[EvaluationService, Depends(get_evaluations)]
     response_model=FeedbackView,
     summary="Candidate-facing feedback report",
 )
-async def get_feedback(
+def get_feedback(
     candidate_id: UUID,
     evaluations: EvaluationsDep,
     language: Annotated[str, Query(pattern="^(en|id)$")] = "en",

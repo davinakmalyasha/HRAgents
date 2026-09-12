@@ -36,12 +36,12 @@ def _not_found(detail: str) -> HTTPException:
 
 
 @router.get("", response_model=list[JobView], summary="List job specifications")
-async def list_jobs(jobs: JobsDep, job_status: JobStatus | None = None) -> list[JobView]:
+def list_jobs(jobs: JobsDep, job_status: JobStatus | None = None) -> list[JobView]:
     return [JobView.from_model(job) for job in jobs.list_all(status=job_status)]
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=JobView)
-async def create_job(payload: JobCreate, jobs: JobsDep) -> JobView:
+def create_job(payload: JobCreate, jobs: JobsDep) -> JobView:
     try:
         job = jobs.create(**payload.model_dump())
     except (RecruitingError, ValueError) as exc:
@@ -50,7 +50,7 @@ async def create_job(payload: JobCreate, jobs: JobsDep) -> JobView:
 
 
 @router.get("/{job_id}", response_model=JobView)
-async def get_job(job_id: UUID, jobs: JobsDep) -> JobView:
+def get_job(job_id: UUID, jobs: JobsDep) -> JobView:
     try:
         return JobView.from_model(jobs.get(job_id))
     except RecruitingError as exc:
@@ -58,7 +58,7 @@ async def get_job(job_id: UUID, jobs: JobsDep) -> JobView:
 
 
 @router.patch("/{job_id}", response_model=JobView)
-async def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep) -> JobView:
+def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep) -> JobView:
     try:
         job = jobs.update(job_id, **payload.model_dump())
     except (RecruitingError, ValueError) as exc:
@@ -67,7 +67,7 @@ async def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep) -> JobView
 
 
 @router.post("/{job_id}/status", response_model=JobView)
-async def change_job_status(job_id: UUID, payload: JobStatusChange, jobs: JobsDep) -> JobView:
+def change_job_status(job_id: UUID, payload: JobStatusChange, jobs: JobsDep) -> JobView:
     try:
         job = jobs.transition(job_id, target=payload.status, by=payload.by)
     except RecruitingError as exc:

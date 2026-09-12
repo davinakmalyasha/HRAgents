@@ -40,7 +40,7 @@ def _conflict(exc: Exception) -> HTTPException:
 
 
 @router.post("/templates", status_code=status.HTTP_201_CREATED, response_model=TemplateView)
-async def create_template(payload: TemplateCreate, onboarding: OnboardingDep) -> TemplateView:
+def create_template(payload: TemplateCreate, onboarding: OnboardingDep) -> TemplateView:
     try:
         template = onboarding.create_template(
             name=payload.name,
@@ -56,12 +56,12 @@ async def create_template(payload: TemplateCreate, onboarding: OnboardingDep) ->
 
 
 @router.get("/templates", response_model=list[TemplateView])
-async def list_templates(onboarding: OnboardingDep) -> list[TemplateView]:
+def list_templates(onboarding: OnboardingDep) -> list[TemplateView]:
     return [TemplateView.from_model(t) for t in onboarding.list_templates()]
 
 
 @router.post("/plans", status_code=status.HTTP_201_CREATED, response_model=PlanView)
-async def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep) -> PlanView:
+def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep) -> PlanView:
     try:
         plan = onboarding.start_plan(
             employee_id=payload.employee_id,
@@ -74,13 +74,13 @@ async def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep) -> Pl
 
 
 @router.get("/plans", response_model=list[PlanView])
-async def list_plans(onboarding: OnboardingDep, active_only: bool = False) -> list[PlanView]:
+def list_plans(onboarding: OnboardingDep, active_only: bool = False) -> list[PlanView]:
     plans = onboarding.active_plans() if active_only else list(onboarding._plans.values())
     return [PlanView.from_model(plan) for plan in plans]
 
 
 @router.get("/plans/{plan_id}", response_model=PlanView)
-async def get_plan(plan_id: UUID, onboarding: OnboardingDep) -> PlanView:
+def get_plan(plan_id: UUID, onboarding: OnboardingDep) -> PlanView:
     try:
         return PlanView.from_model(onboarding.get_plan(plan_id))
     except OnboardingError as exc:
@@ -88,7 +88,7 @@ async def get_plan(plan_id: UUID, onboarding: OnboardingDep) -> PlanView:
 
 
 @router.post("/plans/{plan_id}/steps/{step_key}/complete", response_model=PlanView)
-async def complete_step(
+def complete_step(
     plan_id: UUID, step_key: str, payload: StepActionRequest, onboarding: OnboardingDep
 ) -> PlanView:
     try:
@@ -99,7 +99,7 @@ async def complete_step(
 
 
 @router.post("/plans/{plan_id}/steps/{step_key}/waive", response_model=PlanView)
-async def waive_step(
+def waive_step(
     plan_id: UUID, step_key: str, payload: StepWaiveRequest, onboarding: OnboardingDep
 ) -> PlanView:
     try:
@@ -110,7 +110,7 @@ async def waive_step(
 
 
 @router.post("/plans/{plan_id}/steps/{step_key}/link-document", response_model=PlanView)
-async def link_document(
+def link_document(
     plan_id: UUID,
     step_key: str,
     payload: StepLinkDocumentRequest,
@@ -131,7 +131,7 @@ async def link_document(
 
 
 @router.get("/plans/{plan_id}/document-status")
-async def document_status(plan_id: UUID, onboarding: OnboardingDep) -> dict[str, str]:
+def document_status(plan_id: UUID, onboarding: OnboardingDep) -> dict[str, str]:
     try:
         return onboarding.document_step_status(plan_id)
     except OnboardingError as exc:

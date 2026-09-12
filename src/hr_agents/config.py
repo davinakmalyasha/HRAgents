@@ -13,6 +13,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "test", "staging", "production"]
+StoreBackend = Literal["memory", "postgres"]
 
 
 class Settings(BaseSettings):
@@ -35,8 +36,15 @@ class Settings(BaseSettings):
     api_keys: list[str] = Field(default_factory=list)
 
     # --- Persistence ---
+    # Store backend: "memory" (tests, zero-config dev) or "postgres" (durable).
+    store_backend: StoreBackend = "memory"
     database_url: str = "postgresql+asyncpg://hragents:hragents@localhost:5432/hragents"
     redis_url: str = "redis://localhost:6379/0"
+
+    @property
+    def sync_database_url(self) -> str:
+        """Sync-driver URL for store adapters (psycopg); see ADR 0005."""
+        return self.database_url.replace("+asyncpg", "+psycopg")
 
     # --- Object storage ---
     s3_endpoint_url: str | None = "http://localhost:9000"

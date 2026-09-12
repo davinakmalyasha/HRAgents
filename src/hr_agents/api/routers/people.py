@@ -76,7 +76,7 @@ def _conflict(exc: Exception) -> HTTPException:
 
 
 @employees_router.post("", status_code=status.HTTP_201_CREATED, response_model=EmployeeView)
-async def create_employee(payload: EmployeeCreate, people: PeopleDep) -> EmployeeView:
+def create_employee(payload: EmployeeCreate, people: PeopleDep) -> EmployeeView:
     try:
         employee = people.employees.create(**payload.model_dump())
     except EmployeeError as exc:
@@ -85,7 +85,7 @@ async def create_employee(payload: EmployeeCreate, people: PeopleDep) -> Employe
 
 
 @employees_router.get("", response_model=list[EmployeeView])
-async def list_employees(
+def list_employees(
     people: PeopleDep,
     employee_status: Annotated[EmployeeStatus | None, Query(alias="status")] = None,
 ) -> list[EmployeeView]:
@@ -96,7 +96,7 @@ async def list_employees(
 
 
 @employees_router.get("/{employee_id}", response_model=EmployeeView)
-async def get_employee(employee_id: UUID, people: PeopleDep) -> EmployeeView:
+def get_employee(employee_id: UUID, people: PeopleDep) -> EmployeeView:
     try:
         return EmployeeView.from_model(people.employees.get(employee_id))
     except EmployeeError as exc:
@@ -104,7 +104,7 @@ async def get_employee(employee_id: UUID, people: PeopleDep) -> EmployeeView:
 
 
 @employees_router.post("/{employee_id}/transition", response_model=EmployeeView)
-async def transition_employee(
+def transition_employee(
     employee_id: UUID, payload: EmployeeTransitionRequest, people: PeopleDep
 ) -> EmployeeView:
     try:
@@ -125,9 +125,7 @@ async def transition_employee(
     status_code=status.HTTP_201_CREATED,
     response_model=DocumentView,
 )
-async def add_document(
-    employee_id: UUID, payload: DocumentCreate, people: PeopleDep
-) -> DocumentView:
+def add_document(employee_id: UUID, payload: DocumentCreate, people: PeopleDep) -> DocumentView:
     try:
         document = people.employees.add_document(employee_id, **payload.model_dump())
     except EmployeeError as exc:
@@ -136,7 +134,7 @@ async def add_document(
 
 
 @employees_router.get("/{employee_id}/contracts", response_model=list[ContractView])
-async def employee_contracts(employee_id: UUID, people: PeopleDep) -> list[ContractView]:
+def employee_contracts(employee_id: UUID, people: PeopleDep) -> list[ContractView]:
     return [
         ContractView.from_model(contract) for contract in people.contracts.for_employee(employee_id)
     ]
@@ -146,7 +144,7 @@ async def employee_contracts(employee_id: UUID, people: PeopleDep) -> list[Contr
 
 
 @contracts_router.post("", status_code=status.HTTP_201_CREATED, response_model=ContractView)
-async def create_contract(payload: ContractCreate, people: PeopleDep) -> ContractView:
+def create_contract(payload: ContractCreate, people: PeopleDep) -> ContractView:
     try:
         contract = people.contracts.create(**payload.model_dump())
     except (ContractError, ValueError) as exc:
@@ -155,7 +153,7 @@ async def create_contract(payload: ContractCreate, people: PeopleDep) -> Contrac
 
 
 @contracts_router.get("", response_model=list[ContractView])
-async def list_contracts(
+def list_contracts(
     people: PeopleDep,
     expiring_within_days: Annotated[int | None, Query(ge=0, le=365)] = None,
 ) -> list[ContractView]:
@@ -168,7 +166,7 @@ async def list_contracts(
 
 
 @contracts_router.get("/{contract_id}", response_model=ContractView)
-async def get_contract(contract_id: UUID, people: PeopleDep) -> ContractView:
+def get_contract(contract_id: UUID, people: PeopleDep) -> ContractView:
     try:
         return ContractView.from_model(people.contracts.get(contract_id))
     except ContractError as exc:
@@ -176,7 +174,7 @@ async def get_contract(contract_id: UUID, people: PeopleDep) -> ContractView:
 
 
 @contracts_router.post("/{contract_id}/activate", response_model=ContractView)
-async def activate_contract(
+def activate_contract(
     contract_id: UUID, payload: ContractActionRequest, people: PeopleDep
 ) -> ContractView:
     try:
@@ -187,7 +185,7 @@ async def activate_contract(
 
 
 @contracts_router.post("/{contract_id}/terminate", response_model=ContractView)
-async def terminate_contract(
+def terminate_contract(
     contract_id: UUID, payload: ContractActionRequest, people: PeopleDep
 ) -> ContractView:
     if not payload.reason:
@@ -206,7 +204,7 @@ async def terminate_contract(
 
 
 @approvals_router.post("", status_code=status.HTTP_201_CREATED, response_model=ApprovalView)
-async def create_approval(payload: ApprovalCreate, people: PeopleDep) -> ApprovalView:
+def create_approval(payload: ApprovalCreate, people: PeopleDep) -> ApprovalView:
     try:
         request = people.approvals.create(**payload.model_dump())
     except ApprovalError as exc:
@@ -215,7 +213,7 @@ async def create_approval(payload: ApprovalCreate, people: PeopleDep) -> Approva
 
 
 @approvals_router.get("", response_model=list[ApprovalView])
-async def list_approvals(
+def list_approvals(
     people: PeopleDep,
     role: Annotated[ApproverRole | None, Query()] = None,
     approval_status: Annotated[ApprovalStatus | None, Query(alias="status")] = None,
@@ -231,7 +229,7 @@ async def list_approvals(
 
 
 @approvals_router.post("/{approval_id}/decide", response_model=ApprovalDecisionResponse)
-async def decide_approval(
+def decide_approval(
     approval_id: UUID, payload: ApprovalDecisionRequest, people: PeopleDep
 ) -> ApprovalDecisionResponse:
     try:
@@ -249,7 +247,7 @@ async def decide_approval(
 
 
 @approvals_router.post("/{approval_id}/escalate-overdue", response_model=list[ApprovalView])
-async def escalate_overdue(people: PeopleDep) -> list[ApprovalView]:
+def escalate_overdue(people: PeopleDep) -> list[ApprovalView]:
     """Ops endpoint: run the SLA escalation sweep (also driven by a scheduler)."""
     changed = people.approvals.escalate_overdue()
     return [ApprovalView.from_model(request) for request in changed]
@@ -259,13 +257,13 @@ async def escalate_overdue(people: PeopleDep) -> list[ApprovalView]:
 
 
 @tasks_router.post("", status_code=status.HTTP_201_CREATED, response_model=TaskView)
-async def create_task(payload: TaskCreate, people: PeopleDep) -> TaskView:
+def create_task(payload: TaskCreate, people: PeopleDep) -> TaskView:
     task = people.tasks.create(**payload.model_dump())
     return TaskView.from_model(task)
 
 
 @tasks_router.get("", response_model=list[TaskView])
-async def list_tasks(
+def list_tasks(
     people: PeopleDep,
     overdue_only: Annotated[bool, Query()] = False,
 ) -> list[TaskView]:
@@ -274,7 +272,7 @@ async def list_tasks(
 
 
 @tasks_router.post("/{task_id}/complete", response_model=TaskView)
-async def complete_task(task_id: UUID, payload: TaskCompleteRequest, people: PeopleDep) -> TaskView:
+def complete_task(task_id: UUID, payload: TaskCompleteRequest, people: PeopleDep) -> TaskView:
     try:
         task = people.tasks.complete(task_id, by=payload.by)
     except TaskError as exc:
@@ -286,18 +284,18 @@ async def complete_task(task_id: UUID, payload: TaskCompleteRequest, people: Peo
 
 
 @rate_tables_router.post("", status_code=status.HTTP_201_CREATED, response_model=RateTableView)
-async def create_rate_table(payload: RateTableCreate, people: PeopleDep) -> RateTableView:
+def create_rate_table(payload: RateTableCreate, people: PeopleDep) -> RateTableView:
     table = people.rate_tables.create(**payload.model_dump())
     return RateTableView.from_model(table)
 
 
 @rate_tables_router.get("", response_model=list[RateTableView])
-async def list_rate_tables(people: PeopleDep) -> list[RateTableView]:
+def list_rate_tables(people: PeopleDep) -> list[RateTableView]:
     return [RateTableView.from_model(table) for table in people.rate_tables.list_all()]
 
 
 @rate_tables_router.get("/unverified", response_model=list[RateTableView])
-async def unverified_rate_tables(people: PeopleDep) -> list[RateTableView]:
+def unverified_rate_tables(people: PeopleDep) -> list[RateTableView]:
     return [RateTableView.from_model(table) for table in people.rate_tables.unverified()]
 
 

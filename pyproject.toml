@@ -27,6 +27,7 @@ dependencies = [
     "redis>=5.1",
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.30",
+    "psycopg[binary]>=3.2",
     "alembic>=1.13",
     "pgvector>=0.3.6",
     "python-multipart>=0.0.12",

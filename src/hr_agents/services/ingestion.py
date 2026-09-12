@@ -98,11 +98,41 @@ class SubmissionConflictError(RuntimeError):
 
 
 class ApplicationStore:
-    """In-memory application store with exactly-once idempotency semantics."""
+    """In-memory application store with exactly-once idempotency semantics.
+
+    Persistence adapters override only the ``_load``/``_iter``/``_find_by_key``/
+    ``_persist_new``/``_persist`` primitives; all semantics stay here.
+    """
 
     def __init__(self) -> None:
         self._by_id: dict[UUID, ApplicationRecord] = {}
         self._idempotency: dict[str, tuple[str, UUID]] = {}
+
+    # persistence primitives (overridden by database adapters)
+
+    def _load(self, application_id: UUID) -> ApplicationRecord | None:
+        return self._by_id.get(application_id)
+
+    def _iter(self) -> Iterator[ApplicationRecord]:
+        return iter(self._by_id.values())
+
+    def _find_by_key(self, idempotency_key: str) -> tuple[str, UUID] | None:
+        return self._idempotency.get(idempotency_key)
+
+    def _persist_new(
+        self,
+        record: ApplicationRecord,
+        payload_hash: str,
+        submission: SubmissionInput,
+    ) -> None:
+        self._by_id[record.id] = record
+        if record.idempotency_key is not None:
+            self._idempotency[record.idempotency_key] = (payload_hash, record.id)
+
+    def _persist(self, record: ApplicationRecord) -> None:
+        if record.id not in self._by_id:
+            raise KeyError(f"unknown application {record.id}")
+        self._by_id[record.id] = record
 
     def submit(
         self,
@@ -118,13 +148,17 @@ class ApplicationStore:
         """
         payload_hash = submission.payload_hash()
 
-        if idempotency_key is not None and idempotency_key in self._idempotency:
-            stored_hash, application_id = self._idempotency[idempotency_key]
-            if stored_hash != payload_hash:
-                raise SubmissionConflictError(
-                    "idempotency key already used with a different payload"
-                )
-            return self._by_id[application_id], False
+        if idempotency_key is not None:
+            stored = self._find_by_key(idempotency_key)
+            if stored is not None:
+                stored_hash, application_id = stored
+                if stored_hash != payload_hash:
+                    raise SubmissionConflictError(
+                        "idempotency key already used with a different payload"
+                    )
+                existing = self._load(application_id)
+                if existing is not None:
+                    return existing, False
 
         record = ApplicationRecord(
             id=uuid4(),
@@ -143,35 +177,38 @@ class ApplicationStore:
         record.note("application.received")
         record.refresh_priority()
 
-        self._by_id[record.id] = record
-        if idempotency_key is not None:
-            self._idempotency[idempotency_key] = (payload_hash, record.id)
+        self._persist_new(record, payload_hash, submission)
         return record, True
 
     def get(self, application_id: UUID) -> ApplicationRecord | None:
-        return self._by_id.get(application_id)
+        return self._load(application_id)
 
     def find_by_candidate(self, candidate_id: UUID) -> list[ApplicationRecord]:
-        return [r for r in self._by_id.values() if r.candidate_id == candidate_id]
+        return [r for r in self._iter() if r.candidate_id == candidate_id]
 
     def set_status(
         self, application_id: UUID, status: ApplicationStatus, *, event: str
     ) -> ApplicationRecord | None:
         """Update status and append a timeline note; None when unknown."""
-        record = self._by_id.get(application_id)
+        record = self._load(application_id)
         if record is None:
             return None
         record.status = status
         record.note(event)
+        self._persist(record)
         return record
 
     def list_for_job(self, job_id: UUID) -> list[ApplicationRecord]:
-        records = [r for r in self._by_id.values() if r.job_id == job_id]
+        records = [r for r in self._iter() if r.job_id == job_id]
         records.sort(key=lambda r: (-r.priority_score, r.received_at))
         return records
 
     def iter_all(self) -> Iterator[ApplicationRecord]:
-        return iter(self._by_id.values())
+        return self._iter()
+
+    def save(self, record: ApplicationRecord) -> None:
+        """Persist mutations made to a previously loaded record."""
+        self._persist(record)
 
 
 class JobQueue:
