@@ -14,29 +14,30 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 
 ## 0. Known leftovers before the MCP layer (small, tracked here for completeness)
 
-> **Progress (2026-09-12, PR #2):** durable persistence landed — ADR 0005 (sync domain
-> layer), migration `0005_persistence`, `DbAuditChain` (hash chain in `audit_log`,
-> tamper-tested), Postgres adapters for every store (applications, documents, jobs,
-> evaluations, overrides, feedback, scheduling, employees, contracts, approvals, tasks,
-> rate tables, compliance, growth, offboarding), `HRAGENTS_STORE_BACKEND=postgres` wiring,
-> and a `postgres-adapters` CI job that runs the adapter suite on pgvector. Remaining on
-> this workstream: worker status transitions, the API→pipeline seam test, the
-> `get_evaluation_breakdown` tool, and a scheduled audit-chain verification job.
+> **Progress (2026-09-12, PR #2):** W0 complete — ADR 0005 (sync domain layer),
+> migration `0005_persistence`, `DbAuditChain` (hash chain in `audit_log`),
+> Postgres adapters for every store, `HRAGENTS_STORE_BACKEND=postgres` wiring, a
+> `postgres-adapters` CI job on pgvector, the `EvaluationJobHandler` (processing
+> transition + step audits), the API→worker→evaluation seam test,
+> `get_evaluation_breakdown` tool, and `scripts/verify_audit.py`.
 
 - [x] **Postgres-backed persistence for the new surfaces.** Every in-memory store has a
       Postgres adapter behind the same interface, selected by `HRAGENTS_STORE_BACKEND`;
       the adapter suite runs on SQLite locally and PostgreSQL in CI.
-- [~] **Audit-chain persistence.** The chain is persisted in `audit_log` with identical
-      hash semantics (`DbAuditChain`, tamper-detection tested); a scheduled periodic
-      verification job is still open.
-- [ ] **End-to-end pipeline test through the API.** `POST /v1/applications` → worker → extraction →
-      scoring → `evaluation.registered` → queue reflects the route. Today the pipeline is tested
-      directly and the API surface is tested directly; the seam between them is exercised manually.
-- [ ] **`get_evaluation_breakdown` agent tool.** The evaluation API now exists; wire the read-only
-      tool for `FeedbackWriter`/`ScreeningCoordinator` with the same least-privilege pattern.
-- [ ] **Application status transitions on worker processing.** The store gained `set_status`, and
-      evaluation registration syncs status; the worker should emit `processing` on claim and audit
-      each step when the live pipeline is wired.
+- [x] **Audit-chain persistence.** The chain is persisted in `audit_log` with identical
+      hash semantics (`DbAuditChain`, tamper-detection tested) and verified by
+      `scripts/verify_audit.py` (exit 1 on the first broken sequence). The ops scheduler
+      wires it into a cron in Phase 9.
+- [x] **End-to-end pipeline test through the API.** `tests/api/test_pipeline_seam.py`:
+      `POST /v1/applications` → queue → `Worker` + `EvaluationJobHandler` → extraction,
+      scoring, decision → `evaluation.registered` → status, queue view, and evaluation
+      endpoint all reflect the route.
+- [x] **`get_evaluation_breakdown` agent tool.** Read-only, allowlisted to
+      `feedback_writer`/`screening_coordinator`; serialization omits protected fields;
+      denied-caller test included.
+- [x] **Application status transitions on worker processing.** `EvaluationJobHandler`
+      marks `processing` on claim, audits `worker.processing`/`worker.failed`/
+      `worker.completed`, and evaluation registration syncs the terminal status.
 
 ---
 
