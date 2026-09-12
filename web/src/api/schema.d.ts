@@ -28,7 +28,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Pipeline applications, ranked by priority */
+        get: operations["list_applications_v1_applications_get"];
         put?: never;
         /** Ingest a single application */
         post: operations["submit_application_v1_applications_post"];
@@ -2286,6 +2287,35 @@ export interface components {
              * @default api
              */
             source_channel: string;
+        };
+        /**
+         * ApplicationSummary
+         * @description One pipeline card: identity, stage, scores, and waiting time.
+         */
+        ApplicationSummary: {
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            /** Hours Waiting */
+            hours_waiting: number;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /** Priority Score */
+            priority_score: number;
+            /** S Tech */
+            s_tech?: number | null;
+            /** Status */
+            status: string;
         };
         /** ApprovalCreate */
         ApprovalCreate: {
@@ -5240,6 +5270,40 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    list_applications_v1_applications_get: {
+        parameters: {
+            query?: {
+                job_id?: string | null;
+                limit?: number;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

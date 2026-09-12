@@ -1,17 +1,19 @@
-"""Application ingestion endpoints (single, batch, status)."""
+"""Application ingestion and pipeline endpoints (single, batch, list, status)."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from hr_agents.api.deps import get_audit, get_store, require_permission
 from hr_agents.api.schemas import (
     ApplicationAccepted,
     ApplicationStatusResponse,
     ApplicationSubmission,
+    ApplicationSummary,
     BatchAccepted,
     BatchItemResult,
     BatchSubmissionRequest,
@@ -22,8 +24,11 @@ from hr_agents.services import ApplicationStore, AuditChain, SubmissionConflictE
 router = APIRouter(
     prefix="/v1/applications",
     tags=["applications"],
-    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_READ))],
 )
+
+StoreDep = Annotated[ApplicationStore, Depends(get_store)]
+AuditDep = Annotated[AuditChain, Depends(get_audit)]
 
 
 def _submit_one(
@@ -58,11 +63,12 @@ def _submit_one(
     status_code=status.HTTP_202_ACCEPTED,
     response_model=ApplicationAccepted,
     summary="Ingest a single application",
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
 def submit_application(
     submission: ApplicationSubmission,
-    store: Annotated[ApplicationStore, Depends(get_store)],
-    audit: Annotated[AuditChain, Depends(get_audit)],
+    store: StoreDep,
+    audit: AuditDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ApplicationAccepted:
     try:
@@ -76,11 +82,10 @@ def submit_application(
     status_code=status.HTTP_202_ACCEPTED,
     response_model=BatchAccepted,
     summary="Ingest up to 500 applications",
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
 def submit_batch(
-    payload: BatchSubmissionRequest,
-    store: Annotated[ApplicationStore, Depends(get_store)],
-    audit: Annotated[AuditChain, Depends(get_audit)],
+    payload: BatchSubmissionRequest, store: StoreDep, audit: AuditDep
 ) -> BatchAccepted:
     results: list[BatchItemResult] = []
     accepted = 0
@@ -99,14 +104,27 @@ def submit_batch(
 
 
 @router.get(
+    "",
+    response_model=list[ApplicationSummary],
+    summary="Pipeline applications, ranked by priority",
+)
+def list_applications(
+    store: StoreDep,
+    job_id: UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+) -> list[ApplicationSummary]:
+    now = datetime.now(UTC)
+    records = store.list_for_job(job_id) if job_id is not None else store.list_all()
+    ranked = sorted(records, key=lambda record: record.priority_score, reverse=True)
+    return [ApplicationSummary.from_record(record, now=now) for record in ranked[:limit]]
+
+
+@router.get(
     "/{application_id}",
     response_model=ApplicationStatusResponse,
     summary="Application status and timeline",
 )
-def get_application(
-    application_id: UUID,
-    store: Annotated[ApplicationStore, Depends(get_store)],
-) -> ApplicationStatusResponse:
+def get_application(application_id: UUID, store: StoreDep) -> ApplicationStatusResponse:
     record = store.get(application_id)
     if record is None:
         raise HTTPException(

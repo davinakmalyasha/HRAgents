@@ -24,6 +24,35 @@
     "boardPlaceholder": "The {name} board lands in a later slice.",
     "queuePlaceholder": "Decisions waiting on you will appear here."
   },
+  "hiring": {
+    "allJobs": "All jobs",
+    "job": "Job filter",
+    "inPipeline": "{{count}} applications in view",
+    "waiting": "waiting {{duration}}",
+    "score": "Technical score",
+    "priority": "Priority",
+    "notScored": "Not scored yet",
+    "emptyColumn": "Nothing here",
+    "stages": {
+      "intake": "Intake",
+      "screened": "Screened",
+      "decision": "Needs decision",
+      "interview": "Interview",
+      "closed": "Closed"
+    },
+    "application": "Application",
+    "candidate": "Candidate",
+    "received": "Received",
+    "timeline": "Timeline",
+    "evaluation": "Evaluation",
+    "notEvaluated": "Not evaluated yet.",
+    "notFound": "Application not found.",
+    "flags": "Flags",
+    "dimension": "Dimension",
+    "weight": "Weight",
+    "rationale": "Rationale",
+    "back": "Back to pipeline"
+  },
   "chat": {
     "empty": "Ask a question to get started.",
     "placeholder": "Ask anything…",

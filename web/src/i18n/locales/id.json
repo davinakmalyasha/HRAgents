@@ -24,6 +24,35 @@
     "boardPlaceholder": "Papan {name} hadir pada tahap berikutnya.",
     "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini."
   },
+  "hiring": {
+    "allJobs": "Semua lowongan",
+    "job": "Filter lowongan",
+    "inPipeline": "{{count}} lamaran terlihat",
+    "waiting": "menunggu {{duration}}",
+    "score": "Skor teknis",
+    "priority": "Prioritas",
+    "notScored": "Belum dinilai",
+    "emptyColumn": "Kosong",
+    "stages": {
+      "intake": "Masuk",
+      "screened": "Tersaring",
+      "decision": "Perlu keputusan",
+      "interview": "Wawancara",
+      "closed": "Selesai"
+    },
+    "application": "Lamaran",
+    "candidate": "Kandidat",
+    "received": "Diterima",
+    "timeline": "Riwayat",
+    "evaluation": "Evaluasi",
+    "notEvaluated": "Belum dievaluasi.",
+    "notFound": "Lamaran tidak ditemukan.",
+    "flags": "Tanda",
+    "dimension": "Dimensi",
+    "weight": "Bobot",
+    "rationale": "Alasan",
+    "back": "Kembali ke pipeline"
+  },
   "chat": {
     "empty": "Ajukan pertanyaan untuk memulai.",
     "placeholder": "Tanya apa saja…",
