@@ -21,7 +21,7 @@ from hr_agents.services.recruiting import JobService, RecruitingError
 router = APIRouter(
     prefix="/v1/jobs",
     tags=["jobs"],
-    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_READ))],
 )
 
 
@@ -45,7 +45,12 @@ def list_jobs(jobs: JobsDep, job_status: JobStatus | None = None) -> list[JobVie
     return [JobView.from_model(job) for job in jobs.list_all(status=job_status)]
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=JobView)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=JobView,
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+)
 def create_job(payload: JobCreate, jobs: JobsDep) -> JobView:
     try:
         job = jobs.create(**payload.model_dump())
@@ -62,7 +67,11 @@ def get_job(job_id: UUID, jobs: JobsDep) -> JobView:
         raise _not_found(str(exc)) from exc
 
 
-@router.patch("/{job_id}", response_model=JobView)
+@router.patch(
+    "/{job_id}",
+    response_model=JobView,
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+)
 def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep) -> JobView:
     try:
         job = jobs.update(job_id, **payload.model_dump())
@@ -71,7 +80,11 @@ def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep) -> JobView:
     return JobView.from_model(job)
 
 
-@router.post("/{job_id}/status", response_model=JobView)
+@router.post(
+    "/{job_id}/status",
+    response_model=JobView,
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+)
 def change_job_status(job_id: UUID, payload: JobStatusChange, jobs: JobsDep) -> JobView:
     try:
         job = jobs.transition(job_id, target=payload.status, by=payload.by)

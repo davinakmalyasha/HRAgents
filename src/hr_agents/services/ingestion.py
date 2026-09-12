@@ -186,6 +186,9 @@ class ApplicationStore:
     def find_by_candidate(self, candidate_id: UUID) -> list[ApplicationRecord]:
         return [r for r in self._iter() if r.candidate_id == candidate_id]
 
+    def list_all(self) -> list[ApplicationRecord]:
+        return list(self._iter())
+
     def set_status(
         self, application_id: UUID, status: ApplicationStatus, *, event: str
     ) -> ApplicationRecord | None:

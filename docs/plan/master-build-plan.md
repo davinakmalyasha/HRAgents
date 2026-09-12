@@ -283,9 +283,12 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       (409 on cross-workspace continuation, visible restart); Postgres store with the UI phase
 
 ### 6.3 Recruitment workspace
-- [ ] Pipeline board (kanban: received → screened → interview → offer) with dnd-kit
-- [ ] Candidate detail: score breakdown, evidence refs, timeline, flags
-- [ ] Review queue for HITL (soft-rejection sign-off, anomalies, calendar)
+- [~] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
+      job filter and ranked cards; **read-only by design** — manual stage moves await a safe
+      transition policy (drag must never bypass the HITL gates; tracked in the polish backlog)
+- [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
+      rationales, flags, and policy decision (`/w/hiring/applications/{id}`)
+- [ ] Review queue for HITL (soft-rejection sign-off, anomalies, calendar) — next web slice
 - [ ] Scheduling view (slots, confirmations, reschedules)
 - [ ] Batch import UI (XLSX/CSV + drag-drop CVs) with progress
 

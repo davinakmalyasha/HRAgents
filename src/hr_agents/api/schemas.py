@@ -118,3 +118,28 @@ class QueueEntry(StrictModel):
 
 class QueueResponse(StrictModel):
     items: list[QueueEntry] = Field(default_factory=list)
+
+
+class ApplicationSummary(StrictModel):
+    """One pipeline card: identity, stage, scores, and waiting time."""
+
+    application_id: UUID
+    candidate_id: UUID
+    job_id: UUID
+    status: str
+    priority_score: float
+    s_tech: float | None = None
+    hours_waiting: float
+
+    @classmethod
+    def from_record(cls, record: ApplicationRecord, *, now: datetime) -> ApplicationSummary:
+        hours = (now - record.received_at).total_seconds() / 3600.0
+        return cls(
+            application_id=record.id,
+            candidate_id=record.candidate_id,
+            job_id=record.job_id,
+            status=record.status.value,
+            priority_score=record.priority_score,
+            s_tech=record.s_tech,
+            hours_waiting=round(hours, 4),
+        )

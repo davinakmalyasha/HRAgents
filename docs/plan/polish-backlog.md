@@ -15,6 +15,8 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       evaluations by application, audit_log by sequence)
 - [ ] Pagination on every collection endpoint (jobs, approvals, tasks, audit entries, calendar)
 - [ ] Home attention lists: cap + "view all" once queues grow; virtualize long lists
+- [ ] Manual pipeline stage transitions on the board: design a safe transition policy first
+      (named actor, audit, no bypass of HITL gates for gated/rejected), then dnd-kit drag
 - [ ] Home: surface role-scoped 403s as an explicit "not available for your role" state
       (today they degrade silently to empty sections)
 - [ ] N+1 audit of DB adapters once Postgres persistence lands (eager loading for timelines)
