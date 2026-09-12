@@ -3,6 +3,7 @@ import { Home } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
 
+import { useWorkspaces, workspaceName } from '@/features/workspaces/useWorkspaces'
 import { WORKSPACE_ICONS, WORKSPACE_IDS } from '@/lib/workspaces'
 
 const itemClass =
@@ -13,7 +14,8 @@ function linkClass({ isActive }: { isActive: boolean }) {
 }
 
 export function Sidebar() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const { data: workspaces } = useWorkspaces()
 
   return (
     <nav
@@ -34,7 +36,9 @@ export function Sidebar() {
         return (
           <NavLink key={id} to={`/w/${id}`} className={linkClass}>
             <Icon aria-hidden="true" className="size-4" />
-            <span className="hidden md:inline">{t(`workspaces.${id}.name`)}</span>
+            <span className="hidden md:inline">
+              {workspaceName(workspaces, id, i18n.language, t(`workspaces.${id}.name`))}
+            </span>
           </NavLink>
         )
       })}

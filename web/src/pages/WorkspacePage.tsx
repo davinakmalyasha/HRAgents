@@ -3,18 +3,26 @@ import { Navigate, useParams } from 'react-router'
 
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { ThreeRooms } from '@/components/three-rooms/ThreeRooms'
+import { ChatPanel } from '@/features/chat/ChatPanel'
+import { useWorkspaces, workspaceName } from '@/features/workspaces/useWorkspaces'
 import { isWorkspaceId, WORKSPACE_ICONS } from '@/lib/workspaces'
 
 export function WorkspacePage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { workspaceId } = useParams()
+  const { data: workspaces } = useWorkspaces()
 
   if (!isWorkspaceId(workspaceId)) {
     return <Navigate to="/" replace />
   }
 
   const Icon = WORKSPACE_ICONS[workspaceId]
-  const name = t(`workspaces.${workspaceId}.name`)
+  const name = workspaceName(
+    workspaces,
+    workspaceId,
+    i18n.language,
+    t(`workspaces.${workspaceId}.name`),
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -26,7 +34,7 @@ export function WorkspacePage() {
       <ThreeRooms
         board={<EmptyState title={t('workspace.boardPlaceholder', { name })} />}
         queue={<EmptyState title={t('workspace.queuePlaceholder')} />}
-        chat={<EmptyState title={t('workspace.chatPlaceholder', { name })} />}
+        chat={workspaceId === 'policy' ? <ChatPanel /> : <ChatPanel workspace={workspaceId} />}
       />
     </div>
   )

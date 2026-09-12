@@ -272,10 +272,13 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [ ] Settings → Connections: provider list with health badges, config forms (schema-generated), Test buttons, env-lock padlocks
 
 ### 6.2 Chat front door
-- [ ] Chat UI with workspace quick-switch
-- [ ] SSE streaming from FastAPI
+- [x] Chat UI with workspace quick-switch (sidebar rail; every workspace's Chat room, Ask HR runs
+      the front door with routing and handoff suggestions)
+- [~] SSE streaming from FastAPI — the client uses `POST /v1/chat` (status codes drive the
+      409 conversation-split); upgrade to event streaming once the backend emits progressive events
 - [ ] Tool-call visibility (which agent is acting, what it read)
-- [ ] Workspace-scoped conversation history
+- [~] Workspace-scoped conversation history — client threads are per-workspace and server-pinned
+      (409 on cross-workspace continuation, visible restart); Postgres store with the UI phase
 
 ### 6.3 Recruitment workspace
 - [ ] Pipeline board (kanban: received → screened → interview → offer) with dnd-kit

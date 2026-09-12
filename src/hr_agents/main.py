@@ -27,6 +27,7 @@ from hr_agents.api.routers import (
     offboarding,
     queue,
     scheduling,
+    workspaces,
 )
 from hr_agents.api.routers import chat as chat_router
 from hr_agents.api.routers import leave as leave_router
@@ -198,6 +199,7 @@ def create_app() -> FastAPI:
     app.state.offboarding = people_services.offboarding
 
     app.add_exception_handler(HTTPException, _problem_response)  # type: ignore[arg-type]
+    app.include_router(workspaces.router)
     app.include_router(chat_router.router)
     app.include_router(applications.router)
     app.include_router(queue.router)
