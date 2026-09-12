@@ -7252,6 +7252,40 @@
         "title": "WorkspaceId",
         "type": "string"
       },
+      "WorkspaceView": {
+        "additionalProperties": false,
+        "description": "One department pack as the dashboard needs it: identity + bilingual copy.",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/WorkspaceId"
+          },
+          "name_en": {
+            "title": "Name En",
+            "type": "string"
+          },
+          "name_id": {
+            "title": "Name Id",
+            "type": "string"
+          },
+          "summary_en": {
+            "title": "Summary En",
+            "type": "string"
+          },
+          "summary_id": {
+            "title": "Summary Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name_en",
+          "name_id",
+          "summary_en",
+          "summary_id"
+        ],
+        "title": "WorkspaceView",
+        "type": "object"
+      },
       "hr_agents__api__compliance_schemas__PolicySet": {
         "additionalProperties": false,
         "properties": {
@@ -18024,6 +18058,60 @@
         "summary": "Complete Task",
         "tags": [
           "tasks"
+        ]
+      }
+    },
+    "/v1/workspaces": {
+      "get": {
+        "description": "Every workspace pack, in the deterministic enum order.",
+        "operationId": "list_workspaces_v1_workspaces_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceView"
+                  },
+                  "title": "Response List Workspaces V1 Workspaces Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Department packs for navigation",
+        "tags": [
+          "workspaces"
         ]
       }
     }

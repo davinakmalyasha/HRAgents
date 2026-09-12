@@ -46,6 +46,8 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 ## Beauty / UX
 
+- [ ] Chat: progressive token streaming + tool-call visibility (agent, tools read, citations) once
+      the backend emits event-by-event SSE; today the client uses `POST /v1/chat` for status codes
 - [ ] Motion pass (reduced-motion aware), skeleton loaders, optimistic updates where safe
 - [ ] Empty states, error states, and offline states for every workspace
 - [ ] Accessibility audit (axe + manual keyboard/screen-reader pass) on all workspaces

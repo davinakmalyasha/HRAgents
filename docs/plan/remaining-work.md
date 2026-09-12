@@ -2,8 +2,9 @@
 
 Status snapshot: **2026-09-12**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **834 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
-The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job.
+cross-workspace handoff) is built and tested: **838 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
+plus the workspace metadata API and the Ask HR chat UI with citations and handoff suggestions (W2b).
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -132,7 +133,8 @@ documented.
       sum-to-1.0 validation surfaced inline)
 
 ### 2.5 Department workspaces (Wave-1 surfaces)
-- [ ] Ask HR: chat with citations (SSE streaming, tool-call visibility)
+- [~] Ask HR: chat with citations and handoff suggestions done; progressive SSE streaming and
+      tool-call visibility remain (see polish backlog)
 - [ ] Onboarding workspace: checklists, document collection status, waive with reason
 - [ ] Records workspace: employee directory, document vault, expiry alerts, org chart
 - [ ] Leave workspace: policies, balances, request calendar, approval queue

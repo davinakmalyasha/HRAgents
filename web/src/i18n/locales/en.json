@@ -22,8 +22,23 @@
   "status": { "waiting": "Awaiting human", "error": "Overdue", "done": "Verified" },
   "workspace": {
     "boardPlaceholder": "The {name} board lands in a later slice.",
-    "queuePlaceholder": "Decisions waiting on you will appear here.",
-    "chatPlaceholder": "Ask {name} agents about this workspace only."
+    "queuePlaceholder": "Decisions waiting on you will appear here."
+  },
+  "chat": {
+    "empty": "Ask a question to get started.",
+    "placeholder": "Ask anything…",
+    "send": "Send",
+    "thinking": "Thinking…",
+    "error": "Something went wrong. Please try again.",
+    "citations": "Sources",
+    "escalated": "A human will follow up.",
+    "newSubject": "New subject — started a fresh conversation.",
+    "handoff": {
+      "title": "Also handle elsewhere?",
+      "action": "Hand off to {{workspace}}",
+      "queued": "Queued in {{workspace}}.",
+      "failed": "Could not queue the handoff."
+    }
   },
   "notFound": { "title": "Page not found", "back": "Back to home" },
   "common": {

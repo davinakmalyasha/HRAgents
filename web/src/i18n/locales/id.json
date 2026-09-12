@@ -22,8 +22,23 @@
   "status": { "waiting": "Menunggu manusia", "error": "Terlambat", "done": "Terverifikasi" },
   "workspace": {
     "boardPlaceholder": "Papan {name} hadir pada tahap berikutnya.",
-    "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini.",
-    "chatPlaceholder": "Tanyakan agen {name} hanya tentang ruang kerja ini."
+    "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini."
+  },
+  "chat": {
+    "empty": "Ajukan pertanyaan untuk memulai.",
+    "placeholder": "Tanya apa saja…",
+    "send": "Kirim",
+    "thinking": "Sedang berpikir…",
+    "error": "Terjadi kesalahan. Silakan coba lagi.",
+    "citations": "Sumber",
+    "escalated": "Seorang manusia akan menindaklanjuti.",
+    "newSubject": "Topik baru — percakapan dimulai ulang.",
+    "handoff": {
+      "title": "Tangani juga di tempat lain?",
+      "action": "Serahkan ke {{workspace}}",
+      "queued": "Masuk antrean {{workspace}}.",
+      "failed": "Gagal memasukkan ke antrean."
+    }
   },
   "notFound": { "title": "Halaman tidak ditemukan", "back": "Kembali ke beranda" },
   "common": {
