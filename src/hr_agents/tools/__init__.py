@@ -4,6 +4,10 @@ No shell tools. No generic URL fetchers. Every tool is scoped to explicit agent
 allowlists and every call is recorded on the audit chain by argument hash.
 """
 
+from hr_agents.tools.evaluation import (
+    make_get_evaluation_breakdown_tool,
+    serialize_breakdown,
+)
 from hr_agents.tools.knowledge import make_search_knowledge_tool
 from hr_agents.tools.portfolio import (
     make_analyze_repo_ast_tool,
@@ -40,10 +44,12 @@ __all__ = [
     "make_detect_frameworks_tool",
     "make_escalate_to_human_tool",
     "make_get_candidate_profile_tool",
+    "make_get_evaluation_breakdown_tool",
     "make_github_profile_tool",
     "make_lookup_publication_tool",
     "make_record_availability_tool",
     "make_repo_metrics_tool",
     "make_search_knowledge_tool",
     "make_verify_credential_tool",
+    "serialize_breakdown",
 ]
