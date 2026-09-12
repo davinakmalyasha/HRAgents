@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import Field
@@ -128,8 +128,8 @@ class PlanView(StrictModel):
     template_version_hash: str
     progress: float
     is_complete: bool
-    started_at: object
-    completed_at: object
+    started_at: datetime
+    completed_at: datetime | None
     steps: list[StepView]
     blockers: list[str]
 

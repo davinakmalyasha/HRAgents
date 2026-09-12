@@ -202,7 +202,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Open handoffs queued for one workspace */
+        /** Open handoffs, optionally filtered to one workspace */
         get: operations["list_handoffs_v1_chat_handoffs_get"];
         put?: never;
         /** Queue a request in another workspace (human-invoked) */
@@ -2339,8 +2339,11 @@ export interface components {
         /** ApprovalView */
         ApprovalView: {
             assignee_role: components["schemas"]["ApproverRole"];
-            /** Created At */
-            created_at: unknown;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /** Escalation Count */
             escalation_count: number;
             /**
@@ -2355,7 +2358,7 @@ export interface components {
             /** Requested By Agent */
             requested_by_agent: boolean;
             /** Sla Deadline */
-            sla_deadline: unknown;
+            sla_deadline: string | null;
             status: components["schemas"]["ApprovalStatus"];
             subject: components["schemas"]["ApprovalSubject"];
             /** Subject Id */
@@ -5107,7 +5110,7 @@ export interface components {
             /** Blockers */
             blockers: string[];
             /** Completed At */
-            completed_at: unknown;
+            completed_at: string | null;
             /**
              * Employee Id
              * Format: uuid
@@ -5122,8 +5125,11 @@ export interface components {
             is_complete: boolean;
             /** Progress */
             progress: number;
-            /** Started At */
-            started_at: unknown;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
             /** Steps */
             steps: components["schemas"]["hr_agents__api__onboarding_schemas__StepView"][];
             /**
@@ -5617,8 +5623,8 @@ export interface operations {
     };
     list_handoffs_v1_chat_handoffs_get: {
         parameters: {
-            query: {
-                workspace: components["schemas"]["WorkspaceId"];
+            query?: {
+                workspace?: components["schemas"]["WorkspaceId"] | null;
             };
             header?: {
                 "X-API-Key"?: string | null;

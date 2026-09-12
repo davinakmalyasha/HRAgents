@@ -257,7 +257,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Typography: Inter (UI) + JetBrains Mono (scores/IDs); scale 12–30, weights 400/500/600 (self-hosted)
 - [~] Component kit: shadcn/ui themed to tokens (button, input, table, dialog, tabs, badge, progress,
       command, sonner, …) + `StatusBadge` (icon+label mandatory), `ScoreBar`, `EmptyState`
-- [ ] Attention-first home: "Needs you today" + "Watching" sections wired to real queues (layout + empty states now)
+- [x] Attention-first home: "Needs you today" (overdue approvals, overdue tasks, open handoffs) and
+      "Watching" (pending approvals, open tasks) wired to the real queues; every item deep-links to
+      its workspace queue (`?room=queue`), empty states celebrate zero work
 - [~] Three-rooms workspace layout component (Board / Queue / Chat) — structure + placeholders;
       a workspace data endpoint lands with the chat UI slice
 - [~] Accessibility pass: focus rings, reduced motion, icon+label status primitives in place;

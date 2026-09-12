@@ -14,6 +14,9 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [ ] Database: index review per hot query (approvals by role+status, tasks overdue, queue scans,
       evaluations by application, audit_log by sequence)
 - [ ] Pagination on every collection endpoint (jobs, approvals, tasks, audit entries, calendar)
+- [ ] Home attention lists: cap + "view all" once queues grow; virtualize long lists
+- [ ] Home: surface role-scoped 403s as an explicit "not available for your role" state
+      (today they degrade silently to empty sections)
 - [ ] N+1 audit of DB adapters once Postgres persistence lands (eager loading for timelines)
 - [ ] LLM latency: batch/strip extraction prompts; consider parallel k-run scoring vs sequential
 - [ ] Cache policy: skill registry fingerprint, rate tables, provider health (TTL + invalidation)

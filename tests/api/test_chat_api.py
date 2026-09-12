@@ -150,6 +150,9 @@ def test_handoff_is_queued_and_listed() -> None:
         assert listed.status_code == 200
         assert [item["id"] for item in listed.json()] == [body["id"]]
 
+        every = client.get("/v1/chat/handoffs")
+        assert [item["id"] for item in every.json()] == [body["id"]]
+
         empty = client.get("/v1/chat/handoffs", params={"workspace": "payroll"})
         assert empty.json() == []
 

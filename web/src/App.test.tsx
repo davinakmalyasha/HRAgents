@@ -53,6 +53,12 @@ describe('AppRoutes', () => {
     expect(screen.getByRole('button', { name: i18n.t('chat.send') })).toBeInTheDocument()
   })
 
+  it('deep-links to a room through the query string', () => {
+    renderAt('/w/hiring?room=chat')
+
+    expect(screen.getByRole('textbox', { name: i18n.t('chat.placeholder') })).toBeInTheDocument()
+  })
+
   it('redirects unknown workspaces to home', () => {
     renderAt('/w/unknown')
 

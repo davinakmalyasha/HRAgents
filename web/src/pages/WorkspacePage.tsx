@@ -1,21 +1,30 @@
 import { useTranslation } from 'react-i18next'
-import { Navigate, useParams } from 'react-router'
+import { Navigate, useParams, useSearchParams } from 'react-router'
 
 import { EmptyState } from '@/components/feedback/EmptyState'
-import { ThreeRooms } from '@/components/three-rooms/ThreeRooms'
+import { ThreeRooms, type RoomId } from '@/components/three-rooms/ThreeRooms'
 import { ChatPanel } from '@/features/chat/ChatPanel'
 import { useWorkspaces, workspaceName } from '@/features/workspaces/useWorkspaces'
 import { isWorkspaceId, WORKSPACE_ICONS } from '@/lib/workspaces'
 
+const ROOMS: RoomId[] = ['board', 'queue', 'chat']
+
+function isRoom(value: string | null): value is RoomId {
+  return value !== null && (ROOMS as string[]).includes(value)
+}
+
 export function WorkspacePage() {
   const { t, i18n } = useTranslation()
   const { workspaceId } = useParams()
+  const [searchParams] = useSearchParams()
   const { data: workspaces } = useWorkspaces()
 
   if (!isWorkspaceId(workspaceId)) {
     return <Navigate to="/" replace />
   }
 
+  const requestedRoom = searchParams.get('room')
+  const defaultRoom: RoomId = isRoom(requestedRoom) ? requestedRoom : 'board'
   const Icon = WORKSPACE_ICONS[workspaceId]
   const name = workspaceName(
     workspaces,
@@ -32,6 +41,8 @@ export function WorkspacePage() {
       </div>
 
       <ThreeRooms
+        key={defaultRoom}
+        defaultRoom={defaultRoom}
         board={<EmptyState title={t('workspace.boardPlaceholder', { name })} />}
         queue={<EmptyState title={t('workspace.queuePlaceholder')} />}
         chat={workspaceId === 'policy' ? <ChatPanel /> : <ChatPanel workspace={workspaceId} />}
