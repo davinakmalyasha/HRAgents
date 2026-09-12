@@ -1,8 +1,8 @@
 # Remaining Work — MCP layer to paper & release
 
-Status snapshot: **2026-09-12**. Everything up to and including the recruitment API surface
-(ingestion, documents, jobs, evaluations, overrides, feedback, scheduling) plus all departments
-(compliance, growth, offboarding) is built and tested: **731 tests · 92% coverage · ruff+mypy clean**.
+Status snapshot: **2026-09-12**. Everything up to and including Phase 5 (multi-department
+architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
+cross-workspace handoff) is built and tested: **827 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for

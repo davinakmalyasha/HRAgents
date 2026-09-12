@@ -8,9 +8,14 @@ from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.policy_assistant import PolicyAnswer, PolicyResult
 from hr_agents.rbac import Principal, RoleId
 from hr_agents.services.audit import AuditChain
-from hr_agents.services.chat import ESCALATION_TEXT, ChatError, ChatService
+from hr_agents.services.chat import (
+    ESCALATION_TEXT,
+    ChatError,
+    ChatService,
+    ChatWorkspaceMismatch,
+)
 from hr_agents.services.front_door import FrontDoor
-from hr_agents.tools import ToolRegistry
+from hr_agents.tools import ToolDefinition, ToolNotFoundError, ToolRegistry
 from hr_agents.workspaces import WorkspaceId
 
 PRINCIPAL = Principal(actor_id="hr-admin", role=RoleId.HR_ADMIN)
@@ -79,7 +84,7 @@ async def test_conversation_history_is_workspace_scoped_and_continuous() -> None
 
     first = await service.ask(message="berapa saldo cuti saya?", principal=PRINCIPAL)
     second = await service.ask(
-        message="di mana kebijakannya?",
+        message="bagaimana aturan cuti tahunan?",
         principal=PRINCIPAL,
         conversation_id=first.conversation_id,
     )
@@ -93,6 +98,71 @@ async def test_conversation_history_is_workspace_scoped_and_continuous() -> None
 
     deps = responder.deps_history[0]
     assert deps.knowledge_namespaces == ("platform.knowledge",)
+
+
+async def test_conversation_cannot_cross_workspaces() -> None:
+    answer = PolicyAnswer(answer="Kebijakan cuti ada di dokumen.", citations=["policy.md#1"])
+    service, _, _ = make_service(answer)
+
+    first = await service.ask(message="berapa saldo cuti saya?", principal=PRINCIPAL)
+    with pytest.raises(ChatWorkspaceMismatch):
+        await service.ask(
+            message="kapan gaji dibayar?",
+            principal=PRINCIPAL,
+            conversation_id=first.conversation_id,
+        )
+
+    record = service.get_conversation(first.conversation_id)
+    assert record is not None
+    assert len(record.turns) == 2
+
+
+async def test_cross_workspace_matches_are_offered_as_handoff_options() -> None:
+    answer = PolicyAnswer(answer="Dua urusan terdeteksi.", citations=["policy.md#1"])
+    service, _, _ = make_service(answer)
+
+    reply = await service.ask(
+        message="tolong siapkan onboarding untuk Budi dan cek gaji serta THR",
+        principal=PRINCIPAL,
+    )
+
+    assert reply.workspace is WorkspaceId.PAYROLL
+    assert WorkspaceId.ONBOARDING in reply.handoff_options
+
+
+async def test_workspace_run_gets_scoped_tool_view() -> None:
+    answer = PolicyAnswer(answer="ok", citations=["policy.md#1"])
+    audit = AuditChain()
+    responder = FakeResponder(answer)
+
+    def handler() -> str:
+        return "ok"
+
+    tools = ToolRegistry(audit=audit)
+    tools.register(
+        ToolDefinition(
+            name="search_knowledge",
+            description="fake",
+            allowed_agents=frozenset({"policy_assistant"}),
+            handler=handler,
+        )
+    )
+    tools.register(
+        ToolDefinition(
+            name="github_profile",
+            description="fake",
+            allowed_agents=frozenset({"policy_assistant"}),
+            handler=handler,
+        )
+    )
+    service = ChatService(front_door=FrontDoor(), responder=responder, audit=audit, tools=tools)
+
+    await service.ask(message="berapa saldo cuti saya?", principal=PRINCIPAL)
+
+    scoped = responder.deps_history[0].tools
+    assert scoped.names() == ["search_knowledge"]
+    with pytest.raises(ToolNotFoundError):
+        scoped.get("github_profile")
 
 
 async def test_unknown_conversation_is_rejected() -> None:

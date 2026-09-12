@@ -81,7 +81,7 @@ DEFAULT_WORKSPACES: tuple[WorkspaceDefinition, ...] = (
         agents=frozenset(
             {
                 "resume_deconstructor",
-                "code_portfolio_evaluator",
+                "code_portfolio",
                 "screening_coordinator",
                 "feedback_writer",
             }

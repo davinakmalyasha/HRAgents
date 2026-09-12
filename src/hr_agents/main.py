@@ -42,6 +42,7 @@ from hr_agents.services.chat import ChatService
 from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.recruiting import RecruitingServices
+from hr_agents.services.workspace_requests import HandoffService
 from hr_agents.skills import SkillRegistry, load_library
 from hr_agents.tools import (
     ToolRegistry,
@@ -61,6 +62,7 @@ async def _build_chat(app: FastAPI) -> None:
     skills_root = _REPO_ROOT / "skills"
     if audit is None or not skills_root.is_dir():
         app.state.chat = None
+        app.state.handoffs = None
         return
     try:
         skills = SkillRegistry(load_library(skills_root))
@@ -79,10 +81,12 @@ async def _build_chat(app: FastAPI) -> None:
             audit=audit,
             tools=tools,
         )
+        app.state.handoffs = HandoffService(registry=registry, audit=audit)
         logger.info("chat_ready", workspaces=len(registry.list_all()))
     except Exception as exc:
         logger.warning("chat_unavailable", error=type(exc).__name__)
         app.state.chat = None
+        app.state.handoffs = None
 
 
 @asynccontextmanager

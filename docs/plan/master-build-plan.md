@@ -60,7 +60,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 2. Contracts & data model | Done |
 | 3. Deterministic core & pipeline | Done |
 | 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **In progress** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄 |
-| 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **In progress** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy 🔄 |
+| 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **Done** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅ (conversation-store Postgres adapter lands with Phase 6) |
 | 6. Web app + PWA | Not started |
 | 7. Integrations (messaging, Google, files, MCP) | Not started |
 | 8. Departments (onboarding, records, leave, payroll prep, performance, offboarding) | **Done (Wave 1 engines)** — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅ |
@@ -215,7 +215,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 
 - [x] Workspace definitions (department packs registry) — `src/hr_agents/workspaces.py`: 9 packs with
       agent/tool/knowledge scopes, read/write permissions, routing keywords, deterministic fingerprint
-- [x] Front door router: deterministic dispatch when workspace explicit; LLM intent classification only for ambiguous messages; **never executes consequential actions** — keyword router + explicit hint (`services/front_door.py`); Ask HR answers via `PolicyAssistant` and ungrounded answers deterministically escalate (`services/chat.py`, `POST /v1/chat`, SSE `/v1/chat/stream`); ambiguous messages fall back to Ask HR (an LLM intent classifier remains a later refinement)
+- [x] Front door router: deterministic dispatch when workspace explicit; LLM intent classification only for ambiguous messages; **never executes consequential actions** — keyword router + explicit hint (`services/front_door.py`); Ask HR answers via `PolicyAssistant` and ungrounded answers deterministically escalate (`services/chat.py`, `POST /v1/chat`, SSE `/v1/chat/stream`); ambiguous messages fall back to Ask HR (an LLM intent classifier remains a later refinement); multi-department messages surface ranked `alternates` as `handoff_options`
 - [x] RBAC: roles (hr_admin, recruiter, finance, manager, employee) × permissions — `src/hr_agents/rbac.py`,
       router-level enforcement, stricter checks on overrides, payroll sign-off/export, and compliance execution;
       role-bound API keys via `HRAGENTS_API_PRINCIPALS`
@@ -224,9 +224,18 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       tenant when unset), `db/rls.py` single source of the policy SQL, `sync_session_scope(tenant_id=…)` sets
       the transaction-local GUC, RLS read/write fencing covered by `tests/db/test_rls.py` on Postgres
       (ADR 0006)
-- [~] Workspace context isolation (knowledge, tools, conversations) — chat scopes agent knowledge namespaces per routed workspace; tool allowlists from the packs are enforced as each department's agents are wired
+- [x] Workspace context isolation (knowledge, tools, conversations) — chat scopes agent
+      knowledge namespaces per routed workspace; tool access is intersected with the pack's
+      declared scope via `ToolRegistry.scoped()` (`AgentDeps.for_workspace`), out-of-scope calls
+      are denied and audited, and a conversation is pinned to its workspace (cross-workspace
+      continuation returns 409); `tests/tools/test_catalog.py` pins packs to the canonical
+      `TOOL_NAMES` catalog and to real agent names
 - [~] Chat conversation persistence — in-memory `ConversationStore` behind persistence primitives; Postgres adapter lands with the Phase 6 UI work
-- [ ] Cross-workspace request handoff ("handle onboarding for Budi")
+- [x] Cross-workspace request handoff ("handle onboarding for Budi") — `RouteDecision.alternates`
+      ranked deterministically (EN/ID), `ChatReply.handoff_options`, and `HandoffService`
+      (`services/workspace_requests.py`) queues a human-invoked `WorkspaceRequest` in the target
+      workspace (audited as `handoff.requested`, never agent-invoked); `POST/GET /v1/chat/handoffs`;
+      in-memory store behind primitives, Postgres adapter with Phase 6
 - [x] Employee data model (HRIS-lite core: employees, contracts, documents, org units) — Phase 8.0/8.4
 - [x] Retention & erasure engine (UU PDP: per-entity retention policies, delete/anonymize jobs) — Phase 8.9
 

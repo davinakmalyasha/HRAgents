@@ -29,6 +29,10 @@ class ChatError(RuntimeError):
     """Raised for invalid chat operations (unknown conversation, etc.)."""
 
 
+class ChatWorkspaceMismatch(ChatError):
+    """Raised when a conversation is continued from a different workspace."""
+
+
 class ChatTurn(StrictModel):
     role: Literal["user", "assistant"]
     text: str = Field(min_length=1, max_length=8000)
@@ -78,6 +82,7 @@ class ChatReply(StrictModel):
     workspace: WorkspaceId
     route_reason: RouteReason
     matched_keywords: list[str] = Field(default_factory=list)
+    handoff_options: list[WorkspaceId] = Field(default_factory=list)
     answer: str
     citations: list[str] = Field(default_factory=list)
     escalate: bool = False
@@ -120,13 +125,18 @@ class ChatService:
             raise ChatError(f"unknown conversation {conversation_id}")
         if record is None:
             record = ConversationRecord(workspace=decision.workspace)
+        elif record.workspace is not decision.workspace:
+            raise ChatWorkspaceMismatch(
+                f"conversation {record.id} belongs to workspace "
+                f"{record.workspace.value!r}, not {decision.workspace.value!r}"
+            )
         record.turns.append(ChatTurn(role="user", text=message))
 
         deps = AgentDeps(
             tools=self._tools,
             audit=self._audit,
             request_id=str(record.id),
-        ).namespaced(*sorted(definition.knowledge_namespaces))
+        ).for_workspace(definition)
 
         result = await self._responder.ask(message, deps=deps)
 
@@ -170,6 +180,7 @@ class ChatService:
             workspace=decision.workspace,
             route_reason=decision.reason,
             matched_keywords=list(decision.matched_keywords),
+            handoff_options=list(decision.alternates),
             answer=answer,
             citations=citations,
             escalate=escalate,

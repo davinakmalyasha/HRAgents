@@ -32,6 +32,8 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [ ] Dependency scanning cadence (Dependabot + periodic `uvx pip-audit` on lockfile)
 - [ ] Session/auth hardening review (cookie flags, CSRF strategy for the SPA, API key scopes)
 - [ ] ZDR verification note: confirm provider-side retention settings in `providers.md`
+- [ ] Handoff queue reads currently require only `chat:use`; revisit per-workspace read
+      permissions for `GET /v1/chat/handoffs` when the dashboard defines queue access
 
 ## Reliability
 
@@ -53,6 +55,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 ## Docs & developer experience
 
 - [ ] Docs site (mkdocs-material + Pages) with versioned API reference
+- [ ] Sync `docs/api/openapi.yaml` with the Phase 5 surfaces (chat, handoffs, RBAC/tenancy
+      headers); keep the live `/openapi.json` as the executable contract
+- [ ] Postgres adapters for `ConversationStore` and `WorkspaceRequestStore` (in-memory
+      primitives today; land with the dashboard so queues survive restarts)
 - [ ] Operator runbooks: provider failures, incident response, upgrade playbook
 - [ ] Reproduce benchmarks from a clean clone (script + CI artifact)
 - [ ] Type strictness: evaluate `mypy --strict` on `src/hr_agents`; branch coverage 100% on

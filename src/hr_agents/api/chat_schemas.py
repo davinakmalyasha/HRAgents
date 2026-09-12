@@ -10,6 +10,7 @@ from pydantic import Field
 from hr_agents.models import StrictModel
 from hr_agents.services.chat import ChatReply, ChatTurn, ConversationRecord
 from hr_agents.services.front_door import RouteReason
+from hr_agents.services.workspace_requests import RequestStatus, WorkspaceRequest
 from hr_agents.workspaces import WorkspaceId
 
 
@@ -24,6 +25,7 @@ class ChatReplyView(StrictModel):
     workspace: WorkspaceId
     route_reason: RouteReason
     matched_keywords: list[str]
+    handoff_options: list[WorkspaceId]
     answer: str
     citations: list[str]
     escalate: bool
@@ -59,3 +61,26 @@ class ConversationView(StrictModel):
             created_at=record.created_at,
             updated_at=record.updated_at,
         )
+
+
+class HandoffRequest(StrictModel):
+    """Ask another workspace to pick up a request; the human confirms."""
+
+    message: str = Field(min_length=1, max_length=8000)
+    source_workspace: WorkspaceId
+    target_workspace: WorkspaceId
+
+
+class HandoffView(StrictModel):
+    id: UUID
+    source_workspace: WorkspaceId
+    target_workspace: WorkspaceId
+    text: str
+    status: RequestStatus
+    requested_by: str
+    created_at: datetime
+    updated_at: datetime
+
+    @classmethod
+    def from_model(cls, record: WorkspaceRequest) -> HandoffView:
+        return cls(**record.model_dump())

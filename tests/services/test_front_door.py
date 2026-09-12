@@ -52,3 +52,25 @@ def test_routing_is_deterministic_for_ties() -> None:
     second = door.route("cuti dan gaji")
     assert first == second
     assert first.workspace in {WorkspaceId.LEAVE, WorkspaceId.PAYROLL}
+
+
+def test_alternates_list_other_matched_departments_best_first() -> None:
+    decision = FrontDoor().route("tolong siapkan onboarding untuk Budi dan cek gaji serta THR")
+    assert decision.workspace is WorkspaceId.PAYROLL
+    assert decision.alternates == [WorkspaceId.ONBOARDING]
+
+
+def test_explicit_workspace_has_no_alternates() -> None:
+    decision = FrontDoor().route("cuti dan gaji", workspace=WorkspaceId.LEAVE)
+    assert decision.alternates == []
+
+
+def test_ask_hr_is_never_an_alternate() -> None:
+    decision = FrontDoor().route("apa aturan cuti perusahaan?")
+    assert decision.workspace is WorkspaceId.LEAVE
+    assert decision.alternates == []
+
+
+def test_fallback_has_no_alternates() -> None:
+    decision = FrontDoor().route("halo, apa kabar?")
+    assert decision.alternates == []

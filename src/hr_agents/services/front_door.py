@@ -13,7 +13,12 @@ from enum import StrEnum
 from pydantic import Field
 
 from hr_agents.models import StrictModel
-from hr_agents.workspaces import WorkspaceId, WorkspaceRegistry, default_registry
+from hr_agents.workspaces import (
+    WorkspaceDefinition,
+    WorkspaceId,
+    WorkspaceRegistry,
+    default_registry,
+)
 
 
 class RouteReason(StrEnum):
@@ -23,11 +28,17 @@ class RouteReason(StrEnum):
 
 
 class RouteDecision(StrictModel):
-    """Which workspace handles one message, and why."""
+    """Which workspace handles one message, and why.
+
+    ``alternates`` lists other keyword-matched departments, best first, so the
+    caller can offer an explicit handoff. It is a suggestion surface only: the
+    router never executes or transfers anything itself.
+    """
 
     workspace: WorkspaceId
     reason: RouteReason
     matched_keywords: list[str] = Field(default_factory=list)
+    alternates: list[WorkspaceId] = Field(default_factory=list)
 
 
 class FrontDoor:
@@ -47,24 +58,31 @@ class FrontDoor:
             return RouteDecision(workspace=definition.id, reason=RouteReason.EXPLICIT)
 
         text = " ".join(message.lower().split())
-        best: RouteDecision | None = None
-        policy_match: RouteDecision | None = None
+        matches: list[tuple[WorkspaceDefinition, list[str]]] = []
         for definition in self._registry.list_all():
             matched = sorted(keyword for keyword in definition.keywords if keyword in text)
-            if not matched:
-                continue
-            candidate = RouteDecision(
+            if matched:
+                matches.append((definition, matched))
+        ranked = sorted(matches, key=lambda item: (-len(item[1]), self._rank(item[0].id)))
+
+        departments = [item for item in ranked if item[0].id is not WorkspaceId.POLICY]
+        if departments:
+            definition, matched = departments[0]
+            return RouteDecision(
                 workspace=definition.id,
                 reason=RouteReason.KEYWORD,
                 matched_keywords=matched,
+                alternates=[item[0].id for item in departments[1:]],
             )
-            if definition.id is WorkspaceId.POLICY:
-                policy_match = candidate
-                continue
-            if best is None or len(matched) > len(best.matched_keywords):
-                best = candidate
-        if best is not None:
-            return best
-        if policy_match is not None:
-            return policy_match
+        policy = next((item for item in ranked if item[0].id is WorkspaceId.POLICY), None)
+        if policy is not None:
+            return RouteDecision(
+                workspace=policy[0].id,
+                reason=RouteReason.KEYWORD,
+                matched_keywords=policy[1],
+            )
         return RouteDecision(workspace=WorkspaceId.POLICY, reason=RouteReason.FALLBACK)
+
+    @staticmethod
+    def _rank(workspace: WorkspaceId) -> int:
+        return list(WorkspaceId).index(workspace)
