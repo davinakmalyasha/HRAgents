@@ -8,11 +8,16 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from hr_agents.api.deps import get_store, require_api_key
+from hr_agents.api.deps import get_store, require_permission
 from hr_agents.api.schemas import QueueEntry, QueueResponse
+from hr_agents.rbac import Permission
 from hr_agents.services import ApplicationStore
 
-router = APIRouter(prefix="/v1/queue", tags=["queue"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/v1/queue",
+    tags=["queue"],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_READ))],
+)
 
 
 @router.get("", response_model=QueueResponse, summary="Priority-ranked candidates for a job")

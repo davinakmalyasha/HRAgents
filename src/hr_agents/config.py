@@ -9,11 +9,21 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from hr_agents.rbac import RoleId
 
 Environment = Literal["local", "test", "staging", "production"]
 StoreBackend = Literal["memory", "postgres"]
+
+
+class ApiPrincipalSettings(BaseModel):
+    """A role-bound API key (operator-managed principals)."""
+
+    key: SecretStr
+    role: RoleId = RoleId.HR_ADMIN
+    actor_id: str = Field(default="api-key", min_length=1, max_length=200)
 
 
 class Settings(BaseSettings):
@@ -33,7 +43,9 @@ class Settings(BaseSettings):
     debug: bool = False
 
     # Inbound API keys. Empty list = authentication disabled (local dev only).
+    # Plain keys are treated as hr_admin; use api_principals for role-bound keys.
     api_keys: list[str] = Field(default_factory=list)
+    api_principals: list[ApiPrincipalSettings] = Field(default_factory=list)
 
     # --- Persistence ---
     # Store backend: "memory" (tests, zero-config dev) or "postgres" (durable).

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.onboarding_schemas import (
     PlanStartRequest,
     PlanView,
@@ -17,10 +17,13 @@ from hr_agents.api.onboarding_schemas import (
     TemplateCreate,
     TemplateView,
 )
+from hr_agents.rbac import Permission
 from hr_agents.services.onboarding import OnboardingError, OnboardingService
 
 router = APIRouter(
-    prefix="/v1/onboarding", tags=["onboarding"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/onboarding",
+    tags=["onboarding"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
 )
 
 

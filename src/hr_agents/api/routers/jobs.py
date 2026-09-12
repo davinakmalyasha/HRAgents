@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.recruitment_schemas import (
     JobCreate,
     JobStatusChange,
@@ -15,9 +15,14 @@ from hr_agents.api.recruitment_schemas import (
     JobView,
 )
 from hr_agents.models import JobStatus
+from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import JobService, RecruitingError
 
-router = APIRouter(prefix="/v1/jobs", tags=["jobs"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/v1/jobs",
+    tags=["jobs"],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+)
 
 
 def get_jobs(request: Request) -> JobService:

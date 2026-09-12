@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.offboarding_schemas import (
     AssetCreate,
     AssetMissing,
@@ -23,6 +23,7 @@ from hr_agents.api.offboarding_schemas import (
     TemplateCreate,
     TemplateView,
 )
+from hr_agents.rbac import Permission
 from hr_agents.services.offboarding import (
     OffboardingError,
     OffboardingService,
@@ -30,7 +31,9 @@ from hr_agents.services.offboarding import (
 )
 
 router = APIRouter(
-    prefix="/v1/offboarding", tags=["offboarding"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/offboarding",
+    tags=["offboarding"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
 )
 
 
