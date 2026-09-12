@@ -146,6 +146,80 @@ async def test_denied_call_is_audited() -> None:
         await registry.execute(agent_name="agent_b", tool_name="alpha")
 
     assert audit.entries[-1].payload["outcome"] == "denied"
+    assert audit.entries[-1].payload["reason"] == "agent_scope"
+
+
+def test_scoped_view_hides_out_of_scope_tools() -> None:
+    registry = ToolRegistry()
+    registry.register(make_tool("alpha", {"agent_a"}))
+    registry.register(make_tool("beta", {"agent_a"}))
+
+    view = registry.scoped({"alpha"}, scope_id="hiring")
+
+    assert view.names() == ["alpha"]
+    assert "alpha" in view
+    assert "beta" not in view
+    assert len(view) == 1
+    assert view.names_for("agent_a") == ["alpha"]
+    with pytest.raises(ToolNotFoundError):
+        view.get("beta")
+
+
+def test_scoped_view_shares_late_registrations_with_parent() -> None:
+    registry = ToolRegistry()
+    registry.register(make_tool("alpha", {"agent_a"}))
+    registry.register(make_tool("beta", {"agent_b"}))
+    view = registry.scoped({"alpha", "gamma"})
+
+    registry.register(make_tool("gamma", {"agent_a"}))
+
+    assert registry.names() == ["alpha", "beta", "gamma"]
+    assert view.names() == ["alpha", "gamma"]
+
+
+async def test_scoped_view_denies_out_of_scope_execution_and_audits() -> None:
+    audit = AuditChain()
+    registry = ToolRegistry(audit=audit)
+    registry.register(make_tool("beta", {"agent_a"}, result="secret"))
+    view = registry.scoped({"alpha"}, scope_id="payroll")
+
+    with pytest.raises(ToolPermissionError, match="outside workspace scope"):
+        await view.execute(agent_name="agent_a", tool_name="beta")
+
+    entry = audit.entries[-1]
+    assert entry.payload["outcome"] == "denied"
+    assert entry.payload["reason"] == "workspace_scope"
+    assert entry.payload["workspace"] == "payroll"
+
+
+async def test_scoped_view_still_enforces_agent_scope() -> None:
+    audit = AuditChain()
+    registry = ToolRegistry(audit=audit)
+    registry.register(make_tool("alpha", {"agent_a"}))
+    view = registry.scoped({"alpha"}, scope_id="hiring")
+
+    with pytest.raises(ToolPermissionError, match="not permitted"):
+        await view.execute(agent_name="agent_b", tool_name="alpha")
+
+    assert audit.entries[-1].payload["reason"] == "agent_scope"
+
+
+def test_scoped_view_rejects_registration() -> None:
+    registry = ToolRegistry()
+    view = registry.scoped({"alpha"})
+    with pytest.raises(ValueError, match="scoped view"):
+        view.register(make_tool("alpha", {"agent_a"}))
+
+
+def test_scoping_cannot_widen_a_scoped_view() -> None:
+    registry = ToolRegistry()
+    registry.register(make_tool("alpha", {"agent_a"}))
+    registry.register(make_tool("beta", {"agent_a"}))
+    view = registry.scoped({"alpha"}, scope_id="hiring")
+
+    narrower = view.scoped({"alpha", "beta"}, scope_id="payroll")
+
+    assert narrower.names() == ["alpha"]
 
 
 def test_callable_returns_bare_handler() -> None:

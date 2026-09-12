@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from hr_agents.services.audit import AuditChain
 from hr_agents.tools.registry import ToolRegistry
+from hr_agents.workspaces import WorkspaceDefinition
 
 
 @dataclass(slots=True)
@@ -28,5 +29,14 @@ class AgentDeps:
             tools=self.tools,
             audit=self.audit,
             knowledge_namespaces=tuple(namespaces),
+            request_id=self.request_id,
+        )
+
+    def for_workspace(self, definition: WorkspaceDefinition) -> AgentDeps:
+        """Return a copy scoped to one workspace's tools and knowledge namespaces."""
+        return AgentDeps(
+            tools=self.tools.scoped(definition.tools, scope_id=definition.id.value),
+            audit=self.audit,
+            knowledge_namespaces=tuple(sorted(definition.knowledge_namespaces)),
             request_id=self.request_id,
         )

@@ -4,6 +4,7 @@ No shell tools. No generic URL fetchers. Every tool is scoped to explicit agent
 allowlists and every call is recorded on the audit chain by argument hash.
 """
 
+from hr_agents.tools.catalog import TOOL_NAMES
 from hr_agents.tools.evaluation import (
     make_get_evaluation_breakdown_tool,
     serialize_breakdown,
@@ -33,6 +34,7 @@ from hr_agents.tools.screening import (
 from hr_agents.tools.taxonomy import make_canonicalize_skill_tool
 
 __all__ = [
+    "TOOL_NAMES",
     "AuditSink",
     "ToolDefinition",
     "ToolNotFoundError",

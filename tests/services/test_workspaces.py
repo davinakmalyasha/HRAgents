@@ -21,7 +21,7 @@ def test_hiring_scopes_the_recruiting_agents() -> None:
     hiring = default_registry().get(WorkspaceId.HIRING)
     assert {
         "resume_deconstructor",
-        "code_portfolio_evaluator",
+        "code_portfolio",
         "screening_coordinator",
         "feedback_writer",
     } <= hiring.agents

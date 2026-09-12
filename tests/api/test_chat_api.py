@@ -8,7 +8,9 @@ from hr_agents.agents.policy_assistant import PolicyAnswer, PolicyResult
 from hr_agents.main import create_app
 from hr_agents.services.chat import ChatService
 from hr_agents.services.front_door import FrontDoor
+from hr_agents.services.workspace_requests import HandoffService
 from hr_agents.tools import ToolRegistry
+from hr_agents.workspaces import default_registry
 
 
 class FixedResponder:
@@ -30,6 +32,10 @@ def _install_fixed_chat(app: FastAPI) -> None:
         audit=audit,
         tools=ToolRegistry(audit=audit),
     )
+
+
+def _install_handoffs(app: FastAPI) -> None:
+    app.state.handoffs = HandoffService(registry=default_registry(), audit=app.state.audit)
 
 
 def test_ask_hr_routes_and_answers() -> None:
@@ -108,7 +114,78 @@ def test_chat_unavailable_returns_503() -> None:
         assert response.status_code == 503
 
 
+def test_conversation_cannot_cross_workspaces() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        _install_fixed_chat(app)
+        first = client.post("/v1/chat", json={"message": "berapa saldo cuti saya?"}).json()
+        response = client.post(
+            "/v1/chat",
+            json={"message": "kapan gaji dibayar?", "conversation_id": first["conversation_id"]},
+        )
+        assert response.status_code == 409
+
+
+def test_handoff_is_queued_and_listed() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        _install_fixed_chat(app)
+        _install_handoffs(app)
+
+        created = client.post(
+            "/v1/chat/handoffs",
+            json={
+                "message": "Onboard Budi, start Monday",
+                "source_workspace": "policy",
+                "target_workspace": "onboarding",
+            },
+        )
+        assert created.status_code == 201
+        body = created.json()
+        assert body["status"] == "open"
+        assert body["target_workspace"] == "onboarding"
+        assert body["requested_by"] == "local-dev"
+
+        listed = client.get("/v1/chat/handoffs", params={"workspace": "onboarding"})
+        assert listed.status_code == 200
+        assert [item["id"] for item in listed.json()] == [body["id"]]
+
+        empty = client.get("/v1/chat/handoffs", params={"workspace": "payroll"})
+        assert empty.json() == []
+
+
+def test_self_target_handoff_returns_422() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        _install_handoffs(app)
+        response = client.post(
+            "/v1/chat/handoffs",
+            json={
+                "message": "halo",
+                "source_workspace": "policy",
+                "target_workspace": "policy",
+            },
+        )
+        assert response.status_code == 422
+
+
+def test_handoffs_unavailable_returns_503() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        app.state.handoffs = None
+        response = client.post(
+            "/v1/chat/handoffs",
+            json={
+                "message": "halo",
+                "source_workspace": "policy",
+                "target_workspace": "onboarding",
+            },
+        )
+        assert response.status_code == 503
+
+
 def test_chat_is_available_after_startup() -> None:
     app = create_app()
     with TestClient(app):
         assert app.state.chat is not None
+        assert app.state.handoffs is not None
