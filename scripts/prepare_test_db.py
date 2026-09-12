@@ -34,10 +34,10 @@ def main() -> int:
         cursor.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (ROLE,))
         if cursor.fetchone() is None:
             cursor.execute(
-                sql.SQL("CREATE ROLE {} LOGIN PASSWORD %s NOSUPERUSER").format(
-                    sql.Identifier(ROLE)
-                ),
-                (PASSWORD,),
+                sql.SQL("CREATE ROLE {} LOGIN PASSWORD {} NOSUPERUSER").format(
+                    sql.Identifier(ROLE),
+                    sql.Literal(PASSWORD),
+                )
             )
         database = connection.info.dbname
         cursor.execute(
