@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.people_schemas import (
     ApprovalCreate,
     ApprovalDecisionRequest,
@@ -32,6 +32,7 @@ from hr_agents.api.people_schemas import (
     TaskView,
 )
 from hr_agents.models import ApprovalStatus, ApproverRole, EmployeeStatus
+from hr_agents.rbac import Permission
 from hr_agents.services import (
     ApprovalError,
     ContractError,
@@ -48,19 +49,29 @@ def get_people(request: Request) -> PeopleServices:
 PeopleDep = Annotated[PeopleServices, Depends(get_people)]
 
 employees_router = APIRouter(
-    prefix="/v1/employees", tags=["employees"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/employees",
+    tags=["employees"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
 )
 contracts_router = APIRouter(
-    prefix="/v1/contracts", tags=["contracts"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/contracts",
+    tags=["contracts"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
 )
 approvals_router = APIRouter(
-    prefix="/v1/approvals", tags=["approvals"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/approvals",
+    tags=["approvals"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
 )
 tasks_router = APIRouter(
-    prefix="/v1/tasks", tags=["tasks"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/tasks",
+    tags=["tasks"],
+    dependencies=[Depends(require_permission(Permission.TASKS_WRITE))],
 )
 rate_tables_router = APIRouter(
-    prefix="/v1/rate-tables", tags=["rate-tables"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/rate-tables",
+    tags=["rate-tables"],
+    dependencies=[Depends(require_permission(Permission.PAYROLL_READ))],
 )
 
 
@@ -228,7 +239,11 @@ def list_approvals(
     return [ApprovalView.from_model(request) for request in requests]
 
 
-@approvals_router.post("/{approval_id}/decide", response_model=ApprovalDecisionResponse)
+@approvals_router.post(
+    "/{approval_id}/decide",
+    response_model=ApprovalDecisionResponse,
+    dependencies=[Depends(require_permission(Permission.APPROVALS_DECIDE))],
+)
 def decide_approval(
     approval_id: UUID, payload: ApprovalDecisionRequest, people: PeopleDep
 ) -> ApprovalDecisionResponse:

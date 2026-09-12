@@ -7,16 +7,21 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.payroll_schemas import (
     InputsSet,
     RunAction,
     RunCreate,
     RunView,
 )
+from hr_agents.rbac import Permission
 from hr_agents.services.payroll import PayrollError, PayrollService
 
-router = APIRouter(prefix="/v1/payroll", tags=["payroll"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/v1/payroll",
+    tags=["payroll"],
+    dependencies=[Depends(require_permission(Permission.PAYROLL_READ))],
+)
 
 
 def get_payroll(request: Request) -> PayrollService:
@@ -90,7 +95,11 @@ def submit_for_signoff(run_id: UUID, payload: RunAction, payroll: PayrollDep) ->
     return RunView.from_model(run)
 
 
-@router.post("/approvals/{approval_id}/sync", response_model=RunView)
+@router.post(
+    "/approvals/{approval_id}/sync",
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_APPROVE))],
+)
 def sync_decision(approval_id: UUID, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.apply_decision(approval_id)
@@ -99,7 +108,11 @@ def sync_decision(approval_id: UUID, payroll: PayrollDep) -> RunView:
     return RunView.from_model(run)
 
 
-@router.post("/runs/{run_id}/export", response_model=RunView)
+@router.post(
+    "/runs/{run_id}/export",
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_APPROVE))],
+)
 def export_run(run_id: UUID, payload: RunAction, payroll: PayrollDep) -> RunView:
     try:
         run = payroll.mark_exported(run_id, by=payload.by)

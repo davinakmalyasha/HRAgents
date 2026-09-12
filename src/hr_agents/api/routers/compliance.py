@@ -33,8 +33,9 @@ from hr_agents.api.compliance_schemas import (
     ScanView,
     StepComplete,
 )
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.models import RecordEntity, SubjectKind, UtcDateTime
+from hr_agents.rbac import Permission
 from hr_agents.services.compliance import (
     ComplianceError,
     ComplianceService,
@@ -42,7 +43,9 @@ from hr_agents.services.compliance import (
 )
 
 router = APIRouter(
-    prefix="/v1/compliance", tags=["compliance"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/compliance",
+    tags=["compliance"],
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_READ))],
 )
 
 
@@ -199,7 +202,11 @@ def scan_retention(compliance: ComplianceDep, as_of: UtcDateTime | None = None) 
     return ScanView.from_model(compliance.scan(as_of=as_of))
 
 
-@router.post("/retention/purge", response_model=PurgeReportView)
+@router.post(
+    "/retention/purge",
+    response_model=PurgeReportView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_EXECUTE))],
+)
 def execute_purge(payload: PurgeRequest, compliance: ComplianceDep) -> PurgeReportView:
     try:
         report = compliance.execute_purge(
@@ -269,7 +276,11 @@ def sync_erasure_decision(approval_id: UUID, compliance: ComplianceDep) -> Erasu
     return ErasureView.from_model(request)
 
 
-@router.post("/erasures/{request_id}/execute", response_model=ErasureView)
+@router.post(
+    "/erasures/{request_id}/execute",
+    response_model=ErasureView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_EXECUTE))],
+)
 def execute_erasure(
     request_id: UUID, payload: ErasureAction, compliance: ComplianceDep
 ) -> ErasureView:

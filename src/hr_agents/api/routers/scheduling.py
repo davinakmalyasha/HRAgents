@@ -7,17 +7,20 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.recruitment_schemas import (
     AvailabilitySet,
     SchedulingProposalRequest,
     SchedulingProposalView,
 )
 from hr_agents.models import TimeSlot
+from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import RecruitingError, SchedulingService
 
 router = APIRouter(
-    prefix="/v1/scheduling", tags=["scheduling"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/scheduling",
+    tags=["scheduling"],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
 
 

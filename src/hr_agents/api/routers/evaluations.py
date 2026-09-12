@@ -7,16 +7,21 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.recruitment_schemas import (
     AuditReceipt,
     EvaluationView,
     OverrideCreate,
     OverrideView,
 )
+from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import EvaluationService, RecruitingError
 
-router = APIRouter(prefix="/v1", tags=["evaluations"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/v1",
+    tags=["evaluations"],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_READ))],
+)
 
 
 def get_evaluations(request: Request) -> EvaluationService:
@@ -80,6 +85,7 @@ def list_overrides(evaluation_id: UUID, evaluations: EvaluationsDep) -> list[Ove
     status_code=status.HTTP_201_CREATED,
     response_model=AuditReceipt,
     summary="Human-in-the-loop override (mandatory for gated rejections)",
+    dependencies=[Depends(require_permission(Permission.RECRUITING_OVERRIDE))],
 )
 def record_override(
     evaluation_id: UUID, payload: OverrideCreate, evaluations: EvaluationsDep

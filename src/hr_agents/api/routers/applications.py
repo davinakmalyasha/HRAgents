@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
-from hr_agents.api.deps import get_audit, get_store, require_api_key
+from hr_agents.api.deps import get_audit, get_store, require_permission
 from hr_agents.api.schemas import (
     ApplicationAccepted,
     ApplicationStatusResponse,
@@ -16,12 +16,13 @@ from hr_agents.api.schemas import (
     BatchItemResult,
     BatchSubmissionRequest,
 )
+from hr_agents.rbac import Permission
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionConflictError
 
 router = APIRouter(
     prefix="/v1/applications",
     tags=["applications"],
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
 
 

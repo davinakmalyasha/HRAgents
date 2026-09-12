@@ -6,8 +6,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.recruitment_schemas import DocumentUploadResponse
+from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import (
     DocumentService,
     DocumentTooLargeError,
@@ -15,7 +16,9 @@ from hr_agents.services.recruiting import (
 )
 
 router = APIRouter(
-    prefix="/v1/documents", tags=["documents"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/documents",
+    tags=["documents"],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
 
 

@@ -60,7 +60,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 2. Contracts & data model | Done |
 | 3. Deterministic core & pipeline | Done |
 | 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **In progress** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄 |
-| 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | Not started |
+| 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **In progress** — workspaces ✅, RBAC ✅, front door + tenancy 🔄 |
 | 6. Web app + PWA | Not started |
 | 7. Integrations (messaging, Google, files, MCP) | Not started |
 | 8. Departments (onboarding, records, leave, payroll prep, performance, offboarding) | **Done (Wave 1 engines)** — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅ |
@@ -213,13 +213,16 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 
 ## Phase 5 — Multi-department architecture
 
-- [ ] Workspace definitions (department packs registry)
+- [x] Workspace definitions (department packs registry) — `src/hr_agents/workspaces.py`: 9 packs with
+      agent/tool/knowledge scopes, read/write permissions, routing keywords, deterministic fingerprint
 - [ ] Front door router: deterministic dispatch when workspace explicit; LLM intent classification only for ambiguous messages; **never executes consequential actions**
-- [ ] RBAC: roles (hr_admin, recruiter, finance, manager, employee) × permissions
+- [x] RBAC: roles (hr_admin, recruiter, finance, manager, employee) × permissions — `src/hr_agents/rbac.py`,
+      router-level enforcement, stricter checks on overrides, payroll sign-off/export, and compliance execution;
+      role-bound API keys via `HRAGENTS_API_PRINCIPALS`
 - [ ] Tenant model: `tenant_id` on all tables + Postgres RLS policies
-- [ ] Workspace context isolation (knowledge, tools, conversations)
+- [~] Workspace context isolation (knowledge, tools, conversations) — packs declare the scopes; enforcement lands with the front door
 - [ ] Cross-workspace request handoff ("handle onboarding for Budi")
-- [ ] Employee data model (HRIS-lite core: employees, contracts, documents, org units)
+- [x] Employee data model (HRIS-lite core: employees, contracts, documents, org units) — Phase 8.0/8.4
 - [x] Retention & erasure engine (UU PDP: per-entity retention policies, delete/anonymize jobs) — Phase 8.9
 
 ## Phase 6 — Web app + PWA (`web/`)

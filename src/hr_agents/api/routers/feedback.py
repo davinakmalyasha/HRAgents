@@ -8,12 +8,15 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.recruitment_schemas import FeedbackView
+from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import EvaluationService, RecruitingError
 
 router = APIRouter(
-    prefix="/v1/candidates", tags=["feedback"], dependencies=[Depends(require_api_key)]
+    prefix="/v1/candidates",
+    tags=["feedback"],
+    dependencies=[Depends(require_permission(Permission.RECRUITING_READ))],
 )
 
 

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from hr_agents.api.deps import require_api_key
+from hr_agents.api.deps import require_permission
 from hr_agents.api.growth_schemas import (
     AssignmentCreate,
     AssignmentSkip,
@@ -28,9 +28,14 @@ from hr_agents.api.growth_schemas import (
     SummaryView,
 )
 from hr_agents.models import GoalStatus, ReviewCycleStatus
+from hr_agents.rbac import Permission
 from hr_agents.services.growth import GrowthError, GrowthService
 
-router = APIRouter(prefix="/v1/growth", tags=["growth"], dependencies=[Depends(require_api_key)])
+router = APIRouter(
+    prefix="/v1/growth",
+    tags=["growth"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
+)
 
 
 def get_growth(request: Request) -> GrowthService:
