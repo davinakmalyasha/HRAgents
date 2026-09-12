@@ -22,12 +22,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from hr_agents.db.base import Base
+from hr_agents.db.base import Base, TenantScoped
 
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 
-class EmployeeRecord(Base):
+class EmployeeRecord(TenantScoped, Base):
     __tablename__ = "employees"
     __table_args__ = (
         Index("ix_employees_status", "status"),
@@ -61,7 +61,7 @@ class EmployeeRecord(Base):
     documents: Mapped[list[EmployeeDocumentRecord]] = relationship(back_populates="employee")
 
 
-class OrgUnitRecord(Base):
+class OrgUnitRecord(TenantScoped, Base):
     __tablename__ = "org_units"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -73,7 +73,7 @@ class OrgUnitRecord(Base):
     )
 
 
-class EmployeeDocumentRecord(Base):
+class EmployeeDocumentRecord(TenantScoped, Base):
     __tablename__ = "employee_documents"
     __table_args__ = (
         Index("ix_employee_documents_employee", "employee_id"),
@@ -98,7 +98,7 @@ class EmployeeDocumentRecord(Base):
     employee: Mapped[EmployeeRecord] = relationship(back_populates="documents")
 
 
-class ContractRecord(Base):
+class ContractRecord(TenantScoped, Base):
     __tablename__ = "contracts"
     __table_args__ = (
         Index("ix_contracts_employee", "employee_id"),
@@ -129,7 +129,7 @@ class ContractRecord(Base):
     )
 
 
-class ApprovalRecord(Base):
+class ApprovalRecord(TenantScoped, Base):
     __tablename__ = "approvals"
     __table_args__ = (
         Index("ix_approvals_role_status", "assignee_role", "status"),
@@ -162,7 +162,7 @@ class ApprovalRecord(Base):
     )
 
 
-class TaskRecord(Base):
+class TaskRecord(TenantScoped, Base):
     __tablename__ = "tasks"
     __table_args__ = (
         Index("ix_tasks_status_due", "status", "due_on"),
@@ -192,7 +192,7 @@ class TaskRecord(Base):
     )
 
 
-class RateTableRecord(Base):
+class RateTableRecord(TenantScoped, Base):
     __tablename__ = "rate_tables"
     __table_args__ = (Index("ix_rate_tables_kind", "kind", "jurisdiction"),)
 

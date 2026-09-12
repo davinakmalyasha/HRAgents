@@ -81,7 +81,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      HRAGENTS_TEST_DB_URL: postgresql+psycopg://hragents:hragents@localhost:5432/hragents
+      HRAGENTS_TEST_DB_URL: postgresql+psycopg://app_test:app_test@localhost:5432/hragents
+      HRAGENTS_TEST_DB_ADMIN_URL: postgresql://hragents:hragents@localhost:5432/hragents
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
@@ -89,6 +90,8 @@ jobs:
           enable-cache: true
       - run: uv python install 3.14
       - run: uv sync --locked --all-groups
+      - name: Prepare non-superuser test role (RLS applies under FORCE)
+        run: uv run python scripts/prepare_test_db.py
       - run: uv run pytest tests/db -q
 
   windows:

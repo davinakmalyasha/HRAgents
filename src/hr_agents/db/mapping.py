@@ -38,8 +38,11 @@ def _row_values(model: BaseModel, record_cls: type[OrmBase]) -> dict[str, Any]:
 
 
 def model_from_row[ModelT: BaseModel](model_cls: type[ModelT], row: Any) -> ModelT:
+    fields = set(model_cls.model_fields)
     values: dict[str, Any] = {}
     for column in row.__table__.columns:
+        if column.name not in fields:
+            continue
         value = getattr(row, column.name)
         if isinstance(value, datetime) and value.tzinfo is None:
             value = value.replace(tzinfo=UTC)

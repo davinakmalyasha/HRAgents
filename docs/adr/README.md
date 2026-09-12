@@ -12,6 +12,7 @@ ADRs add the reasoning, and are citable in the paper.
 | [0003](0003-no-shell-tools.md) | No shell or command tools, ever | Accepted |
 | [0004](0004-provider-layer.md) | Capability/provider abstraction for every external dependency | Accepted |
 | [0005](0005-sync-domain-async-edge.md) | Synchronous domain layer; async only at the agent and network edge | Accepted |
+| [0006](0006-tenancy-rls.md) | Single schema with `tenant_id` and forced row-level security | Accepted |
 
 New ADRs: copy the format of an existing file, number sequentially, open a PR.
 ADRs are append-only — to change a decision, add a new ADR that supersedes the old one
