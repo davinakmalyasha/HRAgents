@@ -20,12 +20,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from hr_agents.db.base import Base
+from hr_agents.db.base import Base, TenantScoped
 
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 
-class OffboardingTemplateRecord(Base):
+class OffboardingTemplateRecord(TenantScoped, Base):
     __tablename__ = "offboarding_templates"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -43,7 +43,7 @@ class OffboardingTemplateRecord(Base):
     )
 
 
-class OffboardingPlanRecord(Base):
+class OffboardingPlanRecord(TenantScoped, Base):
     __tablename__ = "offboarding_plans"
     __table_args__ = (
         Index("ix_offboarding_plans_employee", "employee_id"),
@@ -68,7 +68,7 @@ class OffboardingPlanRecord(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class OffboardingAssetRecord(Base):
+class OffboardingAssetRecord(TenantScoped, Base):
     __tablename__ = "offboarding_assets"
     __table_args__ = (
         Index("ix_offboarding_assets_employee", "employee_id"),

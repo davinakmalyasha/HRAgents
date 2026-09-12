@@ -20,12 +20,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from hr_agents.db.base import Base
+from hr_agents.db.base import Base, TenantScoped
 
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 
-class ReviewCycleRecord(Base):
+class ReviewCycleRecord(TenantScoped, Base):
     __tablename__ = "review_cycles"
     __table_args__ = (Index("ix_review_cycles_status", "status"),)
 
@@ -48,7 +48,7 @@ class ReviewCycleRecord(Base):
     )
 
 
-class ReviewAssignmentRecord(Base):
+class ReviewAssignmentRecord(TenantScoped, Base):
     __tablename__ = "review_assignments"
     __table_args__ = (
         Index("ix_review_assignments_cycle", "cycle_id"),
@@ -78,7 +78,7 @@ class ReviewAssignmentRecord(Base):
     )
 
 
-class ReviewSummaryRecord(Base):
+class ReviewSummaryRecord(TenantScoped, Base):
     __tablename__ = "review_summaries"
     __table_args__ = (
         Index("ix_review_summaries_cycle", "cycle_id"),
@@ -103,7 +103,7 @@ class ReviewSummaryRecord(Base):
     )
 
 
-class GoalRecord(Base):
+class GoalRecord(TenantScoped, Base):
     __tablename__ = "goals"
     __table_args__ = (
         Index("ix_goals_employee_status", "employee_id", "status"),

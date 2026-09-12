@@ -20,12 +20,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from hr_agents.db.base import Base
+from hr_agents.db.base import Base, TenantScoped
 
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 
-class ConsentRecordTable(Base):
+class ConsentRecordTable(TenantScoped, Base):
     __tablename__ = "consent_records"
     __table_args__ = (
         Index("ix_consent_subject", "subject_kind", "subject_id"),
@@ -51,7 +51,7 @@ class ConsentRecordTable(Base):
     )
 
 
-class RetentionPolicyTable(Base):
+class RetentionPolicyTable(TenantScoped, Base):
     __tablename__ = "retention_policies"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -68,7 +68,7 @@ class RetentionPolicyTable(Base):
     )
 
 
-class RetentionRecordTable(Base):
+class RetentionRecordTable(TenantScoped, Base):
     __tablename__ = "retention_records"
     __table_args__ = (
         Index("ix_retention_entity_anchor", "entity", "anchor_at"),
@@ -95,7 +95,7 @@ class RetentionRecordTable(Base):
     )
 
 
-class ErasureRequestTable(Base):
+class ErasureRequestTable(TenantScoped, Base):
     __tablename__ = "erasure_requests"
     __table_args__ = (
         Index("ix_erasure_status", "status"),
@@ -129,7 +129,7 @@ class ErasureRequestTable(Base):
     )
 
 
-class BreachIncidentTable(Base):
+class BreachIncidentTable(TenantScoped, Base):
     __tablename__ = "breach_incidents"
     __table_args__ = (Index("ix_breach_status", "status"),)
 

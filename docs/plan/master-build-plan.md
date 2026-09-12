@@ -219,7 +219,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] RBAC: roles (hr_admin, recruiter, finance, manager, employee) × permissions — `src/hr_agents/rbac.py`,
       router-level enforcement, stricter checks on overrides, payroll sign-off/export, and compliance execution;
       role-bound API keys via `HRAGENTS_API_PRINCIPALS`
-- [ ] Tenant model: `tenant_id` on all tables + Postgres RLS policies
+- [x] Tenant model: `tenant_id` on all tables + Postgres RLS policies — migration `0006_tenancy` (31 tables,
+      `ENABLE`+`FORCE` RLS, `tenant_isolation` policies with `USING`/`WITH CHECK`, fail-closed to the default
+      tenant when unset), `db/rls.py` single source of the policy SQL, `sync_session_scope(tenant_id=…)` sets
+      the transaction-local GUC, RLS read/write fencing covered by `tests/db/test_rls.py` on Postgres
+      (ADR 0006)
 - [~] Workspace context isolation (knowledge, tools, conversations) — chat scopes agent knowledge namespaces per routed workspace; tool allowlists from the packs are enforced as each department's agents are wired
 - [~] Chat conversation persistence — in-memory `ConversationStore` behind persistence primitives; Postgres adapter lands with the Phase 6 UI work
 - [ ] Cross-workspace request handoff ("handle onboarding for Budi")

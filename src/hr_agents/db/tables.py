@@ -28,12 +28,12 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from hr_agents.db.base import Base
+from hr_agents.db.base import Base, TenantScoped
 
 JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 
-class Candidate(Base):
+class Candidate(TenantScoped, Base):
     __tablename__ = "candidates"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -58,7 +58,7 @@ class Candidate(Base):
     applications: Mapped[list[Application]] = relationship(back_populates="candidate")
 
 
-class Job(Base):
+class Job(TenantScoped, Base):
     __tablename__ = "jobs"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -77,7 +77,7 @@ class Job(Base):
     applications: Mapped[list[Application]] = relationship(back_populates="job")
 
 
-class Application(Base):
+class Application(TenantScoped, Base):
     __tablename__ = "applications"
     __table_args__ = (
         Index("ix_applications_job_priority", "job_id", "priority_score"),
@@ -108,7 +108,7 @@ class Application(Base):
     job: Mapped[Job] = relationship(back_populates="applications")
 
 
-class Evaluation(Base):
+class Evaluation(TenantScoped, Base):
     __tablename__ = "evaluations"
     __table_args__ = (
         Index("ix_evaluations_candidate_job", "candidate_id", "job_id"),
@@ -135,7 +135,7 @@ class Evaluation(Base):
     )
 
 
-class ScheduleProposal(Base):
+class ScheduleProposal(TenantScoped, Base):
     __tablename__ = "schedule_proposals"
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -153,7 +153,7 @@ class ScheduleProposal(Base):
     )
 
 
-class AuditLog(Base):
+class AuditLog(TenantScoped, Base):
     __tablename__ = "audit_log"
     __table_args__ = (
         Index("ix_audit_log_subject", "subject_type", "subject_id"),
@@ -174,7 +174,7 @@ class AuditLog(Base):
     entry_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
 
 
-class ConversationRecord(Base):
+class ConversationRecord(TenantScoped, Base):
     __tablename__ = "conversations"
     __table_args__ = (Index("ix_conversations_candidate", "candidate_id"),)
 
@@ -195,7 +195,7 @@ class ConversationRecord(Base):
     messages: Mapped[list[MessageRecord]] = relationship(back_populates="conversation")
 
 
-class MessageRecord(Base):
+class MessageRecord(TenantScoped, Base):
     __tablename__ = "messages"
     __table_args__ = (Index("ix_messages_candidate", "candidate_id"),)
 
@@ -219,7 +219,7 @@ class MessageRecord(Base):
     conversation: Mapped[ConversationRecord | None] = relationship(back_populates="messages")
 
 
-class CandidateDocumentRecord(Base):
+class CandidateDocumentRecord(TenantScoped, Base):
     __tablename__ = "candidate_documents"
     __table_args__ = (Index("ix_candidate_documents_sha256", "sha256"),)
 
@@ -235,7 +235,7 @@ class CandidateDocumentRecord(Base):
     )
 
 
-class EvaluationOverrideRecord(Base):
+class EvaluationOverrideRecord(TenantScoped, Base):
     __tablename__ = "evaluation_overrides"
     __table_args__ = (Index("ix_evaluation_overrides_evaluation", "evaluation_id"),)
 
@@ -253,7 +253,7 @@ class EvaluationOverrideRecord(Base):
     )
 
 
-class FeedbackReportRecord(Base):
+class FeedbackReportRecord(TenantScoped, Base):
     __tablename__ = "feedback_reports"
 
     candidate_id: Mapped[UUID] = mapped_column(
@@ -270,7 +270,7 @@ class FeedbackReportRecord(Base):
     )
 
 
-class SchedulingAvailabilityRecord(Base):
+class SchedulingAvailabilityRecord(TenantScoped, Base):
     __tablename__ = "scheduling_availability"
 
     interviewer_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)

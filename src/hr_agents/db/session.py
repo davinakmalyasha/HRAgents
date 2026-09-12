@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
+from uuid import UUID
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, text
 from sqlalchemy import create_engine as create_sync_engine_from_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -69,10 +70,22 @@ def create_sync_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 @contextmanager
-def sync_session_scope(factory: sessionmaker[Session]) -> Iterator[Session]:
-    """Provide a transactional session scope for store adapters."""
+def sync_session_scope(
+    factory: sessionmaker[Session], *, tenant_id: UUID | None = None
+) -> Iterator[Session]:
+    """Provide a transactional session scope for store adapters.
+
+    On PostgreSQL, ``tenant_id`` is applied as a transaction-local
+    ``app.tenant_id`` setting for row-level security (ADR 0006). When omitted,
+    RLS behaves as the default tenant.
+    """
     session = factory()
     try:
+        if tenant_id is not None and session.get_bind().dialect.name == "postgresql":
+            session.execute(
+                text("SELECT set_config('app.tenant_id', :value, true)"),
+                {"value": str(tenant_id)},
+            )
         yield session
         session.commit()
     except Exception:
