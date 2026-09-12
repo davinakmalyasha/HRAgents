@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -11,6 +12,8 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 
 from hr_agents import __version__
+from hr_agents.agents.policy_assistant import PolicyAssistant
+from hr_agents.agents.runtime import AgentRuntime
 from hr_agents.api.routers import (
     applications,
     compliance,
@@ -23,6 +26,7 @@ from hr_agents.api.routers import (
     queue,
     scheduling,
 )
+from hr_agents.api.routers import chat as chat_router
 from hr_agents.api.routers import leave as leave_router
 from hr_agents.api.routers import onboarding as onboarding_router
 from hr_agents.api.routers import payroll as payroll_router
@@ -31,17 +35,59 @@ from hr_agents.config import Settings, get_settings
 from hr_agents.db import create_sync_engine, create_sync_session_factory
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
+from hr_agents.knowledge import KnowledgeRetriever
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.services import ApplicationStore, AuditChain, JobQueue
+from hr_agents.services.chat import ChatService
+from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.recruiting import RecruitingServices
+from hr_agents.skills import SkillRegistry, load_library
+from hr_agents.tools import (
+    ToolRegistry,
+    make_canonicalize_skill_tool,
+    make_search_knowledge_tool,
+)
+from hr_agents.workspaces import default_registry
 
 logger = get_logger(__name__)
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+async def _build_chat(app: FastAPI) -> None:
+    """Build the Ask HR service; degrade quietly when the knowledge base is absent."""
+    audit = getattr(app.state, "audit", None)
+    skills_root = _REPO_ROOT / "skills"
+    if audit is None or not skills_root.is_dir():
+        app.state.chat = None
+        return
+    try:
+        skills = SkillRegistry(load_library(skills_root))
+        retriever = await KnowledgeRetriever.build(skills.knowledge())
+        registry = default_registry()
+        namespaces = sorted(
+            {namespace for item in registry.list_all() for namespace in item.knowledge_namespaces}
+        )
+        tools = ToolRegistry(audit=audit)
+        tools.register(make_search_knowledge_tool(retriever, namespaces=namespaces))
+        tools.register(make_canonicalize_skill_tool())
+        assistant = PolicyAssistant(AgentRuntime.from_env(), skills=skills)
+        app.state.chat = ChatService(
+            front_door=FrontDoor(registry),
+            responder=assistant,
+            audit=audit,
+            tools=tools,
+        )
+        logger.info("chat_ready", workspaces=len(registry.list_all()))
+    except Exception as exc:
+        logger.warning("chat_unavailable", error=type(exc).__name__)
+        app.state.chat = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Application lifespan: configure logging, then dispose the DB engine."""
+    """Application lifespan: configure logging, build chat, dispose the DB engine."""
     settings: Settings = get_settings()
     configure_logging(settings.log_level)
     logger.info(
@@ -51,6 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         version=__version__,
         store_backend=settings.store_backend,
     )
+    await _build_chat(app)
     yield
     engine = getattr(app.state, "db_engine", None)
     if engine is not None:
@@ -117,6 +164,7 @@ def create_app() -> FastAPI:
     app.state.offboarding = people_services.offboarding
 
     app.add_exception_handler(HTTPException, _problem_response)  # type: ignore[arg-type]
+    app.include_router(chat_router.router)
     app.include_router(applications.router)
     app.include_router(queue.router)
     app.include_router(documents.router)
