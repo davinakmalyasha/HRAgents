@@ -2,7 +2,8 @@
 
 Status snapshot: **2026-09-12**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **827 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **834 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -92,23 +93,23 @@ documented.
 **Goal:** the "solo HR" experience — attention-first home, three-room workspaces, mobile-first.
 
 ### 2.1 Project setup & design system
-- [ ] `web/` — Vite + React 19 + TypeScript, Tailwind, shadcn/ui themed to the locked tokens
-- [ ] TanStack Query (server state) + Zustand (workspace/UI state)
-- [ ] API client generated from `docs/api/openapi.yaml` (or the live OpenAPI document once the
-      FastAPI routers are annotated as the source)
-- [ ] ESLint + Prettier + `tsc --noEmit` CI gate; static build served by FastAPI at `/app`
-- [ ] Design tokens exactly per `product-concept.md` §7 (cool-gray ramp, single accent `#2563EB`,
-      amber/red/green ≤5% pixels with icon+label, dark mode = token swap)
-- [ ] Inter + JetBrains Mono, 12–30 scale, weights 400/500/600
-- [ ] Component kit: button, table, dialog, badge, score bar, command palette, empty states
+- [x] `web/` — Vite + React 19 + TypeScript, Tailwind, shadcn/ui themed to the locked tokens
+- [x] TanStack Query (server state) + Zustand (workspace/UI state)
+- [x] API client generated from the live OpenAPI document (`scripts/export_openapi.py` →
+      `docs/api/openapi.json`, `docs/api/openapi.yaml` kept as legacy docs)
+- [x] ESLint + Prettier + `tsc --noEmit` CI gate (`web` job); static build served by FastAPI at `/app`
+- [x] Design tokens exactly per `product-concept.md` §7 (cool-gray ramp, single accent `#2563EB`,
+      amber/red/green ≤5% pixels with icon+label, dark mode = token swap, hex-literal guard test)
+- [x] Inter + JetBrains Mono, 12–30 scale, weights 400/500/600 (self-hosted, offline-safe)
+- [~] Component kit: base shadcn/ui set + StatusBadge/ScoreBar/EmptyState; command palette wiring next
 
 ### 2.2 Shell, auth, i18n
-- [ ] App shell: sidebar workspaces, topbar, responsive layout; three-room layout component
-      (Board / Queue / Chat) with context isolation
+- [~] App shell: sidebar workspaces, topbar, responsive layout; three-room layout component
+      (Board / Queue / Chat) with placeholders (real surfaces land per workspace)
 - [ ] Auth screens: login, session handling, password reset (API keys for service accounts)
-- [ ] i18n from day one: English + Bahasa Indonesia locale files, language switcher, all strings
-      externalized (no literals in components)
+- [x] i18n from day one: English + Bahasa Indonesia locale files, language switcher, key-parity test
 - [ ] Accessibility: WCAG AA, keyboard navigation, reduced motion, icon+label on every status color
+      (baseline in place: focus rings, reduced-motion CSS, icon+label StatusBadge)
 - [ ] Mobile-first check at 390px (queues, approvals, chat)
 
 ### 2.3 Attention-first home

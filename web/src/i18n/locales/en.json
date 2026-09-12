@@ -1,0 +1,34 @@
+{
+  "app": { "name": "HRAgents" },
+  "nav": { "home": "Home", "workspaces": "Workspaces" },
+  "workspaces": {
+    "hiring": { "name": "Hiring" },
+    "policy": { "name": "Ask HR" },
+    "onboarding": { "name": "Onboarding" },
+    "records": { "name": "People" },
+    "leave": { "name": "Leave" },
+    "payroll": { "name": "Payroll" },
+    "growth": { "name": "Growth" },
+    "offboarding": { "name": "Offboarding" },
+    "compliance": { "name": "Compliance" }
+  },
+  "home": {
+    "needsYou": "Needs you today",
+    "needsYouEmpty": "Nothing needs you right now. Enjoy the calm.",
+    "watching": "Watching",
+    "watchingEmpty": "No work in flight yet."
+  },
+  "rooms": { "board": "Board", "queue": "Queue", "chat": "Chat" },
+  "status": { "waiting": "Awaiting human", "error": "Overdue", "done": "Verified" },
+  "workspace": {
+    "boardPlaceholder": "The {name} board lands in a later slice.",
+    "queuePlaceholder": "Decisions waiting on you will appear here.",
+    "chatPlaceholder": "Ask {name} agents about this workspace only."
+  },
+  "notFound": { "title": "Page not found", "back": "Back to home" },
+  "common": {
+    "language": "Language",
+    "toggleTheme": "Toggle color theme",
+    "changeLanguage": "Change language"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "app": { "name": "HRAgents" },
+  "nav": { "home": "Beranda", "workspaces": "Ruang kerja" },
+  "workspaces": {
+    "hiring": { "name": "Perekrutan" },
+    "policy": { "name": "Tanya HR" },
+    "onboarding": { "name": "Orientasi" },
+    "records": { "name": "Kepegawaian" },
+    "leave": { "name": "Cuti" },
+    "payroll": { "name": "Penggajian" },
+    "growth": { "name": "Pengembangan" },
+    "offboarding": { "name": "Offboarding" },
+    "compliance": { "name": "Kepatuhan" }
+  },
+  "home": {
+    "needsYou": "Perlu Anda hari ini",
+    "needsYouEmpty": "Tidak ada yang perlu Anda tangani saat ini.",
+    "watching": "Dipantau",
+    "watchingEmpty": "Belum ada pekerjaan berjalan."
+  },
+  "rooms": { "board": "Papan", "queue": "Antrean", "chat": "Obrolan" },
+  "status": { "waiting": "Menunggu manusia", "error": "Terlambat", "done": "Terverifikasi" },
+  "workspace": {
+    "boardPlaceholder": "Papan {name} hadir pada tahap berikutnya.",
+    "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini.",
+    "chatPlaceholder": "Tanyakan agen {name} hanya tentang ruang kerja ini."
+  },
+  "notFound": { "title": "Halaman tidak ditemukan", "back": "Kembali ke beranda" },
+  "common": {
+    "language": "Bahasa",
+    "toggleTheme": "Ubah tema warna",
+    "changeLanguage": "Ubah bahasa"
+  }
+}

@@ -276,6 +276,11 @@ ring, active nav). In dark mode: `#3B82F6`.
 **Dark mode:** swap the neutral ramp (page `#16191D`, borders `#2B2F36`, text
 `#E9ECEF`); accent and status colors stay. This is a token swap, not a redesign.
 
+The derived dark shades are locked too: `bg-subtle` `#1D2126`, `border-strong`
+`#3A4048`, `text-muted` `#8A9199`, `text` `#CED4DA` (dark accent `#3B82F6`).
+Implemented in `web/src/styles/theme.css`, the only file allowed to contain hex
+values (enforced by `theme.guard.test.ts`).
+
 ### 7.2 Typography
 
 - **UI:** Inter (or system stack) — weights 400/500/600 only.

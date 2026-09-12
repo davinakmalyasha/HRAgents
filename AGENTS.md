@@ -11,9 +11,18 @@ Run this before claiming any task is done:
 uv run python scripts/check.py
 ```
 
-It runs `ruff check`, `ruff format --check`, `mypy`, and `pytest` (731 tests, ≥90%
+It runs `ruff check`, `ruff format --check`, `mypy`, and `pytest` (834 tests, ≥90%
 coverage enforced in CI). Fix failures — never suppress them (`# type: ignore`,
 `noqa`, skipped tests) without an explicit reason.
+
+When you touch `web/`, also run the dashboard gate:
+
+```bash
+cd web && npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build
+```
+
+Design tokens are law: hex colors may only appear in `web/src/styles/theme.css`
+(a guard test fails otherwise), and status colors always ship with icon + label.
 
 ## Hard rules — never weaken these
 
