@@ -109,6 +109,41 @@ jobs:
       - run: uv run mypy
       - run: uv run pytest
 
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: uv python install 3.14
+      - run: uv sync --locked --all-groups
+      - name: OpenAPI spec drift check
+        run: uv run python scripts/export_openapi.py --check
+      - run: npm ci
+        working-directory: web
+      - name: Generated API types drift check
+        run: |
+          npm run api:generate
+          git diff --exit-code -- src/api/schema.d.ts
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm run format:check
+        working-directory: web
+      - run: npm run typecheck
+        working-directory: web
+      - run: npm run test
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+
   secrets:
     name: secrets
     runs-on: ubuntu-latest

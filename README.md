@@ -102,8 +102,8 @@ src/hr_agents/
   api/             FastAPI ingestion, queue, application status
   db/              SQLAlchemy tables, async sessions
 migrations/        Alembic (PostgreSQL 16)
-tests/             731 tests, 92% coverage; ruff + mypy clean
-web/               dashboard SPA (React 19 + Vite) — planned
+tests/             test suite; ruff + mypy clean
+web/               dashboard SPA (React 19 + Vite + Tailwind + shadcn/ui) — scaffolded
 landing/           public site (Next.js) — planned
 ```
 
@@ -135,7 +135,8 @@ landing/           public site (Next.js) — planned
 - [x] Decision layer: HITL boundaries enforced in code, fairness harness, append-only overrides
 - [x] Recruitment API surface: documents, jobs, evaluations, overrides, feedback, scheduling
 - [x] Departments: Onboarding, Records, Leave, Payroll prep, Compliance, Growth, Offboarding
-- [ ] Dashboard SPA + PWA (monochrome design system)
+- [x] Multi-department architecture: workspaces, RBAC, front door chat, tenant RLS, handoffs
+- [~] Dashboard SPA + PWA (monochrome design system) — shell, tokens, i18n scaffolded
 - [ ] MCP layer + integrations (WhatsApp, Google Workspace, files, HRIS)
 - [ ] Full eval suite (50 profiles + fairness pairs) and the technical paper
 - [ ] Self-host setup wizard, observability, and public release (Apache-2.0)
@@ -152,6 +153,19 @@ in-memory test engine. Rationale: [data storage decisions](docs/architecture/dat
 
 **Models:** provider-agnostic — local (Ollama), Anthropic, OpenAI, or a fully offline
 `test` model for development and CI. The system runs end-to-end without any API keys.
+
+**Dashboard (development):**
+
+```bash
+cd web
+npm ci
+npm run dev      # http://localhost:5173/app/ — proxies /v1 to localhost:8000
+```
+
+The static build (`npm run build`) is served by FastAPI at `/app` when `web/dist`
+exists; the checked-in OpenAPI spec (`docs/api/openapi.json`) is regenerated with
+`uv run python scripts/export_openapi.py` and the typed client with
+`npm run api:generate`.
 
 ## Work with the author
 

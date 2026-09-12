@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,7 +10,8 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from hr_agents import __version__
 from hr_agents.agents.policy_assistant import PolicyAssistant
@@ -124,6 +126,34 @@ def _problem_response(request: Request, exc: HTTPException) -> JSONResponse:
     )
 
 
+def _web_dist_path() -> Path | None:
+    """The built dashboard directory, or ``None`` when the app was not built."""
+    configured = os.environ.get("HRAGENTS_WEB_DIST")
+    candidate = Path(configured) if configured else _REPO_ROOT / "web" / "dist"
+    return candidate if (candidate / "index.html").is_file() else None
+
+
+def _mount_web_app(app: FastAPI) -> None:
+    """Serve ``web/dist`` at ``/app`` with SPA fallback; no-op without a build."""
+    dist = _web_dist_path()
+    if dist is None:
+        return
+    dist_root = dist.resolve()
+    assets = dist / "assets"
+    if assets.is_dir():
+        app.mount("/app/assets", StaticFiles(directory=assets), name="web-assets")
+    index = dist / "index.html"
+
+    @app.get("/app", include_in_schema=False)
+    @app.get("/app/{path:path}", include_in_schema=False)
+    def spa(path: str = "") -> FileResponse:
+        if path:
+            candidate = (dist / path).resolve()
+            if candidate.is_file() and candidate.is_relative_to(dist_root):
+                return FileResponse(candidate)
+        return FileResponse(index)
+
+
 def create_app() -> FastAPI:
     """Application factory."""
     settings = get_settings()
@@ -196,6 +226,7 @@ def create_app() -> FastAPI:
             "environment": settings.environment,
         }
 
+    _mount_web_app(app)
     return app
 
 

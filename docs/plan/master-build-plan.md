@@ -242,28 +242,33 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ## Phase 6 — Web app + PWA (`web/`)
 
 ### 6.0 Stack & project setup
-- [ ] Vite + React 19 + TypeScript project in `web/`
-- [ ] Tailwind CSS + shadcn/ui component library
-- [ ] TanStack Query (server state) + Zustand (workspace/UI state)
-- [ ] API client generated from OpenAPI spec (`docs/api/openapi.yaml`)
-- [ ] ESLint + Prettier + `tsc --noEmit` gate in CI
-- [ ] Static build served by FastAPI (`/app`) in self-host image; SPA fallback routing
+- [x] Vite + React 19 + TypeScript project in `web/` (Node 26 + npm, `web/.nvmrc`, lockfile committed)
+- [x] Tailwind CSS + shadcn/ui component library (Tailwind v4 CSS-first tokens, `cn` merge package)
+- [x] TanStack Query (server state) + Zustand (workspace/UI state)
+- [x] API client generated from the live OpenAPI schema (`scripts/export_openapi.py` →
+      `docs/api/openapi.json` → `openapi-typescript`/`openapi-fetch`; `docs/api/openapi.yaml` legacy)
+- [x] ESLint + Prettier + `tsc --noEmit` gate in CI (`web` job, drift-checked generated types)
+- [x] Static build served by FastAPI (`/app`) in self-host image; SPA fallback routing (`_mount_web_app`)
 
 ### 6.0.1 Design system (locked — see `docs/plan/product-concept.md` §7)
-- [ ] Design tokens: neutral ramp (cool gray), accent `#2563EB`, status amber/red/green
-- [ ] Dark mode via token swap (page `#16191D`, borders `#2B2F36`)
-- [ ] Typography: Inter (UI) + JetBrains Mono (scores/IDs); scale 12–30, weights 400/500/600
-- [ ] Component kit: shadcn/ui themed to tokens (button, table, dialog, badge, score bar, command palette)
-- [ ] Attention-first home: "Needs you today" + "Watching" sections wired to real queues
-- [ ] Three-rooms workspace layout component (Board / Queue / Chat) with context isolation
-- [ ] Accessibility pass: WCAG AA, icon+label on every status color, keyboard navigation, reduced motion
+- [x] Design tokens: neutral ramp (cool gray), accent `#2563EB`, status amber/red/green — single source
+      `web/src/styles/theme.css`; a guard test bans hex literals anywhere else in the web source
+- [x] Dark mode via token swap (full ramp recorded in §7.1)
+- [x] Typography: Inter (UI) + JetBrains Mono (scores/IDs); scale 12–30, weights 400/500/600 (self-hosted)
+- [~] Component kit: shadcn/ui themed to tokens (button, input, table, dialog, tabs, badge, progress,
+      command, sonner, …) + `StatusBadge` (icon+label mandatory), `ScoreBar`, `EmptyState`
+- [ ] Attention-first home: "Needs you today" + "Watching" sections wired to real queues (layout + empty states now)
+- [~] Three-rooms workspace layout component (Board / Queue / Chat) — structure + placeholders;
+      a workspace data endpoint lands with the chat UI slice
+- [~] Accessibility pass: focus rings, reduced motion, icon+label status primitives in place;
+      full WCAG AA audit later
 - [ ] Mobile-first check at 390px viewport (queues, approvals, chat)
 
 ### 6.1 Shell & auth
-- [ ] App shell: sidebar workspaces, topbar, responsive layout
+- [~] App shell: sidebar workspaces, topbar, responsive layout (icon rail on mobile; bottom bar later)
 - [ ] Auth screens: login, session handling, password reset
 - [ ] Mobile-first layouts (solo HR lives on their phone)
-- [ ] i18n from day one: English + Bahasa Indonesia (locale files, language switcher)
+- [x] i18n from day one: English + Bahasa Indonesia (locale files, language switcher, key-parity test)
 - [ ] Settings → Connections: provider list with health badges, config forms (schema-generated), Test buttons, env-lock padlocks
 
 ### 6.2 Chat front door

@@ -1,0 +1,63 @@
+/*
+ * HRAgents design tokens — the ONLY place hex colors may appear.
+ *
+ * Spec: docs/plan/product-concept.md §7 (locked).
+ * Light is the default; dark mode is a token swap of the neutral ramp only.
+ * Status colors are signal (<=5% of pixels) and always ship with icon + label.
+ * The `src/styles/theme.guard.test.ts` test fails the build on stray hex
+ * literals anywhere else in the web source.
+ */
+
+:root {
+  /* --- spec tokens (product-concept §7.1) --- */
+  --bg: #ffffff;
+  --bg-subtle: #f8f9fa;
+  --border: #e9ecef;
+  --border-strong: #dee2e6;
+  --text-muted: #868e96;
+  --text: #343a40;
+  --text-strong: #212529;
+  --accent: #2563eb;
+
+  /* status: awaiting human / overdue-error / verified-done */
+  --waiting: #d97706;
+  --error: #dc2626;
+  --done: #16a34a;
+
+  /* --- shadcn/ui aliases (components speak this namespace) --- */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg);
+  --card-foreground: var(--text);
+  --popover: var(--bg);
+  --popover-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: var(--bg);
+  --secondary: var(--bg-subtle);
+  --secondary-foreground: var(--text-strong);
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--text-muted);
+  --accent-surface: var(--bg-subtle);
+  --accent-surface-foreground: var(--text-strong);
+  --destructive: var(--error);
+  --destructive-foreground: var(--bg);
+  --input: var(--border-strong);
+  --ring: var(--accent);
+}
+
+.dark {
+  /* derived dark ramp — recorded in product-concept §7.1 */
+  --bg: #16191d;
+  --bg-subtle: #1d2126;
+  --border: #2b2f36;
+  --border-strong: #3a4048;
+  --text-muted: #8a9199;
+  --text: #ced4da;
+  --text-strong: #e9ecef;
+  --accent: #3b82f6;
+
+  /* status colors are identical in both modes */
+  --waiting: #d97706;
+  --error: #dc2626;
+  --done: #16a34a;
+}
