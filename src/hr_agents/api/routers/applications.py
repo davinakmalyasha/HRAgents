@@ -20,6 +20,7 @@ from hr_agents.api.schemas import (
 )
 from hr_agents.rbac import Permission
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionConflictError
+from hr_agents.services.ingestion import ApplicationStatus
 
 router = APIRouter(
     prefix="/v1/applications",
@@ -111,10 +112,13 @@ def submit_batch(
 def list_applications(
     store: StoreDep,
     job_id: UUID | None = None,
+    application_status: Annotated[ApplicationStatus | None, Query(alias="status")] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 200,
 ) -> list[ApplicationSummary]:
     now = datetime.now(UTC)
     records = store.list_for_job(job_id) if job_id is not None else store.list_all()
+    if application_status is not None:
+        records = [record for record in records if record.status is application_status]
     ranked = sorted(records, key=lambda record: record.priority_score, reverse=True)
     return [ApplicationSummary.from_record(record, now=now) for record in ranked[:limit]]
 

@@ -288,7 +288,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       transition policy (drag must never bypass the HITL gates; tracked in the polish backlog)
 - [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
       rationales, flags, and policy decision (`/w/hiring/applications/{id}`)
-- [ ] Review queue for HITL (soft-rejection sign-off, anomalies, calendar) — next web slice
+- [x] Review queue for HITL (gated applications with their evaluation context, named-reviewer
+      sign-off with reason codes, audit receipt shown afterwards) — the override endpoint stays
+      the only writer; manual stage moves still await their safety design
 - [ ] Scheduling view (slots, confirmations, reschedules)
 - [ ] Batch import UI (XLSX/CSV + drag-drop CVs) with progress
 

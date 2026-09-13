@@ -69,6 +69,52 @@
       "failed": "Gagal memasukkan ke antrean."
     }
   },
+  "review": {
+    "title": "Persetujuan manusia",
+    "empty": "Tidak ada lamaran yang ditahan. Tidak ada yang menunggu Anda di sini.",
+    "review": "Tinjau",
+    "reviewer": "Nama peninjau",
+    "reviewerPlaceholder": "mis. Sinta Prabowo",
+    "role": "Peran peninjau",
+    "decision": "Keputusan",
+    "choose": "Pilih…",
+    "reason": "Kode alasan",
+    "reasonPlaceholder": "mis. evidence_insufficient, below_bar_after_review",
+    "notes": "Catatan (opsional)",
+    "notesPlaceholder": "Apa yang perlu didengar kandidat, atau mengapa ini aman",
+    "submit": "Catat keputusan",
+    "done": "Selesai",
+    "decidedBy": "Diputuskan oleh {{reviewer}}",
+    "receiptSeq": "Urutan audit",
+    "receiptHash": "Hash entri",
+    "receiptNote": "Hanya tambah: keputusan tidak pernah diubah atau dihapus.",
+    "awaitingEvaluation": "Menunggu evaluasi terdaftar.",
+    "flagsCount": "{{count}} tanda",
+    "roles": {
+      "engineering_lead": "Lead engineering",
+      "recruiter_lead": "Lead rekrutmen",
+      "hr_partner": "HR partner"
+    },
+    "decisions": {
+      "auto_schedule": "Jadwalkan wawancara",
+      "hitl_soft_rejection": "Tolak dengan catatan manusia",
+      "hitl_anomaly": "Tahan untuk tinjauan anomali",
+      "hitl_calendar": "Tahan untuk penjadwalan",
+      "hitl_manual": "Lanjutkan ke keputusan manual",
+      "reject_auto": "Konfirmasi penolakan otomatis"
+    },
+    "errors": {
+      "reviewerRequired": "Nama peninjau wajib diisi.",
+      "agentBlocked": "Peninjau harus manusia bernama, bukan agen.",
+      "roleRequired": "Pilih peran peninjau yang diizinkan.",
+      "decisionRequired": "Pilih keputusan.",
+      "reasonRequired": "Kode alasan wajib diisi.",
+      "forbidden": "Peninjau tersebut tidak diizinkan menandatangani.",
+      "notFound": "Evaluasi sudah tidak ada.",
+      "conflict": "Permintaan bertentangan dengan status saat ini.",
+      "failed": "Gagal mencatat keputusan. Silakan coba lagi."
+    }
+  },
   "notFound": { "title": "Halaman tidak ditemukan", "back": "Kembali ke beranda" },
   "common": {
     "language": "Bahasa",

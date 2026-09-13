@@ -9,6 +9,7 @@ from pydantic import SecretStr
 from hr_agents.config import ApiPrincipalSettings, Settings
 from hr_agents.main import create_app
 from hr_agents.rbac import RoleId
+from hr_agents.services.ingestion import ApplicationStatus
 
 
 def _settings() -> Settings:
@@ -111,6 +112,22 @@ def test_recruiter_can_list_and_submit(monkeypatch: pytest.MonkeyPatch) -> None:
             headers={"X-API-Key": "rec-key"},
         )
         assert submit.status_code == 202
+
+
+def test_pipeline_filters_by_status() -> None:
+    app = create_app()
+
+    with TestClient(app) as client:
+        first = _submit(client, uuid4())
+        second = _submit(client, uuid4())
+
+        app.state.store.set_status(UUID(first), ApplicationStatus.GATED, event="evaluation.gated")
+
+        gated = client.get("/v1/applications", params={"status": "gated"}).json()
+        assert [item["application_id"] for item in gated] == [first]
+
+        queued = client.get("/v1/applications", params={"status": "queued"}).json()
+        assert [item["application_id"] for item in queued] == [second]
 
 
 def test_pipeline_limit_is_bounded() -> None:

@@ -26,6 +26,18 @@ export function useApplications(jobId: string | null) {
   })
 }
 
+export function useGatedApplications() {
+  return useQuery({
+    queryKey: ['applications', 'status', 'gated'],
+    queryFn: async (): Promise<ApplicationSummary[]> => {
+      const { data } = await api.GET('/v1/applications', {
+        params: { query: { status: 'gated' } },
+      })
+      return data ?? []
+    },
+  })
+}
+
 export function useApplication(applicationId: string | undefined) {
   return useQuery({
     queryKey: ['application', applicationId],

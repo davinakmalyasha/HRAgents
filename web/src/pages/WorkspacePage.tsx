@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/feedback/EmptyState'
 import { ThreeRooms, type RoomId } from '@/components/three-rooms/ThreeRooms'
 import { ChatPanel } from '@/features/chat/ChatPanel'
 import { PipelineBoard } from '@/features/hiring/PipelineBoard'
+import { ReviewQueue } from '@/features/hiring/ReviewQueue'
 import { useWorkspaces, workspaceName } from '@/features/workspaces/useWorkspaces'
 import { isWorkspaceId, WORKSPACE_ICONS } from '@/lib/workspaces'
 
@@ -51,7 +52,13 @@ export function WorkspacePage() {
             <EmptyState title={t('workspace.boardPlaceholder', { name })} />
           )
         }
-        queue={<EmptyState title={t('workspace.queuePlaceholder')} />}
+        queue={
+          workspaceId === 'hiring' ? (
+            <ReviewQueue />
+          ) : (
+            <EmptyState title={t('workspace.queuePlaceholder')} />
+          )
+        }
         chat={workspaceId === 'policy' ? <ChatPanel /> : <ChatPanel workspace={workspaceId} />}
       />
     </div>
