@@ -136,7 +136,8 @@ landing/           public site (Next.js) — planned
 - [x] Recruitment API surface: documents, jobs, evaluations, overrides, feedback, scheduling
 - [x] Departments: Onboarding, Records, Leave, Payroll prep, Compliance, Growth, Offboarding
 - [x] Multi-department architecture: workspaces, RBAC, front door chat, tenant RLS, handoffs
-- [~] Dashboard SPA + PWA (monochrome design system) — shell, tokens, i18n scaffolded
+- [~] Dashboard SPA + PWA (monochrome design system) — chat, attention home, hiring board,
+      review queue, batch import, offline shell; settings UI, XLSX, and push remain
 - [ ] MCP layer + integrations (WhatsApp, Google Workspace, files, HRIS)
 - [ ] Full eval suite (50 profiles + fairness pairs) and the technical paper
 - [ ] Self-host setup wizard, observability, and public release (Apache-2.0)

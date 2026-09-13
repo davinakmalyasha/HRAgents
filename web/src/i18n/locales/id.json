@@ -53,6 +53,37 @@
     "rationale": "Alasan",
     "back": "Kembali ke pipeline"
   },
+  "import": {
+    "open": "Impor",
+    "title": "Impor lamaran",
+    "back": "Kembali ke pipeline",
+    "job": "Lowongan tujuan",
+    "csv": "Kandidat (CSV)",
+    "csvHelp": "Kolom: name, email, links (opsional), cv (opsional nama file).",
+    "csvPlaceholder": "name,email,links,cv\nBudi Santoso,budi@example.com,github.com/budi,budi.pdf",
+    "cvs": "File CV (opsional)",
+    "cvsHelp": "Unggah CV dulu, lalu rujuk lewat kolom cv dengan nama file.",
+    "chooseFiles": "Pilih file",
+    "uploading": "Mengunggah…",
+    "preview": "Pratinjau",
+    "previewEmpty": "Tempel atau jatuhkan CSV untuk melihat pratinjau baris.",
+    "consent": "Setiap kandidat dalam daftar ini telah menyetujui evaluasi.",
+    "submit": "Impor {{count}} lamaran",
+    "done": "Impor selesai",
+    "accepted": "{{count}} diterima",
+    "conflicts": "{{count}} konflik",
+    "openBoard": "Buka pipeline",
+    "more": "Impor lagi",
+    "failed": "Impor gagal. Silakan coba lagi.",
+    "errors": {
+      "empty": "CSV tidak berisi baris kandidat.",
+      "tooMany": "Terlalu banyak baris: batas batch adalah {{count}}.",
+      "badHeader": "CSV membutuhkan kolom name dan email.",
+      "missingName": "Baris {{line}}: nama kosong.",
+      "badEmail": "Baris {{line}}: email tidak valid.",
+      "unknownCv": "Baris {{line}}: file CV belum diunggah."
+    }
+  },
   "chat": {
     "empty": "Ajukan pertanyaan untuk memulai.",
     "placeholder": "Tanya apa saja…",

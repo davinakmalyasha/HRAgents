@@ -20,3 +20,11 @@ createRoot(container).render(
     <App />
   </StrictMode>,
 )
+
+// The service worker precaches the static shell only; HR data always comes
+// from the API, so an offline queue can never serve stale decisions.
+if (import.meta.env.PROD) {
+  void import('virtual:pwa-register').then(({ registerSW }) => {
+    registerSW({ immediate: true })
+  })
+}

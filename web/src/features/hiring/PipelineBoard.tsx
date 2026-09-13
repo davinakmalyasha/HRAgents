@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
 import { ScoreBar } from '@/components/status/ScoreBar'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { JobSelector } from './JobSelector'
@@ -98,7 +99,12 @@ export function PipelineBoard() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <JobSelector jobs={jobs.data ?? []} value={jobId} onChange={setJobId} />
+        <div className="flex items-center gap-2">
+          <JobSelector jobs={jobs.data ?? []} value={jobId} onChange={setJobId} />
+          <Button asChild variant="outline" size="sm">
+            <Link to="/w/hiring/import">{t('import.open')}</Link>
+          </Button>
+        </div>
         <span className="text-2xs text-ink-muted">
           {t('hiring.inPipeline', { count: applications.data?.length ?? 0 })}
         </span>
