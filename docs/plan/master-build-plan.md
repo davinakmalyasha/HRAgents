@@ -61,7 +61,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 3. Deterministic core & pipeline | Done |
 | 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **In progress** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄 |
 | 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **Done** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅ (conversation-store Postgres adapter lands with Phase 6) |
-| 6. Web app + PWA | Not started |
+| 6. Web app + PWA | **In progress** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, PWA shell ✅ (settings, XLSX, push remain) |
 | 7. Integrations (messaging, Google, files, MCP) | Not started |
 | 8. Departments (onboarding, records, leave, payroll prep, performance, offboarding) | **Done (Wave 1 engines)** — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅ |
 | 9. Deployment & compliance | Not started |
@@ -292,7 +292,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       sign-off with reason codes, audit receipt shown afterwards) — the override endpoint stays
       the only writer; manual stage moves still await their safety design
 - [ ] Scheduling view (slots, confirmations, reschedules)
-- [ ] Batch import UI (XLSX/CSV + drag-drop CVs) with progress
+- [x] Batch import UI (CSV paste/drop + drag-drop CVs with progress, consent gate, conflict
+      report); XLSX parsing is a later addition, CSV covers the need today
 
 ### 6.4 Other workspaces (Wave-1 surfaces)
 - [ ] Policy workspace: Q&A with citations + knowledge browser
@@ -303,7 +304,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [ ] Skills/knowledge editor (markdown editing with preview, versioning)
 
 ### 6.5 PWA
-- [ ] `vite-plugin-pwa`: manifest, service worker, offline shell
+- [x] `vite-plugin-pwa`: manifest, service worker, offline shell (static shell only — HR data
+      always comes from the API, never the cache)
 - [ ] Install prompt + push notifications (interview confirms, approvals, SLAs)
 - [ ] Lighthouse PWA + mobile performance pass
 

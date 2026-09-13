@@ -53,6 +53,37 @@
     "rationale": "Rationale",
     "back": "Back to pipeline"
   },
+  "import": {
+    "open": "Import",
+    "title": "Import applications",
+    "back": "Back to pipeline",
+    "job": "Target job",
+    "csv": "Candidates (CSV)",
+    "csvHelp": "Columns: name, email, links (optional), cv (optional filename).",
+    "csvPlaceholder": "name,email,links,cv\nBudi Santoso,budi@example.com,github.com/budi,budi.pdf",
+    "cvs": "CV files (optional)",
+    "cvsHelp": "Upload CVs first, then reference them in the cv column by filename.",
+    "chooseFiles": "Choose files",
+    "uploading": "Uploading…",
+    "preview": "Preview",
+    "previewEmpty": "Paste or drop a CSV to preview the rows.",
+    "consent": "Every candidate on this list has consented to evaluation.",
+    "submit": "Import {{count}} applications",
+    "done": "Import complete",
+    "accepted": "{{count}} accepted",
+    "conflicts": "{{count}} conflicts",
+    "openBoard": "Open pipeline",
+    "more": "Import more",
+    "failed": "Import failed. Please try again.",
+    "errors": {
+      "empty": "The CSV has no candidate rows.",
+      "tooMany": "Too many rows: the batch limit is {{count}}.",
+      "badHeader": "The CSV needs name and email columns.",
+      "missingName": "Row {{line}}: missing name.",
+      "badEmail": "Row {{line}}: invalid email.",
+      "unknownCv": "Row {{line}}: CV file is not uploaded."
+    }
+  },
   "chat": {
     "empty": "Ask a question to get started.",
     "placeholder": "Ask anything…",

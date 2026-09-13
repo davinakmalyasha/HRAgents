@@ -130,8 +130,8 @@ documented.
 - [x] Review queue for HITL: gated applications with evaluation context, named-reviewer
       sign-off with reason codes, audit receipt shown; uses the override endpoint with reason codes
 - [ ] Scheduling view: proposals, auto vs. needs-approval, slot confirmation, reschedules
-- [ ] Batch import UI (XLSX/CSV + drag-drop CVs) with progress; documents upload wired to
-      `POST /v1/documents`
+- [x] Batch import UI (CSV paste/drop + drag-drop CVs, consent confirmation, per-item
+      conflict report); XLSX parsing deferred — CSV covers the need today
 - [ ] Job management: create/edit jobs, status lifecycle, dimension weight editor (with the
       sum-to-1.0 validation surfaced inline)
 
@@ -150,7 +150,8 @@ documented.
 - [ ] Audit viewer: searchable entries, chain verification badge, export
 
 ### 2.6 PWA
-- [ ] `vite-plugin-pwa`: manifest, service worker, offline shell
+- [x] `vite-plugin-pwa`: manifest, service worker, offline shell (static assets only —
+      no API caching, so an offline queue can never serve stale decisions)
 - [ ] Install prompt + push notifications (approvals, SLAs, interview confirmations)
 - [ ] Lighthouse PWA + mobile performance pass (target ≥ 90 PWA score)
 
