@@ -11,7 +11,7 @@ Run this before claiming any task is done:
 uv run python scripts/check.py
 ```
 
-It runs `ruff check`, `ruff format --check`, `mypy`, and `pytest` (844 tests, ≥90%
+It runs `ruff check`, `ruff format --check`, `mypy`, and `pytest` (845 tests, ≥90%
 coverage enforced in CI). Fix failures — never suppress them (`# type: ignore`,
 `noqa`, skipped tests) without an explicit reason.
 

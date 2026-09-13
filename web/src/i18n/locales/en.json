@@ -69,6 +69,52 @@
       "failed": "Could not queue the handoff."
     }
   },
+  "review": {
+    "title": "Human sign-off",
+    "empty": "No gated applications. Nothing waits on you here.",
+    "review": "Review",
+    "reviewer": "Reviewer name",
+    "reviewerPlaceholder": "e.g. Sinta Prabowo",
+    "role": "Reviewer role",
+    "decision": "Decision",
+    "choose": "Choose…",
+    "reason": "Reason code",
+    "reasonPlaceholder": "e.g. evidence_insufficient, below_bar_after_review",
+    "notes": "Notes (optional)",
+    "notesPlaceholder": "What the candidate should hear, or why this is safe",
+    "submit": "Record decision",
+    "done": "Done",
+    "decidedBy": "Decided by {{reviewer}}",
+    "receiptSeq": "Audit sequence",
+    "receiptHash": "Entry hash",
+    "receiptNote": "Append-only: overrides are never edited or deleted.",
+    "awaitingEvaluation": "Waiting for the evaluation to register.",
+    "flagsCount": "{{count}} flags",
+    "roles": {
+      "engineering_lead": "Engineering lead",
+      "recruiter_lead": "Recruiting lead",
+      "hr_partner": "HR partner"
+    },
+    "decisions": {
+      "auto_schedule": "Schedule the interview",
+      "hitl_soft_rejection": "Soft-reject with a human note",
+      "hitl_anomaly": "Hold for anomaly review",
+      "hitl_calendar": "Hold for scheduling",
+      "hitl_manual": "Advance to manual decision",
+      "reject_auto": "Confirm automatic rejection"
+    },
+    "errors": {
+      "reviewerRequired": "A reviewer name is required.",
+      "agentBlocked": "Reviewers must be named humans, not agents.",
+      "roleRequired": "Choose a permitted reviewer role.",
+      "decisionRequired": "Choose a decision.",
+      "reasonRequired": "A reason code is required.",
+      "forbidden": "That reviewer is not permitted to sign off.",
+      "notFound": "The evaluation no longer exists.",
+      "conflict": "The request conflicts with the current state.",
+      "failed": "Could not record the decision. Please try again."
+    }
+  },
   "notFound": { "title": "Page not found", "back": "Back to home" },
   "common": {
     "language": "Language",

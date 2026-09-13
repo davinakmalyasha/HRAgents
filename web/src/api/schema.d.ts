@@ -2230,6 +2230,11 @@ export interface components {
             /** Status */
             status: string;
         };
+        /**
+         * ApplicationStatus
+         * @enum {string}
+         */
+        ApplicationStatus: "queued" | "processing" | "evaluated" | "gated" | "scheduled" | "rejected" | "withdrawn";
         /** ApplicationStatusResponse */
         ApplicationStatusResponse: {
             /**
@@ -5278,6 +5283,7 @@ export interface operations {
         parameters: {
             query?: {
                 job_id?: string | null;
+                status?: components["schemas"]["ApplicationStatus"] | null;
                 limit?: number;
             };
             header?: {

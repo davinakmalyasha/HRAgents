@@ -89,6 +89,19 @@
         "title": "ApplicationAccepted",
         "type": "object"
       },
+      "ApplicationStatus": {
+        "enum": [
+          "queued",
+          "processing",
+          "evaluated",
+          "gated",
+          "scheduled",
+          "rejected",
+          "withdrawn"
+        ],
+        "title": "ApplicationStatus",
+        "type": "string"
+      },
       "ApplicationStatusResponse": {
         "additionalProperties": false,
         "properties": {
@@ -8472,6 +8485,22 @@
                 }
               ],
               "title": "Job Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ApplicationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
             }
           },
           {
