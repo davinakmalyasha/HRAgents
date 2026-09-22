@@ -90,6 +90,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/applications/{application_id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Manual stage move (named human; designed transition table)
+         * @description Drag-equivalent move. Refuses gates the board must never bypass.
+         */
+        post: operations["move_stage_v1_applications__application_id__stage_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/approvals": {
         parameters: {
             query?: never;
@@ -4755,6 +4775,17 @@ export interface components {
          * @enum {string}
          */
         SourceType: "resume" | "github" | "linkedin" | "questionnaire" | "publication" | "certification_registry" | "calendar" | "manual";
+        /**
+         * StageChangeRequest
+         * @description Manual board move; validated against the designed transition table.
+         */
+        StageChangeRequest: {
+            /** By */
+            by: string;
+            /** Reason */
+            reason: string;
+            target: components["schemas"]["ApplicationStatus"];
+        };
         /** StepAction */
         StepAction: {
             /** By */
@@ -5638,6 +5669,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvaluationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_stage_v1_applications__application_id__stage_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationStatusResponse"];
                 };
             };
             /** @description Validation Error */

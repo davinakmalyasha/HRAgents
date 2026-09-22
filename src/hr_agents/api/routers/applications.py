@@ -17,10 +17,12 @@ from hr_agents.api.schemas import (
     BatchAccepted,
     BatchItemResult,
     BatchSubmissionRequest,
+    StageChangeRequest,
 )
 from hr_agents.rbac import Permission
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionConflictError
 from hr_agents.services.ingestion import ApplicationStatus
+from hr_agents.services.stages import StageTransitionError, StageTransitionService
 
 router = APIRouter(
     prefix="/v1/applications",
@@ -135,4 +137,35 @@ def get_application(application_id: UUID, store: StoreDep) -> ApplicationStatusR
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"application {application_id} not found",
         )
+    return ApplicationStatusResponse.from_record(record)
+
+
+@router.post(
+    "/{application_id}/stage",
+    response_model=ApplicationStatusResponse,
+    summary="Manual stage move (named human; designed transition table)",
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+)
+def move_stage(
+    application_id: UUID,
+    payload: StageChangeRequest,
+    store: StoreDep,
+    audit: AuditDep,
+) -> ApplicationStatusResponse:
+    """Drag-equivalent move. Refuses gates the board must never bypass."""
+    service = StageTransitionService(store=store, audit=audit)
+    try:
+        record = service.move(
+            application_id,
+            target=payload.target,
+            by=payload.by,
+            reason=payload.reason,
+        )
+    except StageTransitionError as exc:
+        message = str(exc)
+        if message.startswith("application ") and message.endswith(" not found"):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
+        if "named human" in message:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message) from exc
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message) from exc
     return ApplicationStatusResponse.from_record(record)

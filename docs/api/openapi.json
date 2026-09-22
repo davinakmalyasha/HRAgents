@@ -6778,6 +6778,34 @@
         "title": "SourceType",
         "type": "string"
       },
+      "StageChangeRequest": {
+        "additionalProperties": false,
+        "description": "Manual board move; validated against the designed transition table.",
+        "properties": {
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/ApplicationStatus"
+          }
+        },
+        "required": [
+          "target",
+          "by",
+          "reason"
+        ],
+        "title": "StageChangeRequest",
+        "type": "object"
+      },
       "StepAction": {
         "additionalProperties": false,
         "properties": {
@@ -9123,6 +9151,76 @@
         "summary": "Deterministic evaluation result for an application",
         "tags": [
           "evaluations"
+        ]
+      }
+    },
+    "/v1/applications/{application_id}/stage": {
+      "post": {
+        "description": "Drag-equivalent move. Refuses gates the board must never bypass.",
+        "operationId": "move_stage_v1_applications__application_id__stage_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Application Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplicationStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Manual stage move (named human; designed transition table)",
+        "tags": [
+          "applications"
         ]
       }
     },

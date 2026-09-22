@@ -100,6 +100,11 @@ from hr_agents.services.scoring import (
     score_candidate,
     score_runs,
 )
+from hr_agents.services.stages import (
+    STAGE_TRANSITIONS,
+    StageTransitionError,
+    StageTransitionService,
+)
 from hr_agents.services.tasks import TaskEngine, TaskError
 
 # NOTE: `pipeline` and `worker` are intentionally NOT re-exported here.
@@ -113,6 +118,7 @@ __all__ = [
     "MAX_DOCUMENT_BYTES",
     "OVERRIDE_REVIEWER_ROLES",
     "REJECTION_DECISIONS",
+    "STAGE_TRANSITIONS",
     "AnalysisError",
     "ApplicationRecord",
     "ApplicationStatus",
@@ -169,6 +175,8 @@ __all__ = [
     "SchedulingProposalRecord",
     "SchedulingService",
     "ScoringResult",
+    "StageTransitionError",
+    "StageTransitionService",
     "StoredDocument",
     "SubmissionConflictError",
     "SubmissionInput",

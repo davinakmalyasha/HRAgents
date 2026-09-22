@@ -1,8 +1,9 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 
 from hr_agents.main import create_app
+from hr_agents.services.ingestion import ApplicationStatus
 
 
 def make_payload(job_id: str) -> dict:
@@ -16,6 +17,16 @@ def make_payload(job_id: str) -> dict:
         },
         "metadata": {"source": "test"},
     }
+
+
+def app_at(client: TestClient, status_value: ApplicationStatus) -> str:
+    """Submit an application and force its status (test setup, not an API move)."""
+    created = client.post("/v1/applications", json=make_payload(str(uuid4())))
+    application_id = created.json()["application_id"]
+    client.app.state.store.set_status(  # type: ignore[attr-defined]
+        UUID(application_id), status_value, event="test.setup"
+    )
+    return application_id
 
 
 def test_submit_application_accepted() -> None:
@@ -140,3 +151,91 @@ def test_audit_chain_has_submission_entries() -> None:
     assert app.state.audit.verify() == -1
     actions = [entry.action for entry in app.state.audit.entries]
     assert actions == ["application.received", "application.received"]
+
+
+# --- manual stage moves ---------------------------------------------------------------
+
+
+def test_stage_move_moves_and_records_the_timeline() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        application_id = app_at(client, ApplicationStatus.EVALUATED)
+        response = client.post(
+            f"/v1/applications/{application_id}/stage",
+            json={
+                "target": "gated",
+                "by": "hr-admin",
+                "reason": "pulled out of auto-schedule for a human look",
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "gated"
+    assert body["timeline"][-1]["event"] == "application.stage.gated"
+    actions = [entry.action for entry in app.state.audit.entries]
+    assert "application.stage_changed" in actions
+    assert app.state.audit.verify() == -1
+
+
+def test_stage_move_refuses_gate_bypasses() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        queued = app_at(client, ApplicationStatus.QUEUED)
+        gated = app_at(client, ApplicationStatus.GATED)
+
+        worker = client.post(
+            f"/v1/applications/{queued}/stage",
+            json={"target": "gated", "by": "hr-admin", "reason": "skip the queue"},
+        )
+        rejection = client.post(
+            f"/v1/applications/{gated}/stage",
+            json={"target": "rejected", "by": "hr-admin", "reason": "no thanks"},
+        )
+        schedule = client.post(
+            f"/v1/applications/{gated}/stage",
+            json={"target": "scheduled", "by": "hr-admin", "reason": "looks good"},
+        )
+
+    assert worker.status_code == 409
+    assert "worker" in worker.json()["title"]
+    assert rejection.status_code == 409
+    assert "sign-off" in rejection.json()["title"]
+    assert schedule.status_code == 409
+    assert "scheduling is gated" in schedule.json()["title"]
+
+
+def test_stage_move_requires_a_named_human() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        application_id = app_at(client, ApplicationStatus.EVALUATED)
+        response = client.post(
+            f"/v1/applications/{application_id}/stage",
+            json={"target": "gated", "by": "agent:hr_bot", "reason": "automating"},
+        )
+
+    assert response.status_code == 403
+    assert "named human" in response.json()["title"]
+
+
+def test_stage_move_requires_a_reason() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        application_id = app_at(client, ApplicationStatus.EVALUATED)
+        response = client.post(
+            f"/v1/applications/{application_id}/stage",
+            json={"target": "gated", "by": "hr-admin", "reason": ""},
+        )
+
+    assert response.status_code == 422
+
+
+def test_stage_move_unknown_application_404() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        response = client.post(
+            f"/v1/applications/{uuid4()}/stage",
+            json={"target": "gated", "by": "hr-admin", "reason": "test"},
+        )
+
+    assert response.status_code == 404

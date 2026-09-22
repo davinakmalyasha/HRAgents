@@ -9,7 +9,11 @@ from uuid import UUID
 from pydantic import EmailStr, Field
 
 from hr_agents.models import StrictModel
-from hr_agents.services.ingestion import ApplicationRecord, SubmissionInput
+from hr_agents.services.ingestion import (
+    ApplicationRecord,
+    ApplicationStatus,
+    SubmissionInput,
+)
 
 
 class ConsentInput(StrictModel):
@@ -74,6 +78,14 @@ class BatchItemResult(StrictModel):
 class BatchAccepted(StrictModel):
     accepted: int
     items: list[BatchItemResult] = Field(default_factory=list)
+
+
+class StageChangeRequest(StrictModel):
+    """Manual board move; validated against the designed transition table."""
+
+    target: ApplicationStatus
+    by: str = Field(min_length=1, max_length=200)
+    reason: str = Field(min_length=1, max_length=500)
 
 
 class TimelineEvent(StrictModel):
