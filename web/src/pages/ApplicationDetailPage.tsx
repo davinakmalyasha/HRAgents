@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table'
 import { formatDateTime } from '@/lib/dates'
 
+import { CommunicationPanel } from '@/features/hiring/CommunicationPanel'
 import { shortId } from '@/features/hiring/pipeline'
 import { useApplication, useEvaluation } from '@/features/hiring/useHiring'
 
@@ -136,6 +137,12 @@ export function ApplicationDetailPage() {
           <EvaluationCard evaluation={evaluation.data} />
         )}
       </section>
+
+      <CommunicationPanel
+        candidateId={record.candidate_id}
+        evaluationId={evaluation.data?.id}
+        policyDecision={evaluation.data?.policy.decision}
+      />
 
       <section aria-labelledby="timeline" className="flex flex-col gap-3">
         <h2 id="timeline" className="text-ink-strong text-xl font-medium">

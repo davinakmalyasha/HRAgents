@@ -4,6 +4,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 import i18n from '@/i18n'
 
+vi.mock('@/features/hiring/useCommunications', () => ({
+  useCommunications: () => ({ isLoading: false, data: [] }),
+  useEvaluationOverrides: () => ({ isLoading: false, data: [] }),
+}))
+
 vi.mock('@/features/hiring/useHiring', () => ({
   useApplication: () => ({
     isLoading: false,

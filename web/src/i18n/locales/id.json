@@ -207,6 +207,54 @@
       "failed": "Gagal mencatat keputusan. Silakan coba lagi."
     }
   },
+  "communication": {
+    "title": "Komunikasi kandidat",
+    "empty": "Belum ada pesan dalam antrean.",
+    "queueRejection": "Antrekan pesan penolakan",
+    "composeOffer": "Susun tawaran",
+    "markSent": "Tandai terkirim",
+    "needsEvaluation": "Komunikasi tersedia setelah evaluasi terdaftar.",
+    "rejectionLocked": "Antrean penolakan terbuka setelah ada keputusan penolakan tercatat (persetujuan manusia atau penolakan otomatis terdokumentasi).",
+    "rejectionExists": "Pesan penolakan untuk kandidat ini sudah ada.",
+    "queuedBy": "Diantrekan oleh {{name}}",
+    "sentBy": "Dikirim oleh {{name}}",
+    "kinds": { "rejection": "Penolakan", "offer": "Tawaran" },
+    "statuses": { "queued": "Siap dikirim", "sent": "Terkirim", "cancelled": "Dibatalkan" },
+    "languages": { "en": "Inggris", "id": "Bahasa Indonesia" },
+    "channels": {
+      "email": "Email",
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "linkedin": "LinkedIn"
+    },
+    "fields": {
+      "by": "Disetujui oleh",
+      "byPlaceholder": "mis. Sinta Prabowo",
+      "language": "Bahasa",
+      "channel": "Saluran",
+      "subject": "Subjek",
+      "subjectPlaceholder": "Tawaran — Backend Engineer",
+      "body": "Pesan"
+    },
+    "dialogs": {
+      "rejectionTitle": "Antrekan pesan penolakan",
+      "rejectionHint": "Pesan disusun dari laporan umpan balik kandidat yang terverifikasi. Tidak ada yang dikirim otomatis — tinjau pesan, lalu catat pengiriman sendiri.",
+      "offerTitle": "Susun pesan tawaran",
+      "offerHint": "Anda yang menulis tawaran; antrean mencatat nama Anda sebagai penyetuju. Tidak ada yang dikirim otomatis.",
+      "sentTitle": "Catat pengiriman",
+      "sentHint": "Menegaskan pesan dikirim di luar HRAgents (klien email, WhatsApp, …) — sistem tidak pernah mengirim untuk Anda."
+    },
+    "confirm": "Antrekan pesan",
+    "confirmSent": "Catat pengiriman",
+    "errors": {
+      "byRequired": "Nama orang wajib diisi.",
+      "bodyRequired": "Isi pesan wajib diisi.",
+      "forbidden": "Peran Anda tidak boleh mengantrekan pesan kandidat.",
+      "notFound": "Kandidat atau evaluasi sudah tidak ada.",
+      "conflict": "Server menolak pesan ini (keputusan tercatat mungkin belum ada, atau pesan aktif sudah ada).",
+      "failed": "Gagal mengantrekan pesan. Silakan coba lagi."
+    }
+  },
   "scheduling": {
     "title": "Penjadwalan wawancara",
     "empty": "Belum ada usulan wawancara.",

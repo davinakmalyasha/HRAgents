@@ -207,6 +207,54 @@
       "failed": "Could not record the decision. Please try again."
     }
   },
+  "communication": {
+    "title": "Candidate communication",
+    "empty": "No messages queued yet.",
+    "queueRejection": "Queue rejection message",
+    "composeOffer": "Compose offer",
+    "markSent": "Mark sent",
+    "needsEvaluation": "Communication is available once the evaluation is registered.",
+    "rejectionLocked": "Rejection queueing unlocks after a recorded rejection decision (a human override or a documented automatic rejection).",
+    "rejectionExists": "A rejection message already exists for this candidate.",
+    "queuedBy": "Queued by {{name}}",
+    "sentBy": "Sent by {{name}}",
+    "kinds": { "rejection": "Rejection", "offer": "Offer" },
+    "statuses": { "queued": "Ready to send", "sent": "Sent", "cancelled": "Cancelled" },
+    "languages": { "en": "English", "id": "Bahasa Indonesia" },
+    "channels": {
+      "email": "Email",
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "linkedin": "LinkedIn"
+    },
+    "fields": {
+      "by": "Approved by",
+      "byPlaceholder": "e.g. Sinta Prabowo",
+      "language": "Language",
+      "channel": "Channel",
+      "subject": "Subject",
+      "subjectPlaceholder": "Offer — Backend Engineer",
+      "body": "Message"
+    },
+    "dialogs": {
+      "rejectionTitle": "Queue rejection message",
+      "rejectionHint": "The message is composed from the candidate's grounded feedback report. Nothing is sent automatically — review the queued message, then record dispatch yourself.",
+      "offerTitle": "Compose offer message",
+      "offerHint": "You write the offer; queueing records your name as approver. Nothing is sent automatically.",
+      "sentTitle": "Record dispatch",
+      "sentHint": "Confirms the message was sent outside HRAgents (email client, WhatsApp, …) — the system never sends for you."
+    },
+    "confirm": "Queue message",
+    "confirmSent": "Record dispatch",
+    "errors": {
+      "byRequired": "A named person is required.",
+      "bodyRequired": "A message body is required.",
+      "forbidden": "Your role cannot queue candidate messages.",
+      "notFound": "The candidate or evaluation no longer exists.",
+      "conflict": "The server refused this message (a recorded decision may be missing, or an active message already exists).",
+      "failed": "Could not queue the message. Please try again."
+    }
+  },
   "scheduling": {
     "title": "Interview scheduling",
     "empty": "No interview proposals yet.",
