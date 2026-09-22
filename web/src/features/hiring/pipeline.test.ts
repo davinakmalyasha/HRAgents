@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   groupIntoStages,
+  intentForDrop,
   shortId,
   stageOf,
   waitingLabel,
@@ -68,5 +69,41 @@ describe('pipeline stages', () => {
     expect(shortId('12345678-aaaa-bbbb-cccc-ddddeeeeffff')).toBe('12345678')
     expect(waitingLabel(5.4)).toBe('5h')
     expect(waitingLabel(50)).toBe('2d')
+  })
+})
+
+describe('intentForDrop', () => {
+  it('treats a same-column drop as a no-op', () => {
+    expect(intentForDrop('gated', 'decision')).toEqual({ kind: 'noop' })
+    expect(intentForDrop('queued', 'intake')).toEqual({ kind: 'noop' })
+    expect(intentForDrop('rejected', 'closed')).toEqual({ kind: 'noop' })
+  })
+
+  it('refuses moving worker-owned cards anywhere', () => {
+    expect(intentForDrop('queued', 'decision')).toEqual({ kind: 'system' })
+    expect(intentForDrop('processing', 'closed')).toEqual({ kind: 'system' })
+    expect(intentForDrop('queued', 'interview')).toEqual({ kind: 'system' })
+  })
+
+  it('refuses system-owned target columns', () => {
+    expect(intentForDrop('gated', 'intake')).toEqual({ kind: 'system' })
+    expect(intentForDrop('scheduled', 'screened')).toEqual({ kind: 'system' })
+  })
+
+  it('requests gated for the decision column (review, undo, reopen)', () => {
+    expect(intentForDrop('evaluated', 'decision')).toEqual({ kind: 'move', status: 'gated' })
+    expect(intentForDrop('scheduled', 'decision')).toEqual({ kind: 'move', status: 'gated' })
+    expect(intentForDrop('rejected', 'decision')).toEqual({ kind: 'move', status: 'gated' })
+    expect(intentForDrop('withdrawn', 'decision')).toEqual({ kind: 'move', status: 'gated' })
+  })
+
+  it('attempts scheduling for the interview column; the server validates', () => {
+    expect(intentForDrop('gated', 'interview')).toEqual({ kind: 'move', status: 'scheduled' })
+  })
+
+  it('offers the close choice (withdraw or sign-off) for the closed column', () => {
+    expect(intentForDrop('evaluated', 'closed')).toEqual({ kind: 'choice' })
+    expect(intentForDrop('gated', 'closed')).toEqual({ kind: 'choice' })
+    expect(intentForDrop('scheduled', 'closed')).toEqual({ kind: 'choice' })
   })
 })

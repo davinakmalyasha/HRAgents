@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema'
 
 export type ApplicationSummary = components['schemas']['ApplicationSummary']
+export type ApplicationStatus = components['schemas']['ApplicationStatus']
 
 export const PIPELINE_STAGES = ['intake', 'screened', 'decision', 'interview', 'closed'] as const
 export type PipelineStage = (typeof PIPELINE_STAGES)[number]
@@ -27,8 +28,9 @@ export interface PipelineColumn {
 /**
  * Group pipeline cards into the five columns HR actually reads.
  *
- * The board is read-only: pipeline status is set by the deterministic worker
- * and append-only human overrides, never by dragging a card around.
+ * Stages derive from deterministic statuses; manual moves are only *requests*
+ * that go through the gated stage endpoint (`intentForDrop` mirrors the
+ * server's table for routing, never as authority).
  */
 export function groupIntoStages(applications: ApplicationSummary[]): PipelineColumn[] {
   const columns: PipelineColumn[] = PIPELINE_STAGES.map((stage) => ({ stage, items: [] }))
@@ -42,6 +44,38 @@ export function groupIntoStages(applications: ApplicationSummary[]): PipelineCol
 
 export function shortId(id: string): string {
   return id.slice(0, 8)
+}
+
+export type DropIntent =
+  | { kind: 'system' }
+  | { kind: 'noop' }
+  | { kind: 'move'; status: ApplicationStatus }
+  | { kind: 'choice' }
+
+/**
+ * Resolve a cross-column drop into the board's transition intent.
+ *
+ * Mirrors `docs/architecture/board-transitions.md` for UX routing only — the
+ * stage endpoint re-validates every move, so a stale client can never bypass
+ * a gate.
+ */
+export function intentForDrop(currentStatus: string, targetStage: PipelineStage): DropIntent {
+  if (stageOf(currentStatus) === targetStage) {
+    return { kind: 'noop' }
+  }
+  if (currentStatus === 'queued' || currentStatus === 'processing') {
+    return { kind: 'system' }
+  }
+  if (targetStage === 'intake' || targetStage === 'screened') {
+    return { kind: 'system' }
+  }
+  if (targetStage === 'closed') {
+    return { kind: 'choice' }
+  }
+  if (targetStage === 'decision') {
+    return { kind: 'move', status: 'gated' }
+  }
+  return { kind: 'move', status: 'scheduled' }
 }
 
 export function waitingLabel(hours: number): string {

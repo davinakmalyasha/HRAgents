@@ -282,6 +282,35 @@
     "reconciliationHint": "Interviewers have no overlapping slots — coordinate times, then propose again.",
     "approvalHint": "Clear the sign-off in the review queue above; the proposal follows the recorded decision."
   },
+  "board": {
+    "dragLabel": "Drag {{candidate}} to another stage",
+    "moveTitle": "Move to {{stage}}",
+    "choiceTitle": "Close {{candidate}}",
+    "choiceHint": "Closing is not one action: withdraw the candidate, or record a rejection sign-off from the review queue.",
+    "rejectAction": "Record rejection sign-off",
+    "withdrawAction": "Withdraw candidate",
+    "withdrawTitle": "Withdraw {{candidate}}",
+    "withdrawHint": "Withdrawal is not a rejection — it needs your name and a reason, and the candidate simply leaves the process.",
+    "by": "Moved by",
+    "byPlaceholder": "e.g. Sinta Prabowo",
+    "reason": "Reason",
+    "reasonPlaceholder": "Why this move is right (recorded in the audit log)",
+    "confirm": "Apply move",
+    "confirmWithdraw": "Withdraw",
+    "systemOwned": "Extraction and scoring stages are set by the system — dragging cannot change them.",
+    "errors": {
+      "byRequired": "A named person is required.",
+      "reasonRequired": "A reason is required.",
+      "needSignoff": "Record the rejection sign-off in the review queue first; the board follows.",
+      "needScheduling": "Scheduling needs a proposal or an approved override first.",
+      "noop": "That card is already in this stage.",
+      "notEvaluated": "This application has no evaluation to sign off yet.",
+      "forbidden": "Your role cannot move pipeline cards.",
+      "notFound": "The application no longer exists.",
+      "conflict": "That move is not allowed from the current stage.",
+      "failed": "Could not move the card. Please try again."
+    }
+  },
   "notFound": { "title": "Page not found", "back": "Back to home" },
   "common": {
     "language": "Language",
