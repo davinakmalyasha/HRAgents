@@ -20,6 +20,7 @@ import {
 import { formatDateTime } from '@/lib/dates'
 
 import { CommunicationPanel } from '@/features/hiring/CommunicationPanel'
+import { OfferPanel } from '@/features/hiring/OfferPanel'
 import { shortId } from '@/features/hiring/pipeline'
 import { useApplication, useEvaluation } from '@/features/hiring/useHiring'
 
@@ -222,6 +223,8 @@ export function ApplicationDetailPage() {
           <EvaluationCard evaluation={evaluation.data} />
         )}
       </section>
+
+      <OfferPanel applicationId={record.application_id} />
 
       <CommunicationPanel
         candidateId={record.candidate_id}

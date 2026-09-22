@@ -10,6 +10,10 @@ vi.mock('@/features/hiring/useCommunications', () => ({
   useEvaluationOverrides: () => ({ isLoading: false, data: [] }),
 }))
 
+vi.mock('@/features/hiring/useOffers', () => ({
+  useOffers: () => ({ isLoading: false, data: [] }),
+}))
+
 vi.mock('@/features/hiring/useHiring', () => ({
   useApplication: () => ({
     isLoading: false,

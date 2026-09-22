@@ -159,6 +159,103 @@
       "transitionFailed": "Gagal mengubah status. Silakan coba lagi."
     }
   },
+  "offer": {
+    "title": "Tawaran",
+    "empty": "Belum ada tawaran.",
+    "create": "Buat tawaran",
+    "revise": "Ubah ketentuan",
+    "submit": "Ajukan persetujuan",
+    "approve": "Setujui",
+    "withdraw": "Tarik",
+    "message": "Antrekan pesan tawaran",
+    "accept": "Catat penerimaan",
+    "decline": "Catat penolakan",
+    "history": "Riwayat ketentuan ({{count}})",
+    "revision": "Revisi {{index}}",
+    "createdBy": "Dibuat oleh {{name}}",
+    "decidedBy": "Diputuskan oleh {{name}}",
+    "queuedAt": "Pesan diantrekan",
+    "acceptedAt": "Diterima",
+    "declinedReason": "Ditolak: {{reason}}",
+    "status": {
+      "draft": "Draf",
+      "pending_approval": "Menunggu persetujuan",
+      "approved": "Disetujui",
+      "queued": "Pesan diantrekan",
+      "accepted": "Diterima",
+      "declined": "Ditolak",
+      "expired": "Kedaluwarsa",
+      "withdrawn": "Ditarik"
+    },
+    "types": {
+      "pkwtt": "Tetap (PKWTT)",
+      "pkwt": "Kontrak (PKWT)",
+      "internship": "Magang",
+      "freelance": "Lepas"
+    },
+    "terms": {
+      "position": "Posisi",
+      "type": "Jenis",
+      "start": "Mulai",
+      "end": "Berakhir",
+      "probation": "Masa percobaan (bulan)",
+      "validUntil": "Berlaku sampai",
+      "notes": "Catatan"
+    },
+    "form": {
+      "createTitle": "Buat tawaran",
+      "reviseTitle": "Ubah ketentuan tawaran",
+      "hint": "Ketentuan dicatat sebagai revisi yang hanya bisa ditambah; tidak ada yang sampai ke kandidat sebelum Anda mengantrekan pesan tawaran.",
+      "by": "Disimpan oleh",
+      "positionPlaceholder": "mis. Backend Engineer",
+      "salary": "Jumlah gaji",
+      "currency": "Mata uang",
+      "probation": "Bulan percobaan (opsional)",
+      "expires": "Berlaku sampai (opsional)",
+      "note": "Catatan revisi (opsional)",
+      "save": "Buat tawaran",
+      "update": "Simpan revisi"
+    },
+    "dialog": {
+      "submitTitle": "Ajukan tawaran untuk persetujuan",
+      "submitHint": "Tawaran masuk ke antrean persetujuan bersama; penyetuju HR yang bernama memutuskan.",
+      "approveTitle": "Setujui tawaran",
+      "approveHint": "Menandatangani persetujuan tertaut atas nama Anda; tawaran lalu bisa dikirim ke kandidat.",
+      "withdrawTitle": "Tarik tawaran",
+      "withdrawHint": "Menarik tawaran dan persetujuan yang menunggu; alasan wajib diisi.",
+      "messageTitle": "Antrekan pesan tawaran",
+      "messageHint": "Mengantrekan pesan untuk kandidat lewat outbox; biarkan kosong untuk memakai templat ketentuan.",
+      "acceptTitle": "Catat penerimaan",
+      "acceptHint": "Mencatat bahwa kandidat menerima. Manusia yang menyampaikan keputusan — tidak ada penerimaan otomatis.",
+      "declineTitle": "Catat penolakan",
+      "declineHint": "Mencatat bahwa kandidat menolak; alasan wajib diisi."
+    },
+    "fields": {
+      "by": "Diputuskan oleh",
+      "byPlaceholder": "mis. Sinta Prabowo",
+      "reason": "Alasan",
+      "reasonPlaceholder": "Tercatat di log audit",
+      "body": "Pesan (opsional)",
+      "bodyPlaceholder": "Biarkan kosong untuk memakai templat ketentuan",
+      "subject": "Subjek (opsional)",
+      "language": "Bahasa"
+    },
+    "errors": {
+      "byRequired": "Nama orang wajib diisi.",
+      "positionRequired": "Nama posisi wajib diisi.",
+      "startRequired": "Tanggal mulai wajib diisi.",
+      "salaryInvalid": "Gaji harus angka non-negatif.",
+      "endBeforeStart": "Tanggal berakhir harus setelah tanggal mulai.",
+      "pkwtNeedsEnd": "Tawaran PKWT wajib punya tanggal berakhir.",
+      "probationInvalid": "Masa percobaan harus bilangan bulat 0–12.",
+      "draftOnly": "Hanya draf yang bisa direvisi.",
+      "approvalRejected": "Persetujuan tertaut ditolak; buat tawaran baru.",
+      "forbidden": "Peran Anda tidak boleh mengubah tawaran.",
+      "notFound": "Tawaran sudah tidak ada.",
+      "conflict": "Tawaran tidak dapat berubah dalam status saat ini.",
+      "failed": "Gagal menyimpan tawaran. Silakan coba lagi."
+    }
+  },
   "chat": {
     "empty": "Ajukan pertanyaan untuk memulai.",
     "placeholder": "Tanya apa saja…",

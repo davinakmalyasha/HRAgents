@@ -159,6 +159,103 @@
       "transitionFailed": "Could not change the status. Please try again."
     }
   },
+  "offer": {
+    "title": "Offer",
+    "empty": "No offer yet.",
+    "create": "Create offer",
+    "revise": "Revise terms",
+    "submit": "Submit for approval",
+    "approve": "Approve",
+    "withdraw": "Withdraw",
+    "message": "Queue offer message",
+    "accept": "Record acceptance",
+    "decline": "Record decline",
+    "history": "Terms history ({{count}})",
+    "revision": "Revision {{index}}",
+    "createdBy": "Created by {{name}}",
+    "decidedBy": "Decided by {{name}}",
+    "queuedAt": "Message queued",
+    "acceptedAt": "Accepted",
+    "declinedReason": "Declined: {{reason}}",
+    "status": {
+      "draft": "Draft",
+      "pending_approval": "Pending approval",
+      "approved": "Approved",
+      "queued": "Message queued",
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "expired": "Expired",
+      "withdrawn": "Withdrawn"
+    },
+    "types": {
+      "pkwtt": "Permanent (PKWTT)",
+      "pkwt": "Fixed term (PKWT)",
+      "internship": "Internship",
+      "freelance": "Freelance"
+    },
+    "terms": {
+      "position": "Position",
+      "type": "Type",
+      "start": "Start",
+      "end": "End",
+      "probation": "Probation (months)",
+      "validUntil": "Valid until",
+      "notes": "Notes"
+    },
+    "form": {
+      "createTitle": "Create offer",
+      "reviseTitle": "Revise offer terms",
+      "hint": "Terms are recorded as an append-only revision; nothing reaches the candidate until you queue the offer message.",
+      "by": "Saved by",
+      "positionPlaceholder": "e.g. Backend Engineer",
+      "salary": "Salary amount",
+      "currency": "Currency",
+      "probation": "Probation months (optional)",
+      "expires": "Valid until (optional)",
+      "note": "Revision note (optional)",
+      "save": "Create offer",
+      "update": "Save revision"
+    },
+    "dialog": {
+      "submitTitle": "Submit offer for approval",
+      "submitHint": "The offer enters the shared approval queue; a named HR approver decides.",
+      "approveTitle": "Approve offer",
+      "approveHint": "Signs the linked approval in your name; the offer can then be messaged to the candidate.",
+      "withdrawTitle": "Withdraw offer",
+      "withdrawHint": "Withdraws the offer and any pending approval; a reason is required.",
+      "messageTitle": "Queue offer message",
+      "messageHint": "Queues the candidate-facing message through the outbox; leave the body blank to use the terms template.",
+      "acceptTitle": "Record acceptance",
+      "acceptHint": "Records that the candidate accepted. A human relays the decision — nothing auto-accepts.",
+      "declineTitle": "Record decline",
+      "declineHint": "Records that the candidate declined; a reason is required."
+    },
+    "fields": {
+      "by": "Decided by",
+      "byPlaceholder": "e.g. Sinta Prabowo",
+      "reason": "Reason",
+      "reasonPlaceholder": "Recorded in the audit log",
+      "body": "Message (optional)",
+      "bodyPlaceholder": "Leave blank to use the terms template",
+      "subject": "Subject (optional)",
+      "language": "Language"
+    },
+    "errors": {
+      "byRequired": "A named person is required.",
+      "positionRequired": "A position title is required.",
+      "startRequired": "A start date is required.",
+      "salaryInvalid": "Salary must be a non-negative number.",
+      "endBeforeStart": "The end date must be after the start date.",
+      "pkwtNeedsEnd": "Fixed-term (PKWT) offers require an end date.",
+      "probationInvalid": "Probation must be a whole number between 0 and 12.",
+      "draftOnly": "Only draft offers can be revised.",
+      "approvalRejected": "The linked approval was rejected; create a new offer instead.",
+      "forbidden": "Your role cannot change offers.",
+      "notFound": "The offer no longer exists.",
+      "conflict": "The offer cannot change in its current state.",
+      "failed": "Could not save the offer. Please try again."
+    }
+  },
   "chat": {
     "empty": "Ask a question to get started.",
     "placeholder": "Ask anything…",
