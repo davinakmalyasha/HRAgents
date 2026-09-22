@@ -27,6 +27,7 @@ class ApprovalSubject(StrEnum):
     CANDIDATE_REJECTION = "candidate_rejection"
     CANDIDATE_ANOMALY = "candidate_anomaly"
     OFFER = "offer"
+    SCHEDULING = "scheduling"
     DOCUMENT_VALIDATION = "document_validation"
     ONBOARDING_STEP = "onboarding_step"
     OFFBOARDING_STEP = "offboarding_step"

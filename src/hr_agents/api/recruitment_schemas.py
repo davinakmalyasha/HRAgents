@@ -28,6 +28,7 @@ from hr_agents.models import (
     Location,
     PolicyDecision,
     PolicyEvaluation,
+    ProposalStatus,
     Recommendation,
     SchedulingChannel,
     SchedulingPayload,
@@ -288,6 +289,10 @@ class SchedulingProposalView(StrictModel):
     payload: SchedulingPayload
     requires_human_approval: bool
     needs_human_reconciliation: bool
+    status: ProposalStatus
+    supersedes_id: UUID | None = None
+    decided_by: str | None = None
+    decided_at: datetime | None = None
     created_by: str
     created_at: datetime
 
@@ -298,9 +303,28 @@ class SchedulingProposalView(StrictModel):
             payload=record.payload,
             requires_human_approval=record.requires_human_approval,
             needs_human_reconciliation=record.needs_human_reconciliation,
+            status=record.status,
+            supersedes_id=record.supersedes_id,
+            decided_by=record.decided_by,
+            decided_at=record.decided_at,
             created_by=record.created_by,
             created_at=record.created_at,
         )
+
+
+class ProposalDecisionRequest(StrictModel):
+    """Named-human decision on a scheduling proposal."""
+
+    by: str = Field(min_length=1, max_length=200)
+    decision: Literal["confirm", "cancel", "reschedule"]
+    reason: str = Field(default="", max_length=500)
+
+
+class ProposalDecisionResponse(StrictModel):
+    """The decided proposal plus the replacement created by ``reschedule``."""
+
+    proposal: SchedulingProposalView
+    replacement: SchedulingProposalView | None = None
 
 
 # --- communications ------------------------------------------------------------------

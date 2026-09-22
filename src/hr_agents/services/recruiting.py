@@ -33,7 +33,12 @@ from uuid import UUID, uuid4
 from pydantic import Field
 
 from hr_agents.models import (
+    TERMINAL_PROPOSAL_STATUSES,
     ActorType,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovalSubject,
+    ApproverRole,
     AuditActor,
     AuditEntry,
     CandidateCommunication,
@@ -48,6 +53,7 @@ from hr_agents.models import (
     JobStatus,
     PolicyDecision,
     PolicyEvaluation,
+    ProposalStatus,
     Recommendation,
     SchedulingChannel,
     SchedulingPayload,
@@ -58,12 +64,15 @@ from hr_agents.models import (
     TimeSlot,
     utc_now,
 )
+from hr_agents.services.approvals import ApprovalError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
 from hr_agents.services.policy import evaluate_policy
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session, sessionmaker
+
+    from hr_agents.services.approvals import ApprovalEngine
 
 # --- shared constants ---------------------------------------------------------
 
@@ -913,6 +922,10 @@ class SchedulingProposalRecord(StrictModel):
     payload: SchedulingPayload
     requires_human_approval: bool
     needs_human_reconciliation: bool = False
+    status: ProposalStatus = ProposalStatus.PROPOSED
+    supersedes_id: UUID | None = None
+    decided_by: str | None = Field(default=None, max_length=200)
+    decided_at: datetime | None = None
     created_by: str = "system"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -920,8 +933,11 @@ class SchedulingProposalRecord(StrictModel):
 class SchedulingService:
     """Interviewer availability registry and deterministic slot proposals.
 
-    Database adapters override the ``_load_*``/``_iter_*``/``_persist_*``
-    primitives.
+    Proposals that policy cannot auto-schedule create a pending
+    ``ApprovalSubject.SCHEDULING`` request through the shared approval engine,
+    so confirmations surface in the attention queues; ``decide`` is the single
+    writer that confirms, cancels, or supersedes a proposal. Database adapters
+    override the ``_load_*``/``_iter_*``/``_persist_*`` primitives.
     """
 
     def __init__(
@@ -930,12 +946,14 @@ class SchedulingService:
         evaluations: EvaluationService,
         audit: AuditChain | None = None,
         applications: ApplicationStore | None = None,
+        approvals: ApprovalEngine | None = None,
     ) -> None:
         self._evaluations = evaluations
         self._availability: dict[UUID, list[TimeSlot]] = {}
         self._proposals: dict[UUID, SchedulingProposalRecord] = {}
         self._audit = audit or AuditChain()
         self._applications = applications
+        self._approvals = approvals
 
     # persistence primitives (overridden by database adapters)
 
@@ -1023,9 +1041,30 @@ class SchedulingService:
             payload=payload,
             requires_human_approval=not auto,
             needs_human_reconciliation=needs_reconciliation,
+            status=ProposalStatus.AUTO_SCHEDULED if auto else ProposalStatus.PENDING_APPROVAL,
             created_by=created_by,
         )
         self._persist_proposal(proposal)
+
+        if not auto and self._approvals is not None:
+            self._approvals.create(
+                subject=ApprovalSubject.SCHEDULING,
+                subject_id=str(proposal.id),
+                title=f"Confirm interview slots for candidate {str(candidate_id)[:8]}",
+                summary=(
+                    f"{len(slots)} slot(s) proposed; policy decision "
+                    f"{policy.decision.value} requires a named human confirmation."
+                ),
+                assignee_role=ApproverRole.RECRUITER_LEAD,
+                requested_by=created_by,
+                payload={
+                    "proposal_id": str(proposal.id),
+                    "candidate_id": str(candidate_id),
+                    "job_id": str(job_id),
+                    "proposed_slots": len(slots),
+                    "needs_human_reconciliation": needs_reconciliation,
+                },
+            )
 
         if auto and self._applications is not None:
             for application in self._applications.find_by_candidate(candidate_id):
@@ -1058,7 +1097,162 @@ class SchedulingService:
     def list_all(self) -> list[SchedulingProposalRecord]:
         return sorted(self._iter_proposals(), key=lambda item: item.created_at)
 
+    # decisions
+
+    def decide(
+        self,
+        proposal_id: UUID,
+        *,
+        decision: str,
+        by: str,
+        reason: str = "",
+    ) -> tuple[SchedulingProposalRecord, SchedulingProposalRecord | None]:
+        """Confirm, cancel, or supersede a proposal as a named human.
+
+        Returns ``(proposal, replacement)``; ``replacement`` is the new
+        superseding proposal only for ``reschedule``. Confirmations decide the
+        linked scheduling approval (when one exists) through the shared engine.
+        """
+        if decision not in {"confirm", "cancel", "reschedule"}:
+            raise RecruitingError(f"unknown decision {decision!r}")
+        actor = by.strip()
+        if not actor or actor.startswith(AGENT_ACTOR_PREFIX):
+            raise RecruitingError("scheduling decisions require a named human actor")
+
+        proposal = self.get(proposal_id)
+        if proposal.status in TERMINAL_PROPOSAL_STATUSES:
+            raise RecruitingError(
+                f"proposal is {proposal.status.value}; it cannot be decided again"
+            )
+        if decision == "confirm" and proposal.status is ProposalStatus.CONFIRMED:
+            return proposal, None
+
+        if decision in {"cancel", "reschedule"} and not reason.strip():
+            raise RecruitingError("a reason is required to cancel or reschedule a proposal")
+
+        approval = self._find_linked_approval(proposal.id)
+
+        if decision == "confirm":
+            self._decide_linked_approval(approval, by=actor, reason=reason)
+            updated = self._mark(proposal, ProposalStatus.CONFIRMED, by=actor)
+            self._sync_application_scheduled(proposal)
+            self._audit.append(
+                actor=DocumentService._actor(actor),
+                action="scheduling.proposal_confirmed",
+                subject_type="scheduling_proposal",
+                subject_id=str(updated.id),
+                payload={
+                    "candidate_id": str(proposal.payload.candidate_id),
+                    "job_id": str(proposal.payload.job_id),
+                    "approval": approval.status.value if approval is not None else "none",
+                    "reason_present": bool(reason.strip()),
+                },
+            )
+            return updated, None
+
+        if decision == "cancel":
+            self._withdraw_linked_approval(approval, by=actor, reason=reason)
+            updated = self._mark(proposal, ProposalStatus.CANCELLED, by=actor)
+            self._audit.append(
+                actor=DocumentService._actor(actor),
+                action="scheduling.proposal_cancelled",
+                subject_type="scheduling_proposal",
+                subject_id=str(updated.id),
+                payload={
+                    "candidate_id": str(proposal.payload.candidate_id),
+                    "reason": reason.strip(),
+                },
+            )
+            return updated, None
+
+        # reschedule: build the replacement first so a failure leaves the old intact
+        replacement = self.propose(
+            candidate_id=proposal.payload.candidate_id,
+            job_id=proposal.payload.job_id,
+            interviewer_ids=proposal.payload.interviewer_ids,
+            created_by=actor,
+            requested_channels=[proposal.payload.channel],
+            notes=proposal.payload.notes,
+        )
+        self._withdraw_linked_approval(approval, by=actor, reason=reason)
+        superseded = self._mark(proposal, ProposalStatus.SUPERSEDED, by=actor)
+        replacement = replacement.model_copy(update={"supersedes_id": proposal.id})
+        self._persist_proposal(replacement)
+        self._audit.append(
+            actor=DocumentService._actor(actor),
+            action="scheduling.proposal_superseded",
+            subject_type="scheduling_proposal",
+            subject_id=str(proposal.id),
+            payload={
+                "candidate_id": str(proposal.payload.candidate_id),
+                "superseded_by": str(replacement.id),
+                "reason": reason.strip(),
+            },
+        )
+        return superseded, replacement
+
     # internals
+
+    def _mark(
+        self, proposal: SchedulingProposalRecord, status: ProposalStatus, *, by: str
+    ) -> SchedulingProposalRecord:
+        updated = proposal.model_copy(
+            update={"status": status, "decided_by": by, "decided_at": datetime.now(UTC)}
+        )
+        self._persist_proposal(updated)
+        return updated
+
+    def _find_linked_approval(self, proposal_id: UUID) -> ApprovalRequest | None:
+        if self._approvals is None:
+            return None
+        return self._approvals.find_by_subject(ApprovalSubject.SCHEDULING, str(proposal_id))
+
+    def _decide_linked_approval(
+        self, approval: ApprovalRequest | None, *, by: str, reason: str
+    ) -> None:
+        """Approve the pending scheduling request, or refuse a rejected one."""
+        if approval is None or self._approvals is None:
+            return
+        if approval.status is ApprovalStatus.REJECTED:
+            raise RecruitingError(
+                "the linked scheduling approval was rejected; create a new proposal instead"
+            )
+        if not approval.active:
+            return
+        try:
+            self._approvals.decide(
+                approval.id,
+                decided_by=by,
+                approve=True,
+                reason=reason.strip() or "interview slots confirmed",
+            )
+        except ApprovalError as exc:
+            raise RecruitingError(str(exc)) from exc
+
+    def _withdraw_linked_approval(
+        self, approval: ApprovalRequest | None, *, by: str, reason: str
+    ) -> None:
+        if approval is None or self._approvals is None or not approval.active:
+            return
+        try:
+            self._approvals.withdraw(approval.id, by=by, reason=reason.strip() or None)
+        except ApprovalError as exc:
+            raise RecruitingError(str(exc)) from exc
+
+    def _sync_application_scheduled(self, proposal: SchedulingProposalRecord) -> None:
+        """Move the candidate's live application to interview on confirmation."""
+        if self._applications is None:
+            return
+        movable = {
+            ApplicationStatus.EVALUATED,
+            ApplicationStatus.GATED,
+            ApplicationStatus.SCHEDULED,
+        }
+        for application in self._applications.find_by_candidate(proposal.payload.candidate_id):
+            if application.status in movable:
+                application.status = ApplicationStatus.SCHEDULED
+                application.note("scheduling.proposal_confirmed")
+                self._applications.save(application)
 
     def _common_slots(self, interviewer_ids: list[UUID]) -> list[TimeSlot]:
         lists = [self._load_availability(iid) for iid in interviewer_ids]
@@ -1096,6 +1290,7 @@ class RecruitingServices:
     audit: AuditChain = field(default_factory=AuditChain)
     applications: ApplicationStore | None = None
     session_factory: sessionmaker[Session] | None = None
+    approvals: ApprovalEngine | None = None
 
     documents: DocumentService = field(init=False)
     jobs: JobService = field(init=False)
@@ -1109,7 +1304,10 @@ class RecruitingServices:
             self.jobs = JobService(audit=self.audit)
             self.evaluations = EvaluationService(audit=self.audit, applications=self.applications)
             self.scheduling = SchedulingService(
-                evaluations=self.evaluations, audit=self.audit, applications=self.applications
+                evaluations=self.evaluations,
+                audit=self.audit,
+                applications=self.applications,
+                approvals=self.approvals,
             )
             self.communications = CommunicationService(
                 evaluations=self.evaluations, audit=self.audit, applications=self.applications
@@ -1134,6 +1332,7 @@ class RecruitingServices:
             session_factory=self.session_factory,
             audit=self.audit,
             applications=self.applications,
+            approvals=self.approvals,
         )
         self.communications = DbCommunicationService(
             evaluations=self.evaluations,
@@ -1156,6 +1355,7 @@ __all__ = [
     "EvaluationService",
     "JobService",
     "OverrideOutcome",
+    "ProposalStatus",
     "RecruitingError",
     "RecruitingServices",
     "SchedulingProposalRecord",

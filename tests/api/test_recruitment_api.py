@@ -477,3 +477,146 @@ def test_scheduling_flags_force_human_review() -> None:
     assert body["requires_human_approval"] is True
     assert body["payload"]["policy"]["decision"] == "hitl_anomaly"
     assert body["payload"]["auto_scheduled"] is False
+
+
+# --- scheduling decisions -------------------------------------------------------------
+
+
+def gated_application(client: TestClient) -> tuple[dict, dict]:
+    """A job + application whose evaluation needs a human scheduling decision."""
+    job = create_job(client)
+    application = submit_application(client, job["id"])
+    register_evaluation(
+        client,
+        application_id=application["application_id"],
+        candidate_id=application["candidate_id"],
+        job_id=job["id"],
+        s_tech=0.80,
+        recommendation=Recommendation.HUMAN_REVIEW,
+    )
+    return job, application
+
+
+def pending_proposal(client: TestClient, job: dict, application: dict) -> dict:
+    interviewer = str(uuid4())
+    slots = [
+        {
+            "start_utc": (BASE_SLOT + timedelta(hours=index)).isoformat(),
+            "end_utc": (BASE_SLOT + timedelta(hours=index + 1)).isoformat(),
+        }
+        for index in range(3)
+    ]
+    client.post(
+        "/v1/scheduling/availability",
+        json={"interviewer_id": interviewer, "by": "hr-admin", "slots": slots},
+    )
+    response = client.post(
+        "/v1/scheduling/proposals",
+        json={
+            "candidate_id": application["candidate_id"],
+            "job_id": job["id"],
+            "interviewer_ids": [interviewer],
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_scheduling_confirm_decides_the_approval_and_schedules() -> None:
+    with make_client() as client:
+        job, application = gated_application(client)
+        proposal = pending_proposal(client, job, application)
+        pending = client.get("/v1/approvals")
+        decision = client.post(
+            f"/v1/scheduling/proposals/{proposal['id']}/decision",
+            json={"by": "hr-admin", "decision": "confirm", "reason": "the panel is free"},
+        )
+        application_after = client.get(f"/v1/applications/{application['application_id']}")
+        approvals_after = client.get("/v1/approvals")
+
+    assert proposal["status"] == "pending_approval"
+    assert proposal["requires_human_approval"] is True
+    subjects = [item["subject"] for item in pending.json()]
+    assert "scheduling" in subjects
+
+    assert decision.status_code == 200, decision.text
+    body = decision.json()
+    assert body["proposal"]["status"] == "confirmed"
+    assert body["proposal"]["decided_by"] == "hr-admin"
+    assert body["proposal"]["decided_at"] is not None
+    assert body["replacement"] is None
+
+    assert application_after.json()["status"] == "scheduled"
+    assert approvals_after.json() == []
+
+
+def test_scheduling_cancel_and_terminal_guards() -> None:
+    with make_client() as client:
+        job, application = gated_application(client)
+        proposal = pending_proposal(client, job, application)
+        without_reason = client.post(
+            f"/v1/scheduling/proposals/{proposal['id']}/decision",
+            json={"by": "hr-admin", "decision": "cancel"},
+        )
+        cancelled = client.post(
+            f"/v1/scheduling/proposals/{proposal['id']}/decision",
+            json={"by": "hr-admin", "decision": "cancel", "reason": "interviewer on leave"},
+        )
+        again = client.post(
+            f"/v1/scheduling/proposals/{proposal['id']}/decision",
+            json={"by": "hr-admin", "decision": "confirm"},
+        )
+
+    assert without_reason.status_code == 409
+    assert "reason is required" in without_reason.json()["title"]
+    assert cancelled.status_code == 200, cancelled.text
+    assert cancelled.json()["proposal"]["status"] == "cancelled"
+    assert again.status_code == 409
+    assert "cannot be decided again" in again.json()["title"]
+
+
+def test_scheduling_reschedule_creates_a_linked_replacement() -> None:
+    with make_client() as client:
+        job, application = gated_application(client)
+        proposal = pending_proposal(client, job, application)
+        rescheduled = client.post(
+            f"/v1/scheduling/proposals/{proposal['id']}/decision",
+            json={
+                "by": "hr-admin",
+                "decision": "reschedule",
+                "reason": "candidate asked for a later slot",
+            },
+        )
+        original = client.get(f"/v1/scheduling/proposals/{proposal['id']}")
+
+    assert rescheduled.status_code == 200, rescheduled.text
+    body = rescheduled.json()
+    assert body["proposal"]["status"] == "superseded"
+    replacement = body["replacement"]
+    assert replacement is not None
+    assert replacement["supersedes_id"] == proposal["id"]
+    assert replacement["status"] == "pending_approval"
+    assert original.json()["status"] == "superseded"
+
+
+def test_scheduling_decision_requires_a_named_human() -> None:
+    with make_client() as client:
+        job, application = gated_application(client)
+        proposal = pending_proposal(client, job, application)
+        response = client.post(
+            f"/v1/scheduling/proposals/{proposal['id']}/decision",
+            json={"by": "agent:hr_bot", "decision": "confirm"},
+        )
+
+    assert response.status_code == 403
+    assert "named human" in response.json()["title"]
+
+
+def test_scheduling_decision_unknown_proposal_404() -> None:
+    with make_client() as client:
+        response = client.post(
+            f"/v1/scheduling/proposals/{uuid4()}/decision",
+            json={"by": "hr-admin", "decision": "confirm"},
+        )
+
+    assert response.status_code == 404

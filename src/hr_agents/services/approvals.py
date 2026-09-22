@@ -205,6 +205,17 @@ class ApprovalEngine:
             key=lambda item: item.created_at,
         )
 
+    def find_by_subject(self, subject: ApprovalSubject, subject_id: str) -> ApprovalRequest | None:
+        """The most recent request for one domain object, if any."""
+        matches = [
+            request
+            for request in self._store.list_all()
+            if request.subject is subject and request.subject_id == subject_id
+        ]
+        if not matches:
+            return None
+        return max(matches, key=lambda item: item.created_at)
+
     def counts_by_status(self) -> dict[str, int]:
         counts: dict[str, int] = {}
         for request in self._store.list_all():

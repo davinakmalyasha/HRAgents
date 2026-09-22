@@ -405,6 +405,7 @@
           "candidate_rejection",
           "candidate_anomaly",
           "offer",
+          "scheduling",
           "document_validation",
           "onboarding_step",
           "offboarding_step",
@@ -5674,6 +5675,76 @@
         "title": "PolicyThresholds",
         "type": "object"
       },
+      "ProposalDecisionRequest": {
+        "additionalProperties": false,
+        "description": "Named-human decision on a scheduling proposal.",
+        "properties": {
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "confirm",
+              "cancel",
+              "reschedule"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by",
+          "decision"
+        ],
+        "title": "ProposalDecisionRequest",
+        "type": "object"
+      },
+      "ProposalDecisionResponse": {
+        "additionalProperties": false,
+        "description": "The decided proposal plus the replacement created by ``reschedule``.",
+        "properties": {
+          "proposal": {
+            "$ref": "#/components/schemas/SchedulingProposalView"
+          },
+          "replacement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SchedulingProposalView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "proposal"
+        ],
+        "title": "ProposalDecisionResponse",
+        "type": "object"
+      },
+      "ProposalStatus": {
+        "description": "Lifecycle of an interview proposal.\n\n``proposed`` is kept for legacy rows; new proposals are created as either\n``auto_scheduled`` (policy permitted) or ``pending_approval`` (a named\nhuman must confirm before the application moves to interview).",
+        "enum": [
+          "proposed",
+          "pending_approval",
+          "auto_scheduled",
+          "confirmed",
+          "cancelled",
+          "superseded"
+        ],
+        "title": "ProposalStatus",
+        "type": "string"
+      },
       "PurgeAction": {
         "description": "What happens when a retained record reaches its expiry.",
         "enum": [
@@ -6674,6 +6745,29 @@
             "title": "Created By",
             "type": "string"
           },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided By"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -6689,6 +6783,21 @@
           "requires_human_approval": {
             "title": "Requires Human Approval",
             "type": "boolean"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProposalStatus"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
           }
         },
         "required": [
@@ -6696,6 +6805,7 @@
           "payload",
           "requires_human_approval",
           "needs_human_reconciliation",
+          "status",
           "created_by",
           "created_at"
         ],
@@ -18740,6 +18850,76 @@
           }
         },
         "summary": "Get Proposal",
+        "tags": [
+          "scheduling"
+        ]
+      }
+    },
+    "/v1/scheduling/proposals/{proposal_id}/decision": {
+      "post": {
+        "description": "The single writer for proposal outcomes; confirmations decide the\nlinked scheduling approval through the shared approval engine.",
+        "operationId": "decide_proposal_v1_scheduling_proposals__proposal_id__decision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Proposal Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm, cancel, or reschedule a proposal (named human)",
         "tags": [
           "scheduling"
         ]

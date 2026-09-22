@@ -175,7 +175,9 @@ from hr_agents.models.portfolio import (
     RepoEvidence,
 )
 from hr_agents.models.scheduling import (
+    TERMINAL_PROPOSAL_STATUSES,
     InterviewerAvailability,
+    ProposalStatus,
     SchedulingChannel,
     SchedulingPayload,
     TimeSlot,
@@ -192,6 +194,7 @@ __all__ = [
     "DEFAULT_DIMENSION_WEIGHTS",
     "DEFAULT_SLA_HOURS",
     "EMPLOYEE_TRANSITIONS",
+    "TERMINAL_PROPOSAL_STATUSES",
     "TERMINAL_STEP_STATUSES",
     "AccrualMethod",
     "ActorType",
@@ -290,6 +293,7 @@ __all__ = [
     "PortfolioEvidence",
     "PortfolioSummary",
     "ProjectEntry",
+    "ProposalStatus",
     "Publication",
     "PublicationEvidence",
     "PurgeAction",

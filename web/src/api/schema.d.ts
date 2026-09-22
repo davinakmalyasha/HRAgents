@@ -2218,6 +2218,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/scheduling/proposals/{proposal_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm, cancel, or reschedule a proposal (named human)
+         * @description The single writer for proposal outcomes; confirmations decide the
+         *     linked scheduling approval through the shared approval engine.
+         */
+        post: operations["decide_proposal_v1_scheduling_proposals__proposal_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tasks": {
         parameters: {
             query?: never;
@@ -2458,7 +2479,7 @@ export interface components {
          * @description What the approval is about (extensible per department).
          * @enum {string}
          */
-        ApprovalSubject: "leave_request" | "payroll_run" | "payroll_anomaly" | "contract" | "candidate_rejection" | "candidate_anomaly" | "offer" | "document_validation" | "onboarding_step" | "offboarding_step" | "expense" | "data_change" | "erasure_request" | "other";
+        ApprovalSubject: "leave_request" | "payroll_run" | "payroll_anomaly" | "contract" | "candidate_rejection" | "candidate_anomaly" | "offer" | "scheduling" | "document_validation" | "onboarding_step" | "offboarding_step" | "expense" | "data_change" | "erasure_request" | "other";
         /** ApprovalView */
         ApprovalView: {
             assignee_role: components["schemas"]["ApproverRole"];
@@ -4351,6 +4372,42 @@ export interface components {
             soft_rejection_floor: number;
         };
         /**
+         * ProposalDecisionRequest
+         * @description Named-human decision on a scheduling proposal.
+         */
+        ProposalDecisionRequest: {
+            /** By */
+            by: string;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "confirm" | "cancel" | "reschedule";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /**
+         * ProposalDecisionResponse
+         * @description The decided proposal plus the replacement created by ``reschedule``.
+         */
+        ProposalDecisionResponse: {
+            proposal: components["schemas"]["SchedulingProposalView"];
+            replacement?: components["schemas"]["SchedulingProposalView"] | null;
+        };
+        /**
+         * ProposalStatus
+         * @description Lifecycle of an interview proposal.
+         *
+         *     ``proposed`` is kept for legacy rows; new proposals are created as either
+         *     ``auto_scheduled`` (policy permitted) or ``pending_approval`` (a named
+         *     human must confirm before the application moves to interview).
+         * @enum {string}
+         */
+        ProposalStatus: "proposed" | "pending_approval" | "auto_scheduled" | "confirmed" | "cancelled" | "superseded";
+        /**
          * PurgeAction
          * @description What happens when a retained record reaches its expiry.
          * @enum {string}
@@ -4733,6 +4790,10 @@ export interface components {
             created_at: string;
             /** Created By */
             created_by: string;
+            /** Decided At */
+            decided_at?: string | null;
+            /** Decided By */
+            decided_by?: string | null;
             /**
              * Id
              * Format: uuid
@@ -4743,6 +4804,9 @@ export interface components {
             payload: components["schemas"]["SchedulingPayload"];
             /** Requires Human Approval */
             requires_human_approval: boolean;
+            status: components["schemas"]["ProposalStatus"];
+            /** Supersedes Id */
+            supersedes_id?: string | null;
         };
         /**
          * ScoreDimension
@@ -10819,6 +10883,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SchedulingProposalView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_proposal_v1_scheduling_proposals__proposal_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDecisionResponse"];
                 };
             };
             /** @description Validation Error */

@@ -10,6 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from hr_agents.api.deps import require_permission
 from hr_agents.api.recruitment_schemas import (
     AvailabilitySet,
+    ProposalDecisionRequest,
+    ProposalDecisionResponse,
     SchedulingProposalRequest,
     SchedulingProposalView,
 )
@@ -82,3 +84,35 @@ def get_proposal(proposal_id: UUID, scheduling: SchedulingDep) -> SchedulingProp
         return SchedulingProposalView.from_record(scheduling.get(proposal_id))
     except RecruitingError as exc:
         raise _not_found(str(exc)) from exc
+
+
+@router.post(
+    "/proposals/{proposal_id}/decision",
+    response_model=ProposalDecisionResponse,
+    summary="Confirm, cancel, or reschedule a proposal (named human)",
+)
+def decide_proposal(
+    proposal_id: UUID, payload: ProposalDecisionRequest, scheduling: SchedulingDep
+) -> ProposalDecisionResponse:
+    """The single writer for proposal outcomes; confirmations decide the
+    linked scheduling approval through the shared approval engine."""
+    try:
+        proposal, replacement = scheduling.decide(
+            proposal_id,
+            decision=payload.decision,
+            by=payload.by,
+            reason=payload.reason,
+        )
+    except RecruitingError as exc:
+        message = str(exc)
+        if message.startswith("unknown scheduling proposal"):
+            raise _not_found(message) from exc
+        if "named human" in message:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message) from exc
+        raise _conflict(exc) from exc
+    return ProposalDecisionResponse(
+        proposal=SchedulingProposalView.from_record(proposal),
+        replacement=(
+            None if replacement is None else SchedulingProposalView.from_record(replacement)
+        ),
+    )

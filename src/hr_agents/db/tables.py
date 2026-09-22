@@ -147,6 +147,9 @@ class ScheduleProposal(TenantScoped, Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
     requires_human_approval: Mapped[bool | None] = mapped_column(Boolean)
     needs_human_reconciliation: Mapped[bool | None] = mapped_column(Boolean)
+    supersedes_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    decided_by: Mapped[str | None] = mapped_column(String(200))
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_by: Mapped[str | None] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

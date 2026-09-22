@@ -188,10 +188,15 @@ def create_app() -> FastAPI:
     app.state.store = store
     app.state.audit = audit
     app.state.job_queue = JobQueue()
-    app.state.recruiting = RecruitingServices(
-        audit=audit, applications=store, session_factory=session_factory
-    )
+    # People first: its approval engine is shared with recruiting so pending
+    # scheduling confirmations surface in the same queues (and the same store).
     people_services = PeopleServices(audit=audit, session_factory=session_factory)
+    app.state.recruiting = RecruitingServices(
+        audit=audit,
+        applications=store,
+        session_factory=session_factory,
+        approvals=people_services.approvals,
+    )
     app.state.people = people_services
     app.state.onboarding = people_services.onboarding
     app.state.leave = people_services.leave

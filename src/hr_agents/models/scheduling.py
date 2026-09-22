@@ -18,6 +18,25 @@ class SchedulingChannel(StrEnum):
     CALENDAR_INVITE = "calendar_invite"
 
 
+class ProposalStatus(StrEnum):
+    """Lifecycle of an interview proposal.
+
+    ``proposed`` is kept for legacy rows; new proposals are created as either
+    ``auto_scheduled`` (policy permitted) or ``pending_approval`` (a named
+    human must confirm before the application moves to interview).
+    """
+
+    PROPOSED = "proposed"
+    PENDING_APPROVAL = "pending_approval"
+    AUTO_SCHEDULED = "auto_scheduled"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    SUPERSEDED = "superseded"
+
+
+TERMINAL_PROPOSAL_STATUSES = frozenset({ProposalStatus.CANCELLED, ProposalStatus.SUPERSEDED})
+
+
 class TimeSlot(StrictModel):
     """A concrete interview slot in UTC. End must be after start."""
 

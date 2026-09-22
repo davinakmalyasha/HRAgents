@@ -25,10 +25,12 @@ from hr_agents.models import (
     JobSpecification,
     PolicyDecision,
     PolicyEvaluation,
+    ProposalStatus,
     SchedulingPayload,
     TechnicalEvaluation,
     TimeSlot,
 )
+from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStore
 from hr_agents.services.policy import evaluate_policy
@@ -309,8 +311,14 @@ class DbSchedulingService(SchedulingService):
         session_factory: sessionmaker[Session],
         audit: AuditChain | None = None,
         applications: ApplicationStore | None = None,
+        approvals: ApprovalEngine | None = None,
     ) -> None:
-        super().__init__(evaluations=evaluations, audit=audit, applications=applications)
+        super().__init__(
+            evaluations=evaluations,
+            audit=audit,
+            applications=applications,
+            approvals=approvals,
+        )
         self._session_factory = session_factory
 
     def _load_availability(self, interviewer_id: UUID) -> list[TimeSlot]:
@@ -351,22 +359,20 @@ class DbSchedulingService(SchedulingService):
 
     def _persist_proposal(self, proposal: SchedulingProposalRecord) -> None:
         payload = proposal.payload
-        status = (
-            "auto_scheduled"
-            if payload.auto_scheduled
-            else ("pending_approval" if proposal.requires_human_approval else "proposed")
-        )
         with sync_session_scope(self._session_factory) as session:
             row = session.get(t.ScheduleProposal, proposal.id)
             if row is None:
-                row = t.ScheduleProposal(id=proposal.id, payload={})
+                row = t.ScheduleProposal(id=proposal.id, status=proposal.status.value, payload={})
                 session.add(row)
             row.candidate_id = payload.candidate_id
             row.job_id = payload.job_id
-            row.status = status
+            row.status = proposal.status.value
             row.payload = payload.model_dump(mode="json")
             row.requires_human_approval = proposal.requires_human_approval
             row.needs_human_reconciliation = proposal.needs_human_reconciliation
+            row.supersedes_id = proposal.supersedes_id
+            row.decided_by = proposal.decided_by
+            row.decided_at = proposal.decided_at
             row.created_by = proposal.created_by
             row.created_at = proposal.created_at
             session.flush()
@@ -378,6 +384,10 @@ class DbSchedulingService(SchedulingService):
             payload=SchedulingPayload.model_validate(row.payload),
             requires_human_approval=bool(row.requires_human_approval),
             needs_human_reconciliation=bool(row.needs_human_reconciliation),
+            status=ProposalStatus(row.status),
+            supersedes_id=row.supersedes_id,
+            decided_by=row.decided_by,
+            decided_at=None if row.decided_at is None else _aware(row.decided_at),
             created_by=row.created_by or "system",
             created_at=_aware(row.created_at),
         )
