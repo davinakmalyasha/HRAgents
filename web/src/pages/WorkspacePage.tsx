@@ -6,6 +6,7 @@ import { ThreeRooms, type RoomId } from '@/components/three-rooms/ThreeRooms'
 import { ChatPanel } from '@/features/chat/ChatPanel'
 import { PipelineBoard } from '@/features/hiring/PipelineBoard'
 import { ReviewQueue } from '@/features/hiring/ReviewQueue'
+import { SchedulingView } from '@/features/hiring/SchedulingView'
 import { useWorkspaces, workspaceName } from '@/features/workspaces/useWorkspaces'
 import { isWorkspaceId, WORKSPACE_ICONS } from '@/lib/workspaces'
 
@@ -54,7 +55,15 @@ export function WorkspacePage() {
         }
         queue={
           workspaceId === 'hiring' ? (
-            <ReviewQueue />
+            <div className="flex flex-col gap-6">
+              <section aria-labelledby="hiring-signoff" className="flex flex-col gap-3">
+                <h2 id="hiring-signoff" className="text-ink-strong text-lg font-medium">
+                  {t('review.title')}
+                </h2>
+                <ReviewQueue />
+              </section>
+              <SchedulingView />
+            </div>
           ) : (
             <EmptyState title={t('workspace.queuePlaceholder')} />
           )

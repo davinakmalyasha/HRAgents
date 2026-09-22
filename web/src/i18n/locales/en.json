@@ -146,6 +146,19 @@
       "failed": "Could not record the decision. Please try again."
     }
   },
+  "scheduling": {
+    "title": "Interview scheduling",
+    "empty": "No interview proposals yet.",
+    "slotCount": "Slots: {{count}}",
+    "requestedBy": "Requested by {{name}}",
+    "status": {
+      "auto": "Auto-scheduled",
+      "needs_approval": "Needs your approval",
+      "reconciliation": "No mutual slots"
+    },
+    "reconciliationHint": "Interviewers have no overlapping slots — coordinate times, then propose again.",
+    "approvalHint": "Clear the sign-off in the review queue above; the proposal follows the recorded decision."
+  },
   "notFound": { "title": "Page not found", "back": "Back to home" },
   "common": {
     "language": "Language",

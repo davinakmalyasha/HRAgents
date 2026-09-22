@@ -146,6 +146,19 @@
       "failed": "Gagal mencatat keputusan. Silakan coba lagi."
     }
   },
+  "scheduling": {
+    "title": "Penjadwalan wawancara",
+    "empty": "Belum ada usulan wawancara.",
+    "slotCount": "Slot: {{count}}",
+    "requestedBy": "Diminta oleh {{name}}",
+    "status": {
+      "auto": "Terjadwal otomatis",
+      "needs_approval": "Perlu persetujuan Anda",
+      "reconciliation": "Tidak ada slot yang sama"
+    },
+    "reconciliationHint": "Pewawancara tidak punya slot yang tumpang tindih — koordinasikan waktunya, lalu usulkan lagi.",
+    "approvalHint": "Selesaikan persetujuan di antrean tinjauan di atas; usulan mengikuti keputusan yang tercatat."
+  },
   "notFound": { "title": "Halaman tidak ditemukan", "back": "Kembali ke beranda" },
   "common": {
     "language": "Bahasa",
