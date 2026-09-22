@@ -102,6 +102,9 @@ export function PipelineBoard() {
         <div className="flex items-center gap-2">
           <JobSelector jobs={jobs.data ?? []} value={jobId} onChange={setJobId} />
           <Button asChild variant="outline" size="sm">
+            <Link to="/w/hiring/jobs">{t('jobs.manage')}</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <Link to="/w/hiring/import">{t('import.open')}</Link>
           </Button>
         </div>

@@ -8,6 +8,7 @@ import { queryClient } from '@/lib/query'
 import { ApplicationDetailPage } from '@/pages/ApplicationDetailPage'
 import { HomePage } from '@/pages/HomePage'
 import { ImportPage } from '@/pages/ImportPage'
+import { JobsPage } from '@/pages/JobsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { WorkspacePage } from '@/pages/WorkspacePage'
 
@@ -18,6 +19,7 @@ export function AppRoutes() {
         <Route index element={<HomePage />} />
         <Route path="w/:workspaceId" element={<WorkspacePage />} />
         <Route path="w/hiring/import" element={<ImportPage />} />
+        <Route path="w/hiring/jobs" element={<JobsPage />} />
         <Route
           path="w/:workspaceId/applications/:applicationId"
           element={<ApplicationDetailPage />}

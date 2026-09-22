@@ -84,6 +84,67 @@
       "unknownCv": "Baris {{line}}: file CV belum diunggah."
     }
   },
+  "jobs": {
+    "manage": "Lowongan",
+    "title": "Spesifikasi lowongan",
+    "back": "Kembali ke pipeline",
+    "count": "Lowongan: {{count}}",
+    "empty": "Belum ada lowongan. Buat spesifikasi pertama.",
+    "create": "Lowongan baru",
+    "edit": "Ubah",
+    "save": "Buat lowongan",
+    "update": "Simpan perubahan",
+    "formHint": "Bobot harus sesuai peran; bobot tercatat pada lowongan dan dipakai untuk setiap skor.",
+    "fields": {
+      "title": "Judul",
+      "status": "Status",
+      "seniority": "Tingkat",
+      "minYears": "Minimal tahun",
+      "description": "Deskripsi",
+      "responsibilities": "Tanggung jawab",
+      "mustHave": "Keahlian wajib",
+      "niceToHave": "Keahlian tambahan",
+      "stack": "Teknologi",
+      "updated": "Diperbarui",
+      "actions": "Tindakan",
+      "weights": "Bobot dimensi",
+      "weightsHelp": "Non-negatif dan berjumlah 1,0; tercatat per lowongan untuk skor yang dapat direproduksi.",
+      "savedBy": "Disimpan oleh",
+      "savedByPlaceholder": "mis. Sinta Prabowo"
+    },
+    "weightsTotal": "Total: {{total}}",
+    "status": { "draft": "Draf", "open": "Dibuka", "paused": "Dijeda", "closed": "Ditutup" },
+    "actions": { "open": "Buka", "pause": "Jeda", "close": "Tutup", "reopen": "Buka lagi" },
+    "transitionTitle": "Ubah status lowongan",
+    "transitionBody": "{{action}} \"{{title}}\"?",
+    "transitionBy": "Diubah oleh",
+    "transitionConfirm": "Konfirmasi",
+    "seniority": {
+      "intern": "Magang",
+      "junior": "Junior",
+      "mid": "Menengah",
+      "senior": "Senior",
+      "lead": "Lead",
+      "principal": "Principal"
+    },
+    "dimensions": {
+      "technical_depth": "Kedalaman teknis",
+      "stack_alignment": "Kesesuaian teknologi",
+      "systems_literacy": "Pemahaman sistem",
+      "verifiable_certifications": "Sertifikasi terverifikasi"
+    },
+    "errors": {
+      "titleRequired": "Judul lowongan wajib diisi.",
+      "byRequired": "Nama orang wajib diisi.",
+      "yearsInvalid": "Minimal tahun harus bilangan bulat 0–60.",
+      "weightsNumber": "Setiap bobot harus angka non-negatif.",
+      "weightsSum": "Bobot harus berjumlah 1,0.",
+      "forbidden": "Peran Anda tidak boleh mengubah lowongan.",
+      "conflict": "Lowongan berubah di tempat lain atau sudah ditutup — muat ulang dan coba lagi.",
+      "failed": "Gagal menyimpan lowongan. Silakan coba lagi.",
+      "transitionFailed": "Gagal mengubah status. Silakan coba lagi."
+    }
+  },
   "chat": {
     "empty": "Ajukan pertanyaan untuk memulai.",
     "placeholder": "Tanya apa saja…",
