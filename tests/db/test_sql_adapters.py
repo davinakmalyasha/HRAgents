@@ -4,7 +4,7 @@ The adapters use plain SQLAlchemy so the same code path is exercised here and
 against PostgreSQL in CI (see the ``postgres`` marker).
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -15,6 +15,7 @@ from hr_agents.db import tables as t
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.base import Base
+from hr_agents.db.offers import DbOfferService
 from hr_agents.db.recruiting import (
     DbCommunicationService,
     DbDocumentService,
@@ -26,11 +27,14 @@ from hr_agents.models import (
     ActorType,
     AuditActor,
     CommunicationStatus,
+    ContractType,
     DimensionScore,
     EvaluationFlag,
     FeedbackReport,
     JobSpecification,
     JobStatus,
+    OfferStatus,
+    OfferTerms,
     PolicyDecision,
     Recommendation,
     ScoreDimension,
@@ -448,4 +452,48 @@ def test_communication_adapter_queue_and_sent(factory: sessionmaker[Session]) ->
     assert loaded[0].language == "id"
     assert loaded[0].status is CommunicationStatus.SENT
     assert loaded[0].sent_at is not None
+    assert audit.verify() == -1
+
+
+def test_offer_adapter_records_and_revisions(factory: sessionmaker[Session]) -> None:
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id),
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    communications = DbCommunicationService(
+        evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
+    )
+    offers = DbOfferService(
+        evaluations=evaluations,
+        communications=communications,
+        session_factory=factory,
+        audit=audit,
+        applications=applications,
+    )
+    terms = OfferTerms(
+        position_title=job.title,
+        employment_type=ContractType.PKWTT,
+        start_date=date(2026, 11, 1),
+        salary_amount=25_000_000.0,
+        salary_currency="IDR",
+    )
+    created = offers.create(record.id, terms, by="hr-admin")
+    revised_terms = terms.model_copy(update={"salary_amount": 27_000_000.0})
+    offers.revise(created.id, revised_terms, by="hr-admin", note="negotiated")
+
+    fresh = DbOfferService(
+        evaluations=evaluations, communications=communications, session_factory=factory
+    )
+    loaded = fresh.get(created.id)
+    assert loaded.status is OfferStatus.DRAFT
+    assert loaded.terms.salary_amount == 27_000_000.0
+    assert [item.revision_index for item in loaded.revisions] == [1, 2]
+    assert loaded.revisions[0].terms.salary_amount == 25_000_000.0
+    assert [item.id for item in fresh.list_all()] == [created.id]
     assert audit.verify() == -1

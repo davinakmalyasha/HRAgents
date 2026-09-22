@@ -67,6 +67,7 @@ from hr_agents.models import (
 from hr_agents.services.approvals import ApprovalError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
+from hr_agents.services.offers import OfferService
 from hr_agents.services.policy import evaluate_policy
 
 if TYPE_CHECKING:
@@ -1297,6 +1298,7 @@ class RecruitingServices:
     evaluations: EvaluationService = field(init=False)
     scheduling: SchedulingService = field(init=False)
     communications: CommunicationService = field(init=False)
+    offers: OfferService = field(init=False)
 
     def __post_init__(self) -> None:
         if self.session_factory is None:
@@ -1312,8 +1314,16 @@ class RecruitingServices:
             self.communications = CommunicationService(
                 evaluations=self.evaluations, audit=self.audit, applications=self.applications
             )
+            self.offers = OfferService(
+                evaluations=self.evaluations,
+                communications=self.communications,
+                audit=self.audit,
+                approvals=self.approvals,
+                applications=self.applications,
+            )
             return
 
+        from hr_agents.db.offers import DbOfferService
         from hr_agents.db.recruiting import (
             DbCommunicationService,
             DbDocumentService,
@@ -1338,6 +1348,14 @@ class RecruitingServices:
             evaluations=self.evaluations,
             session_factory=self.session_factory,
             audit=self.audit,
+            applications=self.applications,
+        )
+        self.offers = DbOfferService(
+            evaluations=self.evaluations,
+            communications=self.communications,
+            session_factory=self.session_factory,
+            audit=self.audit,
+            approvals=self.approvals,
             applications=self.applications,
         )
 

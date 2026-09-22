@@ -26,6 +26,10 @@ from hr_agents.models import (
     JobSpecification,
     JobStatus,
     Location,
+    Offer,
+    OfferRevision,
+    OfferStatus,
+    OfferTerms,
     PolicyDecision,
     PolicyEvaluation,
     ProposalStatus,
@@ -397,3 +401,104 @@ class CommunicationSentRequest(StrictModel):
     """Record manual dispatch evidence (the system itself never sends)."""
 
     by: str = Field(min_length=1, max_length=200)
+
+
+# --- offers --------------------------------------------------------------------------
+
+
+class OfferRevisionView(StrictModel):
+    id: UUID
+    offer_id: UUID
+    revision_index: int
+    terms: OfferTerms
+    changed_by: str
+    changed_at: datetime
+    note: str
+
+    @classmethod
+    def from_model(cls, revision: OfferRevision) -> OfferRevisionView:
+        return cls(
+            id=revision.id,
+            offer_id=revision.offer_id,
+            revision_index=revision.revision_index,
+            terms=revision.terms,
+            changed_by=revision.changed_by,
+            changed_at=revision.changed_at,
+            note=revision.note,
+        )
+
+
+class OfferView(StrictModel):
+    id: UUID
+    application_id: UUID
+    candidate_id: UUID
+    job_id: UUID | None
+    status: OfferStatus
+    terms: OfferTerms
+    revisions: list[OfferRevisionView]
+    created_by: str
+    created_at: datetime
+    updated_at: datetime
+    decided_by: str | None
+    decided_at: datetime | None
+    queued_at: datetime | None
+    accepted_at: datetime | None
+    declined_at: datetime | None
+    decline_reason: str | None
+
+    @classmethod
+    def from_model(cls, offer: Offer) -> OfferView:
+        return cls(
+            id=offer.id,
+            application_id=offer.application_id,
+            candidate_id=offer.candidate_id,
+            job_id=offer.job_id,
+            status=offer.status,
+            terms=offer.terms,
+            revisions=[OfferRevisionView.from_model(item) for item in offer.revisions],
+            created_by=offer.created_by,
+            created_at=offer.created_at,
+            updated_at=offer.updated_at,
+            decided_by=offer.decided_by,
+            decided_at=offer.decided_at,
+            queued_at=offer.queued_at,
+            accepted_at=offer.accepted_at,
+            declined_at=offer.declined_at,
+            decline_reason=offer.decline_reason,
+        )
+
+
+class OfferCreate(StrictModel):
+    application_id: UUID
+    terms: OfferTerms
+    by: str = Field(min_length=1, max_length=200)
+    note: str = Field(default="", max_length=500)
+
+
+class OfferReviseRequest(StrictModel):
+    terms: OfferTerms
+    by: str = Field(min_length=1, max_length=200)
+    note: str = Field(default="", max_length=500)
+
+
+class OfferSubmitRequest(StrictModel):
+    by: str = Field(min_length=1, max_length=200)
+
+
+class OfferDecisionRequest(StrictModel):
+    by: str = Field(min_length=1, max_length=200)
+    decision: Literal["approve", "withdraw"]
+    reason: str = Field(default="", max_length=500)
+
+
+class OfferMessageRequest(StrictModel):
+    by: str = Field(min_length=1, max_length=200)
+    body: str | None = Field(default=None, max_length=8000)
+    subject: str | None = Field(default=None, max_length=200)
+    language: Literal["en", "id"] = "en"
+
+
+class OfferAcceptanceRequest(StrictModel):
+    by: str = Field(min_length=1, max_length=200)
+    accepted: bool
+    reason: str = Field(default="", max_length=500)

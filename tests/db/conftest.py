@@ -18,6 +18,7 @@ from hr_agents.db import (  # noqa: F401
     compliance_tables,
     growth_tables,
     offboarding_tables,
+    offers_tables,
     people_tables,
     tables,
 )

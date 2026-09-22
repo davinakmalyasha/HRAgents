@@ -11,7 +11,14 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from hr_agents.config import get_settings
-from hr_agents.db import compliance, growth, offboarding, people, tables  # noqa: F401
+from hr_agents.db import (  # noqa: F401
+    compliance,
+    growth,
+    offboarding,
+    offers_tables,
+    people,
+    tables,
+)
 from hr_agents.db.base import Base
 
 config = context.config

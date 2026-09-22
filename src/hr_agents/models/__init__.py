@@ -142,6 +142,14 @@ from hr_agents.models.offboarding import (
     OffboardingTemplate,
     OffboardingTemplateStep,
 )
+from hr_agents.models.offer import (
+    EXPIRABLE_OFFER_STATUSES,
+    TERMINAL_OFFER_STATUSES,
+    Offer,
+    OfferRevision,
+    OfferStatus,
+    OfferTerms,
+)
 from hr_agents.models.onboarding import (
     TERMINAL_STEP_STATUSES,
     OnboardingPlan,
@@ -194,6 +202,8 @@ __all__ = [
     "DEFAULT_DIMENSION_WEIGHTS",
     "DEFAULT_SLA_HOURS",
     "EMPLOYEE_TRANSITIONS",
+    "EXPIRABLE_OFFER_STATUSES",
+    "TERMINAL_OFFER_STATUSES",
     "TERMINAL_PROPOSAL_STATUSES",
     "TERMINAL_STEP_STATUSES",
     "AccrualMethod",
@@ -275,6 +285,10 @@ __all__ = [
     "OffboardingStepState",
     "OffboardingTemplate",
     "OffboardingTemplateStep",
+    "Offer",
+    "OfferRevision",
+    "OfferStatus",
+    "OfferTerms",
     "OnboardingPlan",
     "OnboardingStepState",
     "OnboardingTemplate",

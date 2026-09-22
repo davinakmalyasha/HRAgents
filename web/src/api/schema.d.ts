@@ -1839,6 +1839,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List offers (filter by application) */
+        get: operations["list_offers_v1_offers_get"];
+        put?: never;
+        /** Create a draft offer (named human; terms are human-entered) */
+        post: operations["create_offer_v1_offers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Offer */
+        get: operations["get_offer_v1_offers__offer_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Revise a draft offer (append-only revision) */
+        patch: operations["revise_offer_v1_offers__offer_id__patch"];
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}/acceptance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record the candidate's acceptance or decline (human-relayed) */
+        post: operations["record_acceptance_v1_offers__offer_id__acceptance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve or withdraw an offer (named human; overrides the approval queue) */
+        post: operations["decide_offer_v1_offers__offer_id__decision_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue the candidate-facing offer message through the outbox */
+        post: operations["queue_offer_message_v1_offers__offer_id__message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{offer_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a draft offer for approval (shared approval queue) */
+        post: operations["submit_offer_v1_offers__offer_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/onboarding/plans": {
         parameters: {
             query?: never;
@@ -4209,6 +4313,64 @@ export interface components {
          * @enum {string}
          */
         OffboardingStepKind: "task" | "document" | "asset_return" | "account_closure" | "exit_interview" | "handover" | "final_pay" | "approval" | "confirmation";
+        /** OfferAcceptanceRequest */
+        OfferAcceptanceRequest: {
+            /** Accepted */
+            accepted: boolean;
+            /** By */
+            by: string;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** OfferCreate */
+        OfferCreate: {
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /** By */
+            by: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            terms: components["schemas"]["OfferTerms"];
+        };
+        /** OfferDecisionRequest */
+        OfferDecisionRequest: {
+            /** By */
+            by: string;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approve" | "withdraw";
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+        };
+        /** OfferMessageRequest */
+        OfferMessageRequest: {
+            /** Body */
+            body?: string | null;
+            /** By */
+            by: string;
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "id";
+            /** Subject */
+            subject?: string | null;
+        };
         /**
          * OfferQueueRequest
          * @description Queue a human-authored offer message behind its named approver.
@@ -4228,6 +4390,134 @@ export interface components {
             language: "en" | "id";
             /** Subject */
             subject?: string | null;
+        };
+        /** OfferReviseRequest */
+        OfferReviseRequest: {
+            /** By */
+            by: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            terms: components["schemas"]["OfferTerms"];
+        };
+        /** OfferRevisionView */
+        OfferRevisionView: {
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            /** Changed By */
+            changed_by: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Note */
+            note: string;
+            /**
+             * Offer Id
+             * Format: uuid
+             */
+            offer_id: string;
+            /** Revision Index */
+            revision_index: number;
+            terms: components["schemas"]["OfferTerms"];
+        };
+        /**
+         * OfferStatus
+         * @description Lifecycle of an offer record.
+         * @enum {string}
+         */
+        OfferStatus: "draft" | "pending_approval" | "approved" | "queued" | "accepted" | "declined" | "expired" | "withdrawn";
+        /** OfferSubmitRequest */
+        OfferSubmitRequest: {
+            /** By */
+            by: string;
+        };
+        /**
+         * OfferTerms
+         * @description The offer on the table: position, dates, compensation, validity.
+         */
+        OfferTerms: {
+            /** @default pkwtt */
+            employment_type: components["schemas"]["ContractType"];
+            /** End Date */
+            end_date?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Position Title */
+            position_title: string;
+            /** Probation Months */
+            probation_months?: number | null;
+            /** Salary Amount */
+            salary_amount: number;
+            /**
+             * Salary Currency
+             * @default IDR
+             */
+            salary_currency: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+        };
+        /** OfferView */
+        OfferView: {
+            /** Accepted At */
+            accepted_at: string | null;
+            /**
+             * Application Id
+             * Format: uuid
+             */
+            application_id: string;
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+            /** Decided At */
+            decided_at: string | null;
+            /** Decided By */
+            decided_by: string | null;
+            /** Decline Reason */
+            decline_reason: string | null;
+            /** Declined At */
+            declined_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Job Id */
+            job_id: string | null;
+            /** Queued At */
+            queued_at: string | null;
+            /** Revisions */
+            revisions: components["schemas"]["OfferRevisionView"][];
+            status: components["schemas"]["OfferStatus"];
+            terms: components["schemas"]["OfferTerms"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** OverdueStepView */
         OverdueStepView: {
@@ -9952,6 +10242,292 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["hr_agents__api__offboarding_schemas__TemplateView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_offers_v1_offers_get: {
+        parameters: {
+            query?: {
+                application_id?: string | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_offer_v1_offers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_offer_v1_offers__offer_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revise_offer_v1_offers__offer_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferReviseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_acceptance_v1_offers__offer_id__acceptance_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferAcceptanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_offer_v1_offers__offer_id__decision_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_offer_message_v1_offers__offer_id__message_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_offer_v1_offers__offer_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferSubmitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OfferView"];
                 };
             };
             /** @description Validation Error */

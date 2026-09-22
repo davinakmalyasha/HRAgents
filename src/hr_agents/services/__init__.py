@@ -59,6 +59,7 @@ from hr_agents.services.offboarding import (
     OffboardingService,
     default_offboarding_template,
 )
+from hr_agents.services.offers import OfferError, OfferService, compose_offer_body
 from hr_agents.services.payroll import PayrollError, PayrollService
 from hr_agents.services.people_store import (
     ApprovalStore,
@@ -160,6 +161,8 @@ __all__ = [
     "OffboardingError",
     "OffboardingService",
     "OffboardingStore",
+    "OfferError",
+    "OfferService",
     "OverrideOutcome",
     "PayrollError",
     "PayrollService",
@@ -186,6 +189,7 @@ __all__ = [
     "UnsafePathError",
     "add_months",
     "analyze_repository",
+    "compose_offer_body",
     "compose_rejection_body",
     "compute_priority",
     "default_breach_template",
