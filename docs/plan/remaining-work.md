@@ -7,7 +7,8 @@ The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
 detail (W2d), the interview scheduling view (W2e), job management (W2f), the gated
-candidate communication panel (W2g), and proposal confirm/cancel/reschedule decisions (W2h).
+candidate communication panel (W2g), proposal confirm/cancel/reschedule decisions (W2h), and
+full offer records (W2i).
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -142,8 +143,11 @@ documented.
 - [~] Candidate communication panel (application detail): gated rejection/offer queueing with
       named-human approvers, full body review before dispatch, `mark sent` evidence, history;
       pre-queue preview endpoint and transport bridge (Phase 7) remain
-- [~] Job management: create/edit dialog, status lifecycle with a named actor, dimension-weight
-      editor with inline sum-to-1.0 validation (`/w/hiring/jobs`); offer management remains
+- [x] Job management: create/edit dialog, status lifecycle with a named actor, dimension-weight
+      editor with inline sum-to-1.0 validation (`/w/hiring/jobs`)
+- [x] Offer records (application detail): terms with append-only revisions, submit → shared
+      approval queue, approve/withdraw, offer message through the outbox, acceptance/decline
+      recording; the expiry sweep runs from the Phase 9 scheduler
 
 ### 2.5 Department workspaces (Wave-1 surfaces)
 - [~] Ask HR: chat with citations and handoff suggestions done; progressive SSE streaming and

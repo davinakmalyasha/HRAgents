@@ -301,9 +301,13 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       the linked `scheduling` approval through the shared engine (attention queues included)
 - [x] Batch import UI (CSV paste/drop + drag-drop CVs with progress, consent gate, conflict
       report); XLSX parsing is a later addition, CSV covers the need today
-- [~] Job management (`/w/hiring/jobs`): create/edit dialog with a named actor, guard-mirrored
+- [x] Job management (`/w/hiring/jobs`): create/edit dialog with a named actor, guard-mirrored
       status lifecycle (draft → open/paused/closed), dimension-weight editor validating
-      sum-to-1.0 inline; offer management remains
+      sum-to-1.0 inline
+- [x] Offer records on the application detail: terms with append-only revisions, submit →
+      shared approval queue, approve/withdraw (named human; the linked approval is decided in
+      the same call), offer message through the communication outbox, acceptance/decline
+      recording with reasons; the expiry sweep runs from the Phase 9 scheduler
 - [~] Candidate communication panel (application detail): rejection/offer queueing behind
       named-human approvers with the recorded-decision gate surfaced inline, full body review
       before dispatch, manual `mark sent` evidence; transport bridge consumption and a
@@ -367,9 +371,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tests: 111 new (engines + API integration) — suites pass offline, no LLM involved
 
 ### 8.1 Recruitment (deep build — completes Phase 4)
-- [~] (see Phase 4.1–4.6) + rejection communication flow (gated outbox, backend + UI);
-      offer records/terms/acceptance tracking and offer communication wiring through the shared
-      Approval engine remain
+- [x] (see Phase 4.1–4.6) + rejection communication flow (gated outbox, backend + UI) and full
+      offer records (terms revisions, shared-approval gate, offer message via the outbox,
+      acceptance/decline tracking, expiry sweep for the Phase 9 scheduler)
 
 ### 8.2 Policy & Knowledge
 - [x] `PolicyAssistant` agent with citation-mandatory answers (Phase 4.4)
