@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ApplicationSummary } from './pipeline'
 import {
+  actionsFor,
   applicationForCandidate,
   formatSlot,
   newestFirst,
@@ -14,6 +15,10 @@ function proposal(overrides: Partial<SchedulingProposal>): SchedulingProposal {
     id: 'proposal-1',
     created_at: '2026-09-20T03:00:00Z',
     created_by: 'scheduling_service',
+    status: 'auto_scheduled',
+    decided_by: null,
+    decided_at: null,
+    supersedes_id: null,
     needs_human_reconciliation: false,
     requires_human_approval: false,
     payload: {
@@ -36,13 +41,39 @@ describe('proposalStatus', () => {
   })
 
   it('reports proposals waiting on a human decision', () => {
-    expect(proposalStatus(proposal({ requires_human_approval: true }))).toBe('needs_approval')
+    expect(proposalStatus(proposal({ status: 'pending_approval' }))).toBe('needs_approval')
   })
 
-  it('prefers reconciliation over the approval flag', () => {
+  it('keeps legacy proposed rows in the waiting presentation', () => {
+    expect(proposalStatus(proposal({ status: 'proposed' }))).toBe('needs_approval')
+  })
+
+  it('prefers reconciliation over the approval flag while open', () => {
     expect(
-      proposalStatus(proposal({ requires_human_approval: true, needs_human_reconciliation: true })),
+      proposalStatus(proposal({ status: 'pending_approval', needs_human_reconciliation: true })),
     ).toBe('reconciliation')
+  })
+
+  it('reports decided states as terminal', () => {
+    expect(proposalStatus(proposal({ status: 'confirmed' }))).toBe('confirmed')
+    expect(proposalStatus(proposal({ status: 'cancelled' }))).toBe('cancelled')
+    expect(proposalStatus(proposal({ status: 'superseded' }))).toBe('superseded')
+  })
+})
+
+describe('actionsFor', () => {
+  it('offers the full set while a proposal is open', () => {
+    expect(actionsFor('pending_approval')).toEqual(['confirm', 'cancel', 'reschedule'])
+    expect(actionsFor('auto_scheduled')).toEqual(['confirm', 'cancel', 'reschedule'])
+  })
+
+  it('keeps cancel and reschedule for confirmed proposals', () => {
+    expect(actionsFor('confirmed')).toEqual(['cancel', 'reschedule'])
+  })
+
+  it('offers nothing for terminal proposals', () => {
+    expect(actionsFor('cancelled')).toEqual([])
+    expect(actionsFor('superseded')).toEqual([])
   })
 })
 

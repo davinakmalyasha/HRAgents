@@ -274,13 +274,46 @@
     "empty": "Belum ada usulan wawancara.",
     "slotCount": "Slot: {{count}}",
     "requestedBy": "Diminta oleh {{name}}",
+    "decidedBy": "Diputuskan oleh {{name}}",
+    "replacesEarlier": "Menggantikan usulan sebelumnya.",
     "status": {
       "auto": "Terjadwal otomatis",
       "needs_approval": "Perlu persetujuan Anda",
-      "reconciliation": "Tidak ada slot yang sama"
+      "reconciliation": "Tidak ada slot yang sama",
+      "confirmed": "Terkonfirmasi",
+      "cancelled": "Dibatalkan",
+      "superseded": "Digantikan"
     },
     "reconciliationHint": "Pewawancara tidak punya slot yang tumpang tindih — koordinasikan waktunya, lalu usulkan lagi.",
-    "approvalHint": "Selesaikan persetujuan di antrean tinjauan di atas; usulan mengikuti keputusan yang tercatat."
+    "approvalHint": "Konfirmasi slot di bawah (atau batalkan/jadwalkan ulang); persetujuan tertaut ditandatangani atas nama Anda.",
+    "actions": {
+      "confirm": "Konfirmasi slot",
+      "cancel": "Batalkan usulan",
+      "reschedule": "Jadwalkan ulang"
+    },
+    "dialog": {
+      "confirmTitle": "Konfirmasi slot wawancara",
+      "confirmHint": "Mengonfirmasi slot ini dan menandatangani persetujuan tertaut atas nama Anda; lamaran berpindah ke wawancara.",
+      "cancelTitle": "Batalkan usulan",
+      "cancelHint": "Menarik usulan dan persetujuan yang menunggu; lamaran tetap di posisinya.",
+      "rescheduleTitle": "Jadwalkan ulang usulan",
+      "rescheduleHint": "Menggantikan usulan ini dan menghitung ulang slot dari ketersediaan pewawancara saat ini."
+    },
+    "fields": {
+      "by": "Diputuskan oleh",
+      "byPlaceholder": "mis. Sinta Prabowo",
+      "reason": "Alasan",
+      "reasonPlaceholder": "Tercatat di log audit"
+    },
+    "errors": {
+      "byRequired": "Nama orang wajib diisi.",
+      "reasonRequired": "Alasan wajib diisi untuk membatalkan atau menjadwalkan ulang.",
+      "approvalRejected": "Persetujuan tertaut ditolak; buat usulan baru.",
+      "forbidden": "Peran Anda tidak boleh memutuskan usulan penjadwalan.",
+      "notFound": "Usulan sudah tidak ada.",
+      "conflict": "Usulan tidak dapat diputuskan dalam status saat ini.",
+      "failed": "Gagal mencatat keputusan. Silakan coba lagi."
+    }
   },
   "board": {
     "dragLabel": "Seret {{candidate}} ke tahap lain",

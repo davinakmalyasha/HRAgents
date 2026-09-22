@@ -3,20 +3,44 @@ import type { components } from '@/api/schema'
 import type { ApplicationSummary } from './pipeline'
 
 export type SchedulingProposal = components['schemas']['SchedulingProposalView']
+export type ProposalStatus = components['schemas']['ProposalStatus']
 export type TimeSlot = components['schemas']['TimeSlot']
 
-export type ProposalStatus = 'auto' | 'needs_approval' | 'reconciliation'
+export type ProposalPresentation =
+  'auto' | 'needs_approval' | 'reconciliation' | 'confirmed' | 'cancelled' | 'superseded'
 
 /**
- * Reconciliation outranks the approval flag: a proposal without mutual slots
- * cannot proceed no matter what the evaluation scored, so it is surfaced as
- * its own state instead of hiding behind "needs approval".
+ * Presentation state for a proposal row. Reconciliation outranks the approval
+ * flag while a proposal is still open; decided states are terminal and win.
  */
-export function proposalStatus(proposal: SchedulingProposal): ProposalStatus {
+export function proposalStatus(proposal: SchedulingProposal): ProposalPresentation {
+  if (proposal.status === 'confirmed') {
+    return 'confirmed'
+  }
+  if (proposal.status === 'cancelled') {
+    return 'cancelled'
+  }
+  if (proposal.status === 'superseded') {
+    return 'superseded'
+  }
   if (proposal.needs_human_reconciliation) {
     return 'reconciliation'
   }
-  return proposal.requires_human_approval ? 'needs_approval' : 'auto'
+  return proposal.status === 'auto_scheduled' ? 'auto' : 'needs_approval'
+}
+
+export type ProposalAction = 'confirm' | 'cancel' | 'reschedule'
+
+export function actionsFor(status: ProposalStatus): ProposalAction[] {
+  switch (status) {
+    case 'confirmed':
+      return ['cancel', 'reschedule']
+    case 'cancelled':
+    case 'superseded':
+      return []
+    default:
+      return ['confirm', 'cancel', 'reschedule']
+  }
 }
 
 export function newestFirst(proposals: SchedulingProposal[]): SchedulingProposal[] {

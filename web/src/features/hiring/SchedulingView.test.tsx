@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -37,6 +39,10 @@ function proposal(overrides: Partial<SchedulingProposal>): SchedulingProposal {
     id: 'proposal-1',
     created_at: '2026-09-20T03:00:00Z',
     created_by: 'scheduling_service',
+    status: 'auto_scheduled',
+    decided_by: null,
+    decided_at: null,
+    supersedes_id: null,
     needs_human_reconciliation: false,
     requires_human_approval: false,
     payload: {
@@ -63,10 +69,13 @@ beforeEach(() => {
 })
 
 function renderView() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter>
-      <SchedulingView />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <SchedulingView />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
@@ -93,7 +102,9 @@ describe('SchedulingView', () => {
   })
 
   it('flags proposals waiting on a human decision', () => {
-    schedulingState.proposals = [proposal({ requires_human_approval: true })]
+    schedulingState.proposals = [
+      proposal({ status: 'pending_approval', requires_human_approval: true }),
+    ]
     renderView()
 
     expect(screen.getByText(i18n.t('scheduling.status.needs_approval'))).toBeInTheDocument()
@@ -101,11 +112,75 @@ describe('SchedulingView', () => {
   })
 
   it('flags proposals with no mutual slots for coordination', () => {
-    schedulingState.proposals = [proposal({ needs_human_reconciliation: true })]
+    schedulingState.proposals = [
+      proposal({
+        status: 'pending_approval',
+        requires_human_approval: true,
+        needs_human_reconciliation: true,
+      }),
+    ]
     renderView()
 
     expect(screen.getByText(i18n.t('scheduling.status.reconciliation'))).toBeInTheDocument()
     expect(screen.getByText(i18n.t('scheduling.reconciliationHint'))).toBeInTheDocument()
+  })
+
+  it('offers the decision actions while a proposal is open', () => {
+    schedulingState.proposals = [proposal({ status: 'pending_approval' })]
+    renderView()
+
+    expect(
+      screen.getByRole('button', { name: i18n.t('scheduling.actions.confirm') }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: i18n.t('scheduling.actions.cancel') }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: i18n.t('scheduling.actions.reschedule') }),
+    ).toBeInTheDocument()
+  })
+
+  it('opens the decision dialog from an action', async () => {
+    schedulingState.proposals = [proposal({ status: 'pending_approval' })]
+    renderView()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('scheduling.actions.confirm') }),
+    )
+
+    expect(screen.getByText(i18n.t('scheduling.dialog.confirmTitle'))).toBeInTheDocument()
+    expect(screen.getByLabelText(i18n.t('scheduling.fields.by'))).toBeInTheDocument()
+  })
+
+  it('shows terminal states without actions, with the deciding human', () => {
+    schedulingState.proposals = [
+      proposal({ status: 'confirmed', decided_by: 'hr-admin' }),
+      proposal({ id: 'proposal-2', status: 'cancelled', decided_by: 'lead-1' }),
+    ]
+    renderView()
+
+    expect(screen.getByText(i18n.t('scheduling.status.confirmed'))).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('scheduling.status.cancelled'))).toBeInTheDocument()
+    expect(screen.getByText(/Decided by lead-1/)).toBeInTheDocument()
+    // Confirmed rows keep cancel/reschedule; cancelled rows are terminal.
+    expect(
+      screen.getAllByRole('button', { name: i18n.t('scheduling.actions.cancel') }),
+    ).toHaveLength(1)
+    expect(
+      screen.queryByRole('button', { name: i18n.t('scheduling.actions.confirm') }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('notes when a proposal replaces an earlier one', () => {
+    schedulingState.proposals = [
+      proposal({
+        status: 'pending_approval',
+        supersedes_id: 'proposal-0',
+      }),
+    ]
+    renderView()
+
+    expect(screen.getByText(i18n.t('scheduling.replacesEarlier'))).toBeInTheDocument()
   })
 
   it('celebrates an empty proposal list', () => {

@@ -274,13 +274,46 @@
     "empty": "No interview proposals yet.",
     "slotCount": "Slots: {{count}}",
     "requestedBy": "Requested by {{name}}",
+    "decidedBy": "Decided by {{name}}",
+    "replacesEarlier": "Replaces an earlier proposal.",
     "status": {
       "auto": "Auto-scheduled",
       "needs_approval": "Needs your approval",
-      "reconciliation": "No mutual slots"
+      "reconciliation": "No mutual slots",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled",
+      "superseded": "Superseded"
     },
     "reconciliationHint": "Interviewers have no overlapping slots — coordinate times, then propose again.",
-    "approvalHint": "Clear the sign-off in the review queue above; the proposal follows the recorded decision."
+    "approvalHint": "Confirm the slots below (or cancel/reschedule); the linked approval is signed in your name.",
+    "actions": {
+      "confirm": "Confirm slots",
+      "cancel": "Cancel proposal",
+      "reschedule": "Reschedule"
+    },
+    "dialog": {
+      "confirmTitle": "Confirm interview slots",
+      "confirmHint": "Confirms these slots and signs the linked approval in your name; the application moves to interview.",
+      "cancelTitle": "Cancel proposal",
+      "cancelHint": "Withdraws the proposal and any pending approval; the application stays where it is.",
+      "rescheduleTitle": "Reschedule proposal",
+      "rescheduleHint": "Supersedes this proposal and recomputes slots from current interviewer availability."
+    },
+    "fields": {
+      "by": "Decided by",
+      "byPlaceholder": "e.g. Sinta Prabowo",
+      "reason": "Reason",
+      "reasonPlaceholder": "Recorded in the audit log"
+    },
+    "errors": {
+      "byRequired": "A named person is required.",
+      "reasonRequired": "A reason is required to cancel or reschedule.",
+      "approvalRejected": "The linked approval was rejected; create a new proposal instead.",
+      "forbidden": "Your role cannot decide scheduling proposals.",
+      "notFound": "The proposal no longer exists.",
+      "conflict": "The proposal cannot be decided in its current state.",
+      "failed": "Could not record the decision. Please try again."
+    }
   },
   "board": {
     "dragLabel": "Drag {{candidate}} to another stage",
