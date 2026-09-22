@@ -120,6 +120,9 @@ from hr_agents.models.leave import (
     RequestStatus,
 )
 from hr_agents.models.messaging import (
+    CandidateCommunication,
+    CommunicationKind,
+    CommunicationStatus,
     Conversation,
     ConversationState,
     MessageDirection,
@@ -210,9 +213,12 @@ __all__ = [
     "BreachStatus",
     "BreachStepState",
     "BreachTemplateStep",
+    "CandidateCommunication",
     "CandidateProfile",
     "CertificationClaim",
     "Channel",
+    "CommunicationKind",
+    "CommunicationStatus",
     "ConsentGrant",
     "ConsentRecord",
     "Contract",

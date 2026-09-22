@@ -7,12 +7,17 @@ evaluations, HITL overrides, feedback, and scheduling.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from hr_agents.models import (
     AuditEntry,
+    CandidateCommunication,
+    Channel,
+    CommunicationKind,
+    CommunicationStatus,
     DimensionScore,
     EvaluationFlag,
     FeedbackReport,
@@ -293,3 +298,75 @@ class SchedulingProposalView(StrictModel):
             created_by=record.created_by,
             created_at=record.created_at,
         )
+
+
+# --- communications ------------------------------------------------------------------
+
+
+class CommunicationView(StrictModel):
+    id: UUID
+    candidate_id: UUID
+    application_id: UUID | None
+    evaluation_id: UUID | None
+    kind: CommunicationKind
+    channel: Channel
+    language: Literal["en", "id"]
+    subject: str | None
+    body: str
+    status: CommunicationStatus
+    approved_by: str
+    approved_at: datetime
+    sent_by: str | None
+    sent_at: datetime | None
+    created_at: datetime
+
+    @classmethod
+    def from_model(cls, item: CandidateCommunication) -> CommunicationView:
+        return cls(
+            id=item.id,
+            candidate_id=item.candidate_id,
+            application_id=item.application_id,
+            evaluation_id=item.evaluation_id,
+            kind=item.kind,
+            channel=item.channel,
+            language=item.language,
+            subject=item.subject,
+            body=item.body,
+            status=item.status,
+            approved_by=item.approved_by,
+            approved_at=item.approved_at,
+            sent_by=item.sent_by,
+            sent_at=item.sent_at,
+            created_at=item.created_at,
+        )
+
+
+class RejectionQueueRequest(StrictModel):
+    """Queue a rejection message; the server composes it from the feedback report."""
+
+    by: str = Field(min_length=1, max_length=200)
+    channel: Channel = Channel.EMAIL
+    language: Literal["en", "id"] = "en"
+
+
+class OfferQueueRequest(StrictModel):
+    """Queue a human-authored offer message behind its named approver."""
+
+    by: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=8000)
+    subject: str | None = Field(default=None, max_length=200)
+    channel: Channel = Channel.EMAIL
+    language: Literal["en", "id"] = "en"
+
+    @field_validator("body")
+    @classmethod
+    def _body_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("body must not be blank")
+        return value
+
+
+class CommunicationSentRequest(StrictModel):
+    """Record manual dispatch evidence (the system itself never sends)."""
+
+    by: str = Field(min_length=1, max_length=200)

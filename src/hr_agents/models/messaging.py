@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import Field
@@ -42,6 +43,44 @@ class ScreeningMessage(StrictModel):
     provider_message_id: str | None = None
     created_at: UtcDateTime = Field(default_factory=utc_now)
     sent_at: UtcDateTime | None = None
+
+
+class CommunicationKind(StrEnum):
+    """Consequential candidate messages that follow a hiring decision."""
+
+    REJECTION = "rejection"
+    OFFER = "offer"
+
+
+class CommunicationStatus(StrEnum):
+    QUEUED = "queued"
+    SENT = "sent"
+    CANCELLED = "cancelled"
+
+
+class CandidateCommunication(StrictModel):
+    """A candidate-facing message, queued only behind a named human.
+
+    The system never dispatches: a transport bridge (Phase 7) or a human via
+    the always-available manual providers performs the send, and ``mark_sent``
+    records that evidence against the named actor.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    candidate_id: UUID
+    application_id: UUID | None = None
+    evaluation_id: UUID | None = None
+    kind: CommunicationKind
+    channel: Channel = Channel.EMAIL
+    language: Literal["en", "id"] = "en"
+    subject: str | None = Field(default=None, max_length=200)
+    body: str = Field(min_length=1, max_length=8000)
+    status: CommunicationStatus = CommunicationStatus.QUEUED
+    approved_by: str = Field(min_length=1, max_length=200)
+    approved_at: UtcDateTime = Field(default_factory=utc_now)
+    sent_by: str | None = Field(default=None, max_length=200)
+    sent_at: UtcDateTime | None = None
+    created_at: UtcDateTime = Field(default_factory=utc_now)
 
 
 class Conversation(StrictModel):

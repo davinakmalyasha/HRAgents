@@ -16,6 +16,7 @@ from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.base import Base
 from hr_agents.db.recruiting import (
+    DbCommunicationService,
     DbDocumentService,
     DbEvaluationService,
     DbJobService,
@@ -24,6 +25,7 @@ from hr_agents.db.recruiting import (
 from hr_agents.models import (
     ActorType,
     AuditActor,
+    CommunicationStatus,
     DimensionScore,
     EvaluationFlag,
     FeedbackReport,
@@ -417,4 +419,33 @@ def test_scheduling_adapter_availability_and_proposal(factory: sessionmaker[Sess
     fresh = DbSchedulingService(evaluations=evaluations, session_factory=factory)
     assert [item.id for item in fresh.list_all()] == [proposal.id]
     assert fresh.get(proposal.id).payload.slots[0].start_utc == slots[0].start_utc
+    assert audit.verify() == -1
+
+
+def test_communication_adapter_queue_and_sent(factory: sessionmaker[Session]) -> None:
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id, s_tech=0.50),
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    communications = DbCommunicationService(
+        evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
+    )
+
+    item = communications.queue_rejection(record.candidate_id, by="hr-admin", language="id")
+    assert item.status is CommunicationStatus.QUEUED
+    communications.mark_sent(item.id, by="hr-admin")
+
+    fresh = DbCommunicationService(evaluations=evaluations, session_factory=factory)
+    loaded = fresh.list_for(record.candidate_id)
+    assert [entry.id for entry in loaded] == [item.id]
+    assert loaded[0].body == item.body
+    assert loaded[0].language == "id"
+    assert loaded[0].status is CommunicationStatus.SENT
+    assert loaded[0].sent_at is not None
     assert audit.verify() == -1

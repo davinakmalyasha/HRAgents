@@ -18,6 +18,7 @@ from hr_agents.agents.policy_assistant import PolicyAssistant
 from hr_agents.agents.runtime import AgentRuntime
 from hr_agents.api.routers import (
     applications,
+    communications,
     compliance,
     documents,
     evaluations,
@@ -208,6 +209,7 @@ def create_app() -> FastAPI:
     app.include_router(evaluations.router)
     app.include_router(feedback.router)
     app.include_router(scheduling.router)
+    app.include_router(communications.router)
     app.include_router(people_router.employees_router)
     app.include_router(people_router.contracts_router)
     app.include_router(people_router.approvals_router)

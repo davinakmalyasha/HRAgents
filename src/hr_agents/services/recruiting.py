@@ -36,6 +36,10 @@ from hr_agents.models import (
     ActorType,
     AuditActor,
     AuditEntry,
+    CandidateCommunication,
+    Channel,
+    CommunicationKind,
+    CommunicationStatus,
     FeedbackGrowthArea,
     FeedbackReport,
     FeedbackStrength,
@@ -674,6 +678,231 @@ def _growth_text(dimension: ScoreDimension, language: str) -> str:
     )
 
 
+# --- candidate communications ---------------------------------------------------
+
+REJECTION_DECISIONS = frozenset({PolicyDecision.HITL_SOFT_REJECTION, PolicyDecision.REJECT_AUTO})
+
+_ACTIVE_COMMUNICATION_STATUSES = frozenset({CommunicationStatus.QUEUED, CommunicationStatus.SENT})
+
+_REJECTION_SECTIONS: dict[str, tuple[str, str]] = {
+    "en": ("What stood out", "Where to strengthen"),
+    "id": ("Yang menonjol", "Yang bisa diperkuat"),
+}
+
+_REJECTION_SUBJECTS: dict[str, str] = {
+    "en": "Your application for {job_title}",
+    "id": "Lamaran Anda untuk {job_title}",
+}
+
+
+def compose_rejection_body(report: FeedbackReport) -> str:
+    """Deterministic candidate message from the grounded feedback report.
+
+    No scores, no protected attributes, and no internal notes appear in prose.
+    """
+    strengths_header, growth_header = _REJECTION_SECTIONS[report.language]
+    lines = [report.summary, ""]
+    if report.strengths:
+        lines.append(f"{strengths_header}:")
+        lines.extend(f"- {item.text}" for item in report.strengths)
+        lines.append("")
+    if report.growth_areas:
+        lines.append(f"{growth_header}:")
+        lines.extend(f"- {item.text}" for item in report.growth_areas)
+        lines.append("")
+    lines.append(report.correction_notice)
+    return "\n".join(lines).strip()
+
+
+class CommunicationService:
+    """Candidate communication outbox — queued behind named humans, never auto-sent.
+
+    The rejection body is composed deterministically from the same grounded
+    feedback report the candidate can request; offers are human-authored. Both
+    kinds require an approval by a named human and a recorded decision where
+    one applies; dispatch happens outside the system (manual provider today,
+    transport bridge in Phase 7) and is recorded by ``mark_sent``.
+
+    Database adapters override the ``_load``/``_iter``/``_persist`` primitives.
+    """
+
+    def __init__(
+        self,
+        *,
+        evaluations: EvaluationService,
+        audit: AuditChain | None = None,
+        applications: ApplicationStore | None = None,
+    ) -> None:
+        self._evaluations = evaluations
+        self._items: dict[UUID, CandidateCommunication] = {}
+        self._audit = audit or AuditChain()
+        self._applications = applications
+
+    # persistence primitives (overridden by database adapters)
+
+    def _load(self, communication_id: UUID) -> CandidateCommunication | None:
+        return self._items.get(communication_id)
+
+    def _iter(self) -> Iterator[CandidateCommunication]:
+        return iter(self._items.values())
+
+    def _persist(self, item: CandidateCommunication) -> None:
+        self._items[item.id] = item
+
+    # queueing
+
+    def queue_rejection(
+        self,
+        candidate_id: UUID,
+        *,
+        by: str,
+        channel: Channel = Channel.EMAIL,
+        language: str = "en",
+    ) -> CandidateCommunication:
+        """Queue the rejection message; only for a documented rejection."""
+        self._require_human(by)
+        record = self._evaluations.get_by_candidate(candidate_id)
+        self._require_rejection_proof(record)
+        self._require_no_active(candidate_id, CommunicationKind.REJECTION)
+        report = synthesize_feedback(
+            record.evaluation,
+            candidate_name=record.candidate_name,
+            job_title=record.job_title,
+            language=language,
+        )
+        item = CandidateCommunication(
+            candidate_id=candidate_id,
+            application_id=record.application_id,
+            evaluation_id=record.evaluation.id,
+            kind=CommunicationKind.REJECTION,
+            channel=channel,
+            language=report.language,
+            subject=_REJECTION_SUBJECTS[report.language].format(job_title=record.job_title),
+            body=compose_rejection_body(report),
+            approved_by=by.strip(),
+        )
+        return self._queue(item, actor=by)
+
+    def queue_offer(
+        self,
+        candidate_id: UUID,
+        *,
+        by: str,
+        body: str,
+        subject: str | None = None,
+        channel: Channel = Channel.EMAIL,
+        language: str = "en",
+    ) -> CandidateCommunication:
+        """Queue a human-authored offer; the named human is the gate."""
+        self._require_human(by)
+        if not body.strip():
+            raise RecruitingError("an offer message body is required")
+        record = self._evaluations.get_by_candidate(candidate_id)
+        self._require_no_active(candidate_id, CommunicationKind.OFFER)
+        item = CandidateCommunication(
+            candidate_id=candidate_id,
+            application_id=record.application_id,
+            evaluation_id=record.evaluation.id,
+            kind=CommunicationKind.OFFER,
+            channel=channel,
+            language=language,  # type: ignore[arg-type]
+            subject=subject,
+            body=body,
+            approved_by=by.strip(),
+        )
+        return self._queue(item, actor=by)
+
+    def mark_sent(self, communication_id: UUID, *, by: str) -> CandidateCommunication:
+        """Record manual dispatch evidence; the system itself never sends."""
+        self._require_human(by)
+        item = self.get(communication_id)
+        if item.status is not CommunicationStatus.QUEUED:
+            raise RecruitingError(
+                f"communication is {item.status.value}; only a queued message can be marked sent"
+            )
+        updated = item.model_copy(
+            update={
+                "status": CommunicationStatus.SENT,
+                "sent_by": by.strip(),
+                "sent_at": utc_now(),
+            }
+        )
+        self._persist(updated)
+        self._audit.append(
+            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=by.strip()),
+            action="communication.sent",
+            subject_type="candidate_communication",
+            subject_id=str(updated.id),
+            payload={
+                "candidate_id": str(updated.candidate_id),
+                "kind": updated.kind.value,
+                "channel": updated.channel.value,
+                "approved_by": updated.approved_by,
+            },
+        )
+        return updated
+
+    def get(self, communication_id: UUID) -> CandidateCommunication:
+        item = self._load(communication_id)
+        if item is None:
+            raise RecruitingError(f"unknown communication {communication_id}")
+        return item
+
+    def list_for(self, candidate_id: UUID) -> list[CandidateCommunication]:
+        return sorted(
+            (item for item in self._iter() if item.candidate_id == candidate_id),
+            key=lambda item: item.created_at,
+        )
+
+    # internals
+
+    def _queue(self, item: CandidateCommunication, *, actor: str) -> CandidateCommunication:
+        self._persist(item)
+        self._audit.append(
+            actor=DocumentService._actor(actor),
+            action="communication.queued",
+            subject_type="candidate_communication",
+            subject_id=str(item.id),
+            payload={
+                "candidate_id": str(item.candidate_id),
+                "kind": item.kind.value,
+                "channel": item.channel.value,
+                "language": item.language,
+                "subject_present": item.subject is not None,
+            },
+        )
+        return item
+
+    def _require_no_active(self, candidate_id: UUID, kind: CommunicationKind) -> None:
+        for item in self._iter():
+            if (
+                item.candidate_id == candidate_id
+                and item.kind is kind
+                and item.status in _ACTIVE_COMMUNICATION_STATUSES
+            ):
+                raise RecruitingError(
+                    f"an active {kind.value} message already exists for this candidate"
+                )
+
+    def _require_rejection_proof(self, record: EvaluationRecord) -> None:
+        if record.policy.decision is PolicyDecision.REJECT_AUTO:
+            return
+        overrides = self._evaluations.list_overrides(record.evaluation.id)
+        if overrides:
+            latest = max(overrides, key=lambda item: item.decided_at)
+            if latest.override_decision in REJECTION_DECISIONS:
+                return
+        raise RecruitingError(
+            "rejection communication requires a recorded rejection decision "
+            "(a human override or a documented automatic rejection)"
+        )
+
+    @staticmethod
+    def _require_human(actor: str) -> None:
+        if not actor.strip() or actor.strip().startswith(AGENT_ACTOR_PREFIX):
+            raise RecruitingError("communications require a named human actor")
+
+
 # --- scheduling -----------------------------------------------------------------
 
 
@@ -872,6 +1101,7 @@ class RecruitingServices:
     jobs: JobService = field(init=False)
     evaluations: EvaluationService = field(init=False)
     scheduling: SchedulingService = field(init=False)
+    communications: CommunicationService = field(init=False)
 
     def __post_init__(self) -> None:
         if self.session_factory is None:
@@ -881,9 +1111,13 @@ class RecruitingServices:
             self.scheduling = SchedulingService(
                 evaluations=self.evaluations, audit=self.audit, applications=self.applications
             )
+            self.communications = CommunicationService(
+                evaluations=self.evaluations, audit=self.audit, applications=self.applications
+            )
             return
 
         from hr_agents.db.recruiting import (
+            DbCommunicationService,
             DbDocumentService,
             DbEvaluationService,
             DbJobService,
@@ -901,6 +1135,12 @@ class RecruitingServices:
             audit=self.audit,
             applications=self.applications,
         )
+        self.communications = DbCommunicationService(
+            evaluations=self.evaluations,
+            session_factory=self.session_factory,
+            audit=self.audit,
+            applications=self.applications,
+        )
 
 
 __all__ = [
@@ -908,6 +1148,8 @@ __all__ = [
     "JOB_TRANSITIONS",
     "MAX_DOCUMENT_BYTES",
     "OVERRIDE_REVIEWER_ROLES",
+    "REJECTION_DECISIONS",
+    "CommunicationService",
     "DocumentService",
     "DocumentTooLargeError",
     "EvaluationRecord",
@@ -919,5 +1161,6 @@ __all__ = [
     "SchedulingProposalRecord",
     "SchedulingService",
     "StoredDocument",
+    "compose_rejection_body",
     "synthesize_feedback",
 ]

@@ -16,6 +16,10 @@ from sqlalchemy.orm import Session, sessionmaker
 from hr_agents.db import tables as t
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
+    CandidateCommunication,
+    Channel,
+    CommunicationKind,
+    CommunicationStatus,
     FeedbackReport,
     HitlOverride,
     JobSpecification,
@@ -29,6 +33,7 @@ from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStore
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.recruiting import (
+    CommunicationService,
     DocumentService,
     EvaluationRecord,
     EvaluationService,
@@ -374,5 +379,74 @@ class DbSchedulingService(SchedulingService):
             requires_human_approval=bool(row.requires_human_approval),
             needs_human_reconciliation=bool(row.needs_human_reconciliation),
             created_by=row.created_by or "system",
+            created_at=_aware(row.created_at),
+        )
+
+
+class DbCommunicationService(CommunicationService):
+    """Queued candidate communications in ``candidate_communications``."""
+
+    def __init__(
+        self,
+        *,
+        evaluations: EvaluationService,
+        session_factory: sessionmaker[Session],
+        audit: AuditChain | None = None,
+        applications: ApplicationStore | None = None,
+    ) -> None:
+        super().__init__(evaluations=evaluations, audit=audit, applications=applications)
+        self._session_factory = session_factory
+
+    def _load(self, communication_id: UUID) -> CandidateCommunication | None:
+        with sync_session_scope(self._session_factory) as session:
+            row = session.get(t.CandidateCommunicationRecord, communication_id)
+            return None if row is None else self._to_communication(row)
+
+    def _iter(self) -> Iterator[CandidateCommunication]:
+        with sync_session_scope(self._session_factory) as session:
+            rows = session.execute(select(t.CandidateCommunicationRecord)).scalars().all()
+            return iter([self._to_communication(row) for row in rows])
+
+    def _persist(self, item: CandidateCommunication) -> None:
+        with sync_session_scope(self._session_factory) as session:
+            row = session.get(t.CandidateCommunicationRecord, item.id)
+            if row is None:
+                row = t.CandidateCommunicationRecord(
+                    id=item.id, kind=item.kind.value, channel=item.channel.value
+                )
+                session.add(row)
+            row.candidate_id = item.candidate_id
+            row.application_id = item.application_id
+            row.evaluation_id = item.evaluation_id
+            row.kind = item.kind.value
+            row.channel = item.channel.value
+            row.language = item.language
+            row.subject = item.subject
+            row.body = item.body
+            row.status = item.status.value
+            row.approved_by = item.approved_by
+            row.approved_at = item.approved_at
+            row.sent_by = item.sent_by
+            row.sent_at = item.sent_at
+            row.created_at = item.created_at
+            session.flush()
+
+    @staticmethod
+    def _to_communication(row: t.CandidateCommunicationRecord) -> CandidateCommunication:
+        return CandidateCommunication(
+            id=row.id,
+            candidate_id=row.candidate_id,
+            application_id=row.application_id,
+            evaluation_id=row.evaluation_id,
+            kind=CommunicationKind(row.kind),
+            channel=Channel(row.channel),
+            language=row.language,  # type: ignore[arg-type]
+            subject=row.subject,
+            body=row.body,
+            status=CommunicationStatus(row.status),
+            approved_by=row.approved_by,
+            approved_at=_aware(row.approved_at),
+            sent_by=row.sent_by,
+            sent_at=None if row.sent_at is None else _aware(row.sent_at),
             created_at=_aware(row.created_at),
         )
