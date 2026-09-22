@@ -295,9 +295,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Review queue for HITL (gated applications with their evaluation context, named-reviewer
       sign-off with reason codes, audit receipt shown afterwards) — the override endpoint stays
       the only writer of `rejected` (board closes route through it)
-- [~] Scheduling view (proposals list: slots in the candidate timezone, auto vs. needs-approval,
-      reconciliation state, policy reasons and decision); confirmations/reschedules await a
-      proposal decision endpoint that records the named-human call through the approval engine
+- [x] Scheduling view (proposals list: slots in the candidate timezone, auto vs. needs-approval,
+      reconciliation state, policy reasons and decision) with confirm/cancel/reschedule actions;
+      decisions go through `POST /v1/scheduling/proposals/{id}/decision` — a named human decides
+      the linked `scheduling` approval through the shared engine (attention queues included)
 - [x] Batch import UI (CSV paste/drop + drag-drop CVs with progress, consent gate, conflict
       report); XLSX parsing is a later addition, CSV covers the need today
 - [~] Job management (`/w/hiring/jobs`): create/edit dialog with a named actor, guard-mirrored

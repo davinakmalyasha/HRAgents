@@ -6,8 +6,8 @@ cross-workspace handoff) is built and tested: **867 tests · 4 skipped (Postgres
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
-detail (W2d), the interview scheduling view (W2e), job management (W2f), and the gated
-candidate communication panel (W2g).
+detail (W2d), the interview scheduling view (W2e), job management (W2f), the gated
+candidate communication panel (W2g), and proposal confirm/cancel/reschedule decisions (W2h).
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -132,10 +132,11 @@ documented.
       and every dimension expands to its evidence refs (locator, excerpt, source, confidence)
 - [x] Review queue for HITL: gated applications with evaluation context, named-reviewer
       sign-off with reason codes, audit receipt shown; uses the override endpoint with reason codes
-- [~] Scheduling view: proposals list with slots (candidate timezone), auto vs. needs-approval
+- [x] Scheduling view: proposals list with slots (candidate timezone), auto vs. needs-approval
       vs. no-mutual-slots reconciliation, policy decision + reasons, candidate deep link
-- [ ] Proposal decision endpoint: confirm or reschedule a proposal with a named human, through
-      the shared approval engine; when messages land (Phase 7), confirmation sends the invites
+- [x] Proposal decision endpoint: confirm/cancel/reschedule with a named human; the linked
+      `scheduling` approval is decided through the shared engine (pending confirmations surface
+      in the attention queues); invite dispatch lands with the Phase 7 messaging bridge
 - [x] Batch import UI (CSV paste/drop + drag-drop CVs, consent confirmation, per-item
       conflict report); XLSX parsing deferred — CSV covers the need today
 - [~] Candidate communication panel (application detail): gated rejection/offer queueing with
