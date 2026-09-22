@@ -1,12 +1,13 @@
 # Remaining Work — MCP layer to paper & release
 
-Status snapshot: **2026-09-12**. Everything up to and including Phase 5 (multi-department
+Status snapshot: **2026-09-20**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **845 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **867 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
-the attention-first home wired to real queues (W2c), and the hiring pipeline board with candidate
-detail (W2d).
+the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
+detail (W2d), the interview scheduling view (W2e), job management (W2f), and the gated
+candidate communication panel (W2g).
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -126,14 +127,21 @@ documented.
       job filter and ranked cards; read-only until manual stage transitions have a safety design
       (never bypass HITL gates), then dnd-kit drag lands on top
 - [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
-      rationales, flags, and policy decision
+      rationales, flags, and policy decision; the weighted-contribution formula opens inline
+      and every dimension expands to its evidence refs (locator, excerpt, source, confidence)
 - [x] Review queue for HITL: gated applications with evaluation context, named-reviewer
       sign-off with reason codes, audit receipt shown; uses the override endpoint with reason codes
-- [ ] Scheduling view: proposals, auto vs. needs-approval, slot confirmation, reschedules
+- [~] Scheduling view: proposals list with slots (candidate timezone), auto vs. needs-approval
+      vs. no-mutual-slots reconciliation, policy decision + reasons, candidate deep link
+- [ ] Proposal decision endpoint: confirm or reschedule a proposal with a named human, through
+      the shared approval engine; when messages land (Phase 7), confirmation sends the invites
 - [x] Batch import UI (CSV paste/drop + drag-drop CVs, consent confirmation, per-item
       conflict report); XLSX parsing deferred — CSV covers the need today
-- [ ] Job management: create/edit jobs, status lifecycle, dimension weight editor (with the
-      sum-to-1.0 validation surfaced inline)
+- [~] Candidate communication panel (application detail): gated rejection/offer queueing with
+      named-human approvers, full body review before dispatch, `mark sent` evidence, history;
+      pre-queue preview endpoint and transport bridge (Phase 7) remain
+- [~] Job management: create/edit dialog, status lifecycle with a named actor, dimension-weight
+      editor with inline sum-to-1.0 validation (`/w/hiring/jobs`); offer management remains
 
 ### 2.5 Department workspaces (Wave-1 surfaces)
 - [~] Ask HR: chat with citations and handoff suggestions done; progressive SSE streaming and

@@ -61,7 +61,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 3. Deterministic core & pipeline | Done |
 | 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **In progress** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄 |
 | 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **Done** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅ (conversation-store Postgres adapter lands with Phase 6) |
-| 6. Web app + PWA | **In progress** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, PWA shell ✅ (settings, XLSX, push remain) |
+| 6. Web app + PWA | **In progress** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, scheduling ✅, job management ✅, candidate communications ✅, PWA shell ✅ (settings, XLSX, push remain) |
 | 7. Integrations (messaging, Google, files, MCP) | Not started |
 | 8. Departments (onboarding, records, leave, payroll prep, performance, offboarding) | **Done (Wave 1 engines)** — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅ |
 | 9. Deployment & compliance | Not started |
@@ -184,7 +184,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] `Worker` (claim/ack/nack/dead-letter) over any queue backend, bounded attempts
 - [x] Fairness harness: counterfactual name/city-swap invariance audit + summary (violation injection test proves detection)
 - [x] Storage port (`InMemoryStorage` now; Postgres adapter later)
-- [x] **Recruitment API surface** (`services/recruiting.py` + 5 routers, 15 endpoints): document upload with hashing/size gate, jobs CRUD + guarded lifecycle, evaluation read (`/v1/applications/{id}/evaluation`), append-only HITL overrides with audit receipts and role enforcement, feedback reports (stored agent report or deterministic EN/ID synthesis), scheduling proposals gated by the policy engine with an availability registry
+- [x] **Recruitment API surface** (`services/recruiting.py` + 6 routers, 19 endpoints): document upload with hashing/size gate, jobs CRUD + guarded lifecycle, evaluation read (`/v1/applications/{id}/evaluation`), append-only HITL overrides with audit receipts and role enforcement, feedback reports (stored agent report or deterministic EN/ID synthesis), scheduling proposals gated by the policy engine with an availability registry, and the gated candidate communication outbox (`candidate_communications` + migration `0007`; rejection composed deterministically from the feedback report, human-authored offers, named-human approver, manual dispatch evidence via `mark_sent` — nothing is ever auto-sent)
 - [x] Application store: status sync from evaluation results and human overrides, candidate lookup
 - [ ] Orchestrator as pydantic-graph state machine (current: explicit async pipeline; graph upgrade when retries/checkpoints demand)
 - [x] HITL overrides persisted to Postgres (append-only `evaluation_overrides` table + `DbEvaluationService`)
@@ -287,13 +287,25 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       job filter and ranked cards; **read-only by design** — manual stage moves await a safe
       transition policy (drag must never bypass the HITL gates; tracked in the polish backlog)
 - [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
-      rationales, flags, and policy decision (`/w/hiring/applications/{id}`)
+      rationales, flags, and policy decision (`/w/hiring/applications/{id}`); every number is
+      inspectable — the weighted-contribution formula opens inline, and each dimension expands
+      to its evidence references (locator, excerpt, source, confidence) with an explicit
+      "no evidence recorded" state for older evaluations
 - [x] Review queue for HITL (gated applications with their evaluation context, named-reviewer
       sign-off with reason codes, audit receipt shown afterwards) — the override endpoint stays
       the only writer; manual stage moves still await their safety design
-- [ ] Scheduling view (slots, confirmations, reschedules)
+- [~] Scheduling view (proposals list: slots in the candidate timezone, auto vs. needs-approval,
+      reconciliation state, policy reasons and decision); confirmations/reschedules await a
+      proposal decision endpoint that records the named-human call through the approval engine
 - [x] Batch import UI (CSV paste/drop + drag-drop CVs with progress, consent gate, conflict
       report); XLSX parsing is a later addition, CSV covers the need today
+- [~] Job management (`/w/hiring/jobs`): create/edit dialog with a named actor, guard-mirrored
+      status lifecycle (draft → open/paused/closed), dimension-weight editor validating
+      sum-to-1.0 inline; offer management remains
+- [~] Candidate communication panel (application detail): rejection/offer queueing behind
+      named-human approvers with the recorded-decision gate surfaced inline, full body review
+      before dispatch, manual `mark sent` evidence; transport bridge consumption and a
+      pre-queue preview endpoint remain (Phase 7)
 
 ### 6.4 Other workspaces (Wave-1 surfaces)
 - [ ] Policy workspace: Q&A with citations + knowledge browser
@@ -353,7 +365,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tests: 111 new (engines + API integration) — suites pass offline, no LLM involved
 
 ### 8.1 Recruitment (deep build — completes Phase 4)
-- [ ] (see Phase 4.1–4.6) + offer management + rejection communication flows
+- [~] (see Phase 4.1–4.6) + rejection communication flow (gated outbox, backend + UI);
+      offer records/terms/acceptance tracking and offer communication wiring through the shared
+      Approval engine remain
 
 ### 8.2 Policy & Knowledge
 - [x] `PolicyAssistant` agent with citation-mandatory answers (Phase 4.4)

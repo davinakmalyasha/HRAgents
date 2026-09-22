@@ -42,6 +42,8 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 ## Reliability
 
+- [ ] Communication outbox: transport bridge consumption (email/WhatsApp) once Phase 7 lands,
+      with delivery/webhook status synced back onto queued messages
 - [ ] Retry/backoff policy audit per provider; circuit breakers for flaky integrations
 - [ ] Dead-letter dashboard + alerting; worker stuck-job reaper
 - [ ] `/readyz` endpoint (DB + queue + storage checks) distinct from `/healthz`
@@ -53,6 +55,8 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 - [ ] Chat: progressive token streaming + tool-call visibility (agent, tools read, citations) once
       the backend emits event-by-event SSE; today the client uses `POST /v1/chat` for status codes
+- [ ] Communication panel: pre-queue preview endpoint for rejection messages (today the composed
+      body is reviewed after queueing and before dispatch — nothing can be sent unreviewed)
 - [ ] Motion pass (reduced-motion aware), skeleton loaders, optimistic updates where safe
 - [ ] Empty states, error states, and offline states for every workspace
 - [ ] Accessibility audit (axe + manual keyboard/screen-reader pass) on all workspaces
