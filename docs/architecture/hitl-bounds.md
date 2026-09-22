@@ -104,6 +104,29 @@ mutual_slots < 2  →  HITL_CALENDAR
   a slot outside the normal window.
 - Candidate communication continues during resolution (no silent gaps).
 
+### 3.4 Rejection and offer communication
+
+Consequential candidate messages are queued, never dispatched by the system:
+
+```
+queue_rejection  ⟺  (policy.decision = REJECT_AUTO)
+                    ∨ (latest override ∈ {HITL_SOFT_REJECTION, REJECT_AUTO})
+                    ∧ named human approver
+                    ∧ no active rejection message for the candidate
+
+queue_offer      ⟺  named human approver
+                    ∧ human-authored body (the system never invents terms)
+                    ∧ an evaluation exists (no unscored candidates)
+                    ∧ no active offer message for the candidate
+```
+
+- Rejection bodies are composed deterministically from the same grounded feedback report the
+  candidate can request — no scores in prose, no protected attributes, no internal notes.
+- Dispatch happens outside the system (manual provider today, transport bridge in Phase 7); the
+  named human who sent it records `mark_sent` with evidence, and the message body stays visible
+  until that moment.
+- A message can only be marked sent once, and only from `queued`.
+
 ## 4. Complete decision table
 
 Evaluated top to bottom; first match wins.
