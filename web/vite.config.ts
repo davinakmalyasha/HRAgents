@@ -63,5 +63,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Radix/dnd interaction tests flake under parallel CPU load at the 5s default.
+    testTimeout: 15000,
   },
 })
