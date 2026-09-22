@@ -1714,6 +1714,16 @@
         "title": "CandidateInput",
         "type": "object"
       },
+      "Channel": {
+        "enum": [
+          "email",
+          "whatsapp",
+          "telegram",
+          "linkedin"
+        ],
+        "title": "Channel",
+        "type": "string"
+      },
       "ChatReplyView": {
         "additionalProperties": false,
         "properties": {
@@ -1832,6 +1842,168 @@
           "at"
         ],
         "title": "ChatTurnView",
+        "type": "object"
+      },
+      "CommunicationKind": {
+        "description": "Consequential candidate messages that follow a hiring decision.",
+        "enum": [
+          "rejection",
+          "offer"
+        ],
+        "title": "CommunicationKind",
+        "type": "string"
+      },
+      "CommunicationSentRequest": {
+        "additionalProperties": false,
+        "description": "Record manual dispatch evidence (the system itself never sends).",
+        "properties": {
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by"
+        ],
+        "title": "CommunicationSentRequest",
+        "type": "object"
+      },
+      "CommunicationStatus": {
+        "enum": [
+          "queued",
+          "sent",
+          "cancelled"
+        ],
+        "title": "CommunicationStatus",
+        "type": "string"
+      },
+      "CommunicationView": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Application Id"
+          },
+          "approved_at": {
+            "format": "date-time",
+            "title": "Approved At",
+            "type": "string"
+          },
+          "approved_by": {
+            "title": "Approved By",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "candidate_id": {
+            "format": "uuid",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/Channel"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CommunicationKind"
+          },
+          "language": {
+            "enum": [
+              "en",
+              "id"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "sent_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent By"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CommunicationStatus"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "id",
+          "candidate_id",
+          "application_id",
+          "evaluation_id",
+          "kind",
+          "channel",
+          "language",
+          "subject",
+          "body",
+          "status",
+          "approved_by",
+          "approved_at",
+          "sent_by",
+          "sent_at",
+          "created_at"
+        ],
+        "title": "CommunicationView",
         "type": "object"
       },
       "ConsentCreate": {
@@ -2537,6 +2709,13 @@
         "properties": {
           "dimension": {
             "$ref": "#/components/schemas/ScoreDimension"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRef"
+            },
+            "title": "Evidence",
+            "type": "array"
           },
           "rationale": {
             "title": "Rationale",
@@ -3496,6 +3675,45 @@
           "created_at"
         ],
         "title": "EvaluationView",
+        "type": "object"
+      },
+      "EvidenceRef": {
+        "additionalProperties": false,
+        "description": "A pointer to the exact evidence supporting an extracted fact or score.",
+        "properties": {
+          "confidence": {
+            "default": 1.0,
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "excerpt": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excerpt"
+          },
+          "locator": {
+            "description": "Stable locator, e.g. 'resume#/experience/2', 'github:owner/repo@sha'",
+            "title": "Locator",
+            "type": "string"
+          },
+          "source_type": {
+            "$ref": "#/components/schemas/SourceType"
+          }
+        },
+        "required": [
+          "source_type",
+          "locator"
+        ],
+        "title": "EvidenceRef",
         "type": "object"
       },
       "ExitInterviewSchedule": {
@@ -5069,6 +5287,55 @@
         "title": "OffboardingStepKind",
         "type": "string"
       },
+      "OfferQueueRequest": {
+        "additionalProperties": false,
+        "description": "Queue a human-authored offer message behind its named approver.",
+        "properties": {
+          "body": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/Channel",
+            "default": "email"
+          },
+          "language": {
+            "default": "en",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "by",
+          "body"
+        ],
+        "title": "OfferQueueRequest",
+        "type": "object"
+      },
       "OverdueStepView": {
         "additionalProperties": false,
         "properties": {
@@ -5907,6 +6174,36 @@
         "title": "RecordView",
         "type": "object"
       },
+      "RejectionQueueRequest": {
+        "additionalProperties": false,
+        "description": "Queue a rejection message; the server composes it from the feedback report.",
+        "properties": {
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/Channel",
+            "default": "email"
+          },
+          "language": {
+            "default": "en",
+            "enum": [
+              "en",
+              "id"
+            ],
+            "title": "Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by"
+        ],
+        "title": "RejectionQueueRequest",
+        "type": "object"
+      },
       "ReminderView": {
         "additionalProperties": false,
         "properties": {
@@ -6464,6 +6761,21 @@
           "principal"
         ],
         "title": "Seniority",
+        "type": "string"
+      },
+      "SourceType": {
+        "description": "Where a piece of evidence came from.",
+        "enum": [
+          "resume",
+          "github",
+          "linkedin",
+          "questionnaire",
+          "publication",
+          "certification_registry",
+          "calendar",
+          "manual"
+        ],
+        "title": "SourceType",
         "type": "string"
       },
       "StepAction": {
@@ -9079,6 +9391,207 @@
         ]
       }
     },
+    "/v1/candidates/{candidate_id}/communications": {
+      "get": {
+        "operationId": "list_communications_v1_candidates__candidate_id__communications_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CommunicationView"
+                  },
+                  "title": "Response List Communications V1 Candidates  Candidate Id  Communications Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Candidate communication history (queued and sent)",
+        "tags": [
+          "communications"
+        ]
+      }
+    },
+    "/v1/candidates/{candidate_id}/communications/offer": {
+      "post": {
+        "operationId": "queue_offer_v1_candidates__candidate_id__communications_offer_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfferQueueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queue a human-authored offer message",
+        "tags": [
+          "communications"
+        ]
+      }
+    },
+    "/v1/candidates/{candidate_id}/communications/rejection": {
+      "post": {
+        "operationId": "queue_rejection_v1_candidates__candidate_id__communications_rejection_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectionQueueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Queue the rejection message (documented rejection + named human)",
+        "tags": [
+          "communications"
+        ]
+      }
+    },
     "/v1/candidates/{candidate_id}/feedback": {
       "get": {
         "operationId": "get_feedback_v1_candidates__candidate_id__feedback_get",
@@ -9479,6 +9992,75 @@
         "summary": "Ask HR over server-sent events",
         "tags": [
           "chat"
+        ]
+      }
+    },
+    "/v1/communications/{communication_id}/sent": {
+      "post": {
+        "operationId": "mark_communication_sent_v1_communications__communication_id__sent_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "communication_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Communication Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommunicationSentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunicationView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record manual dispatch evidence for a queued message",
+        "tags": [
+          "communications"
         ]
       }
     },

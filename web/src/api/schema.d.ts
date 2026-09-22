@@ -145,6 +145,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/candidates/{candidate_id}/communications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidate communication history (queued and sent) */
+        get: operations["list_communications_v1_candidates__candidate_id__communications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/candidates/{candidate_id}/communications/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue a human-authored offer message */
+        post: operations["queue_offer_v1_candidates__candidate_id__communications_offer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/candidates/{candidate_id}/communications/rejection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue the rejection message (documented rejection + named human) */
+        post: operations["queue_rejection_v1_candidates__candidate_id__communications_rejection_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/candidates/{candidate_id}/feedback": {
         parameters: {
             query?: never;
@@ -225,6 +276,23 @@ export interface paths {
         get: operations["stream_hr_v1_chat_stream_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/communications/{communication_id}/sent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record manual dispatch evidence for a queued message */
+        post: operations["mark_communication_sent_v1_communications__communication_id__sent_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2819,6 +2887,11 @@ export interface components {
             /** Phones */
             phones?: string[];
         };
+        /**
+         * Channel
+         * @enum {string}
+         */
+        Channel: "email" | "whatsapp" | "telegram" | "linkedin";
         /** ChatReplyView */
         ChatReplyView: {
             /** Answer */
@@ -2858,6 +2931,70 @@ export interface components {
             role: string;
             /** Text */
             text: string;
+        };
+        /**
+         * CommunicationKind
+         * @description Consequential candidate messages that follow a hiring decision.
+         * @enum {string}
+         */
+        CommunicationKind: "rejection" | "offer";
+        /**
+         * CommunicationSentRequest
+         * @description Record manual dispatch evidence (the system itself never sends).
+         */
+        CommunicationSentRequest: {
+            /** By */
+            by: string;
+        };
+        /**
+         * CommunicationStatus
+         * @enum {string}
+         */
+        CommunicationStatus: "queued" | "sent" | "cancelled";
+        /** CommunicationView */
+        CommunicationView: {
+            /** Application Id */
+            application_id: string | null;
+            /**
+             * Approved At
+             * Format: date-time
+             */
+            approved_at: string;
+            /** Approved By */
+            approved_by: string;
+            /** Body */
+            body: string;
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            channel: components["schemas"]["Channel"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Evaluation Id */
+            evaluation_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["CommunicationKind"];
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "id";
+            /** Sent At */
+            sent_at: string | null;
+            /** Sent By */
+            sent_by: string | null;
+            status: components["schemas"]["CommunicationStatus"];
+            /** Subject */
+            subject: string | null;
         };
         /** ConsentCreate */
         ConsentCreate: {
@@ -3133,6 +3270,8 @@ export interface components {
         /** DimensionScoreView */
         DimensionScoreView: {
             dimension: components["schemas"]["ScoreDimension"];
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceRef"][];
             /** Rationale */
             rationale: string;
             /** Score */
@@ -3439,6 +3578,25 @@ export interface components {
             weights: {
                 [key: string]: number;
             };
+        };
+        /**
+         * EvidenceRef
+         * @description A pointer to the exact evidence supporting an extracted fact or score.
+         */
+        EvidenceRef: {
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /** Excerpt */
+            excerpt?: string | null;
+            /**
+             * Locator
+             * @description Stable locator, e.g. 'resume#/experience/2', 'github:owner/repo@sha'
+             */
+            locator: string;
+            source_type: components["schemas"]["SourceType"];
         };
         /** ExitInterviewSchedule */
         ExitInterviewSchedule: {
@@ -4010,6 +4168,26 @@ export interface components {
          * @enum {string}
          */
         OffboardingStepKind: "task" | "document" | "asset_return" | "account_closure" | "exit_interview" | "handover" | "final_pay" | "approval" | "confirmation";
+        /**
+         * OfferQueueRequest
+         * @description Queue a human-authored offer message behind its named approver.
+         */
+        OfferQueueRequest: {
+            /** Body */
+            body: string;
+            /** By */
+            by: string;
+            /** @default email */
+            channel: components["schemas"]["Channel"];
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "id";
+            /** Subject */
+            subject?: string | null;
+        };
         /** OverdueStepView */
         OverdueStepView: {
             /**
@@ -4330,6 +4508,22 @@ export interface components {
             subject_id: string;
             subject_kind: components["schemas"]["SubjectKind"];
         };
+        /**
+         * RejectionQueueRequest
+         * @description Queue a rejection message; the server composes it from the feedback report.
+         */
+        RejectionQueueRequest: {
+            /** By */
+            by: string;
+            /** @default email */
+            channel: components["schemas"]["Channel"];
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "id";
+        };
         /** ReminderView */
         ReminderView: {
             /** Detail */
@@ -4555,6 +4749,12 @@ export interface components {
          * @enum {string}
          */
         Seniority: "intern" | "junior" | "mid" | "senior" | "lead" | "principal";
+        /**
+         * SourceType
+         * @description Where a piece of evidence came from.
+         * @enum {string}
+         */
+        SourceType: "resume" | "github" | "linkedin" | "questionnaire" | "publication" | "certification_registry" | "calendar" | "manual";
         /** StepAction */
         StepAction: {
             /** By */
@@ -5588,6 +5788,113 @@ export interface operations {
             };
         };
     };
+    list_communications_v1_candidates__candidate_id__communications_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_offer_v1_candidates__candidate_id__communications_offer_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfferQueueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    queue_rejection_v1_candidates__candidate_id__communications_rejection_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectionQueueRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_feedback_v1_candidates__candidate_id__feedback_get: {
         parameters: {
             query?: {
@@ -5781,6 +6088,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_communication_sent_v1_communications__communication_id__sent_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                communication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommunicationSentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationView"];
                 };
             };
             /** @description Validation Error */
