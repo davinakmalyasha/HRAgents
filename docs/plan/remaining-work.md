@@ -123,9 +123,10 @@ documented.
 - [x] No vanity metrics; every item deep-links to the workspace queue (`/w/{id}?room=queue`)
 
 ### 2.4 Recruitment workspace
-- [~] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
-      job filter and ranked cards; read-only until manual stage transitions have a safety design
-      (never bypass HITL gates), then dnd-kit drag lands on top
+- [x] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
+      job filter and ranked cards; dnd-kit drag (pointer + keyboard) routed through
+      `intentForDrop` and validated server-side against the designed transition table
+      (named human + reason; sign-off/scheduling never bypassed)
 - [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
       rationales, flags, and policy decision; the weighted-contribution formula opens inline
       and every dimension expands to its evidence refs (locator, excerpt, source, confidence)

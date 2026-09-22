@@ -283,9 +283,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       (409 on cross-workspace continuation, visible restart); Postgres store with the UI phase
 
 ### 6.3 Recruitment workspace
-- [~] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
-      job filter and ranked cards; **read-only by design** — manual stage moves await a safe
-      transition policy (drag must never bypass the HITL gates; tracked in the polish backlog)
+- [x] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
+      job filter and ranked cards; manual moves via dnd-kit drag (pointer + keyboard) validated
+      against the designed transition table — named human + reason, every gate enforced
+      server-side (`docs/architecture/board-transitions.md`)
 - [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
       rationales, flags, and policy decision (`/w/hiring/applications/{id}`); every number is
       inspectable — the weighted-contribution formula opens inline, and each dimension expands
@@ -293,7 +294,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       "no evidence recorded" state for older evaluations
 - [x] Review queue for HITL (gated applications with their evaluation context, named-reviewer
       sign-off with reason codes, audit receipt shown afterwards) — the override endpoint stays
-      the only writer; manual stage moves still await their safety design
+      the only writer of `rejected` (board closes route through it)
 - [~] Scheduling view (proposals list: slots in the candidate timezone, auto vs. needs-approval,
       reconciliation state, policy reasons and decision); confirmations/reschedules await a
       proposal decision endpoint that records the named-human call through the approval engine
