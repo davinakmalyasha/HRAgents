@@ -1,3 +1,4 @@
+import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 
@@ -24,8 +25,14 @@ import { useApplication, useEvaluation } from '@/features/hiring/useHiring'
 
 type EvaluationView = components['schemas']['EvaluationView']
 
+/**
+ * No hidden ranking: every number opens its formula, weight, and evidence.
+ * The breakdown stays inspectable per dimension — same input, same score.
+ */
 function EvaluationCard({ evaluation }: { evaluation: EvaluationView }) {
   const { t } = useTranslation()
+  const [formulaOpen, setFormulaOpen] = useState(false)
+  const [evidenceRow, setEvidenceRow] = useState<string | null>(null)
 
   return (
     <div className="border-line flex flex-col gap-3 rounded-lg border p-3">
@@ -34,7 +41,34 @@ function EvaluationCard({ evaluation }: { evaluation: EvaluationView }) {
         <Badge variant="secondary">{evaluation.policy.decision}</Badge>
         <ScoreBar value={evaluation.s_tech} label={t('hiring.score')} />
         <span className="text-2xs text-ink-muted font-mono">σ {evaluation.sigma.toFixed(2)}</span>
+        <Button
+          variant="ghost"
+          size="xs"
+          aria-expanded={formulaOpen}
+          onClick={() => setFormulaOpen((open) => !open)}
+        >
+          {t('hiring.computed')}
+        </Button>
       </div>
+
+      {formulaOpen ? (
+        <div className="border-line bg-surface-subtle flex flex-col gap-2 rounded-md border p-3">
+          <p className="text-2xs text-ink-muted">{t('hiring.computedNote')}</p>
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+            {evaluation.breakdown.map((item) => (
+              <div key={item.dimension} className="flex items-center justify-between gap-2">
+                <dt className="text-ink-muted text-2xs">
+                  {t(`hiring.dimensions.${item.dimension}`)}
+                </dt>
+                <dd className="text-ink-strong text-2xs font-mono tabular-nums">
+                  {item.weight.toFixed(2)} × {item.score.toFixed(2)} ={' '}
+                  {(item.weight * item.score).toFixed(3)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
 
       {evaluation.flags.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
@@ -54,19 +88,70 @@ function EvaluationCard({ evaluation }: { evaluation: EvaluationView }) {
             <TableHead>{t('hiring.score')}</TableHead>
             <TableHead>{t('hiring.weight')}</TableHead>
             <TableHead>{t('hiring.rationale')}</TableHead>
+            <TableHead>
+              <span className="sr-only">{t('hiring.evidence')}</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {evaluation.breakdown.map((item) => (
-            <TableRow key={item.dimension}>
-              <TableCell className="font-medium">{item.dimension}</TableCell>
-              <TableCell>
-                <ScoreBar value={item.score} label={item.dimension} />
-              </TableCell>
-              <TableCell className="text-2xs font-mono">{item.weight.toFixed(2)}</TableCell>
-              <TableCell className="text-ink-muted max-w-96 text-xs">{item.rationale}</TableCell>
-            </TableRow>
-          ))}
+          {evaluation.breakdown.map((item) => {
+            const evidence = item.evidence ?? []
+            const open = evidenceRow === item.dimension
+            const dimensionLabel = t(`hiring.dimensions.${item.dimension}`)
+            return (
+              <Fragment key={item.dimension}>
+                <TableRow>
+                  <TableCell className="font-medium">{dimensionLabel}</TableCell>
+                  <TableCell>
+                    <ScoreBar value={item.score} label={dimensionLabel} />
+                  </TableCell>
+                  <TableCell className="text-2xs font-mono">{item.weight.toFixed(2)}</TableCell>
+                  <TableCell className="text-ink-muted max-w-96 text-xs">
+                    {item.rationale}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      aria-expanded={open}
+                      aria-label={t(open ? 'hiring.hideDetails' : 'hiring.showDetails', {
+                        dimension: dimensionLabel,
+                      })}
+                      onClick={() => setEvidenceRow(open ? null : item.dimension)}
+                    >
+                      {t('hiring.evidence')} · {evidence.length}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+                {open ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="bg-surface-subtle">
+                      {evidence.length === 0 ? (
+                        <p className="text-2xs text-ink-muted">{t('hiring.noEvidence')}</p>
+                      ) : (
+                        <ul className="flex flex-col gap-2">
+                          {evidence.map((ref, index) => (
+                            <li key={`${ref.locator}-${index}`} className="flex flex-col gap-0.5">
+                              <span className="text-ink-strong text-2xs font-mono">
+                                {ref.locator}
+                              </span>
+                              {ref.excerpt === null || ref.excerpt === undefined ? null : (
+                                <span className="text-ink text-2xs">{ref.excerpt}</span>
+                              )}
+                              <span className="text-2xs text-ink-muted">
+                                {t('hiring.source')}: {ref.source_type} ·{' '}
+                                {t('hiring.confidenceShort', { value: ref.confidence.toFixed(2) })}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </Fragment>
+            )
+          })}
         </TableBody>
       </Table>
     </div>

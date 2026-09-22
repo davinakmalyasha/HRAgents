@@ -51,7 +51,21 @@
     "dimension": "Dimension",
     "weight": "Weight",
     "rationale": "Rationale",
-    "back": "Back to pipeline"
+    "back": "Back to pipeline",
+    "computed": "How is this computed?",
+    "computedNote": "S_tech is the weighted mean of the four dimension means; σ is the population standard deviation across independent extraction runs. Same input, same score.",
+    "evidence": "Evidence",
+    "showDetails": "Show evidence for {{dimension}}",
+    "hideDetails": "Hide evidence for {{dimension}}",
+    "noEvidence": "No evidence reference recorded for this dimension.",
+    "source": "Source",
+    "confidenceShort": "confidence {{value}}",
+    "dimensions": {
+      "technical_depth": "Technical depth",
+      "stack_alignment": "Stack alignment",
+      "systems_literacy": "Systems literacy",
+      "verifiable_certifications": "Verifiable certifications"
+    }
   },
   "import": {
     "open": "Import",

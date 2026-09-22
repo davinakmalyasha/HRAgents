@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -51,6 +52,14 @@ vi.mock('@/features/hiring/useHiring', () => ({
           score: 0.84,
           weight: 0.3,
           rationale: 'Repository shows layered architecture.',
+          evidence: [
+            {
+              source_type: 'github',
+              locator: 'github:acme/api@a3f2c1',
+              excerpt: 'Layered FastAPI service with clear module boundaries.',
+              confidence: 0.9,
+            },
+          ],
         },
       ],
       created_at: '2026-09-01T10:05:00Z',
@@ -86,5 +95,25 @@ describe('ApplicationDetailPage', () => {
     expect(screen.getByText('Repository shows layered architecture.')).toBeInTheDocument()
     expect(screen.getByText('low_confidence_extraction')).toBeInTheDocument()
     expect(screen.getByText(i18n.t('hiring.back'))).toBeInTheDocument()
+  })
+
+  it('opens the score formula and the per-dimension evidence', async () => {
+    renderPage()
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('hiring.computed') }))
+    expect(screen.getByText(i18n.t('hiring.computedNote'))).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: i18n.t('hiring.showDetails', {
+          dimension: i18n.t('hiring.dimensions.systems_literacy'),
+        }),
+      }),
+    )
+
+    expect(screen.getByText('github:acme/api@a3f2c1')).toBeInTheDocument()
+    expect(
+      screen.getByText('Layered FastAPI service with clear module boundaries.'),
+    ).toBeInTheDocument()
   })
 })

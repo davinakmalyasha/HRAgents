@@ -51,7 +51,21 @@
     "dimension": "Dimensi",
     "weight": "Bobot",
     "rationale": "Alasan",
-    "back": "Kembali ke pipeline"
+    "back": "Kembali ke pipeline",
+    "computed": "Bagaimana ini dihitung?",
+    "computedNote": "S_tech adalah rata-rata berbobot dari empat rata-rata dimensi; σ adalah simpangan baku populasi antar proses ekstraksi independen. Input sama, skor sama.",
+    "evidence": "Bukti",
+    "showDetails": "Tampilkan bukti untuk {{dimension}}",
+    "hideDetails": "Sembunyikan bukti untuk {{dimension}}",
+    "noEvidence": "Tidak ada referensi bukti untuk dimensi ini.",
+    "source": "Sumber",
+    "confidenceShort": "keyakinan {{value}}",
+    "dimensions": {
+      "technical_depth": "Kedalaman teknis",
+      "stack_alignment": "Kesesuaian teknologi",
+      "systems_literacy": "Pemahaman sistem",
+      "verifiable_certifications": "Sertifikasi terverifikasi"
+    }
   },
   "import": {
     "open": "Impor",
