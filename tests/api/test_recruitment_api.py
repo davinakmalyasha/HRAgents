@@ -9,10 +9,12 @@ from hr_agents.main import create_app
 from hr_agents.models import (
     DimensionScore,
     EvaluationFlag,
+    EvidenceRef,
     Recommendation,
     ScoreDimension,
     ScoreVector,
     ScoringRun,
+    SourceType,
     TechnicalEvaluation,
 )
 
@@ -87,7 +89,20 @@ def register_evaluation(
         sigma=sigma,
         breakdown=breakdown
         or [
-            DimensionScore(dimension=dimension, score=s_tech, weight=0.25, rationale="evidence")
+            DimensionScore(
+                dimension=dimension,
+                score=s_tech,
+                weight=0.25,
+                rationale="evidence",
+                evidence=[
+                    EvidenceRef(
+                        source_type=SourceType.RESUME,
+                        locator=f"resume#/{dimension.value}",
+                        excerpt="Documented in the attached CV.",
+                        confidence=0.9,
+                    )
+                ],
+            )
             for dimension in ScoreDimension
         ],
         flags=flags or [],
@@ -203,6 +218,8 @@ def test_evaluation_missing_until_registered() -> None:
     assert found.status_code == 200
     body = found.json()
     assert body["id"] == str(evaluation.id)
+    assert body["breakdown"][0]["evidence"][0]["locator"].startswith("resume#/")
+    assert body["breakdown"][0]["evidence"][0]["excerpt"] == "Documented in the attached CV."
     assert body["s_tech"] == 0.90
     assert body["policy"]["decision"] == "auto_schedule"
     assert len(body["breakdown"]) == 4

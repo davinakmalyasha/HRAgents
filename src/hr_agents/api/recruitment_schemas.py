@@ -20,6 +20,7 @@ from hr_agents.models import (
     CommunicationStatus,
     DimensionScore,
     EvaluationFlag,
+    EvidenceRef,
     FeedbackReport,
     HitlOverride,
     JobSpecification,
@@ -117,6 +118,7 @@ class DimensionScoreView(StrictModel):
     score: float
     weight: float
     rationale: str
+    evidence: list[EvidenceRef] = Field(default_factory=list)
 
     @classmethod
     def from_model(cls, item: DimensionScore) -> DimensionScoreView:
@@ -125,6 +127,7 @@ class DimensionScoreView(StrictModel):
             score=item.score,
             weight=item.weight,
             rationale=item.rationale,
+            evidence=item.evidence,
         )
 
 
