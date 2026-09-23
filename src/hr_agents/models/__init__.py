@@ -121,6 +121,7 @@ from hr_agents.models.leave import (
 )
 from hr_agents.models.messaging import (
     CandidateCommunication,
+    CandidateReply,
     CommunicationKind,
     CommunicationStatus,
     Conversation,
@@ -228,6 +229,7 @@ __all__ = [
     "BreachTemplateStep",
     "CandidateCommunication",
     "CandidateProfile",
+    "CandidateReply",
     "CertificationClaim",
     "Channel",
     "CommunicationKind",

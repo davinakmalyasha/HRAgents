@@ -30,7 +30,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from pydantic import Field
+from pydantic import EmailStr, Field
 
 from hr_agents.models import (
     TERMINAL_PROPOSAL_STATUSES,
@@ -724,14 +724,21 @@ def compose_rejection_body(report: FeedbackReport) -> str:
     return "\n".join(lines).strip()
 
 
+def normalize_message_id(message_id: str) -> str:
+    """Canonical form of an RFC 5322 message id for correlation, never for trust."""
+    return message_id.strip().strip("<>").strip().casefold()
+
+
 class CommunicationService:
-    """Candidate communication outbox — queued behind named humans, never auto-sent.
+    """Candidate communication outbox — queued behind named humans.
 
     The rejection body is composed deterministically from the same grounded
     feedback report the candidate can request; offers are human-authored. Both
     kinds require an approval by a named human and a recorded decision where
-    one applies; dispatch happens outside the system (manual provider today,
-    transport bridge in Phase 7) and is recorded by ``mark_sent``.
+    one applies. Dispatch itself happens outside the decision path: a human
+    records it with ``mark_sent``, or a configured transport records it with
+    ``record_dispatch`` — in both cases only a message a human already queued
+    is ever carried, and the evidence lands in the audit chain.
 
     Database adapters override the ``_load``/``_iter``/``_persist`` primitives.
     """
@@ -768,6 +775,7 @@ class CommunicationService:
         by: str,
         channel: Channel = Channel.EMAIL,
         language: str = "en",
+        to_email: EmailStr | None = None,
     ) -> CandidateCommunication:
         """Queue the rejection message; only for a documented rejection."""
         self._require_human(by)
@@ -790,6 +798,7 @@ class CommunicationService:
             subject=_REJECTION_SUBJECTS[report.language].format(job_title=record.job_title),
             body=compose_rejection_body(report),
             approved_by=by.strip(),
+            recipient=to_email,
         )
         return self._queue(item, actor=by)
 
@@ -802,6 +811,7 @@ class CommunicationService:
         subject: str | None = None,
         channel: Channel = Channel.EMAIL,
         language: str = "en",
+        to_email: EmailStr | None = None,
     ) -> CandidateCommunication:
         """Queue a human-authored offer; the named human is the gate."""
         self._require_human(by)
@@ -819,11 +829,12 @@ class CommunicationService:
             subject=subject,
             body=body,
             approved_by=by.strip(),
+            recipient=to_email,
         )
         return self._queue(item, actor=by)
 
     def mark_sent(self, communication_id: UUID, *, by: str) -> CandidateCommunication:
-        """Record manual dispatch evidence; the system itself never sends."""
+        """Record human dispatch evidence for a queued message."""
         self._require_human(by)
         item = self.get(communication_id)
         if item.status is not CommunicationStatus.QUEUED:
@@ -851,6 +862,103 @@ class CommunicationService:
             },
         )
         return updated
+
+    def record_dispatch(
+        self,
+        communication_id: UUID,
+        *,
+        provider: str,
+        recipient: EmailStr,
+        message_id: str | None = None,
+        sent_at: datetime | None = None,
+    ) -> CandidateCommunication:
+        """Record transport dispatch evidence for a message a human queued.
+
+        The transport carries the message; the named human who queued it is
+        what the audit entry points back to, so the approval trail stays intact.
+        """
+        item = self._require_queued(communication_id)
+        updated = item.model_copy(
+            update={
+                "status": CommunicationStatus.SENT,
+                "sent_by": f"transport:{provider}"[:200],
+                "sent_at": sent_at or utc_now(),
+                "provider": provider,
+                "provider_message_id": message_id,
+                "recipient": recipient,
+                "send_attempts": item.send_attempts + 1,
+                "last_error": None,
+            }
+        )
+        self._persist(updated)
+        self._audit.append(
+            actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id=f"transport:{provider}"),
+            action="communication.dispatched",
+            subject_type="candidate_communication",
+            subject_id=str(updated.id),
+            payload={
+                "candidate_id": str(updated.candidate_id),
+                "kind": updated.kind.value,
+                "provider": provider,
+                "approved_by": item.approved_by,
+                "recipient": str(recipient),
+                "message_id": message_id,
+            },
+        )
+        return updated
+
+    def record_dispatch_failure(
+        self,
+        communication_id: UUID,
+        *,
+        provider: str,
+        error: str,
+    ) -> CandidateCommunication:
+        """Record a failed transport attempt; the message stays queued."""
+        item = self._require_queued(communication_id)
+        updated = item.model_copy(
+            update={
+                "send_attempts": item.send_attempts + 1,
+                "last_error": error[:500],
+            }
+        )
+        self._persist(updated)
+        self._audit.append(
+            actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id=f"transport:{provider}"),
+            action="communication.dispatch_failed",
+            subject_type="candidate_communication",
+            subject_id=str(updated.id),
+            payload={
+                "candidate_id": str(updated.candidate_id),
+                "kind": updated.kind.value,
+                "provider": provider,
+                "attempts": updated.send_attempts,
+                "error": updated.last_error,
+            },
+        )
+        return updated
+
+    def list_queued(self, *, channel: Channel | None = None) -> list[CandidateCommunication]:
+        """Queued messages, oldest first, optionally narrowed to one channel."""
+        return sorted(
+            (
+                item
+                for item in self._iter()
+                if item.status is CommunicationStatus.QUEUED
+                and (channel is None or item.channel is channel)
+            ),
+            key=lambda item: item.created_at,
+        )
+
+    def find_by_provider_message_id(self, message_id: str) -> CandidateCommunication | None:
+        """Locate a dispatched message by its provider message id (for reply threading)."""
+        target = normalize_message_id(message_id)
+        for item in self._iter():
+            if not item.provider_message_id:
+                continue
+            if normalize_message_id(item.provider_message_id) == target:
+                return item
+        return None
 
     def get(self, communication_id: UUID) -> CandidateCommunication:
         item = self._load(communication_id)
@@ -906,6 +1014,14 @@ class CommunicationService:
             "rejection communication requires a recorded rejection decision "
             "(a human override or a documented automatic rejection)"
         )
+
+    def _require_queued(self, communication_id: UUID) -> CandidateCommunication:
+        item = self.get(communication_id)
+        if item.status is not CommunicationStatus.QUEUED:
+            raise RecruitingError(
+                f"communication is {item.status.value}; only a queued message can be dispatched"
+            )
+        return item
 
     @staticmethod
     def _require_human(actor: str) -> None:

@@ -6,7 +6,7 @@ from enum import StrEnum
 from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import Field
+from pydantic import EmailStr, Field
 
 from hr_agents.models.candidate import Channel
 from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
@@ -61,9 +61,10 @@ class CommunicationStatus(StrEnum):
 class CandidateCommunication(StrictModel):
     """A candidate-facing message, queued only behind a named human.
 
-    The system never dispatches: a transport bridge (Phase 7) or a human via
-    the always-available manual providers performs the send, and ``mark_sent``
-    records that evidence against the named actor.
+    Dispatch is carried by a transport bridge (SMTP/IMAP) or by a human via the
+    always-available manual path; either way the queue-time approval is the gate
+    and the dispatch evidence (actor, provider, message id) is recorded against
+    the message.
     """
 
     id: UUID = Field(default_factory=uuid4)
@@ -80,7 +81,32 @@ class CandidateCommunication(StrictModel):
     approved_at: UtcDateTime = Field(default_factory=utc_now)
     sent_by: str | None = Field(default=None, max_length=200)
     sent_at: UtcDateTime | None = None
+    recipient: EmailStr | None = None
+    provider: str | None = Field(default=None, max_length=64)
+    provider_message_id: str | None = Field(default=None, max_length=500)
+    send_attempts: int = Field(default=0, ge=0)
+    last_error: str | None = Field(default=None, max_length=500)
     created_at: UtcDateTime = Field(default_factory=utc_now)
+
+
+class CandidateReply(StrictModel):
+    """An inbound candidate message captured from a connected mailbox.
+
+    Replies are evidence, never decisions: an offer acceptance still requires a
+    named human through the offer API.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    candidate_id: UUID
+    communication_id: UUID | None = None
+    channel: Channel = Channel.EMAIL
+    sender: EmailStr
+    subject: str = Field(default="", max_length=500)
+    body: str = Field(min_length=1, max_length=8000)
+    provider: str = Field(min_length=1, max_length=64)
+    provider_message_id: str | None = Field(default=None, max_length=500)
+    dedup_key: str = Field(min_length=32, max_length=64)
+    received_at: UtcDateTime = Field(default_factory=utc_now)
 
 
 class Conversation(StrictModel):
