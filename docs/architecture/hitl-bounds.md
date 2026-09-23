@@ -122,10 +122,14 @@ queue_offer      ⟺  named human approver
 
 - Rejection bodies are composed deterministically from the same grounded feedback report the
   candidate can request — no scores in prose, no protected attributes, no internal notes.
-- Dispatch happens outside the system (manual provider today, transport bridge in Phase 7); the
-  named human who sent it records `mark_sent` with evidence, and the message body stays visible
-  until that moment.
-- A message can only be marked sent once, and only from `queued`.
+- Dispatch has two paths, both behind the queue-time approval, and neither can invent content:
+  a human sends it and records `mark_sent`, or the email transport carries it
+  (`scripts/run_messaging.py`) and records `communication.dispatched` with the provider and
+  message id. The body stays visible until one of them runs.
+- A message can only leave `queued` once, through either path. A failed send returns the
+  message to `queued` with `send_attempts` and `last_error` — never a silent drop.
+- An inbound reply is evidence, never a decision: it is stored against the candidate (matched by
+  message id, then by sender address) and can never accept an offer or move a stage on its own.
 
 ## 4. Complete decision table
 

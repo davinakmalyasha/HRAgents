@@ -208,7 +208,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] `health_check` declared on every provider + masked-secret contract (`mask_secrets`)
 - [x] **Complete matrix: 20 providers across 9 capabilities** — every capability has a zero-config default
 - [ ] Provider settings audit entries (field names only, values redacted) — Phase 5
-- [ ] Live adapter implementations for email/whatsapp/calendar/storage (configs + builders now; runtime in Phase 7)
+- [~] Live adapter implementations: email is live (SMTP send + IMAP poll under `hr_agents.messaging`,
+      driven by `scripts/run_messaging.py`); whatsapp/calendar/storage remain config-only
 
 ---
 
@@ -333,8 +334,14 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 > Detailed remaining checklist from this phase to release: `docs/plan/remaining-work.md`.
 
 ### 7.1 Messaging
-- [ ] `email_send` providers: SMTP (default) + Resend
-- [ ] `email_receive` providers: IMAP poll (default, no public URL) + Resend webhook
+- [~] `email_send`: SMTP (default) live — `messaging/smtp.py` carries queued messages and
+      records provider/message-id evidence; Resend adapter still config-only
+- [~] `email_receive`: IMAP poll (default, no public URL) live — `messaging/imap.py` polls unseen
+      mail, dedupes by provider message id, and attaches replies to the candidate; Resend webhook
+      still config-only
+- [x] Transport bridge: `messaging/outbox.py` + `messaging/inbound.py`, driven by
+      `scripts/run_messaging.py` (sandbox-safe by default, `--send`/`--receive`/`--json`),
+      migration `0010_messaging_transport` (`candidate_replies` + dispatch columns, tenant RLS)
 - [ ] `whatsapp` providers: Meta Cloud API + manual `wa.me` links fallback (default until connected)
 - [ ] Telegram bridge (optional provider)
 - [ ] Webhook signature verification + replay protection

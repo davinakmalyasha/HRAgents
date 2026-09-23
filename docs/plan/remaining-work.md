@@ -2,13 +2,16 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **943 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **990 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
 detail (W2d), the interview scheduling view (W2e), job management (W2f), the gated
 candidate communication panel (W2g), proposal confirm/cancel/reschedule decisions (W2h), and
-full offer records (W2i). The department clock runs too: `scripts/run_scheduler.py` calls the
+full offer records (W2i). The email transport bridge is live too: `scripts/run_messaging.py`
+carries queued candidate messages over SMTP and polls IMAP for replies (sandbox-safe by
+default; dispatch evidence and deduplicated inbound replies are persisted). The department
+clock runs as well: `scripts/run_scheduler.py` calls the
 approval-SLA, retention, breach, growth, contract/document-expiry, offer-expiry, overdue-tasks,
 and audit-verify engines on one explicit clock (dry-run retention by default).
 
@@ -145,7 +148,9 @@ documented.
       conflict report); XLSX parsing deferred — CSV covers the need today
 - [~] Candidate communication panel (application detail): gated rejection/offer queueing with
       named-human approvers, full body review before dispatch, `mark sent` evidence, history;
-      pre-queue preview endpoint and transport bridge (Phase 7) remain
+      the email transport bridge now carries the queue (`scripts/run_messaging.py`) and stores
+      inbound replies — the panel still shows no dispatch attempts, and a pre-queue preview
+      endpoint remains
 - [x] Job management: create/edit dialog, status lifecycle with a named actor, dimension-weight
       editor with inline sum-to-1.0 validation (`/w/hiring/jobs`)
 - [x] Offer records (application detail): terms with append-only revisions, submit → shared
