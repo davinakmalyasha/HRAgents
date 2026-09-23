@@ -15,6 +15,12 @@ from hr_agents.db import tables as t
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.base import Base
+from hr_agents.db.messaging import (
+    DbCandidateDirectory,
+    DbReplyStore,
+    candidate_directory,
+    reply_store,
+)
 from hr_agents.db.offers import DbOfferService
 from hr_agents.db.recruiting import (
     DbCommunicationService,
@@ -23,9 +29,12 @@ from hr_agents.db.recruiting import (
     DbJobService,
     DbSchedulingService,
 )
+from hr_agents.messaging.contacts import InMemoryCandidateDirectory
+from hr_agents.messaging.store import ReplyStore, reply_dedup_key
 from hr_agents.models import (
     ActorType,
     AuditActor,
+    CandidateReply,
     CommunicationStatus,
     ContractType,
     DimensionScore,
@@ -453,6 +462,88 @@ def test_communication_adapter_queue_and_sent(factory: sessionmaker[Session]) ->
     assert loaded[0].status is CommunicationStatus.SENT
     assert loaded[0].sent_at is not None
     assert audit.verify() == -1
+
+
+def test_communication_adapter_persists_transport_evidence(
+    factory: sessionmaker[Session],
+) -> None:
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id, s_tech=0.50),
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    communications = DbCommunicationService(
+        evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
+    )
+    item = communications.queue_rejection(
+        record.candidate_id, by="hr-admin", to_email="sari@example.com"
+    )
+    communications.record_dispatch_failure(item.id, provider="email.smtp", error="mailbox down")
+    communications.record_dispatch(
+        item.id,
+        provider="email.smtp",
+        recipient="sari@example.com",
+        message_id="<outbound-9@example.com>",
+    )
+
+    fresh = DbCommunicationService(evaluations=evaluations, session_factory=factory)
+    loaded = fresh.get(item.id)
+    assert loaded.status is CommunicationStatus.SENT
+    assert loaded.recipient == "sari@example.com"
+    assert loaded.provider == "email.smtp"
+    assert loaded.provider_message_id == "<outbound-9@example.com>"
+    assert loaded.send_attempts == 2
+    assert loaded.last_error is None
+    threaded = fresh.find_by_provider_message_id("<outbound-9@example.com>")
+    assert threaded is not None and threaded.id == item.id
+
+
+def test_reply_store_deduplicates_across_instances(factory: sessionmaker[Session]) -> None:
+    _audit, _job, _applications, record = _seeded(factory)
+    replies = DbReplyStore(session_factory=factory)
+    reply = CandidateReply(
+        candidate_id=record.candidate_id,
+        sender="sari@example.com",
+        subject="Re: Your application",
+        body="Terima kasih, saya tertarik.",
+        provider="email.imap_poll",
+        provider_message_id="<reply-1@example.com>",
+        dedup_key=reply_dedup_key(
+            provider="email.imap_poll",
+            message_id="<reply-1@example.com>",
+            sender="sari@example.com",
+            subject="Re: Your application",
+            body="Terima kasih, saya tertarik.",
+        ),
+    )
+
+    replies.add(reply)
+    fresh = DbReplyStore(session_factory=factory)
+    duplicate = fresh.add(reply.model_copy(update={"id": uuid4()}))
+
+    assert duplicate.id == reply.id
+    assert [entry.id for entry in fresh.list_for(record.candidate_id)] == [reply.id]
+
+
+def test_candidate_directory_reads_the_recorded_address(
+    factory: sessionmaker[Session],
+) -> None:
+    _audit, _job, _applications, record = _seeded(factory)
+    directory = DbCandidateDirectory(session_factory=factory)
+
+    assert directory.primary_email(record.candidate_id) == "sari@example.com"
+    assert directory.candidate_for_email("SARI@example.com") == record.candidate_id
+    assert directory.candidate_for_email("stranger@elsewhere.com") is None
+
+
+def test_in_memory_messaging_stores_are_used_without_a_database() -> None:
+    assert isinstance(candidate_directory(None), InMemoryCandidateDirectory)
+    assert isinstance(reply_store(None), ReplyStore)
 
 
 def test_offer_adapter_records_and_revisions(factory: sessionmaker[Session]) -> None:

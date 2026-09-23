@@ -9,7 +9,9 @@ from uuid import UUID, uuid4
 import pytest
 
 from hr_agents.models import (
+    ActorType,
     CandidateCommunication,
+    Channel,
     CommunicationKind,
     CommunicationStatus,
     DimensionScore,
@@ -247,6 +249,99 @@ def test_list_for_filters_by_candidate(
 
     assert [item.id for item in items] == [mine.id]
     assert all(isinstance(item, CandidateCommunication) for item in items)
+
+
+# --- transport dispatch evidence --------------------------------------------------
+
+
+def test_dispatch_records_provider_evidence(
+    evaluations: EvaluationService, communications: CommunicationService, audit: AuditChain
+) -> None:
+    register(evaluations)
+    item = communications.queue_offer(
+        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email="budi@example.com"
+    )
+
+    sent = communications.record_dispatch(
+        item.id,
+        provider="email.smtp",
+        recipient="budi@example.com",
+        message_id="<outbound-1@example.com>",
+    )
+
+    assert sent.status is CommunicationStatus.SENT
+    assert sent.sent_by == "transport:email.smtp"
+    assert sent.provider == "email.smtp"
+    assert sent.provider_message_id == "<outbound-1@example.com>"
+    assert sent.recipient == "budi@example.com"
+    assert sent.send_attempts == 1
+    assert sent.last_error is None
+    dispatched = next(e for e in audit.entries if e.action == "communication.dispatched")
+    assert dispatched.actor.actor_type is ActorType.SYSTEM
+    assert dispatched.payload["approved_by"] == "hr-admin"
+
+
+def test_dispatch_failure_keeps_the_message_queued(
+    evaluations: EvaluationService, communications: CommunicationService, audit: AuditChain
+) -> None:
+    register(evaluations)
+    item = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
+
+    after = communications.record_dispatch_failure(
+        item.id, provider="email.smtp", error="mailbox unavailable"
+    )
+
+    assert after.status is CommunicationStatus.QUEUED
+    assert after.send_attempts == 1
+    assert after.last_error == "mailbox unavailable"
+    assert any(e.action == "communication.dispatch_failed" for e in audit.entries)
+
+
+def test_a_sent_message_is_never_dispatched_again(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    item = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
+    communications.mark_sent(item.id, by="hr-admin")
+
+    with pytest.raises(RecruitingError, match="only a queued message"):
+        communications.record_dispatch(item.id, provider="email.smtp", recipient="budi@example.com")
+
+
+def test_list_queued_excludes_sent_messages(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    first = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="First")
+    other = uuid4()
+    register(evaluations, candidate_id=other)
+    second = communications.queue_offer(other, by="hr-admin", body="Second")
+    communications.mark_sent(first.id, by="hr-admin")
+
+    queued = communications.list_queued()
+
+    assert [item.id for item in queued] == [second.id]
+    assert communications.list_queued(channel=Channel.WHATSAPP) == []
+
+
+def test_reply_threading_finds_the_message_by_provider_id(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    item = communications.queue_offer(
+        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email="budi@example.com"
+    )
+    communications.record_dispatch(
+        item.id,
+        provider="email.smtp",
+        recipient="budi@example.com",
+        message_id="<Outbound-1@Example.com>",
+    )
+
+    found = communications.find_by_provider_message_id("<outbound-1@example.com>")
+
+    assert found is not None and found.id == item.id
+    assert communications.find_by_provider_message_id("<unknown@example.com>") is None
 
 
 # --- composition -----------------------------------------------------------------
