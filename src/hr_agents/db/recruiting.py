@@ -438,6 +438,11 @@ class DbCommunicationService(CommunicationService):
             row.approved_at = item.approved_at
             row.sent_by = item.sent_by
             row.sent_at = item.sent_at
+            row.recipient = item.recipient
+            row.provider = item.provider
+            row.provider_message_id = item.provider_message_id
+            row.send_attempts = item.send_attempts
+            row.last_error = item.last_error
             row.created_at = item.created_at
             session.flush()
 
@@ -458,5 +463,10 @@ class DbCommunicationService(CommunicationService):
             approved_at=_aware(row.approved_at),
             sent_by=row.sent_by,
             sent_at=None if row.sent_at is None else _aware(row.sent_at),
+            recipient=row.recipient,
+            provider=row.provider,
+            provider_message_id=row.provider_message_id,
+            send_attempts=row.send_attempts,
+            last_error=row.last_error,
             created_at=_aware(row.created_at),
         )

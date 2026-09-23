@@ -22,6 +22,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -310,6 +311,37 @@ class CandidateCommunicationRecord(TenantScoped, Base):
     )
     sent_by: Mapped[str | None] = mapped_column(String(200))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    recipient: Mapped[str | None] = mapped_column(String(320))
+    provider: Mapped[str | None] = mapped_column(String(64))
+    provider_message_id: Mapped[str | None] = mapped_column(String(500))
+    send_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CandidateReplyRecord(TenantScoped, Base):
+    __tablename__ = "candidate_replies"
+    __table_args__ = (
+        Index("ix_candidate_replies_candidate", "candidate_id"),
+        UniqueConstraint("provider", "dedup_key", name="uq_candidate_replies_provider_dedup"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    candidate_id: Mapped[UUID] = mapped_column(
+        ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
+    )
+    communication_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("candidate_communications.id", ondelete="SET NULL")
+    )
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, default="email")
+    sender: Mapped[str] = mapped_column(String(320), nullable=False)
+    subject: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_message_id: Mapped[str | None] = mapped_column(String(500))
+    dedup_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
