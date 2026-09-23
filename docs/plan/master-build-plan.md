@@ -188,7 +188,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Application store: status sync from evaluation results and human overrides, candidate lookup
 - [ ] Orchestrator as pydantic-graph state machine (current: explicit async pipeline; graph upgrade when retries/checkpoints demand)
 - [x] HITL overrides persisted to Postgres (append-only `evaluation_overrides` table + `DbEvaluationService`)
-- [x] Audit chain persistence to Postgres (migration `0005` + `DbAuditChain`; `scripts/verify_audit.py`; cron wiring in Phase 9)
+- [x] Audit chain persistence to Postgres (migration `0005` + `DbAuditChain`; `scripts/verify_audit.py`;
+      one-shot runner `scripts/run_scheduler.py` includes an `audit-verify` job; compose cron wiring in Phase 9)
 - [x] End-to-end integration test through the API: submit → worker → evaluation → queue (`tests/api/test_pipeline_seam.py`)
 
 ### 4.6 Provider layer (adaptive integrations) `IN PROGRESS`
@@ -307,7 +308,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Offer records on the application detail: terms with append-only revisions, submit →
       shared approval queue, approve/withdraw (named human; the linked approval is decided in
       the same call), offer message through the communication outbox, acceptance/decline
-      recording with reasons; the expiry sweep runs from the Phase 9 scheduler
+      recording with reasons; offer expiry runs on the scheduler (`offer-expiry` job)
 - [~] Candidate communication panel (application detail): rejection/offer queueing behind
       named-human approvers with the recorded-decision gate surfaced inline, full body review
       before dispatch, manual `mark sent` evidence; transport bridge consumption and a
@@ -373,7 +374,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 8.1 Recruitment (deep build — completes Phase 4)
 - [x] (see Phase 4.1–4.6) + rejection communication flow (gated outbox, backend + UI) and full
       offer records (terms revisions, shared-approval gate, offer message via the outbox,
-      acceptance/decline tracking, expiry sweep for the Phase 9 scheduler)
+      acceptance/decline tracking, `offer-expiry` scheduler job)
 
 ### 8.2 Policy & Knowledge
 - [x] `PolicyAssistant` agent with citation-mandatory answers (Phase 4.4)

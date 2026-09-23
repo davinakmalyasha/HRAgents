@@ -1,14 +1,16 @@
 # Remaining Work — MCP layer to paper & release
 
-Status snapshot: **2026-09-20**. Everything up to and including Phase 5 (multi-department
+Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **867 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **943 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
 detail (W2d), the interview scheduling view (W2e), job management (W2f), the gated
 candidate communication panel (W2g), proposal confirm/cancel/reschedule decisions (W2h), and
-full offer records (W2i).
+full offer records (W2i). The department clock runs too: `scripts/run_scheduler.py` calls the
+approval-SLA, retention, breach, growth, contract/document-expiry, offer-expiry, overdue-tasks,
+and audit-verify engines on one explicit clock (dry-run retention by default).
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -33,7 +35,8 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [x] **Audit-chain persistence.** The chain is persisted in `audit_log` with identical
       hash semantics (`DbAuditChain`, tamper-detection tested) and verified by
       `scripts/verify_audit.py` (exit 1 on the first broken sequence). The ops scheduler
-      wires it into a cron in Phase 9.
+      (`scripts/run_scheduler.py`, `audit-verify` job) runs the verification on a schedule;
+      compose cron wiring lands in Phase 9.
 - [x] **End-to-end pipeline test through the API.** `tests/api/test_pipeline_seam.py`:
       `POST /v1/applications` → queue → `Worker` + `EvaluationJobHandler` → extraction,
       scoring, decision → `evaluation.registered` → status, queue view, and evaluation
@@ -147,7 +150,7 @@ documented.
       editor with inline sum-to-1.0 validation (`/w/hiring/jobs`)
 - [x] Offer records (application detail): terms with append-only revisions, submit → shared
       approval queue, approve/withdraw, offer message through the outbox, acceptance/decline
-      recording; the expiry sweep runs from the Phase 9 scheduler
+      recording; offer expiry runs on the scheduler (`offer-expiry` job)
 
 ### 2.5 Department workspaces (Wave-1 surfaces)
 - [~] Ask HR: chat with citations and handoff suggestions done; progressive SSE streaming and
@@ -232,8 +235,12 @@ latency, costs, and failure modes documented.
 - [ ] Observability: OTel traces (API → pipeline → agents), Prometheus metrics, Grafana dashboard,
       LLM cost tracking (token accounting per model)
 - [ ] Data governance: full export, deletion procedures, DPA template, subprocessor list
-- [ ] Scheduled jobs: retention sweep, approval SLA escalation, breach overdue alerts, review
-      reminders, contract expiry watchers (all call existing engines; needs a scheduler runner)
+- [~] Scheduled jobs: retention sweep (dry-run default, `--purge` to apply), approval SLA
+      escalation/expiry, breach overdue reporting, review reminders, contract + document expiry
+      tasks, offer expiry, overdue-tasks report, and audit-chain verification — all through
+      `scripts/run_scheduler.py` (one CLI over the app containers, `--job` selectable, `--json`
+      output, nonzero exit on job failure). Remains: compose/cron wiring, backup/restore drill,
+      and alerting on the report.
 - [ ] Managed cloud SaaS + billing — **deferred until proven demand** (`[-]` in master plan)
 - [ ] Dedicated instance (BYOC) recipes — only if requested
 - [ ] Office Connector folder-sync agent — only if demanded

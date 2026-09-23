@@ -49,7 +49,8 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [ ] `/readyz` endpoint (DB + queue + storage checks) distinct from `/healthz`
 - [ ] Graceful shutdown: drain in-flight pipeline runs on SIGTERM
 - [ ] Backup/restore drill documented with measured RTO/RPO
-- [ ] Audit chain verification scheduled + after-restore check automated
+- [~] Audit chain verification scheduled: the `audit-verify` scheduler job exists
+      (`scripts/run_scheduler.py`); compose cron wiring + after-restore check automation remain
 
 ## Beauty / UX
 
