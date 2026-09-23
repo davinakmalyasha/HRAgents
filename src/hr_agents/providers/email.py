@@ -3,8 +3,10 @@
 Sending: SMTP (default — works with any mailbox) or Resend (API).
 Receiving: IMAP polling (default — needs no public URL) or a Resend webhook.
 
-All providers are config-only; the messaging bridges (Phase 7) consume the
-resolved adapter through one interface, so companies choose what to connect.
+The SMTP and IMAP specs build live adapters (``hr_agents.messaging``); the
+Resend specs stay config-only until their HTTP adapters land. The messaging
+bridges consume the resolved adapter through one interface, so companies choose
+what to connect.
 """
 
 from __future__ import annotations
@@ -28,7 +30,9 @@ class SmtpSenderConfig(ProviderConfig):
     username: str | None = None
     password: SecretStr | None = None
     use_starttls: bool = True
+    use_ssl: bool = False
     from_address: str = "hragents@example.com"
+    timeout_seconds: float = Field(default=30.0, gt=0.0, le=300.0)
 
 
 class ResendSenderConfig(ProviderConfig):
@@ -47,6 +51,8 @@ class ImapReceiverConfig(ProviderConfig):
     mailbox: str = "INBOX"
     use_ssl: bool = True
     poll_seconds: int = Field(default=30, ge=5, le=3600)
+    mark_seen: bool = True
+    timeout_seconds: float = Field(default=30.0, gt=0.0, le=300.0)
 
 
 class ResendReceiverConfig(ProviderConfig):
@@ -56,18 +62,14 @@ class ResendReceiverConfig(ProviderConfig):
     signing_header: str = "svix-signature"
 
 
-# --- builders (adapters arrive in Phase 7; specs lock the config surface) ---
+# --- builders (SMTP/IMAP build live adapters; Resend stays config-only) ---
 
 
-def _build_smtp(config: ProviderConfig) -> dict[str, Any]:
+def _build_smtp(config: ProviderConfig) -> Any:
+    from hr_agents.messaging.smtp import build_smtp_sender
+
     assert isinstance(config, SmtpSenderConfig)
-    return {
-        "transport": "smtp",
-        "host": config.host,
-        "port": config.port,
-        "use_starttls": config.use_starttls,
-        "from_address": config.from_address,
-    }
+    return build_smtp_sender(config)
 
 
 def _build_resend(config: ProviderConfig) -> dict[str, Any]:
@@ -75,15 +77,11 @@ def _build_resend(config: ProviderConfig) -> dict[str, Any]:
     return {"transport": "resend", "from_address": config.from_address}
 
 
-def _build_imap(config: ProviderConfig) -> dict[str, Any]:
+def _build_imap(config: ProviderConfig) -> Any:
+    from hr_agents.messaging.imap import build_imap_receiver
+
     assert isinstance(config, ImapReceiverConfig)
-    return {
-        "transport": "imap_poll",
-        "host": config.host,
-        "port": config.port,
-        "mailbox": config.mailbox,
-        "poll_seconds": config.poll_seconds,
-    }
+    return build_imap_receiver(config)
 
 
 def _build_resend_webhook(config: ProviderConfig) -> dict[str, Any]:
@@ -96,6 +94,8 @@ def _build_resend_webhook(config: ProviderConfig) -> dict[str, Any]:
 
 def _health_smtp(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, SmtpSenderConfig)
+    if config.username and config.password is None:
+        return ProviderHealth.misconfigured("username set but password missing")
     if config.host == "localhost" and config.port != 1025:
         return ProviderHealth.ok("configured for local SMTP (Mailpit on 1025 in dev)")
     return ProviderHealth.ok(f"configured for {config.host}:{config.port}")
@@ -105,7 +105,7 @@ def _health_resend(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, ResendSenderConfig)
     if not config.api_key.get_secret_value():
         return ProviderHealth.misconfigured("api_key is required")
-    return ProviderHealth.ok("configuration valid (live probe in Phase 7)")
+    return ProviderHealth.ok("configuration valid (live adapter not implemented yet)")
 
 
 def _health_imap(config: ProviderConfig) -> ProviderHealth:
@@ -119,7 +119,7 @@ def _health_resend_webhook(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, ResendReceiverConfig)
     if not config.webhook_secret.get_secret_value():
         return ProviderHealth.misconfigured("webhook_secret is required")
-    return ProviderHealth.ok("configuration valid (webhook verification in Phase 7)")
+    return ProviderHealth.ok("configuration valid (webhook verification not implemented yet)")
 
 
 def email_specs() -> list[Any]:
@@ -134,6 +134,7 @@ def email_specs() -> list[Any]:
             config_model=SmtpSenderConfig,
             build=_build_smtp,
             health_check=_health_smtp,
+            requires_network=True,
             secret_fields=["password"],
         ),
         ProviderSpec(
@@ -156,6 +157,7 @@ def email_specs() -> list[Any]:
             config_model=ImapReceiverConfig,
             build=_build_imap,
             health_check=_health_imap,
+            requires_network=True,
             secret_fields=["password"],
         ),
         ProviderSpec(

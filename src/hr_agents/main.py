@@ -40,8 +40,10 @@ from hr_agents.config import Settings, get_settings
 from hr_agents.db import create_sync_engine, create_sync_session_factory
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
+from hr_agents.db.messaging import candidate_directory, reply_store
 from hr_agents.knowledge import KnowledgeRetriever
 from hr_agents.logging import configure_logging, get_logger
+from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
 from hr_agents.services import ApplicationStore, AuditChain, JobQueue
 from hr_agents.services.chat import ChatService
 from hr_agents.services.front_door import FrontDoor
@@ -204,6 +206,16 @@ def create_app() -> FastAPI:
     app.state.compliance = people_services.compliance
     app.state.growth = people_services.growth
     app.state.offboarding = people_services.offboarding
+    # Messaging transports are resolved here so the API, the worker CLI, and the
+    # scheduler all read the same provider configuration. With the sandbox on
+    # (the default) no transport is active: queued messages stay queued.
+    app.state.messaging = MessagingServices(
+        sender=build_email_sender(settings=settings),
+        receiver=build_email_receiver(settings=settings),
+        replies=reply_store(session_factory),
+        directory=candidate_directory(session_factory),
+        live=not settings.messaging_sandbox,
+    )
 
     app.add_exception_handler(HTTPException, _problem_response)  # type: ignore[arg-type]
     app.include_router(workspaces.router)
