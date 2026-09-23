@@ -95,6 +95,12 @@ from hr_agents.services.recruiting import (
     compose_rejection_body,
     synthesize_feedback,
 )
+from hr_agents.services.scheduler import (
+    JOB_NAMES,
+    ScheduledJobResult,
+    Scheduler,
+    SchedulerReport,
+)
 from hr_agents.services.scoring import (
     ScoringResult,
     normalize_skill,
@@ -115,6 +121,7 @@ from hr_agents.services.tasks import TaskEngine, TaskError
 
 __all__ = [
     "DOCUMENT_KINDS",
+    "JOB_NAMES",
     "JOB_TRANSITIONS",
     "MAX_DOCUMENT_BYTES",
     "OVERRIDE_REVIEWER_ROLES",
@@ -175,6 +182,9 @@ __all__ = [
     "RecruitingServices",
     "RedactionResult",
     "RepoAnalysis",
+    "ScheduledJobResult",
+    "Scheduler",
+    "SchedulerReport",
     "SchedulingProposalRecord",
     "SchedulingService",
     "ScoringResult",
