@@ -6,7 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hr_agents.main import create_app
+from hr_agents.messaging.store import reply_dedup_key
 from hr_agents.models import (
+    CandidateReply,
     DimensionScore,
     Recommendation,
     ScoreDimension,
@@ -279,6 +281,112 @@ def test_mark_sent_rules() -> None:
     assert agent.status_code == 403
     assert first.status_code == 200
     assert again.status_code == 409
+
+
+# --- dispatch evidence and replies -------------------------------------------------
+
+
+def test_transport_dispatch_evidence_is_visible_on_the_message() -> None:
+    with make_client() as client:
+        job = create_job(client)
+        application = submit_application(client, job["id"])
+        register_evaluation(
+            client,
+            application_id=application["application_id"],
+            candidate_id=application["candidate_id"],
+            job_id=job["id"],
+        )
+        queued = client.post(
+            f"/v1/candidates/{application['candidate_id']}/communications/offer",
+            json={"by": "hr-admin", "body": "Offer body", "to_email": "budi@example.com"},
+        ).json()
+        client.app.state.recruiting.communications.record_dispatch_failure(  # type: ignore[attr-defined]
+            UUID(queued["id"]), provider="email.smtp", error="mailbox unavailable"
+        )
+        client.app.state.recruiting.communications.record_dispatch(  # type: ignore[attr-defined]
+            UUID(queued["id"]),
+            provider="email.smtp",
+            recipient="budi@example.com",
+            message_id="<outbound-1@example.com>",
+        )
+        history = client.get(f"/v1/candidates/{application['candidate_id']}/communications")
+
+    body = history.json()[0]
+    assert body["status"] == "sent"
+    assert body["recipient"] == "budi@example.com"
+    assert body["provider"] == "email.smtp"
+    assert body["send_attempts"] == 2
+    assert body["last_error"] is None
+    assert body["sent_by"] == "transport:email.smtp"
+
+
+def test_invalid_recipient_is_rejected() -> None:
+    with make_client() as client:
+        job = create_job(client)
+        application = submit_application(client, job["id"])
+        register_evaluation(
+            client,
+            application_id=application["application_id"],
+            candidate_id=application["candidate_id"],
+            job_id=job["id"],
+        )
+
+        response = client.post(
+            f"/v1/candidates/{application['candidate_id']}/communications/offer",
+            json={"by": "hr-admin", "body": "Offer body", "to_email": "not-an-address"},
+        )
+
+    assert response.status_code == 422
+
+
+def test_inbound_replies_are_listed_per_candidate() -> None:
+    candidate_id = uuid4()
+    other = uuid4()
+    with make_client() as client:
+        replies = client.app.state.messaging.replies  # type: ignore[attr-defined]
+        replies.add(
+            CandidateReply(
+                candidate_id=candidate_id,
+                sender="budi@example.com",
+                subject="Re: Your offer",
+                body="Saya tertarik, terima kasih.",
+                provider="email.imap_poll",
+                provider_message_id="<reply-1@example.com>",
+                dedup_key=reply_dedup_key(
+                    provider="email.imap_poll",
+                    message_id="<reply-1@example.com>",
+                    sender="budi@example.com",
+                    subject="Re: Your offer",
+                    body="Saya tertarik, terima kasih.",
+                ),
+            )
+        )
+        replies.add(
+            CandidateReply(
+                candidate_id=other,
+                sender="sari@example.com",
+                subject="Question",
+                body="Kapan jadwalnya?",
+                provider="email.imap_poll",
+                provider_message_id="<reply-2@example.com>",
+                dedup_key=reply_dedup_key(
+                    provider="email.imap_poll",
+                    message_id="<reply-2@example.com>",
+                    sender="sari@example.com",
+                    subject="Question",
+                    body="Kapan jadwalnya?",
+                ),
+            )
+        )
+
+        mine = client.get(f"/v1/candidates/{candidate_id}/replies")
+        theirs = client.get(f"/v1/candidates/{uuid4()}/replies")
+
+    assert mine.status_code == 200
+    assert len(mine.json()) == 1
+    assert mine.json()[0]["sender"] == "budi@example.com"
+    assert mine.json()[0]["body"] == "Saya tertarik, terima kasih."
+    assert theirs.json() == []
 
 
 # --- RBAC ------------------------------------------------------------------------
