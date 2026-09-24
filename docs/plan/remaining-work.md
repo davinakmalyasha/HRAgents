@@ -2,7 +2,7 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **990 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **993 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
@@ -147,10 +147,10 @@ documented.
 - [x] Batch import UI (CSV paste/drop + drag-drop CVs, consent confirmation, per-item
       conflict report); XLSX parsing deferred — CSV covers the need today
 - [~] Candidate communication panel (application detail): gated rejection/offer queueing with
-      named-human approvers, full body review before dispatch, `mark sent` evidence, history;
-      the email transport bridge now carries the queue (`scripts/run_messaging.py`) and stores
-      inbound replies — the panel still shows no dispatch attempts, and a pre-queue preview
-      endpoint remains
+      named-human approvers, full body review before dispatch, `mark sent` evidence, history,
+      plus the transport state the backend now records — recipient, provider, attempt count, last
+      error — and the inbound replies the mailbox poll captured. Still open: a pre-queue preview
+      endpoint and the WhatsApp transport
 - [x] Job management: create/edit dialog, status lifecycle with a named actor, dimension-weight
       editor with inline sum-to-1.0 validation (`/w/hiring/jobs`)
 - [x] Offer records (application detail): terms with append-only revisions, submit → shared

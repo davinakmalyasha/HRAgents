@@ -43,9 +43,9 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 ## Reliability
 
 - [~] Communication outbox: the email transport bridge consumes the queue
-      (`scripts/run_messaging.py`; SMTP send + IMAP poll, dispatch evidence on the
-      message). WhatsApp transport, delivery/webhook status sync, and automatic
-      retry scheduling still to come
+      (`scripts/run_messaging.py`; SMTP send + IMAP poll, dispatch evidence and captured
+      replies surfaced in the communication panel). WhatsApp transport, delivery/webhook
+      status sync, and automatic retry scheduling still to come
 - [ ] Retry/backoff policy audit per provider (failed sends stay queued and retry on the
       next run); circuit breakers for flaky integrations
 - [ ] Dead-letter dashboard + alerting; worker stuck-job reaper

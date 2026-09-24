@@ -341,7 +341,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       still config-only
 - [x] Transport bridge: `messaging/outbox.py` + `messaging/inbound.py`, driven by
       `scripts/run_messaging.py` (sandbox-safe by default, `--send`/`--receive`/`--json`),
-      migration `0010_messaging_transport` (`candidate_replies` + dispatch columns, tenant RLS)
+      migration `0010_messaging_transport` (`candidate_replies` + dispatch columns, tenant RLS),
+      and the dashboard surface: recipient capture, dispatch attempts/errors, and captured
+      replies in the communication panel (`GET /v1/candidates/{id}/replies`)
 - [ ] `whatsapp` providers: Meta Cloud API + manual `wa.me` links fallback (default until connected)
 - [ ] Telegram bridge (optional provider)
 - [ ] Webhook signature verification + replay protection
