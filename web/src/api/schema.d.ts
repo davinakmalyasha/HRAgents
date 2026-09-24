@@ -233,6 +233,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/candidates/{candidate_id}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inbound candidate replies captured by the messaging transport */
+        get: operations["list_replies_v1_candidates__candidate_id__replies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/chat": {
         parameters: {
             query?: never;
@@ -3085,7 +3102,7 @@ export interface components {
         CommunicationKind: "rejection" | "offer";
         /**
          * CommunicationSentRequest
-         * @description Record manual dispatch evidence (the system itself never sends).
+         * @description Record manual dispatch evidence (a human sent it from their own client).
          */
         CommunicationSentRequest: {
             /** By */
@@ -3133,6 +3150,16 @@ export interface components {
              * @enum {string}
              */
             language: "en" | "id";
+            /** Last Error */
+            last_error: string | null;
+            /** Provider */
+            provider: string | null;
+            /** Provider Message Id */
+            provider_message_id: string | null;
+            /** Recipient */
+            recipient: string | null;
+            /** Send Attempts */
+            send_attempts: number;
             /** Sent At */
             sent_at: string | null;
             /** Sent By */
@@ -4370,6 +4397,8 @@ export interface components {
             language: "en" | "id";
             /** Subject */
             subject?: string | null;
+            /** To Email */
+            to_email?: string | null;
         };
         /**
          * OfferQueueRequest
@@ -4390,6 +4419,8 @@ export interface components {
             language: "en" | "id";
             /** Subject */
             subject?: string | null;
+            /** To Email */
+            to_email?: string | null;
         };
         /** OfferReviseRequest */
         OfferReviseRequest: {
@@ -4890,6 +4921,8 @@ export interface components {
              * @enum {string}
              */
             language: "en" | "id";
+            /** To Email */
+            to_email?: string | null;
         };
         /** ReminderView */
         ReminderView: {
@@ -4923,6 +4956,40 @@ export interface components {
          * @enum {string}
          */
         RemotePreference: "onsite" | "hybrid" | "remote" | "flexible";
+        /**
+         * ReplyView
+         * @description An inbound candidate message captured from a connected mailbox.
+         */
+        ReplyView: {
+            /** Body */
+            body: string;
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            channel: components["schemas"]["Channel"];
+            /** Communication Id */
+            communication_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Provider */
+            provider: string;
+            /** Provider Message Id */
+            provider_message_id: string | null;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Sender */
+            sender: string;
+            /** Subject */
+            subject: string;
+        };
         /** RequestAction */
         RequestAction: {
             /** By */
@@ -6339,6 +6406,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeedbackView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_replies_v1_candidates__candidate_id__replies_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyView"][];
                 };
             };
             /** @description Validation Error */

@@ -31,12 +31,15 @@ import { markCommunicationSent, queueOfferMessage, queueRejectionMessage } from 
 import {
   COMMUNICATION_CHANNELS,
   canQueueRejection,
+  dispatchEvidence,
   newestFirstCommunications,
+  newestFirstReplies,
   type Channel,
   type CommunicationView,
   type PolicyDecision,
+  type ReplyView,
 } from './communication'
-import { useCommunications, useEvaluationOverrides } from './useCommunications'
+import { useCommunications, useEvaluationOverrides, useReplies } from './useCommunications'
 
 const STATUS_TONES: Partial<Record<CommunicationView['status'], StatusTone>> = {
   queued: 'waiting',
@@ -73,8 +76,11 @@ function CommunicationDialog({
   const [channel, setChannel] = useState<Channel>('email')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
+  const [toEmail, setToEmail] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const recipient = toEmail.trim() === '' ? null : toEmail.trim()
 
   function close(next: boolean) {
     if (!next) {
@@ -92,6 +98,9 @@ function CommunicationDialog({
     }
     if (status === 409) {
       return t('communication.errors.conflict')
+    }
+    if (status === 422) {
+      return t('communication.errors.invalidRecipient')
     }
     return t('communication.errors.failed')
   }
@@ -111,7 +120,12 @@ function CommunicationDialog({
 
     const result =
       mode === 'rejection'
-        ? await queueRejectionMessage(candidateId, { by: by.trim(), language, channel })
+        ? await queueRejectionMessage(candidateId, {
+            by: by.trim(),
+            language,
+            channel,
+            to_email: recipient,
+          })
         : mode === 'offer'
           ? await queueOfferMessage(candidateId, {
               by: by.trim(),
@@ -119,6 +133,7 @@ function CommunicationDialog({
               subject: subject.trim() === '' ? null : subject.trim(),
               language,
               channel,
+              to_email: recipient,
             })
           : await markCommunicationSent(communicationId ?? '', by.trim())
 
@@ -268,6 +283,25 @@ function CommunicationDialog({
             </>
           ) : null}
 
+          {mode === 'sent' || channel !== 'email' ? null : (
+            <div className={fieldClass}>
+              <label htmlFor={`communication-to-${mode}`} className={labelClass}>
+                {t('communication.fields.toEmail')}
+              </label>
+              <Input
+                id={`communication-to-${mode}`}
+                type="email"
+                value={toEmail}
+                onChange={(event) => setToEmail(event.target.value)}
+                placeholder={t('communication.fields.toEmailPlaceholder')}
+                autoComplete="off"
+              />
+              <span className="text-2xs text-ink-muted">
+                {t('communication.fields.toEmailHint')}
+              </span>
+            </div>
+          )}
+
           <DialogFooter>
             <Button type="submit" size="sm" disabled={busy}>
               {mode === 'sent' ? t('communication.confirmSent') : t('communication.confirm')}
@@ -288,6 +322,7 @@ function CommunicationItem({
 }) {
   const { t } = useTranslation()
   const tone = STATUS_TONES[item.status]
+  const evidence = dispatchEvidence(item)
 
   return (
     <li className="flex flex-col gap-2 px-3 py-3">
@@ -317,9 +352,32 @@ function CommunicationItem({
         <span className="text-ink-strong text-xs font-medium">{item.subject}</span>
       ) : null}
 
+      {item.recipient !== null ? (
+        <span className="text-2xs text-ink-muted">
+          {t('communication.toAddress', { address: item.recipient })}
+        </span>
+      ) : null}
+
       <pre className="border-line bg-surface-subtle text-ink max-h-48 overflow-y-auto rounded-md border p-2 text-xs whitespace-pre-wrap">
         {item.body}
       </pre>
+
+      {evidence.error !== null ? (
+        <p role="status" className="text-error text-2xs flex items-center gap-1">
+          <span aria-hidden="true">●</span>
+          {t('communication.dispatchFailed', {
+            provider: evidence.provider ?? t('communication.transport'),
+            error: evidence.error,
+          })}
+        </p>
+      ) : evidence.provider !== null ? (
+        <span className="text-2xs text-ink-muted">
+          {t('communication.dispatchedVia', {
+            provider: evidence.provider,
+            attempts: evidence.attempts,
+          })}
+        </span>
+      ) : null}
 
       <span className="text-2xs text-ink-muted">
         {t('communication.queuedBy', { name: item.approved_by })} ·{' '}
@@ -330,10 +388,39 @@ function CommunicationItem({
   )
 }
 
+function ReplyItem({ reply }: { reply: ReplyView }) {
+  const { t } = useTranslation()
+
+  return (
+    <li className="flex flex-col gap-1 px-3 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-ink-strong text-xs font-medium">
+          {reply.subject === '' ? t('communication.replyNoSubject') : reply.subject}
+        </span>
+        <span className="text-2xs text-ink-muted">{formatDateTime(reply.received_at)}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-2xs text-ink-muted">
+          {t('communication.replyFrom', { address: reply.sender })}
+        </span>
+        <span className="text-2xs text-ink-muted">
+          {t('communication.replyVia', { provider: reply.provider })}
+        </span>
+      </div>
+      <pre className="border-line bg-surface-subtle text-ink max-h-48 overflow-y-auto rounded-md border p-2 text-xs whitespace-pre-wrap">
+        {reply.body}
+      </pre>
+    </li>
+  )
+}
+
 /**
  * Candidate-facing messages: queueing is gated (a recorded rejection decision,
- * a named approver) and the system never dispatches — ``mark sent`` records
- * manual dispatch evidence. Bodies stay visible until an outcome is recorded.
+ * a named approver) and nothing is sent before that approval. Dispatch is
+ * either recorded manually here or carried by the configured email transport,
+ * which writes its own evidence (provider, attempts, last error) back onto the
+ * message. Bodies stay visible until an outcome is recorded, and replies the
+ * transport captured are shown below as evidence, never as decisions.
  */
 export function CommunicationPanel({
   candidateId,
@@ -346,10 +433,12 @@ export function CommunicationPanel({
 }) {
   const { t } = useTranslation()
   const communications = useCommunications(candidateId)
+  const replies = useReplies(candidateId)
   const overrides = useEvaluationOverrides(evaluationId)
   const [dialog, setDialog] = useState<DialogState | null>(null)
 
   const items = newestFirstCommunications(communications.data ?? [])
+  const replyItems = newestFirstReplies(replies.data ?? [])
   const rejectionAllowed = canQueueRejection(policyDecision, overrides.data ?? [])
   const activeRejection = items.some(
     (item) => item.kind === 'rejection' && item.status !== 'cancelled',
@@ -418,6 +507,24 @@ export function CommunicationPanel({
           }}
         />
       ) : null}
+
+      <section aria-labelledby="replies" className="flex flex-col gap-3">
+        <h3 id="replies" className="text-ink-strong text-sm font-medium">
+          {t('communication.repliesTitle')}
+        </h3>
+        <p className="text-2xs text-ink-muted">{t('communication.repliesHint')}</p>
+        {replies.isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : replyItems.length === 0 ? (
+          <EmptyState title={t('communication.repliesEmpty')} />
+        ) : (
+          <ul className="divide-line border-line flex flex-col divide-y rounded-lg border">
+            {replyItems.map((reply) => (
+              <ReplyItem key={reply.id} reply={reply} />
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   )
 }

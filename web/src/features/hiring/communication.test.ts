@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   canQueueRejection,
+  dispatchEvidence,
   newestFirstCommunications,
+  newestFirstReplies,
   type CommunicationView,
   type OverrideView,
+  type ReplyView,
 } from './communication'
 
 function override(overrides: Partial<OverrideView>): OverrideView {
@@ -37,7 +40,28 @@ function communication(overrides: Partial<CommunicationView>): CommunicationView
     approved_at: '2026-09-20T03:00:00Z',
     sent_by: null,
     sent_at: null,
+    recipient: null,
+    provider: null,
+    provider_message_id: null,
+    send_attempts: 0,
+    last_error: null,
     created_at: '2026-09-20T03:00:00Z',
+    ...overrides,
+  }
+}
+
+function reply(overrides: Partial<ReplyView>): ReplyView {
+  return {
+    id: 'reply-1',
+    candidate_id: 'cand-1',
+    communication_id: 'comm-1',
+    channel: 'email',
+    sender: 'budi@example.com',
+    subject: 'Re: Your offer',
+    body: 'Saya tertarik, terima kasih.',
+    provider: 'email.imap_poll',
+    provider_message_id: '<reply-1@example.com>',
+    received_at: '2026-09-22T02:15:00Z',
     ...overrides,
   }
 }
@@ -79,5 +103,48 @@ describe('newestFirstCommunications', () => {
       'newer',
       'older',
     ])
+  })
+})
+
+describe('newestFirstReplies', () => {
+  it('orders replies by receipt time, newest first', () => {
+    const older = reply({ id: 'older', received_at: '2026-09-20T02:15:00Z' })
+    const newer = reply({ id: 'newer', received_at: '2026-09-22T02:15:00Z' })
+
+    expect(newestFirstReplies([older, newer]).map((item) => item.id)).toEqual(['newer', 'older'])
+  })
+})
+
+describe('dispatchEvidence', () => {
+  it('reports nothing for a freshly queued message', () => {
+    expect(dispatchEvidence(communication({}))).toEqual({
+      provider: null,
+      attempts: 0,
+      error: null,
+    })
+  })
+
+  it('surfaces the failure while the message is still queued', () => {
+    const evidence = dispatchEvidence(
+      communication({
+        provider: 'email.smtp',
+        send_attempts: 3,
+        last_error: 'mailbox unavailable',
+      }),
+    )
+
+    expect(evidence).toEqual({
+      provider: 'email.smtp',
+      attempts: 3,
+      error: 'mailbox unavailable',
+    })
+  })
+
+  it('hides a stale error once the message was sent', () => {
+    const evidence = dispatchEvidence(
+      communication({ status: 'sent', provider: 'email.smtp', last_error: 'mailbox unavailable' }),
+    )
+
+    expect(evidence.error).toBeNull()
   })
 })

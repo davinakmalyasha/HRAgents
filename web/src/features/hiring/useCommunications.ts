@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
-import type { CommunicationView, OverrideView } from './communication'
+import type { CommunicationView, OverrideView, ReplyView } from './communication'
 
 export function useCommunications(candidateId: string | undefined) {
   return useQuery({
@@ -10,6 +10,19 @@ export function useCommunications(candidateId: string | undefined) {
     enabled: candidateId !== undefined,
     queryFn: async (): Promise<CommunicationView[]> => {
       const { data } = await api.GET('/v1/candidates/{candidate_id}/communications', {
+        params: { path: { candidate_id: candidateId ?? '' } },
+      })
+      return data ?? []
+    },
+  })
+}
+
+export function useReplies(candidateId: string | undefined) {
+  return useQuery({
+    queryKey: ['replies', candidateId],
+    enabled: candidateId !== undefined,
+    queryFn: async (): Promise<ReplyView[]> => {
+      const { data } = await api.GET('/v1/candidates/{candidate_id}/replies', {
         params: { path: { candidate_id: candidateId ?? '' } },
       })
       return data ?? []

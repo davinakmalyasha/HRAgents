@@ -1,7 +1,7 @@
 import { api } from '@/lib/api'
 import type { components } from '@/api/schema'
 
-import type { CommunicationView } from './communication'
+import type { CommunicationView, ReplyView } from './communication'
 
 export type RejectionQueueRequest = components['schemas']['RejectionQueueRequest']
 export type OfferQueueRequest = components['schemas']['OfferQueueRequest']
@@ -45,4 +45,11 @@ export async function markCommunicationSent(
     body: { by },
   })
   return { status: response.status, communication: data }
+}
+
+export async function listReplies(candidateId: string): Promise<ReplyView[]> {
+  const { data } = await api.GET('/v1/candidates/{candidate_id}/replies', {
+    params: { path: { candidate_id: candidateId } },
+  })
+  return data ?? []
 }

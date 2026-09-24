@@ -329,6 +329,16 @@
     "rejectionExists": "A rejection message already exists for this candidate.",
     "queuedBy": "Queued by {{name}}",
     "sentBy": "Sent by {{name}}",
+    "toAddress": "To {{address}}",
+    "transport": "the mail transport",
+    "dispatchedVia": "Dispatched via {{provider}} · {{attempts}} attempt(s)",
+    "dispatchFailed": "Still queued — {{provider}} could not send it: {{error}}",
+    "repliesTitle": "Candidate replies",
+    "repliesHint": "Captured from the connected mailbox. A reply is evidence only — accepting an offer or moving a stage stays a human decision.",
+    "repliesEmpty": "No replies captured yet.",
+    "replyFrom": "From {{address}}",
+    "replyVia": "via {{provider}}",
+    "replyNoSubject": "(no subject)",
     "kinds": { "rejection": "Rejection", "offer": "Offer" },
     "statuses": { "queued": "Ready to send", "sent": "Sent", "cancelled": "Cancelled" },
     "languages": { "en": "English", "id": "Bahasa Indonesia" },
@@ -345,7 +355,10 @@
       "channel": "Channel",
       "subject": "Subject",
       "subjectPlaceholder": "Offer — Backend Engineer",
-      "body": "Message"
+      "body": "Message",
+      "toEmail": "Send to (email)",
+      "toEmailPlaceholder": "budi@example.com",
+      "toEmailHint": "Optional. With an email transport connected, the queued message is carried to this address; leave it blank to keep sending it yourself."
     },
     "dialogs": {
       "rejectionTitle": "Queue rejection message",
@@ -363,6 +376,7 @@
       "forbidden": "Your role cannot queue candidate messages.",
       "notFound": "The candidate or evaluation no longer exists.",
       "conflict": "The server refused this message (a recorded decision may be missing, or an active message already exists).",
+      "invalidRecipient": "That email address is not valid.",
       "failed": "Could not queue the message. Please try again."
     }
   },

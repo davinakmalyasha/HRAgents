@@ -8,6 +8,7 @@ import i18n from '@/i18n'
 vi.mock('@/features/hiring/useCommunications', () => ({
   useCommunications: () => ({ isLoading: false, data: [] }),
   useEvaluationOverrides: () => ({ isLoading: false, data: [] }),
+  useReplies: () => ({ isLoading: false, data: [] }),
 }))
 
 vi.mock('@/features/hiring/useOffers', () => ({

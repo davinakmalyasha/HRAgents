@@ -329,6 +329,16 @@
     "rejectionExists": "Pesan penolakan untuk kandidat ini sudah ada.",
     "queuedBy": "Diantrekan oleh {{name}}",
     "sentBy": "Dikirim oleh {{name}}",
+    "toAddress": "Ke {{address}}",
+    "transport": "transport email",
+    "dispatchedVia": "Dikirim melalui {{provider}} · {{attempts}} kali percobaan",
+    "dispatchFailed": "Masih di antrean — {{provider}} gagal mengirim: {{error}}",
+    "repliesTitle": "Balasan kandidat",
+    "repliesHint": "Diambil dari kotak surat yang terhubung. Balasan hanya bukti — menerima tawaran atau memindahkan tahap tetap keputusan manusia.",
+    "repliesEmpty": "Belum ada balasan yang diambil.",
+    "replyFrom": "Dari {{address}}",
+    "replyVia": "melalui {{provider}}",
+    "replyNoSubject": "(tanpa subjek)",
     "kinds": { "rejection": "Penolakan", "offer": "Tawaran" },
     "statuses": { "queued": "Siap dikirim", "sent": "Terkirim", "cancelled": "Dibatalkan" },
     "languages": { "en": "Inggris", "id": "Bahasa Indonesia" },
@@ -345,7 +355,10 @@
       "channel": "Saluran",
       "subject": "Subjek",
       "subjectPlaceholder": "Tawaran — Backend Engineer",
-      "body": "Pesan"
+      "body": "Pesan",
+      "toEmail": "Kirim ke (email)",
+      "toEmailPlaceholder": "budi@example.com",
+      "toEmailHint": "Opsional. Jika transport email tersambung, pesan diantrean dikirim ke alamat ini; biarkan kosong bila Anda ingin mengirim sendiri."
     },
     "dialogs": {
       "rejectionTitle": "Antrekan pesan penolakan",
@@ -363,6 +376,7 @@
       "forbidden": "Peran Anda tidak boleh mengantrekan pesan kandidat.",
       "notFound": "Kandidat atau evaluasi sudah tidak ada.",
       "conflict": "Server menolak pesan ini (keputusan tercatat mungkin belum ada, atau pesan aktif sudah ada).",
+      "invalidRecipient": "Alamat email itu tidak valid.",
       "failed": "Gagal mengantrekan pesan. Silakan coba lagi."
     }
   },
