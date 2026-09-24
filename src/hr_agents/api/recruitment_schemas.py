@@ -10,11 +10,12 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field, field_validator
+from pydantic import EmailStr, Field, field_validator
 
 from hr_agents.models import (
     AuditEntry,
     CandidateCommunication,
+    CandidateReply,
     Channel,
     CommunicationKind,
     CommunicationStatus,
@@ -349,6 +350,11 @@ class CommunicationView(StrictModel):
     approved_at: datetime
     sent_by: str | None
     sent_at: datetime | None
+    recipient: str | None
+    provider: str | None
+    provider_message_id: str | None
+    send_attempts: int
+    last_error: str | None
     created_at: datetime
 
     @classmethod
@@ -368,7 +374,42 @@ class CommunicationView(StrictModel):
             approved_at=item.approved_at,
             sent_by=item.sent_by,
             sent_at=item.sent_at,
+            recipient=item.recipient,
+            provider=item.provider,
+            provider_message_id=item.provider_message_id,
+            send_attempts=item.send_attempts,
+            last_error=item.last_error,
             created_at=item.created_at,
+        )
+
+
+class ReplyView(StrictModel):
+    """An inbound candidate message captured from a connected mailbox."""
+
+    id: UUID
+    candidate_id: UUID
+    communication_id: UUID | None
+    channel: Channel
+    sender: str
+    subject: str
+    body: str
+    provider: str
+    provider_message_id: str | None
+    received_at: datetime
+
+    @classmethod
+    def from_model(cls, item: CandidateReply) -> ReplyView:
+        return cls(
+            id=item.id,
+            candidate_id=item.candidate_id,
+            communication_id=item.communication_id,
+            channel=item.channel,
+            sender=item.sender,
+            subject=item.subject,
+            body=item.body,
+            provider=item.provider,
+            provider_message_id=item.provider_message_id,
+            received_at=item.received_at,
         )
 
 
@@ -378,6 +419,7 @@ class RejectionQueueRequest(StrictModel):
     by: str = Field(min_length=1, max_length=200)
     channel: Channel = Channel.EMAIL
     language: Literal["en", "id"] = "en"
+    to_email: EmailStr | None = None
 
 
 class OfferQueueRequest(StrictModel):
@@ -388,6 +430,7 @@ class OfferQueueRequest(StrictModel):
     subject: str | None = Field(default=None, max_length=200)
     channel: Channel = Channel.EMAIL
     language: Literal["en", "id"] = "en"
+    to_email: EmailStr | None = None
 
     @field_validator("body")
     @classmethod
@@ -398,7 +441,7 @@ class OfferQueueRequest(StrictModel):
 
 
 class CommunicationSentRequest(StrictModel):
-    """Record manual dispatch evidence (the system itself never sends)."""
+    """Record manual dispatch evidence (a human sent it from their own client)."""
 
     by: str = Field(min_length=1, max_length=200)
 
@@ -496,6 +539,7 @@ class OfferMessageRequest(StrictModel):
     body: str | None = Field(default=None, max_length=8000)
     subject: str | None = Field(default=None, max_length=200)
     language: Literal["en", "id"] = "en"
+    to_email: EmailStr | None = None
 
 
 class OfferAcceptanceRequest(StrictModel):

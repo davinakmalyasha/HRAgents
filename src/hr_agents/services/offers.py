@@ -15,6 +15,8 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
+from pydantic import EmailStr
+
 from hr_agents.models import (
     EXPIRABLE_OFFER_STATUSES,
     ActorType,
@@ -302,6 +304,7 @@ class OfferService:
         body: str | None = None,
         subject: str | None = None,
         language: str = "en",
+        to_email: EmailStr | None = None,
     ) -> Offer:
         """Queue the candidate-facing offer message through the outbox."""
         actor = self._require_human(by)
@@ -317,6 +320,7 @@ class OfferService:
             body=message,
             subject=subject,
             language=language,
+            to_email=to_email,
         )
         updated = offer.model_copy(
             update={

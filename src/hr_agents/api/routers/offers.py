@@ -161,6 +161,7 @@ def queue_offer_message(
             body=payload.body,
             subject=payload.subject,
             language=payload.language,
+            to_email=payload.to_email,
         )
     except OfferError as exc:
         message = str(exc)

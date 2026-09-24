@@ -1,8 +1,9 @@
 """Candidate communication endpoints — the gated rejection/offer outbox.
 
-Nothing here dispatches: messages are queued behind a named human, and
-``/sent`` records manual dispatch evidence. The transport bridge (Phase 7)
-consumes the queue when messaging providers are connected.
+Messages are queued behind a named human. Dispatch is either manual (``/sent``
+records the human's own send) or carried by the configured email transport,
+which records its own evidence; the queue is the only source of messages either
+way, and nothing is sent before a human approved it.
 """
 
 from __future__ import annotations
@@ -18,7 +19,9 @@ from hr_agents.api.recruitment_schemas import (
     CommunicationView,
     OfferQueueRequest,
     RejectionQueueRequest,
+    ReplyView,
 )
+from hr_agents.messaging.store import ReplyStore
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import CommunicationService, RecruitingError
 
@@ -33,7 +36,12 @@ def get_communications(request: Request) -> CommunicationService:
     return request.app.state.recruiting.communications
 
 
+def get_replies(request: Request) -> ReplyStore:
+    return request.app.state.messaging.replies
+
+
 CommunicationsDep = Annotated[CommunicationService, Depends(get_communications)]
+RepliesDep = Annotated[ReplyStore, Depends(get_replies)]
 
 
 def _not_found(detail: str) -> HTTPException:
@@ -59,6 +67,15 @@ def list_communications(
     return [CommunicationView.from_model(item) for item in communications.list_for(candidate_id)]
 
 
+@router.get(
+    "/candidates/{candidate_id}/replies",
+    response_model=list[ReplyView],
+    summary="Inbound candidate replies captured by the messaging transport",
+)
+def list_replies(candidate_id: UUID, replies: RepliesDep) -> list[ReplyView]:
+    return [ReplyView.from_model(item) for item in replies.list_for(candidate_id)]
+
+
 @router.post(
     "/candidates/{candidate_id}/communications/rejection",
     status_code=status.HTTP_201_CREATED,
@@ -75,6 +92,7 @@ def queue_rejection(
             by=payload.by,
             channel=payload.channel,
             language=payload.language,
+            to_email=payload.to_email,
         )
     except RecruitingError as exc:
         message = str(exc)
@@ -104,6 +122,7 @@ def queue_offer(
             subject=payload.subject,
             channel=payload.channel,
             language=payload.language,
+            to_email=payload.to_email,
         )
     except RecruitingError as exc:
         message = str(exc)
