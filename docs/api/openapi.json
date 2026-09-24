@@ -1856,7 +1856,7 @@
       },
       "CommunicationSentRequest": {
         "additionalProperties": false,
-        "description": "Record manual dispatch evidence (the system itself never sends).",
+        "description": "Record manual dispatch evidence (a human sent it from their own client).",
         "properties": {
           "by": {
             "maxLength": 200,
@@ -1949,6 +1949,54 @@
             "title": "Language",
             "type": "string"
           },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          },
+          "provider_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Message Id"
+          },
+          "recipient": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient"
+          },
+          "send_attempts": {
+            "title": "Send Attempts",
+            "type": "integer"
+          },
           "sent_at": {
             "anyOf": [
               {
@@ -2002,6 +2050,11 @@
           "approved_at",
           "sent_by",
           "sent_at",
+          "recipient",
+          "provider",
+          "provider_message_id",
+          "send_attempts",
+          "last_error",
           "created_at"
         ],
         "title": "CommunicationView",
@@ -5419,6 +5472,18 @@
               }
             ],
             "title": "Subject"
+          },
+          "to_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Email"
           }
         },
         "required": [
@@ -5467,6 +5532,18 @@
               }
             ],
             "title": "Subject"
+          },
+          "to_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Email"
           }
         },
         "required": [
@@ -6741,6 +6818,18 @@
             ],
             "title": "Language",
             "type": "string"
+          },
+          "to_email": {
+            "anyOf": [
+              {
+                "format": "email",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Email"
           }
         },
         "required": [
@@ -6815,6 +6904,83 @@
         ],
         "title": "RemotePreference",
         "type": "string"
+      },
+      "ReplyView": {
+        "additionalProperties": false,
+        "description": "An inbound candidate message captured from a connected mailbox.",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "candidate_id": {
+            "format": "uuid",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/Channel"
+          },
+          "communication_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Communication Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "provider_message_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Message Id"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "sender": {
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "candidate_id",
+          "communication_id",
+          "channel",
+          "sender",
+          "subject",
+          "body",
+          "provider",
+          "provider_message_id",
+          "received_at"
+        ],
+        "title": "ReplyView",
+        "type": "object"
       },
       "RequestAction": {
         "additionalProperties": false,
@@ -10341,6 +10507,69 @@
         "summary": "Candidate-facing feedback report",
         "tags": [
           "feedback"
+        ]
+      }
+    },
+    "/v1/candidates/{candidate_id}/replies": {
+      "get": {
+        "operationId": "list_replies_v1_candidates__candidate_id__replies_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReplyView"
+                  },
+                  "title": "Response List Replies V1 Candidates  Candidate Id  Replies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inbound candidate replies captured by the messaging transport",
+        "tags": [
+          "communications"
         ]
       }
     },
