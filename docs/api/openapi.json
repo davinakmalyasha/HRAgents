@@ -1993,6 +1993,17 @@
             ],
             "title": "Recipient"
           },
+          "recipient_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Phone"
+          },
           "send_attempts": {
             "title": "Send Attempts",
             "type": "integer"
@@ -2051,6 +2062,7 @@
           "sent_by",
           "sent_at",
           "recipient",
+          "recipient_phone",
           "provider",
           "provider_message_id",
           "send_attempts",
@@ -5544,6 +5556,18 @@
               }
             ],
             "title": "To Email"
+          },
+          "to_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Phone"
           }
         },
         "required": [
@@ -6830,6 +6854,18 @@
               }
             ],
             "title": "To Email"
+          },
+          "to_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Phone"
           }
         },
         "required": [
@@ -8403,6 +8439,71 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WhatsappDispatchLinkRequest": {
+        "additionalProperties": false,
+        "description": "Ask the manual-links transport to compose a wa.me link for a queued message.",
+        "properties": {
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          },
+          "to_phone": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Phone"
+          }
+        },
+        "required": [
+          "by"
+        ],
+        "title": "WhatsappDispatchLinkRequest",
+        "type": "object"
+      },
+      "WhatsappDispatchLinkView": {
+        "additionalProperties": false,
+        "description": "A click-to-chat link for a queued WhatsApp message (the human still sends).",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "communication_id": {
+            "format": "uuid",
+            "title": "Communication Id",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "communication_id",
+          "provider",
+          "phone",
+          "url",
+          "body"
+        ],
+        "title": "WhatsappDispatchLinkView",
         "type": "object"
       },
       "WorkspaceId": {
@@ -10903,6 +11004,75 @@
         "summary": "Ask HR over server-sent events",
         "tags": [
           "chat"
+        ]
+      }
+    },
+    "/v1/communications/{communication_id}/dispatch-link": {
+      "post": {
+        "operationId": "compose_dispatch_link_v1_communications__communication_id__dispatch_link_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "communication_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Communication Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WhatsappDispatchLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhatsappDispatchLinkView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Compose a wa.me link for a queued WhatsApp message (the human sends it)",
+        "tags": [
+          "communications"
         ]
       }
     },

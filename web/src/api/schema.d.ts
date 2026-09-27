@@ -319,6 +319,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/communications/{communication_id}/dispatch-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compose a wa.me link for a queued WhatsApp message (the human sends it) */
+        post: operations["compose_dispatch_link_v1_communications__communication_id__dispatch_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/communications/{communication_id}/sent": {
         parameters: {
             query?: never;
@@ -3158,6 +3175,8 @@ export interface components {
             provider_message_id: string | null;
             /** Recipient */
             recipient: string | null;
+            /** Recipient Phone */
+            recipient_phone: string | null;
             /** Send Attempts */
             send_attempts: number;
             /** Sent At */
@@ -4421,6 +4440,8 @@ export interface components {
             subject?: string | null;
             /** To Email */
             to_email?: string | null;
+            /** To Phone */
+            to_phone?: string | null;
         };
         /** OfferReviseRequest */
         OfferReviseRequest: {
@@ -4923,6 +4944,8 @@ export interface components {
             language: "en" | "id";
             /** To Email */
             to_email?: string | null;
+            /** To Phone */
+            to_phone?: string | null;
         };
         /** ReminderView */
         ReminderView: {
@@ -5510,6 +5533,35 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WhatsappDispatchLinkRequest
+         * @description Ask the manual-links transport to compose a wa.me link for a queued message.
+         */
+        WhatsappDispatchLinkRequest: {
+            /** By */
+            by: string;
+            /** To Phone */
+            to_phone?: string | null;
+        };
+        /**
+         * WhatsappDispatchLinkView
+         * @description A click-to-chat link for a queued WhatsApp message (the human still sends).
+         */
+        WhatsappDispatchLinkView: {
+            /** Body */
+            body: string;
+            /**
+             * Communication Id
+             * Format: uuid
+             */
+            communication_id: string;
+            /** Phone */
+            phone: string;
+            /** Provider */
+            provider: string;
+            /** Url */
+            url: string;
         };
         /**
          * WorkspaceId
@@ -6610,6 +6662,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compose_dispatch_link_v1_communications__communication_id__dispatch_link_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                communication_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatsappDispatchLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatsappDispatchLinkView"];
                 };
             };
             /** @description Validation Error */
