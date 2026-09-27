@@ -44,7 +44,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     app = create_app()
-    scheduler = Scheduler(people=app.state.people, recruiting=app.state.recruiting)
+    scheduler = Scheduler(
+        people=app.state.people,
+        recruiting=app.state.recruiting,
+        replies=app.state.messaging.replies,  # type: ignore[attr-defined]
+    )
     try:
         report = scheduler.run(args.job, now=parse_at(args.at), purge=args.purge)
     except ValueError as exc:

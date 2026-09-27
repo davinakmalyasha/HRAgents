@@ -23,9 +23,10 @@ from hr_agents.models import (
 )
 
 if TYPE_CHECKING:
+    from hr_agents.messaging.store import ReplyStore
     from hr_agents.services.employees import EmployeeService
     from hr_agents.services.people import PeopleServices
-    from hr_agents.services.recruiting import RecruitingServices
+    from hr_agents.services.recruiting import CommunicationService, RecruitingServices
     from hr_agents.services.tasks import TaskEngine
 
 JOB_APPROVALS = "approvals"
@@ -37,6 +38,7 @@ JOB_DOCUMENT_EXPIRY = "document-expiry"
 JOB_OFFER_EXPIRY = "offer-expiry"
 JOB_TASKS_OVERDUE = "tasks-overdue"
 JOB_AUDIT_VERIFY = "audit-verify"
+JOB_REPLY_SLA = "reply-sla"
 
 JOB_NAMES: tuple[str, ...] = (
     JOB_APPROVALS,
@@ -48,9 +50,13 @@ JOB_NAMES: tuple[str, ...] = (
     JOB_OFFER_EXPIRY,
     JOB_TASKS_OVERDUE,
     JOB_AUDIT_VERIFY,
+    JOB_REPLY_SLA,
 )
 
 DOCUMENT_EXPIRY_WINDOW_DAYS = 60
+
+REPLY_SLA_HOURS = 72
+"""Anti-ghosting window: a dispatched message with no reply gets a follow-up task."""
 
 
 class ScheduledJobResult(StrictModel):
@@ -106,6 +112,58 @@ def document_expiry_tasks(
     return created
 
 
+def reply_sla_tasks(
+    communications: CommunicationService,
+    tasks: TaskEngine,
+    replies: ReplyStore,
+    *,
+    within_hours: int = REPLY_SLA_HOURS,
+    as_of: datetime | None = None,
+) -> list[TaskItem]:
+    """Flag dispatched messages that went unanswered (one task per message).
+
+    A candidate who never heard back is the failure mode this prevents. The
+    window is counted from the dispatch, and any reply the candidate sent after
+    that moment counts as an answer — nothing is chased automatically, a person
+    picks the task up.
+    """
+    moment = as_of or utc_now()
+    existing = {(task.related_subject, task.related_id) for task in tasks.open_tasks()}
+    created: list[TaskItem] = []
+    for message in communications.list_sent():
+        if message.sent_at is None:
+            continue
+        deadline = message.sent_at.timestamp() + within_hours * 3600
+        if moment.timestamp() < deadline:
+            continue
+        key = ("candidate_communication", str(message.id))
+        if key in existing:
+            continue
+        answered = any(
+            reply.candidate_id == message.candidate_id and reply.received_at >= message.sent_at
+            for reply in replies.list_for(message.candidate_id)
+        )
+        if answered:
+            continue
+        created.append(
+            tasks.create(
+                title=f"No reply to the {message.kind.value} message in {within_hours}h",
+                created_by="system",
+                description=(
+                    f"Sent to {message.recipient or message.recipient_phone or 'the candidate'} "
+                    f"on {message.sent_at.isoformat()} with no answer since. Follow up, or "
+                    "close the loop deliberately."
+                ),
+                assignee_role=ApproverRole.RECRUITER_LEAD,
+                due_on=moment.date(),
+                source=TaskSource.SYSTEM,
+                related_subject="candidate_communication",
+                related_id=str(message.id),
+            )
+        )
+    return created
+
+
 def format_report(report: SchedulerReport) -> str:
     """Human-readable one-line-per-job summary for logs and the CLI."""
     headline = f"Scheduler run at {report.started_at.isoformat()}"
@@ -124,9 +182,16 @@ def format_report(report: SchedulerReport) -> str:
 class Scheduler:
     """Run the department clock chores against live service containers."""
 
-    def __init__(self, *, people: PeopleServices, recruiting: RecruitingServices) -> None:
+    def __init__(
+        self,
+        *,
+        people: PeopleServices,
+        recruiting: RecruitingServices,
+        replies: ReplyStore | None = None,
+    ) -> None:
         self._people = people
         self._recruiting = recruiting
+        self._replies = replies
 
     def run(
         self,
@@ -203,6 +268,17 @@ class Scheduler:
         state = "intact" if report.intact else f"BROKEN at seq {report.first_invalid_seq}"
         return 0, f"chain {state} ({report.entry_count} entries)"
 
+    def _run_reply_sla(self, moment: datetime, _purge: bool) -> tuple[int, str]:
+        if self._replies is None:
+            return 0, "no reply store attached; inbound capture is not running"
+        tasks = reply_sla_tasks(
+            self._recruiting.communications,
+            self._people.tasks,
+            self._replies,
+            as_of=moment,
+        )
+        return len(tasks), f"{len(tasks)} unanswered message(s) flagged for follow-up"
+
 
 _HANDLERS = {
     JOB_APPROVALS: Scheduler._run_approvals,
@@ -214,4 +290,5 @@ _HANDLERS = {
     JOB_OFFER_EXPIRY: Scheduler._run_offer_expiry,
     JOB_TASKS_OVERDUE: Scheduler._run_tasks_overdue,
     JOB_AUDIT_VERIFY: Scheduler._run_audit_verify,
+    JOB_REPLY_SLA: Scheduler._run_reply_sla,
 }
