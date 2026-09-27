@@ -439,6 +439,7 @@ class DbCommunicationService(CommunicationService):
             row.sent_by = item.sent_by
             row.sent_at = item.sent_at
             row.recipient = item.recipient
+            row.recipient_phone = item.recipient_phone
             row.provider = item.provider
             row.provider_message_id = item.provider_message_id
             row.send_attempts = item.send_attempts
@@ -464,6 +465,7 @@ class DbCommunicationService(CommunicationService):
             sent_by=row.sent_by,
             sent_at=None if row.sent_at is None else _aware(row.sent_at),
             recipient=row.recipient,
+            recipient_phone=row.recipient_phone,
             provider=row.provider,
             provider_message_id=row.provider_message_id,
             send_attempts=row.send_attempts,

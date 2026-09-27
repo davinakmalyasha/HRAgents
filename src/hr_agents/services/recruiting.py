@@ -776,6 +776,7 @@ class CommunicationService:
         channel: Channel = Channel.EMAIL,
         language: str = "en",
         to_email: EmailStr | None = None,
+        to_phone: str | None = None,
     ) -> CandidateCommunication:
         """Queue the rejection message; only for a documented rejection."""
         self._require_human(by)
@@ -799,6 +800,7 @@ class CommunicationService:
             body=compose_rejection_body(report),
             approved_by=by.strip(),
             recipient=to_email,
+            recipient_phone=to_phone,
         )
         return self._queue(item, actor=by)
 
@@ -812,6 +814,7 @@ class CommunicationService:
         channel: Channel = Channel.EMAIL,
         language: str = "en",
         to_email: EmailStr | None = None,
+        to_phone: str | None = None,
     ) -> CandidateCommunication:
         """Queue a human-authored offer; the named human is the gate."""
         self._require_human(by)
@@ -830,6 +833,7 @@ class CommunicationService:
             body=body,
             approved_by=by.strip(),
             recipient=to_email,
+            recipient_phone=to_phone,
         )
         return self._queue(item, actor=by)
 
@@ -947,6 +951,53 @@ class CommunicationService:
                 if item.status is CommunicationStatus.QUEUED
                 and (channel is None or item.channel is channel)
             ),
+            key=lambda item: item.created_at,
+        )
+
+    def prepare_manual_dispatch(
+        self,
+        communication_id: UUID,
+        *,
+        by: str,
+        provider: str,
+        recipient_phone: str | None = None,
+    ) -> CandidateCommunication:
+        """Audit a manual-link dispatch (wa.me) without marking anything as sent.
+
+        The system can only hand the recruiter a link; the send itself still
+        happens in their own app and is recorded with ``mark_sent``.
+        """
+        self._require_human(by)
+        actor = by.strip()
+        item = self._require_queued(communication_id)
+        if item.channel is not Channel.WHATSAPP:
+            raise RecruitingError(
+                f"manual links apply to WhatsApp messages, not {item.channel.value}"
+            )
+        phone = (recipient_phone or item.recipient_phone or "").strip()
+        if not phone:
+            raise RecruitingError("a recipient phone number is required for a manual link")
+        updated = item.model_copy(update={"recipient_phone": phone[:32]})
+        self._persist(updated)
+        self._audit.append(
+            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            action="communication.dispatch_link_issued",
+            subject_type="candidate_communication",
+            subject_id=str(updated.id),
+            payload={
+                "candidate_id": str(updated.candidate_id),
+                "kind": updated.kind.value,
+                "provider": provider,
+                "phone": phone[:32],
+                "approved_by": updated.approved_by,
+            },
+        )
+        return updated
+
+    def list_sent(self) -> list[CandidateCommunication]:
+        """Dispatched messages, oldest first (for SLA checks and reporting)."""
+        return sorted(
+            (item for item in self._iter() if item.status is CommunicationStatus.SENT),
             key=lambda item: item.created_at,
         )
 

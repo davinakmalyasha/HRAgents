@@ -312,6 +312,7 @@ class CandidateCommunicationRecord(TenantScoped, Base):
     sent_by: Mapped[str | None] = mapped_column(String(200))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     recipient: Mapped[str | None] = mapped_column(String(320))
+    recipient_phone: Mapped[str | None] = mapped_column(String(32))
     provider: Mapped[str | None] = mapped_column(String(64))
     provider_message_id: Mapped[str | None] = mapped_column(String(500))
     send_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
