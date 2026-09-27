@@ -877,7 +877,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Employee Documents */
+        get: operations["employee_documents_v1_employees__employee_id__documents_get"];
         put?: never;
         /** Add Document */
         post: operations["add_document_v1_employees__employee_id__documents_post"];
@@ -8013,6 +8014,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContractView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    employee_documents_v1_employees__employee_id__documents_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                employee_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentView"][];
                 };
             };
             /** @description Validation Error */
