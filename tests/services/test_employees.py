@@ -174,7 +174,31 @@ def test_add_document_records_and_lists(service: EmployeeService) -> None:
         expires_on=TODAY + timedelta(days=30),
     )
     assert document.status is VerificationStatus.CLAIMED
-    assert service._store.list_documents(employee.id)
+    assert [item.id for item in service.documents_for(employee.id)] == [document.id]
+
+
+def test_documents_for_is_scoped_to_one_employee(service: EmployeeService) -> None:
+    employee = create_employee(service)
+    other = create_employee(service, full_name="Rina Wulandari")
+    mine = service.add_document(
+        employee.id,
+        kind=DocumentKind.KTP,
+        storage_key="k1",
+        sha256="a" * 64,
+        uploaded_by="hr-admin",
+    )
+    service.add_document(
+        other.id,
+        kind=DocumentKind.KTP,
+        storage_key="k2",
+        sha256="b" * 64,
+        uploaded_by="hr-admin",
+    )
+
+    assert [item.id for item in service.documents_for(employee.id)] == [mine.id]
+    assert len(service.documents_for(other.id)) == 1
+    with pytest.raises(EmployeeError, match="unknown employee"):
+        service.documents_for(uuid4())
 
 
 def test_expiring_documents_window(service: EmployeeService) -> None:

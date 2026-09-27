@@ -89,6 +89,41 @@ def test_add_document_and_list_contracts() -> None:
     assert contracts.json() == []
 
 
+def test_employee_documents_are_listed_per_employee() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        other = create_employee(client, full_name="Rina Wulandari")
+        for kind in ("ktp", "npwp"):
+            created = client.post(
+                f"/v1/employees/{employee['id']}/documents",
+                json={
+                    "kind": kind,
+                    "storage_key": f"employees/{employee['id']}/{kind}.pdf",
+                    "sha256": "a" * 64,
+                    "uploaded_by": "hr-admin",
+                },
+            )
+            assert created.status_code == 201, created.text
+        client.post(
+            f"/v1/employees/{other['id']}/documents",
+            json={
+                "kind": "ktp",
+                "storage_key": f"employees/{other['id']}/ktp.pdf",
+                "sha256": "b" * 64,
+                "uploaded_by": "hr-admin",
+            },
+        )
+
+        mine = client.get(f"/v1/employees/{employee['id']}/documents")
+        unknown = client.get(f"/v1/employees/{uuid4()}/documents")
+
+    assert mine.status_code == 200
+    kinds = sorted(document["kind"] for document in mine.json())
+    assert kinds == ["ktp", "npwp"]
+    assert all(document["employee_id"] == employee["id"] for document in mine.json())
+    assert unknown.status_code == 404
+
+
 def test_contract_lifecycle_via_api() -> None:
     with make_client() as client:
         employee = create_employee(client)
