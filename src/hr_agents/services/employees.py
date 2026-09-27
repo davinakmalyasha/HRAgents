@@ -219,6 +219,11 @@ class EmployeeService:
                 return document
         return None
 
+    def documents_for(self, employee_id: UUID) -> list[EmployeeDocument]:
+        """One employee's vault, oldest first (checklist linking and review)."""
+        self._require(employee_id)
+        return self._store.list_documents(employee_id)
+
     def expiring_documents(self, *, within_days: int = 60) -> list[EmployeeDocument]:
         today = date.today()
         result: list[EmployeeDocument] = []

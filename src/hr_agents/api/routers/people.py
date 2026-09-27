@@ -144,6 +144,15 @@ def add_document(employee_id: UUID, payload: DocumentCreate, people: PeopleDep) 
     return DocumentView.from_model(document)
 
 
+@employees_router.get("/{employee_id}/documents", response_model=list[DocumentView])
+def employee_documents(employee_id: UUID, people: PeopleDep) -> list[DocumentView]:
+    try:
+        documents = people.employees.documents_for(employee_id)
+    except EmployeeError as exc:
+        raise _not_found(str(exc)) from exc
+    return [DocumentView.from_model(document) for document in documents]
+
+
 @employees_router.get("/{employee_id}/contracts", response_model=list[ContractView])
 def employee_contracts(employee_id: UUID, people: PeopleDep) -> list[ContractView]:
     return [
