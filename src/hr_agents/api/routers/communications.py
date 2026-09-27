@@ -20,8 +20,11 @@ from hr_agents.api.recruitment_schemas import (
     OfferQueueRequest,
     RejectionQueueRequest,
     ReplyView,
+    WhatsappDispatchLinkRequest,
+    WhatsappDispatchLinkView,
 )
 from hr_agents.messaging.store import ReplyStore
+from hr_agents.messaging.whatsapp import ManualWhatsappLinks, WhatsappLinkError
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import CommunicationService, RecruitingError
 
@@ -54,6 +57,10 @@ def _forbidden(detail: str) -> HTTPException:
 
 def _conflict(exc: Exception) -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+def _bad_request(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 @router.get(
@@ -93,6 +100,7 @@ def queue_rejection(
             channel=payload.channel,
             language=payload.language,
             to_email=payload.to_email,
+            to_phone=payload.to_phone,
         )
     except RecruitingError as exc:
         message = str(exc)
@@ -123,6 +131,7 @@ def queue_offer(
             channel=payload.channel,
             language=payload.language,
             to_email=payload.to_email,
+            to_phone=payload.to_phone,
         )
     except RecruitingError as exc:
         message = str(exc)
@@ -132,6 +141,45 @@ def queue_offer(
             raise _forbidden(message) from exc
         raise _conflict(exc) from exc
     return CommunicationView.from_model(item)
+
+
+@router.post(
+    "/communications/{communication_id}/dispatch-link",
+    response_model=WhatsappDispatchLinkView,
+    dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
+    summary="Compose a wa.me link for a queued WhatsApp message (the human sends it)",
+)
+def compose_dispatch_link(
+    communication_id: UUID,
+    payload: WhatsappDispatchLinkRequest,
+    communications: CommunicationsDep,
+) -> WhatsappDispatchLinkView:
+    try:
+        message = communications.get(communication_id)
+        transport = ManualWhatsappLinks()
+        prepared = communications.prepare_manual_dispatch(
+            communication_id,
+            by=payload.by,
+            provider=transport.provider_id,
+            recipient_phone=payload.to_phone,
+        )
+        link = transport.compose(prepared.recipient_phone or "", prepared.body)
+    except RecruitingError as exc:
+        message_text = str(exc)
+        if message_text.startswith("unknown communication"):
+            raise _not_found(message_text) from exc
+        if "named human" in message_text:
+            raise _forbidden(message_text) from exc
+        raise _conflict(exc) from exc
+    except WhatsappLinkError as exc:
+        raise _bad_request(str(exc)) from exc
+    return WhatsappDispatchLinkView(
+        communication_id=message.id,
+        provider=link.provider,
+        phone=link.phone,
+        url=link.url,
+        body=message.body,
+    )
 
 
 @router.post(

@@ -351,6 +351,7 @@ class CommunicationView(StrictModel):
     sent_by: str | None
     sent_at: datetime | None
     recipient: str | None
+    recipient_phone: str | None
     provider: str | None
     provider_message_id: str | None
     send_attempts: int
@@ -375,6 +376,7 @@ class CommunicationView(StrictModel):
             sent_by=item.sent_by,
             sent_at=item.sent_at,
             recipient=item.recipient,
+            recipient_phone=item.recipient_phone,
             provider=item.provider,
             provider_message_id=item.provider_message_id,
             send_attempts=item.send_attempts,
@@ -420,6 +422,7 @@ class RejectionQueueRequest(StrictModel):
     channel: Channel = Channel.EMAIL
     language: Literal["en", "id"] = "en"
     to_email: EmailStr | None = None
+    to_phone: str | None = Field(default=None, max_length=32)
 
 
 class OfferQueueRequest(StrictModel):
@@ -431,6 +434,7 @@ class OfferQueueRequest(StrictModel):
     channel: Channel = Channel.EMAIL
     language: Literal["en", "id"] = "en"
     to_email: EmailStr | None = None
+    to_phone: str | None = Field(default=None, max_length=32)
 
     @field_validator("body")
     @classmethod
@@ -444,6 +448,23 @@ class CommunicationSentRequest(StrictModel):
     """Record manual dispatch evidence (a human sent it from their own client)."""
 
     by: str = Field(min_length=1, max_length=200)
+
+
+class WhatsappDispatchLinkView(StrictModel):
+    """A click-to-chat link for a queued WhatsApp message (the human still sends)."""
+
+    communication_id: UUID
+    provider: str
+    phone: str
+    url: str
+    body: str
+
+
+class WhatsappDispatchLinkRequest(StrictModel):
+    """Ask the manual-links transport to compose a wa.me link for a queued message."""
+
+    by: str = Field(min_length=1, max_length=200)
+    to_phone: str | None = Field(default=None, max_length=32)
 
 
 # --- offers --------------------------------------------------------------------------
