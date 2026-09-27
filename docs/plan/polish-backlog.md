@@ -44,8 +44,9 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 - [~] Communication outbox: the email transport bridge consumes the queue
       (`scripts/run_messaging.py`; SMTP send + IMAP poll, dispatch evidence and captured
-      replies surfaced in the communication panel). WhatsApp transport, delivery/webhook
-      status sync, and automatic retry scheduling still to come
+      replies surfaced in the communication panel) and WhatsApp runs in manual-link mode.
+      Meta Cloud transport, delivery/webhook status sync, and automatic retry scheduling
+      still to come
 - [ ] Retry/backoff policy audit per provider (failed sends stay queued and retry on the
       next run); circuit breakers for flaky integrations
 - [ ] Dead-letter dashboard + alerting; worker stuck-job reaper

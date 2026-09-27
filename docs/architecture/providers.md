@@ -29,7 +29,7 @@ settings UI, health checks, and fallbacks are generated from its schema.
 | `embeddings` | `hash` (offline, deterministic) · `openai` · `voyage` · `ollama` | `hash` — zero config, zero cost | RAG recall only; never scoring |
 | `email_send` | `smtp` (live) · `resend` (config-only) | `smtp` (their existing mailbox) | Resend adapter not implemented yet |
 | `email_receive` | `imap_poll` (live) · `resend_webhook` (config-only) | `imap_poll` — no public URL needed | |
-| `whatsapp` | `meta_cloud` · `twilio` · `qontak` · `manual_links` | `manual_links` (wa.me) until connected | Webhook requires a public HTTPS endpoint |
+| `whatsapp` | `manual_links` (live) · `meta_cloud` (config-only) | `manual_links` (wa.me) until connected | Meta Cloud needs a public HTTPS webhook |
 | `calendar` | `google` · `microsoft365` · `caldav` · `manual_slots` | `manual_slots` until connected | ICS invites as universal fallback |
 | `storage` | `local_disk` · `s3` (MinIO/R2/AWS) · `gdrive` | `local_disk` in self-host; `s3` in compose | |
 | `vector_store` | `in_memory` · `pgvector` | `pgvector` in compose; `in_memory` in tests | Same retriever interface |
@@ -120,7 +120,7 @@ fallback and tells the user exactly what is disabled.
 | `embeddings` | Falls back to `hash` provider automatically | No visible change; retrieval quality note in settings |
 | `email_send` | Messages stay queued; the bridge prints a preview and the human sends (or `mark sent` records it) | Banner: "Email not connected — messages stay queued" |
 | `email_receive` | Inbound polling is off; replies are still recorded by hand on the application | Settings task: "Configure inbox" |
-| `whatsapp` | `manual_links` mode: wa.me links for manual sends; agents still draft messages | Chip: "WhatsApp: manual mode" |
+| `whatsapp` | `manual_links` mode: a wa.me link is composed for the queued message and HR sends it; the dispatch is then recorded like any manual send | Chip: "WhatsApp: manual mode" |
 | `calendar` | `manual_slots` mode: HR enters slots; ICS invites generated | Chip: "Calendar: manual mode" |
 | `queue` | Always available — memory/redis/postgres are all built-in | None |
 | `vector_store` | In-memory fallback for small corpora | None |
@@ -147,7 +147,7 @@ No frontend changes. No core changes. That is the entire point.
 | `llm` | `agents/runtime.py` — resolves the PydanticAI model for every agent |
 | `embeddings` | `knowledge/retriever.py` at index-build time |
 | `email_send` / `email_receive` | `messaging/smtp.py` + `messaging/outbox.py` (queued outbox) · `messaging/imap.py` + `messaging/inbound.py` (replies) |
-| `whatsapp` | `messaging/` bridges (Phase 7) |
+| `whatsapp` | `messaging/whatsapp.py` + `messaging/outbox.py` (manual link dispatch) |
 | `calendar` | `services/scheduling` (Phase 7) |
 | `storage` | `services/documents.py` (currently in-memory; adapter phase 7) |
 | `vector_store` | `knowledge/` (pgvector adapter phase 7) |

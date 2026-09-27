@@ -2,7 +2,7 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **993 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **1012 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
@@ -148,9 +148,10 @@ documented.
       conflict report); XLSX parsing deferred — CSV covers the need today
 - [~] Candidate communication panel (application detail): gated rejection/offer queueing with
       named-human approvers, full body review before dispatch, `mark sent` evidence, history,
-      plus the transport state the backend now records — recipient, provider, attempt count, last
-      error — and the inbound replies the mailbox poll captured. Still open: a pre-queue preview
-      endpoint and the WhatsApp transport
+      the transport state the backend records (recipient, provider, attempts, last error), the
+      inbound replies the mailbox poll captured, and a wa.me link composer for WhatsApp messages
+      (the human opens it, sends, then records dispatch). Still open: a pre-queue preview
+      endpoint and the Meta Cloud WhatsApp transport
 - [x] Job management: create/edit dialog, status lifecycle with a named actor, dimension-weight
       editor with inline sum-to-1.0 validation (`/w/hiring/jobs`)
 - [x] Offer records (application detail): terms with append-only revisions, submit → shared
@@ -242,10 +243,11 @@ latency, costs, and failure modes documented.
 - [ ] Data governance: full export, deletion procedures, DPA template, subprocessor list
 - [~] Scheduled jobs: retention sweep (dry-run default, `--purge` to apply), approval SLA
       escalation/expiry, breach overdue reporting, review reminders, contract + document expiry
-      tasks, offer expiry, overdue-tasks report, and audit-chain verification — all through
-      `scripts/run_scheduler.py` (one CLI over the app containers, `--job` selectable, `--json`
-      output, nonzero exit on job failure). Remains: compose/cron wiring, backup/restore drill,
-      and alerting on the report.
+      tasks, offer expiry, overdue-tasks report, audit-chain verification, and the reply-SLA
+      anti-ghosting check (a dispatched message with no reply after 72h becomes a recruiter
+      follow-up task) — all through `scripts/run_scheduler.py` (one CLI over the app containers,
+      `--job` selectable, `--json` output, nonzero exit on job failure). Remains: compose/cron
+      wiring, backup/restore drill, and alerting on the report.
 - [ ] Managed cloud SaaS + billing — **deferred until proven demand** (`[-]` in master plan)
 - [ ] Dedicated instance (BYOC) recipes — only if requested
 - [ ] Office Connector folder-sync agent — only if demanded

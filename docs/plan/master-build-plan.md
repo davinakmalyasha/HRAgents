@@ -344,10 +344,17 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       migration `0010_messaging_transport` (`candidate_replies` + dispatch columns, tenant RLS),
       and the dashboard surface: recipient capture, dispatch attempts/errors, and captured
       replies in the communication panel (`GET /v1/candidates/{id}/replies`)
-- [ ] `whatsapp` providers: Meta Cloud API + manual `wa.me` links fallback (default until connected)
+- [x] WhatsApp recipient on queued messages (migration `0011_whatsapp_recipient`:
+      `candidate_communications.recipient_phone`)
+- [x] `whatsapp` providers: Meta Cloud API + manual `wa.me` links fallback (default until connected) —
+      the manual-links transport is live (`messaging/whatsapp.py`: deterministic E.164 link
+      composition, `POST /v1/communications/{id}/dispatch-link`, phone captured at queue time);
+      the human opens the link, sends, and records dispatch. Meta Cloud stays config-only
 - [ ] Telegram bridge (optional provider)
+- [x] Response SLA timers (anti-ghosting): the `reply-sla` scheduler job flags a dispatched
+      message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
+      chase message)
 - [ ] Webhook signature verification + replay protection
-- [ ] Response SLA timers (anti-ghosting guarantees)
 - [ ] Deployed behind Cloudflare Tunnel instructions for self-host webhooks
 
 ### 7.2 Google Workspace / Microsoft 365
