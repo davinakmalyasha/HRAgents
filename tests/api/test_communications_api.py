@@ -389,6 +389,128 @@ def test_inbound_replies_are_listed_per_candidate() -> None:
     assert theirs.json() == []
 
 
+# --- manual links (WhatsApp) --------------------------------------------------------
+
+
+def whatsapp_message(client: TestClient, **extra: object) -> dict:
+    job = create_job(client)
+    application = submit_application(client, job["id"])
+    register_evaluation(
+        client,
+        application_id=application["application_id"],
+        candidate_id=application["candidate_id"],
+        job_id=job["id"],
+    )
+    response = client.post(
+        f"/v1/candidates/{application['candidate_id']}/communications/offer",
+        json={
+            "by": "hr-admin",
+            "body": "We would like to offer you the role.",
+            "channel": "whatsapp",
+            **extra,
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def email_message(client: TestClient) -> dict:
+    job = create_job(client)
+    application = submit_application(client, job["id"])
+    register_evaluation(
+        client,
+        application_id=application["application_id"],
+        candidate_id=application["candidate_id"],
+        job_id=job["id"],
+    )
+    response = client.post(
+        f"/v1/candidates/{application['candidate_id']}/communications/offer",
+        json={
+            "by": "hr-admin",
+            "body": "We would like to offer you the role.",
+            "to_email": "sari@example.com",
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_manual_link_is_composed_and_never_marks_the_message_sent() -> None:
+    with make_client() as client:
+        message = whatsapp_message(client, to_phone="0812-3456-7890")
+        link = client.post(
+            f"/v1/communications/{message['id']}/dispatch-link",
+            json={"by": "Sinta Prabowo"},
+        )
+        history = client.get(f"/v1/candidates/{message['candidate_id']}/communications")
+
+    assert link.status_code == 200, link.text
+    body = link.json()
+    assert body["phone"] == "6281234567890"
+    assert body["provider"] == "whatsapp.manual_links"
+    assert body["url"].startswith("https://wa.me/6281234567890?text=")
+    assert body["body"] == "We would like to offer you the role."
+    assert history.json()[0]["status"] == "queued"
+    assert history.json()[0]["sent_by"] is None
+    assert history.json()[0]["recipient_phone"] == "0812-3456-7890"
+
+
+def test_manual_link_needs_a_number() -> None:
+    with make_client() as client:
+        message = whatsapp_message(client)
+        missing = client.post(
+            f"/v1/communications/{message['id']}/dispatch-link",
+            json={"by": "Sinta Prabowo"},
+        )
+        supplied = client.post(
+            f"/v1/communications/{message['id']}/dispatch-link",
+            json={"by": "Sinta Prabowo", "to_phone": "+62 812 111 222 333"},
+        )
+
+    assert missing.status_code == 409
+    assert "phone number is required" in missing.json()["title"]
+    assert supplied.status_code == 200
+    assert supplied.json()["phone"] == "62812111222333"
+
+
+def test_manual_link_refuses_an_unusable_number() -> None:
+    with make_client() as client:
+        message = whatsapp_message(client, to_phone="123")
+
+        response = client.post(
+            f"/v1/communications/{message['id']}/dispatch-link",
+            json={"by": "Sinta Prabowo"},
+        )
+
+    assert response.status_code == 400
+    assert "not a usable WhatsApp number" in response.json()["title"]
+
+
+def test_manual_link_requires_a_named_human_and_a_queued_message() -> None:
+    with make_client() as client:
+        message = whatsapp_message(client, to_phone="0812-3456-7890")
+        agent = client.post(
+            f"/v1/communications/{message['id']}/dispatch-link",
+            json={"by": "agent:screening_coordinator"},
+        )
+        sent = client.post(f"/v1/communications/{message['id']}/sent", json={"by": "hr-admin"})
+        again = client.post(
+            f"/v1/communications/{message['id']}/dispatch-link",
+            json={"by": "Sinta Prabowo"},
+        )
+        other = email_message(client)
+        wrong_channel = client.post(
+            f"/v1/communications/{other['id']}/dispatch-link",
+            json={"by": "Sinta Prabowo"},
+        )
+
+    assert agent.status_code == 403
+    assert sent.status_code == 200
+    assert again.status_code == 409
+    assert wrong_channel.status_code == 409
+    assert "apply to WhatsApp" in wrong_channel.json()["title"]
+
+
 # --- RBAC ------------------------------------------------------------------------
 
 

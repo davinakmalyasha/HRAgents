@@ -10,11 +10,13 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.messaging.store import ReplyStore
 from hr_agents.models import (
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
     BreachImpact,
+    CandidateReply,
     ContractType,
     DimensionScore,
     DocumentKind,
@@ -45,15 +47,22 @@ NOW = datetime.combine(TODAY, time(9, 0), tzinfo=UTC)
 FAR = NOW + timedelta(days=30)
 
 
+@pytest.fixture
+def replies() -> ReplyStore:
+    return ReplyStore()
+
+
 def make_scheduler(
     audit: AuditChain | None = None,
+    replies: ReplyStore | None = None,
 ) -> tuple[Scheduler, PeopleServices, RecruitingServices, ApplicationStore]:
     people = PeopleServices() if audit is None else PeopleServices(audit=audit)
     applications = ApplicationStore()
     recruiting = RecruitingServices(
         audit=people.audit, applications=applications, approvals=people.approvals
     )
-    return Scheduler(people=people, recruiting=recruiting), people, recruiting, applications
+    scheduler = Scheduler(people=people, recruiting=recruiting, replies=replies)
+    return scheduler, people, recruiting, applications
 
 
 def make_evaluation(candidate_id: UUID) -> TechnicalEvaluation:
@@ -356,3 +365,111 @@ def test_audit_chain_verification_runs_read_only() -> None:
     assert report.jobs[0].ok is True
     assert report.jobs[0].changed == 0
     assert "intact" in report.jobs[0].detail
+
+
+# --- reply SLA (anti-ghosting) -------------------------------------------------------------
+
+
+def dispatch_offer(
+    recruiting: RecruitingServices,
+    applications: ApplicationStore,
+    *,
+    recipient: str = "budi@example.com",
+    sent_at: datetime | None = None,
+) -> UUID:
+    record, _ = applications.submit(
+        SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
+    )
+    recruiting.evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(record.candidate_id),
+        candidate_name="Budi Santoso",
+        job_title="Backend Engineer",
+    )
+    message = recruiting.communications.queue_offer(
+        record.candidate_id, by="hr-admin", body="Offer body", to_email=recipient
+    )
+    recruiting.communications.record_dispatch(
+        message.id,
+        provider="email.smtp",
+        recipient=recipient,
+        message_id=f"<{message.id}@example.com>",
+        sent_at=sent_at or NOW - timedelta(hours=100),
+    )
+    return message.id
+
+
+def test_unanswered_message_gets_one_follow_up_task(
+    replies: ReplyStore,
+) -> None:
+    scheduler, people, recruiting, applications = make_scheduler(replies=replies)
+    dispatch_offer(recruiting, applications)
+
+    report = scheduler.run(["reply-sla"], now=NOW)
+
+    assert report.jobs[0].changed == 1
+    tasks = people.tasks.open_tasks()
+    assert len(tasks) == 1
+    assert tasks[0].assignee_role is ApproverRole.RECRUITER_LEAD
+    assert tasks[0].related_subject == "candidate_communication"
+    assert "No reply to the offer message" in tasks[0].title
+
+
+def test_a_reply_clears_the_sla_and_reruns_stay_quiet(
+    replies: ReplyStore,
+) -> None:
+    scheduler, people, recruiting, applications = make_scheduler(replies=replies)
+    message_id = dispatch_offer(recruiting, applications)
+    communication = recruiting.communications.get(message_id)
+    replies.add(
+        CandidateReply(
+            candidate_id=communication.candidate_id,
+            communication_id=message_id,
+            sender="budi@example.com",
+            subject="Re: Your offer",
+            body="Saya tertarik, terima kasih.",
+            provider="email.imap_poll",
+            provider_message_id="<reply-1@example.com>",
+            dedup_key="a" * 64,
+            received_at=NOW - timedelta(hours=1),
+        )
+    )
+
+    first = scheduler.run(["reply-sla"], now=NOW)
+    second = scheduler.run(["reply-sla"], now=NOW)
+
+    assert first.jobs[0].changed == 0
+    assert second.jobs[0].changed == 0
+    assert people.tasks.open_tasks() == []
+
+
+def test_a_recent_dispatch_is_not_chased_yet(replies: ReplyStore) -> None:
+    scheduler, people, recruiting, applications = make_scheduler(replies=replies)
+    dispatch_offer(recruiting, applications, sent_at=NOW - timedelta(minutes=5))
+
+    report = scheduler.run(["reply-sla"], now=NOW)
+
+    assert report.jobs[0].changed == 0
+    assert people.tasks.open_tasks() == []
+
+
+def test_sla_task_is_not_duplicated_across_runs(replies: ReplyStore) -> None:
+    scheduler, people, recruiting, applications = make_scheduler(replies=replies)
+    dispatch_offer(recruiting, applications)
+
+    first = scheduler.run(["reply-sla"], now=NOW)
+    second = scheduler.run(["reply-sla"], now=NOW + timedelta(hours=1))
+
+    assert first.jobs[0].changed == 1
+    assert second.jobs[0].changed == 0
+    assert len(people.tasks.open_tasks()) == 1
+
+
+def test_sla_job_reports_cleanly_without_a_reply_store() -> None:
+    scheduler, _, _, _ = make_scheduler()
+
+    report = scheduler.run(["reply-sla"], now=NOW)
+
+    assert report.jobs[0].ok is True
+    assert report.jobs[0].changed == 0
+    assert "no reply store" in report.jobs[0].detail

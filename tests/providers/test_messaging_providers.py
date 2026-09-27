@@ -101,9 +101,13 @@ def test_manual_links_always_available() -> None:
 
 
 def test_whatsapp_manual_build_shape() -> None:
+    from hr_agents.messaging.whatsapp import ManualWhatsappLinks
+
     spec = get_spec("whatsapp.manual_links")
     built = spec.apply(spec.make_config({"default_country_code": "62"}))
-    assert built == {"transport": "manual_links", "default_country_code": "62"}
+    assert isinstance(built, ManualWhatsappLinks)
+    assert built.provider_id == "whatsapp.manual_links"
+    assert built.default_country_code == "62"
 
 
 def test_manual_calendar_always_available() -> None:

@@ -138,7 +138,7 @@ async def test_whatsapp_falls_back_to_manual_mode() -> None:
     result = active_provider(Capability.WHATSAPP, registry=default_registry(), resolved={})
     assert result is not None
     built, _config = result
-    assert built["transport"] == "manual_links"  # type: ignore[index]
+    assert built.provider_id == "whatsapp.manual_links"  # type: ignore[attr-defined]
 
 
 def test_active_provider_none_on_invalid_config() -> None:
