@@ -44,9 +44,11 @@ def _build_meta_cloud(config: ProviderConfig) -> dict[str, Any]:
     }
 
 
-def _build_manual_links(config: ProviderConfig) -> dict[str, Any]:
+def _build_manual_links(config: ProviderConfig) -> Any:
+    from hr_agents.messaging.whatsapp import build_manual_links
+
     assert isinstance(config, ManualLinksConfig)
-    return {"transport": "manual_links", "default_country_code": config.default_country_code}
+    return build_manual_links(config)
 
 
 def _health_meta_cloud(config: ProviderConfig) -> ProviderHealth:
@@ -84,8 +86,8 @@ def whatsapp_specs() -> list[ProviderSpec]:
             capability=Capability.WHATSAPP,
             display_name="Manual mode (wa.me links)",
             description=(
-                "Degraded mode: agents draft messages, HR sends from WhatsApp. "
-                "Always available with zero configuration."
+                "Degraded mode: the system composes a click-to-chat link for a queued "
+                "message and HR sends it from WhatsApp. Always available, nothing connected."
             ),
             config_model=ManualLinksConfig,
             build=_build_manual_links,
