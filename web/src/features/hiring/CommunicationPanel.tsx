@@ -27,7 +27,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { formatDateTime } from '@/lib/dates'
 
-import { markCommunicationSent, queueOfferMessage, queueRejectionMessage } from './communicationApi'
+import {
+  composeDispatchLink,
+  markCommunicationSent,
+  queueOfferMessage,
+  queueRejectionMessage,
+} from './communicationApi'
 import {
   COMMUNICATION_CHANNELS,
   canQueueRejection,
@@ -38,6 +43,7 @@ import {
   type CommunicationView,
   type PolicyDecision,
   type ReplyView,
+  type WhatsappDispatchLinkView,
 } from './communication'
 import { useCommunications, useEvaluationOverrides, useReplies } from './useCommunications'
 
@@ -46,7 +52,7 @@ const STATUS_TONES: Partial<Record<CommunicationView['status'], StatusTone>> = {
   sent: 'done',
 }
 
-type DialogMode = 'rejection' | 'offer' | 'sent'
+type DialogMode = 'rejection' | 'offer' | 'sent' | 'link'
 
 interface DialogState {
   mode: DialogMode
@@ -77,10 +83,13 @@ function CommunicationDialog({
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [toEmail, setToEmail] = useState('')
+  const [toPhone, setToPhone] = useState('')
+  const [link, setLink] = useState<WhatsappDispatchLinkView | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const recipient = toEmail.trim() === '' ? null : toEmail.trim()
+  const phone = toPhone.trim() === '' ? null : toPhone.trim()
 
   function close(next: boolean) {
     if (!next) {
@@ -90,6 +99,9 @@ function CommunicationDialog({
   }
 
   function errorFor(status: number): string {
+    if (status === 400) {
+      return t('communication.errors.invalidPhone')
+    }
     if (status === 403) {
       return t('communication.errors.forbidden')
     }
@@ -118,6 +130,17 @@ function CommunicationDialog({
     setProblem(null)
     setBusy(true)
 
+    if (mode === 'link') {
+      const result = await composeDispatchLink(communicationId ?? '', by.trim(), phone ?? undefined)
+      setBusy(false)
+      if (result.status === 200 && result.link !== undefined) {
+        setLink(result.link)
+        return
+      }
+      setProblem(errorFor(result.status))
+      return
+    }
+
     const result =
       mode === 'rejection'
         ? await queueRejectionMessage(candidateId, {
@@ -125,6 +148,7 @@ function CommunicationDialog({
             language,
             channel,
             to_email: recipient,
+            to_phone: phone,
           })
         : mode === 'offer'
           ? await queueOfferMessage(candidateId, {
@@ -134,6 +158,7 @@ function CommunicationDialog({
               language,
               channel,
               to_email: recipient,
+              to_phone: phone,
             })
           : await markCommunicationSent(communicationId ?? '', by.trim())
 
@@ -146,18 +171,34 @@ function CommunicationDialog({
     setProblem(errorFor(result.status))
   }
 
+  async function recordAfterLink() {
+    setBusy(true)
+    const result = await markCommunicationSent(communicationId ?? '', by.trim())
+    setBusy(false)
+    if (result.status === 200) {
+      await queryClient.invalidateQueries({ queryKey: ['communications', candidateId] })
+      close(false)
+      return
+    }
+    setProblem(errorFor(result.status))
+  }
+
   const titleKey =
     mode === 'rejection'
       ? 'communication.dialogs.rejectionTitle'
       : mode === 'offer'
         ? 'communication.dialogs.offerTitle'
-        : 'communication.dialogs.sentTitle'
+        : mode === 'link'
+          ? 'communication.dialogs.linkTitle'
+          : 'communication.dialogs.sentTitle'
   const hintKey =
     mode === 'rejection'
       ? 'communication.dialogs.rejectionHint'
       : mode === 'offer'
         ? 'communication.dialogs.offerHint'
-        : 'communication.dialogs.sentHint'
+        : mode === 'link'
+          ? 'communication.dialogs.linkHint'
+          : 'communication.dialogs.sentHint'
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -283,7 +324,7 @@ function CommunicationDialog({
             </>
           ) : null}
 
-          {mode === 'sent' || channel !== 'email' ? null : (
+          {mode !== 'sent' && mode !== 'link' && channel === 'email' ? (
             <div className={fieldClass}>
               <label htmlFor={`communication-to-${mode}`} className={labelClass}>
                 {t('communication.fields.toEmail')}
@@ -300,12 +341,62 @@ function CommunicationDialog({
                 {t('communication.fields.toEmailHint')}
               </span>
             </div>
+          ) : null}
+
+          {mode === 'link' || (mode !== 'sent' && channel === 'whatsapp') ? (
+            <div className={fieldClass}>
+              <label htmlFor={`communication-phone-${mode}`} className={labelClass}>
+                {t('communication.fields.toPhone')}
+              </label>
+              <Input
+                id={`communication-phone-${mode}`}
+                type="tel"
+                value={toPhone}
+                onChange={(event) => setToPhone(event.target.value)}
+                placeholder={t('communication.fields.toPhonePlaceholder')}
+                autoComplete="off"
+              />
+              <span className="text-2xs text-ink-muted">
+                {t('communication.fields.toPhoneHint')}
+              </span>
+            </div>
+          ) : null}
+
+          {link === null ? null : (
+            <div className="border-line bg-surface-subtle flex flex-col gap-2 rounded-md border p-3">
+              <span className="text-ink-strong text-xs font-medium">
+                {t('communication.linkReady', { phone: link.phone })}
+              </span>
+              <a
+                className="text-primary text-xs underline"
+                href={link.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {t('communication.openWhatsapp')}
+              </a>
+              <code className="text-ink-muted text-2xs break-all">{link.url}</code>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => void recordAfterLink()}
+              >
+                {t('communication.recordAfterLink')}
+              </Button>
+            </div>
           )}
 
           <DialogFooter>
-            <Button type="submit" size="sm" disabled={busy}>
-              {mode === 'sent' ? t('communication.confirmSent') : t('communication.confirm')}
-            </Button>
+            {link !== null ? null : (
+              <Button type="submit" size="sm" disabled={busy}>
+                {mode === 'sent'
+                  ? t('communication.confirmSent')
+                  : mode === 'link'
+                    ? t('communication.composeLink')
+                    : t('communication.confirm')}
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
@@ -316,9 +407,11 @@ function CommunicationDialog({
 function CommunicationItem({
   item,
   onMarkSent,
+  onComposeLink,
 }: {
   item: CommunicationView
   onMarkSent: () => void
+  onComposeLink: () => void
 }) {
   const { t } = useTranslation()
   const tone = STATUS_TONES[item.status]
@@ -342,9 +435,16 @@ function CommunicationItem({
           </span>
         </div>
         {item.status === 'queued' ? (
-          <Button variant="outline" size="xs" onClick={onMarkSent}>
-            {t('communication.markSent')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {item.channel === 'whatsapp' ? (
+              <Button variant="outline" size="xs" onClick={onComposeLink}>
+                {t('communication.composeLink')}
+              </Button>
+            ) : null}
+            <Button variant="outline" size="xs" onClick={onMarkSent}>
+              {t('communication.markSent')}
+            </Button>
+          </div>
         ) : null}
       </div>
 
@@ -355,6 +455,10 @@ function CommunicationItem({
       {item.recipient !== null ? (
         <span className="text-2xs text-ink-muted">
           {t('communication.toAddress', { address: item.recipient })}
+        </span>
+      ) : item.recipient_phone !== null ? (
+        <span className="text-2xs text-ink-muted">
+          {t('communication.toPhone', { phone: item.recipient_phone })}
         </span>
       ) : null}
 
@@ -488,6 +592,7 @@ export function CommunicationPanel({
               key={item.id}
               item={item}
               onMarkSent={() => setDialog({ mode: 'sent', communicationId: item.id })}
+              onComposeLink={() => setDialog({ mode: 'link', communicationId: item.id })}
             />
           ))}
         </ul>

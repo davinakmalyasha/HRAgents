@@ -28,14 +28,21 @@ vi.mock('./communicationApi', () => ({
   queueOfferMessage: vi.fn(),
   markCommunicationSent: vi.fn(),
   listReplies: vi.fn(),
+  composeDispatchLink: vi.fn(),
 }))
 
-import { markCommunicationSent, queueOfferMessage, queueRejectionMessage } from './communicationApi'
+import {
+  composeDispatchLink,
+  markCommunicationSent,
+  queueOfferMessage,
+  queueRejectionMessage,
+} from './communicationApi'
 import { CommunicationPanel } from './CommunicationPanel'
 
 const queueRejectionMock = vi.mocked(queueRejectionMessage)
 const queueOfferMock = vi.mocked(queueOfferMessage)
 const markSentMock = vi.mocked(markCommunicationSent)
+const composeLinkMock = vi.mocked(composeDispatchLink)
 
 function communication(overrides: Partial<CommunicationView> = {}): CommunicationView {
   return {
@@ -54,6 +61,7 @@ function communication(overrides: Partial<CommunicationView> = {}): Communicatio
     sent_by: null,
     sent_at: null,
     recipient: null,
+    recipient_phone: null,
     provider: null,
     provider_message_id: null,
     send_attempts: 0,
@@ -100,6 +108,7 @@ beforeEach(() => {
   queueRejectionMock.mockReset()
   queueOfferMock.mockReset()
   markSentMock.mockReset()
+  composeLinkMock.mockReset()
 })
 
 function renderPanel(policyDecision: PolicyDecision = 'reject_auto') {
@@ -173,6 +182,7 @@ describe('CommunicationPanel', () => {
       language: 'en',
       channel: 'email',
       to_email: null,
+      to_phone: null,
     })
   })
 
@@ -230,6 +240,7 @@ describe('CommunicationPanel', () => {
       language: 'en',
       channel: 'email',
       to_email: 'budi@example.com',
+      to_phone: null,
     })
   })
 
@@ -296,5 +307,52 @@ describe('CommunicationPanel', () => {
     renderPanel()
 
     expect(screen.getByText(i18n.t('communication.repliesEmpty'))).toBeInTheDocument()
+  })
+
+  it('composes a WhatsApp link and still leaves the message queued until recorded', async () => {
+    state.communications = [
+      communication({ kind: 'offer', channel: 'whatsapp', recipient_phone: '0812-3456-7890' }),
+    ]
+    composeLinkMock.mockResolvedValue({
+      status: 200,
+      link: {
+        communication_id: 'comm-1',
+        provider: 'whatsapp.manual_links',
+        phone: '6281234567890',
+        url: 'https://wa.me/6281234567890?text=Offer',
+        body: 'We would like to offer you the role.',
+      },
+    })
+    markSentMock.mockResolvedValue({ status: 200, communication: communication() })
+    renderPanel()
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.composeLink') }))
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.composeLink') }))
+
+    expect(composeLinkMock).not.toHaveBeenCalled()
+    expect(screen.getByText(i18n.t('communication.errors.byRequired'))).toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'Sinta Prabowo')
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.composeLink') }))
+
+    expect(composeLinkMock).toHaveBeenCalledWith('comm-1', 'Sinta Prabowo', undefined)
+    expect(
+      await screen.findByRole('link', { name: i18n.t('communication.openWhatsapp') }),
+    ).toHaveAttribute('href', 'https://wa.me/6281234567890?text=Offer')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.recordAfterLink') }),
+    )
+
+    expect(markSentMock).toHaveBeenCalledWith('comm-1', 'Sinta Prabowo')
+  })
+
+  it('offers a WhatsApp link action only on WhatsApp messages', () => {
+    state.communications = [communication()]
+    renderPanel()
+
+    expect(
+      screen.queryByRole('button', { name: i18n.t('communication.composeLink') }),
+    ).not.toBeInTheDocument()
   })
 })

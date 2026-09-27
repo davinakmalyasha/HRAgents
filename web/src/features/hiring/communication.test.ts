@@ -41,6 +41,7 @@ function communication(overrides: Partial<CommunicationView>): CommunicationView
     sent_by: null,
     sent_at: null,
     recipient: null,
+    recipient_phone: null,
     provider: null,
     provider_message_id: null,
     send_attempts: 0,

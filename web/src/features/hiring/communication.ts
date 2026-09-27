@@ -5,6 +5,7 @@ export type OverrideView = components['schemas']['OverrideView']
 export type PolicyDecision = components['schemas']['PolicyDecision']
 export type Channel = components['schemas']['Channel']
 export type ReplyView = components['schemas']['ReplyView']
+export type WhatsappDispatchLinkView = components['schemas']['WhatsappDispatchLinkView']
 
 export const REJECTION_DECISIONS: readonly PolicyDecision[] = ['hitl_soft_rejection', 'reject_auto']
 

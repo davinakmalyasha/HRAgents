@@ -330,6 +330,7 @@
     "queuedBy": "Diantrekan oleh {{name}}",
     "sentBy": "Dikirim oleh {{name}}",
     "toAddress": "Ke {{address}}",
+    "toPhone": "Ke {{phone}}",
     "transport": "transport email",
     "dispatchedVia": "Dikirim melalui {{provider}} · {{attempts}} kali percobaan",
     "dispatchFailed": "Masih di antrean — {{provider}} gagal mengirim: {{error}}",
@@ -358,7 +359,10 @@
       "body": "Pesan",
       "toEmail": "Kirim ke (email)",
       "toEmailPlaceholder": "budi@example.com",
-      "toEmailHint": "Opsional. Jika transport email tersambung, pesan diantrean dikirim ke alamat ini; biarkan kosong bila Anda ingin mengirim sendiri."
+      "toEmailHint": "Opsional. Jika transport email tersambung, pesan diantrean dikirim ke alamat ini; biarkan kosong bila Anda ingin mengirim sendiri.",
+      "toPhone": "Kirim ke (nomor WhatsApp)",
+      "toPhonePlaceholder": "0812-3456-7890",
+      "toPhoneHint": "Opsional. Dipakai untuk membuat tautan wa.me yang Anda buka di WhatsApp; sistem tidak pernah mengirim sendiri."
     },
     "dialogs": {
       "rejectionTitle": "Antrekan pesan penolakan",
@@ -366,10 +370,16 @@
       "offerTitle": "Susun pesan tawaran",
       "offerHint": "Anda yang menulis tawaran; antrean mencatat nama Anda sebagai penyetuju. Tidak ada yang dikirim otomatis.",
       "sentTitle": "Catat pengiriman",
-      "sentHint": "Menegaskan pesan dikirim di luar HRAgents (klien email, WhatsApp, …) — sistem tidak pernah mengirim untuk Anda."
+      "sentHint": "Menegaskan pesan dikirim di luar HRAgents (klien email, WhatsApp, …) — sistem tidak pernah mengirim untuk Anda.",
+      "linkTitle": "Buat tautan WhatsApp",
+      "linkHint": "Membuat tautan wa.me dengan pesan antrean terisi. Anda mengirimnya dari WhatsApp, lalu mencatat pengirimannya di sini."
     },
     "confirm": "Antrekan pesan",
     "confirmSent": "Catat pengiriman",
+    "composeLink": "Buat tautan WhatsApp",
+    "linkReady": "Tautan siap untuk {{phone}}",
+    "openWhatsapp": "Buka WhatsApp",
+    "recordAfterLink": "Sudah saya kirim — catat pengiriman",
     "errors": {
       "byRequired": "Nama orang wajib diisi.",
       "bodyRequired": "Isi pesan wajib diisi.",
@@ -377,6 +387,7 @@
       "notFound": "Kandidat atau evaluasi sudah tidak ada.",
       "conflict": "Server menolak pesan ini (keputusan tercatat mungkin belum ada, atau pesan aktif sudah ada).",
       "invalidRecipient": "Alamat email itu tidak valid.",
+      "invalidPhone": "Nomor WhatsApp itu tidak bisa dipakai.",
       "failed": "Gagal mengantrekan pesan. Silakan coba lagi."
     }
   },

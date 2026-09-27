@@ -1,7 +1,7 @@
 import { api } from '@/lib/api'
 import type { components } from '@/api/schema'
 
-import type { CommunicationView, ReplyView } from './communication'
+import type { CommunicationView, ReplyView, WhatsappDispatchLinkView } from './communication'
 
 export type RejectionQueueRequest = components['schemas']['RejectionQueueRequest']
 export type OfferQueueRequest = components['schemas']['OfferQueueRequest']
@@ -9,6 +9,11 @@ export type OfferQueueRequest = components['schemas']['OfferQueueRequest']
 export interface CommunicationResult {
   status: number
   communication?: CommunicationView
+}
+
+export interface DispatchLinkResult {
+  status: number
+  link?: WhatsappDispatchLinkView
 }
 
 export async function queueRejectionMessage(
@@ -52,4 +57,16 @@ export async function listReplies(candidateId: string): Promise<ReplyView[]> {
     params: { path: { candidate_id: candidateId } },
   })
   return data ?? []
+}
+
+export async function composeDispatchLink(
+  communicationId: string,
+  by: string,
+  toPhone?: string,
+): Promise<DispatchLinkResult> {
+  const { data, response } = await api.POST('/v1/communications/{communication_id}/dispatch-link', {
+    params: { path: { communication_id: communicationId } },
+    body: { by, to_phone: toPhone ?? null },
+  })
+  return { status: response.status, link: data }
 }

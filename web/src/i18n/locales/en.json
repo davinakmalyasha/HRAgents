@@ -330,6 +330,7 @@
     "queuedBy": "Queued by {{name}}",
     "sentBy": "Sent by {{name}}",
     "toAddress": "To {{address}}",
+    "toPhone": "To {{phone}}",
     "transport": "the mail transport",
     "dispatchedVia": "Dispatched via {{provider}} · {{attempts}} attempt(s)",
     "dispatchFailed": "Still queued — {{provider}} could not send it: {{error}}",
@@ -358,7 +359,10 @@
       "body": "Message",
       "toEmail": "Send to (email)",
       "toEmailPlaceholder": "budi@example.com",
-      "toEmailHint": "Optional. With an email transport connected, the queued message is carried to this address; leave it blank to keep sending it yourself."
+      "toEmailHint": "Optional. With an email transport connected, the queued message is carried to this address; leave it blank to keep sending it yourself.",
+      "toPhone": "Send to (WhatsApp number)",
+      "toPhonePlaceholder": "0812-3456-7890",
+      "toPhoneHint": "Optional. Used to build a wa.me link you open in WhatsApp; the system never sends on its own."
     },
     "dialogs": {
       "rejectionTitle": "Queue rejection message",
@@ -366,10 +370,16 @@
       "offerTitle": "Compose offer message",
       "offerHint": "You write the offer; queueing records your name as approver. Nothing is sent automatically.",
       "sentTitle": "Record dispatch",
-      "sentHint": "Confirms the message was sent outside HRAgents (email client, WhatsApp, …) — the system never sends for you."
+      "sentHint": "Confirms the message was sent outside HRAgents (email client, WhatsApp, …) — the system never sends for you.",
+      "linkTitle": "Get a WhatsApp link",
+      "linkHint": "Builds a wa.me link with the queued message prefilled. You send it from WhatsApp, then record the dispatch here."
     },
     "confirm": "Queue message",
     "confirmSent": "Record dispatch",
+    "composeLink": "Get WhatsApp link",
+    "linkReady": "Link ready for {{phone}}",
+    "openWhatsapp": "Open WhatsApp",
+    "recordAfterLink": "I sent it — record dispatch",
     "errors": {
       "byRequired": "A named person is required.",
       "bodyRequired": "A message body is required.",
@@ -377,6 +387,7 @@
       "notFound": "The candidate or evaluation no longer exists.",
       "conflict": "The server refused this message (a recorded decision may be missing, or an active message already exists).",
       "invalidRecipient": "That email address is not valid.",
+      "invalidPhone": "That WhatsApp number cannot be used.",
       "failed": "Could not queue the message. Please try again."
     }
   },
