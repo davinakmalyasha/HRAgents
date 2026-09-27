@@ -13525,6 +13525,67 @@
       }
     },
     "/v1/employees/{employee_id}/documents": {
+      "get": {
+        "operationId": "employee_documents_v1_employees__employee_id__documents_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "employee_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Employee Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentView"
+                  },
+                  "title": "Response Employee Documents V1 Employees  Employee Id  Documents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Employee Documents",
+        "tags": [
+          "employees"
+        ]
+      },
       "post": {
         "operationId": "add_document_v1_employees__employee_id__documents_post",
         "parameters": [
