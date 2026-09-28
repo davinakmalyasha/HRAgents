@@ -2,7 +2,7 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **1053 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **1069 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
@@ -81,12 +81,14 @@ behind human approval.
       runbook (what the operator must configure)
 
 ### 1.3 Approval hook for destructive MCP tools
-- [ ] Classify tools as `read` / `write` / `destructive` in the registry (extend `ToolDefinition`)
-- [ ] `destructive` ⇒ execution blocked; creates an approval through the shared Approval engine
+- [x] Classify tools as `read` / `write` / `destructive` in the registry (`ToolDefinition.impact`)
+- [x] `destructive` ⇒ execution blocked; creates an approval through the shared Approval engine
       (`ApproverRole.MANAGER`/`HR_ADMIN` as configured) carrying a dry-run preview
-- [ ] On approval: execute once, record the approval id in the audit payload; on rejection/expiry:
+- [x] On approval: execute once, record the approval id in the audit payload; on rejection/expiry:
       no side effect, agent informed
-- [ ] Tests: destructive tool cannot execute without a named human decision (negative tests first)
+- [x] Tests: destructive tool cannot execute without a named human decision (negative tests first)
+- [ ] Remaining: register the catalog's external tools with explicit impacts, and surface the gate
+      through an agent-facing API so an agent can request approval in-line
 
 ### 1.4 Expose `hragents-mcp` server
 - [ ] Read tools: queue, application status, evaluation summary, pending approvals, leave balances
