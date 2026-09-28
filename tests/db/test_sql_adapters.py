@@ -4,6 +4,7 @@ The adapters use plain SQLAlchemy so the same code path is exercised here and
 against PostgreSQL in CI (see the ``postgres`` marker).
 """
 
+from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -34,7 +35,9 @@ from hr_agents.messaging.store import ReplyStore, reply_dedup_key
 from hr_agents.models import (
     ActorType,
     AuditActor,
+    CandidateCommunication,
     CandidateReply,
+    Channel,
     CommunicationStatus,
     ContractType,
     DimensionScore,
@@ -539,6 +542,66 @@ def test_candidate_directory_reads_the_recorded_address(
     assert directory.primary_email(record.candidate_id) == "sari@example.com"
     assert directory.candidate_for_email("SARI@example.com") == record.candidate_id
     assert directory.candidate_for_email("stranger@elsewhere.com") is None
+
+
+def test_filtered_communication_reads_query_instead_of_scanning(
+    factory: sessionmaker[Session],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id),
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    other_record, _ = applications.submit(
+        SubmissionInput(job_id=job.id, source_channel="api", consent_granted=True)
+    )
+    evaluations.register(
+        application_id=other_record.id,
+        evaluation=make_evaluation(candidate_id=other_record.candidate_id, job_id=job.id),
+        candidate_name="Budi Santoso",
+        job_title=job.title,
+    )
+    communications = DbCommunicationService(
+        evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
+    )
+    mine = communications.queue_offer(
+        record.candidate_id,
+        by="hr-admin",
+        body="Offer body",
+        channel=Channel.EMAIL,
+        to_email="sari@example.com",
+    )
+    theirs = communications.queue_offer(
+        other_record.candidate_id,
+        by="hr-admin",
+        body="Other body",
+        channel=Channel.WHATSAPP,
+    )
+    communications.record_dispatch(
+        mine.id,
+        provider="email.smtp",
+        recipient="sari@example.com",
+        message_id="<Outbound-7@Example.com>",
+    )
+
+    def no_full_scan() -> Iterator[CandidateCommunication]:
+        raise AssertionError("filtered reads must filter in SQL, not scan the table")
+
+    monkeypatch.setattr(communications, "_iter", no_full_scan)
+
+    assert [item.id for item in communications.list_for(record.candidate_id)] == [mine.id]
+    assert [item.id for item in communications.list_queued()] == [theirs.id]
+    assert [item.id for item in communications.list_queued(channel=Channel.EMAIL)] == []
+    assert [item.id for item in communications.list_sent()] == [mine.id]
+    threaded = communications.find_by_provider_message_id("<outbound-7@example.com>")
+    assert threaded is not None and threaded.id == mine.id
+    assert communications.find_by_provider_message_id("<unknown@example.com>") is None
 
 
 def test_in_memory_messaging_stores_are_used_without_a_database() -> None:
