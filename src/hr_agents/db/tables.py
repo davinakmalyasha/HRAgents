@@ -287,7 +287,11 @@ class SchedulingAvailabilityRecord(TenantScoped, Base):
 
 class CandidateCommunicationRecord(TenantScoped, Base):
     __tablename__ = "candidate_communications"
-    __table_args__ = (Index("ix_candidate_communications_candidate", "candidate_id"),)
+    __table_args__ = (
+        Index("ix_candidate_communications_candidate", "candidate_id"),
+        Index("ix_candidate_communications_status_created", "status", "created_at"),
+        Index("ix_candidate_communications_message_id", "provider_message_id_normalized"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     candidate_id: Mapped[UUID] = mapped_column(
@@ -315,6 +319,7 @@ class CandidateCommunicationRecord(TenantScoped, Base):
     recipient_phone: Mapped[str | None] = mapped_column(String(32))
     provider: Mapped[str | None] = mapped_column(String(64))
     provider_message_id: Mapped[str | None] = mapped_column(String(500))
+    provider_message_id_normalized: Mapped[str | None] = mapped_column(String(500))
     send_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

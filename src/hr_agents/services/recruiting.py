@@ -945,12 +945,7 @@ class CommunicationService:
     def list_queued(self, *, channel: Channel | None = None) -> list[CandidateCommunication]:
         """Queued messages, oldest first, optionally narrowed to one channel."""
         return sorted(
-            (
-                item
-                for item in self._iter()
-                if item.status is CommunicationStatus.QUEUED
-                and (channel is None or item.channel is channel)
-            ),
+            self._find(status=CommunicationStatus.QUEUED, channel=channel),
             key=lambda item: item.created_at,
         )
 
@@ -997,14 +992,14 @@ class CommunicationService:
     def list_sent(self) -> list[CandidateCommunication]:
         """Dispatched messages, oldest first (for SLA checks and reporting)."""
         return sorted(
-            (item for item in self._iter() if item.status is CommunicationStatus.SENT),
+            self._find(status=CommunicationStatus.SENT),
             key=lambda item: item.created_at,
         )
 
     def find_by_provider_message_id(self, message_id: str) -> CandidateCommunication | None:
         """Locate a dispatched message by its provider message id (for reply threading)."""
         target = normalize_message_id(message_id)
-        for item in self._iter():
+        for item in self._find():
             if not item.provider_message_id:
                 continue
             if normalize_message_id(item.provider_message_id) == target:
@@ -1017,9 +1012,40 @@ class CommunicationService:
             raise RecruitingError(f"unknown communication {communication_id}")
         return item
 
+    def _find(
+        self,
+        *,
+        candidate_id: UUID | None = None,
+        status: CommunicationStatus | None = None,
+        channel: Channel | None = None,
+        provider_message_id: str | None = None,
+    ) -> list[CandidateCommunication]:
+        """Filtered read. Database adapters push these predicates into SQL.
+
+        Keeping every filter here means the in-memory store and the Postgres
+        adapter answer the same questions, and the adapter never degrades into
+        loading the whole table to filter it in Python.
+        """
+        target = normalize_message_id(provider_message_id) if provider_message_id else None
+        matches: list[CandidateCommunication] = []
+        for item in self._iter():
+            if candidate_id is not None and item.candidate_id != candidate_id:
+                continue
+            if status is not None and item.status is not status:
+                continue
+            if channel is not None and item.channel is not channel:
+                continue
+            if target is not None and (
+                not item.provider_message_id
+                or normalize_message_id(item.provider_message_id) != target
+            ):
+                continue
+            matches.append(item)
+        return matches
+
     def list_for(self, candidate_id: UUID) -> list[CandidateCommunication]:
         return sorted(
-            (item for item in self._iter() if item.candidate_id == candidate_id),
+            self._find(candidate_id=candidate_id),
             key=lambda item: item.created_at,
         )
 

@@ -44,6 +44,7 @@ from hr_agents.services.recruiting import (
     SchedulingProposalRecord,
     SchedulingService,
     StoredDocument,
+    normalize_message_id,
 )
 
 
@@ -417,6 +418,33 @@ class DbCommunicationService(CommunicationService):
             rows = session.execute(select(t.CandidateCommunicationRecord)).scalars().all()
             return iter([self._to_communication(row) for row in rows])
 
+    def _find(
+        self,
+        *,
+        candidate_id: UUID | None = None,
+        status: CommunicationStatus | None = None,
+        channel: Channel | None = None,
+        provider_message_id: str | None = None,
+    ) -> list[CandidateCommunication]:
+        """Filter in SQL, not in Python: the outbox table grows with every hire."""
+        query = select(t.CandidateCommunicationRecord)
+        if candidate_id is not None:
+            query = query.where(t.CandidateCommunicationRecord.candidate_id == candidate_id)
+        if status is not None:
+            query = query.where(t.CandidateCommunicationRecord.status == status.value)
+        if channel is not None:
+            query = query.where(t.CandidateCommunicationRecord.channel == channel.value)
+        if provider_message_id is not None:
+            # Correlation compares canonicalized ids (case-insensitive, brackets
+            # stripped) so a reply that echoes "<id@host>" still finds the row.
+            query = query.where(
+                t.CandidateCommunicationRecord.provider_message_id_normalized
+                == normalize_message_id(provider_message_id)
+            )
+        with sync_session_scope(self._session_factory) as session:
+            rows = session.execute(query).scalars().all()
+            return [self._to_communication(row) for row in rows]
+
     def _persist(self, item: CandidateCommunication) -> None:
         with sync_session_scope(self._session_factory) as session:
             row = session.get(t.CandidateCommunicationRecord, item.id)
@@ -442,6 +470,11 @@ class DbCommunicationService(CommunicationService):
             row.recipient_phone = item.recipient_phone
             row.provider = item.provider
             row.provider_message_id = item.provider_message_id
+            row.provider_message_id_normalized = (
+                None
+                if item.provider_message_id is None
+                else normalize_message_id(item.provider_message_id)
+            )
             row.send_attempts = item.send_attempts
             row.last_error = item.last_error
             row.created_at = item.created_at
