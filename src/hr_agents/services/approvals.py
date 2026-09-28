@@ -222,6 +222,46 @@ class ApprovalEngine:
             counts[request.status.value] = counts.get(request.status.value, 0) + 1
         return counts
 
+    def list_all(self) -> list[ApprovalRequest]:
+        """Every request, oldest first (gates and reports walk the whole queue)."""
+        return self._store.list_all()
+
+    def find(self, request_id: UUID) -> ApprovalRequest | None:
+        """A request by id, or ``None``. Reading a request never changes it."""
+        return self._store.get(request_id)
+
+    @property
+    def audit(self) -> AuditChain:
+        return self._audit
+
+    def mark_executed(self, request_id: UUID, *, by: str) -> ApprovalRequest:
+        """Consume an approved request, so the same grant cannot fire twice.
+
+        Only an approved, not-yet-executed request can be consumed, and the
+        execution is audited with the request id.
+        """
+        request = self._require(request_id)
+        if request.status is not ApprovalStatus.APPROVED:
+            raise ApprovalError(
+                f"approval {request_id} is {request.status.value};"
+                " only an approved request can be consumed"
+            )
+        if request.payload.get("executed_at") is not None:
+            raise ApprovalError(f"approval {request_id} was already consumed")
+        consumed = request.model_copy(
+            update={
+                "payload": {
+                    **request.payload,
+                    "executed_at": utc_now().isoformat(),
+                    "executed_by": by,
+                },
+                "updated_at": utc_now(),
+            }
+        )
+        self._store.save(consumed)
+        self._record(consumed, action="approval.executed")
+        return consumed
+
     # --- internals ------------------------------------------------------
 
     def _require(self, request_id: UUID) -> ApprovalRequest:

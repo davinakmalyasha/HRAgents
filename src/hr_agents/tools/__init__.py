@@ -9,6 +9,11 @@ from hr_agents.tools.evaluation import (
     make_get_evaluation_breakdown_tool,
     serialize_breakdown,
 )
+from hr_agents.tools.gating import (
+    ApprovalTicket,
+    DestructiveToolError,
+    DestructiveToolGate,
+)
 from hr_agents.tools.knowledge import make_search_knowledge_tool
 from hr_agents.tools.portfolio import (
     make_analyze_repo_ast_tool,
@@ -20,7 +25,9 @@ from hr_agents.tools.portfolio import (
 )
 from hr_agents.tools.registry import (
     AuditSink,
+    ToolApprovalRequired,
     ToolDefinition,
+    ToolImpact,
     ToolNotFoundError,
     ToolPermissionError,
     ToolRegistry,
@@ -35,8 +42,13 @@ from hr_agents.tools.taxonomy import make_canonicalize_skill_tool
 
 __all__ = [
     "TOOL_NAMES",
+    "ApprovalTicket",
     "AuditSink",
+    "DestructiveToolError",
+    "DestructiveToolGate",
+    "ToolApprovalRequired",
     "ToolDefinition",
+    "ToolImpact",
     "ToolNotFoundError",
     "ToolPermissionError",
     "ToolRegistry",
