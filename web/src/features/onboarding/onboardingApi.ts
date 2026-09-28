@@ -1,7 +1,12 @@
 import { api } from '@/lib/api'
 import type { components } from '@/api/schema'
 
-import type { EmployeeDocument, EmployeeView, OnboardingPlan, OnboardingTemplate } from './onboarding'
+import type {
+  EmployeeDocument,
+  EmployeeView,
+  OnboardingPlan,
+  OnboardingTemplate,
+} from './onboarding'
 
 export type PlanStartRequest = components['schemas']['PlanStartRequest']
 export type StepWaiveRequest = components['schemas']['StepWaiveRequest']
@@ -55,10 +60,13 @@ export async function waiveStep(
   stepKey: string,
   body: StepWaiveRequest,
 ): Promise<PlanResult> {
-  const { data, response } = await api.POST('/v1/onboarding/plans/{plan_id}/steps/{step_key}/waive', {
-    params: { path: { plan_id: planId, step_key: stepKey } },
-    body,
-  })
+  const { data, response } = await api.POST(
+    '/v1/onboarding/plans/{plan_id}/steps/{step_key}/waive',
+    {
+      params: { path: { plan_id: planId, step_key: stepKey } },
+      body,
+    },
+  )
   return { status: response.status, plan: data }
 }
 
@@ -74,9 +82,7 @@ export async function linkDocument(
   return { status: response.status, plan: data }
 }
 
-export async function documentStatus(
-  planId: string,
-): Promise<Record<string, string>> {
+export async function documentStatus(planId: string): Promise<Record<string, string>> {
   const { data } = await api.GET('/v1/onboarding/plans/{plan_id}/document-status', {
     params: { path: { plan_id: planId } },
   })
@@ -85,7 +91,12 @@ export async function documentStatus(
 
 export async function listEmployees(status?: string): Promise<EmployeeView[]> {
   const { data } = await api.GET('/v1/employees', {
-    params: { query: status === undefined ? {} : { status: status as 'active' | 'probation' | 'notice_period' | 'offboarded' } },
+    params: {
+      query:
+        status === undefined
+          ? {}
+          : { status: status as 'active' | 'probation' | 'notice_period' | 'offboarded' },
+    },
   })
   return data ?? []
 }

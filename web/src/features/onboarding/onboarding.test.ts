@@ -92,7 +92,13 @@ describe('checklistOrder', () => {
       step({ key: 'overdue', kind: 'task', is_overdue: true }),
     ])
 
-    expect(ordered.map((item) => item.key)).toEqual(['overdue', 'document', 'task', 'done', 'waived'])
+    expect(ordered.map((item) => item.key)).toEqual([
+      'overdue',
+      'document',
+      'task',
+      'done',
+      'waived',
+    ])
   })
 })
 

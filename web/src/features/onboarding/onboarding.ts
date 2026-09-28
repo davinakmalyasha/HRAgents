@@ -15,10 +15,10 @@ export type ApproverRole = components['schemas']['ApproverRole']
 export type DocumentKind = components['schemas']['DocumentKind']
 export type DocumentStatus = 'claimed' | 'verified' | 'unverified' | 'expired' | 'failed' | string
 
-export const STEP_STATUS_TONES: Record<StepStatus, 'waiting' | 'active' | 'blocked' | 'done'> = {
+export const STEP_STATUS_TONES: Record<StepStatus, 'waiting' | 'error' | 'done'> = {
   pending: 'waiting',
-  in_progress: 'active',
-  blocked: 'blocked',
+  in_progress: 'waiting',
+  blocked: 'error',
   done: 'done',
   waived: 'done',
 }
