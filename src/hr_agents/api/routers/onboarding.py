@@ -15,10 +15,16 @@ from hr_agents.api.onboarding_schemas import (
     StepLinkDocumentRequest,
     StepWaiveRequest,
     TemplateCreate,
+    TemplateDraftView,
     TemplateView,
 )
 from hr_agents.rbac import Permission
-from hr_agents.services.onboarding import OnboardingError, OnboardingService
+from hr_agents.services.onboarding import (
+    OnboardingActorError,
+    OnboardingError,
+    OnboardingService,
+    default_engineering_template,
+)
 
 router = APIRouter(
     prefix="/v1/onboarding",
@@ -38,8 +44,19 @@ def _not_found(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
+def _forbidden(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+
+
 def _conflict(exc: Exception) -> HTTPException:
     return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+def _map(exc: OnboardingError) -> HTTPException:
+    """Actor problems are 403; everything else the service refuses is a 409."""
+    if isinstance(exc, OnboardingActorError):
+        return _forbidden(str(exc))
+    return _conflict(exc)
 
 
 @router.post("/templates", status_code=status.HTTP_201_CREATED, response_model=TemplateView)
@@ -61,6 +78,16 @@ def create_template(payload: TemplateCreate, onboarding: OnboardingDep) -> Templ
 @router.get("/templates", response_model=list[TemplateView])
 def list_templates(onboarding: OnboardingDep) -> list[TemplateView]:
     return [TemplateView.from_model(t) for t in onboarding.list_templates()]
+
+
+@router.get("/templates/default", response_model=TemplateDraftView)
+def default_template() -> TemplateDraftView:
+    """The built-in starter checklist, ready to save as the operator's first template.
+
+    Served from the domain so the client never retypes the steps; creating a
+    template from it stays an explicit, named action.
+    """
+    return TemplateDraftView.from_model(default_engineering_template())
 
 
 @router.post("/plans", status_code=status.HTTP_201_CREATED, response_model=PlanView)
@@ -97,7 +124,7 @@ def complete_step(
     try:
         plan = onboarding.complete_step(plan_id, step_key, by=payload.by, note=payload.note)
     except OnboardingError as exc:
-        raise _conflict(exc) from exc
+        raise _map(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -108,7 +135,7 @@ def waive_step(
     try:
         plan = onboarding.waive_step(plan_id, step_key, by=payload.by, reason=payload.reason)
     except OnboardingError as exc:
-        raise _conflict(exc) from exc
+        raise _map(exc) from exc
     return PlanView.from_model(plan)
 
 

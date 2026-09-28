@@ -45,6 +45,56 @@ class TemplateCreate(StrictModel):
     applies_to_roles: list[str] = Field(default_factory=list)
 
 
+class TemplateStepView(StrictModel):
+    key: str
+    title: str
+    kind: StepKind
+    description: str
+    document_kind: DocumentKind | None
+    assignee_role: ApproverRole
+    due_days_after_hire: int | None
+    required: bool
+    requires_human_signoff: bool
+
+    @classmethod
+    def from_model(cls, step: TemplateStep) -> TemplateStepView:
+        return cls(
+            key=step.key,
+            title=step.title,
+            kind=step.kind,
+            description=step.description,
+            document_kind=step.document_kind,
+            assignee_role=step.assignee_role,
+            due_days_after_hire=step.due_days_after_hire,
+            required=step.required,
+            requires_human_signoff=step.requires_human_signoff,
+        )
+
+
+class TemplateDraftView(StrictModel):
+    """A ready-to-save starter template, served by the API (not stored yet).
+
+    Operators create a template from this draft, so the checklist definition
+    always comes from the domain rather than being retyped in the client.
+    """
+
+    name: str
+    description: str
+    applies_to_contract_types: list[ContractType]
+    applies_to_roles: list[str]
+    steps: list[TemplateStepView]
+
+    @classmethod
+    def from_model(cls, template: OnboardingTemplate) -> TemplateDraftView:
+        return cls(
+            name=template.name,
+            description=template.description,
+            applies_to_contract_types=template.applies_to_contract_types,
+            applies_to_roles=template.applies_to_roles,
+            steps=[TemplateStepView.from_model(step) for step in template.steps],
+        )
+
+
 class TemplateView(StrictModel):
     id: UUID
     name: str
