@@ -2,13 +2,15 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **1012 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **1014 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
 detail (W2d), the interview scheduling view (W2e), job management (W2f), the gated
 candidate communication panel (W2g), proposal confirm/cancel/reschedule decisions (W2h), and
-full offer records (W2i). The email transport bridge is live too: `scripts/run_messaging.py`
+full offer records (W2i). The onboarding workspace is real too: plan board, checklist with
+named-actor completion and waivers, document collection status, and a start-plan flow that
+creates the hire when needed. The email transport bridge is live: `scripts/run_messaging.py`
 carries queued candidate messages over SMTP and polls IMAP for replies (sandbox-safe by
 default; dispatch evidence and deduplicated inbound replies are persisted). The department
 clock runs as well: `scripts/run_scheduler.py` calls the
@@ -161,7 +163,10 @@ documented.
 ### 2.5 Department workspaces (Wave-1 surfaces)
 - [~] Ask HR: chat with citations and handoff suggestions done; progressive SSE streaming and
       tool-call visibility remain (see polish backlog)
-- [ ] Onboarding workspace: checklists, document collection status, waive with reason
+- [x] Onboarding workspace: plan board (progress, blockers, overdue first), checklist room ordered by
+      what needs a human now, complete/waive with a named actor (a waiver needs a reason and is not
+      offered for required steps), document collection status with linking of an on-file document,
+      and starting a plan for an existing hire or a new one created in the same flow
 - [ ] Records workspace: employee directory, document vault, expiry alerts, org chart
 - [ ] Leave workspace: policies, balances, request calendar, approval queue
 - [ ] Payroll workspace: run assembly, anomaly review, sign-off submission, XLSX packet download
