@@ -417,7 +417,7 @@
     },
     "dialogs": {
       "rejectionTitle": "Antrekan pesan penolakan",
-      "rejectionHint": "Pesan disusun dari laporan umpan balik kandidat yang terverifikasi. Tidak ada yang dikirim otomatis — tinjau pesan, lalu catat pengiriman sendiri.",
+      "rejectionHint": "Pesan disusun dari laporan umpan balik kandidat yang terverifikasi. Pratinjau dulu — mengantrekan hanya menyimpannya, tidak pernah mengirim; catat pengiriman sendiri.",
       "offerTitle": "Susun pesan tawaran",
       "offerHint": "Anda yang menulis tawaran; antrean mencatat nama Anda sebagai penyetuju. Tidak ada yang dikirim otomatis.",
       "sentTitle": "Catat pengiriman",
@@ -440,7 +440,11 @@
       "invalidRecipient": "Alamat email itu tidak valid.",
       "invalidPhone": "Nomor WhatsApp itu tidak bisa dipakai.",
       "failed": "Gagal mengantrekan pesan. Silakan coba lagi."
-    }
+    },
+    "previewAction": "Pratinjau pesan",
+    "queueAfterPreview": "Antrekan pesan",
+    "previewTitle": "Pesan sesuai yang akan diantrekan",
+    "previewBlockedTitle": "Penolakan ini belum bisa diantrekan"
   },
   "scheduling": {
     "title": "Penjadwalan wawancara",

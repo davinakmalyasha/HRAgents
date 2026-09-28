@@ -32,6 +32,8 @@ import {
   markCommunicationSent,
   queueOfferMessage,
   queueRejectionMessage,
+  previewRejectionMessage,
+  type CommunicationPreview,
 } from './communicationApi'
 import {
   COMMUNICATION_CHANNELS,
@@ -85,11 +87,17 @@ function CommunicationDialog({
   const [toEmail, setToEmail] = useState('')
   const [toPhone, setToPhone] = useState('')
   const [link, setLink] = useState<WhatsappDispatchLinkView | null>(null)
+  const [preview, setPreview] = useState<CommunicationPreview | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const recipient = toEmail.trim() === '' ? null : toEmail.trim()
   const phone = toPhone.trim() === '' ? null : toPhone.trim()
+
+  /** Any change to what shapes the message invalidates a stale preview. */
+  function invalidatePreview() {
+    setPreview(null)
+  }
 
   function close(next: boolean) {
     if (!next) {
@@ -141,6 +149,18 @@ function CommunicationDialog({
       return
     }
 
+    // A rejection is previewed first: the human reads the exact message before
+    // anything is queued.
+    if (mode === 'rejection' && preview === null) {
+      setBusy(false)
+      await runPreview()
+      return
+    }
+    if (mode === 'rejection' && preview?.can_queue === false) {
+      setBusy(false)
+      return
+    }
+
     const result =
       mode === 'rejection'
         ? await queueRejectionMessage(candidateId, {
@@ -168,6 +188,36 @@ function CommunicationDialog({
       close(false)
       return
     }
+    if (mode === 'rejection') {
+      // A refusal at queue time: fall back to a fresh preview so the human sees
+      // what changed instead of a bare error code.
+      invalidatePreview()
+      await runPreview()
+      return
+    }
+    setProblem(errorFor(result.status))
+  }
+
+  /**
+   * Render what queueing would store, without storing it. The dialog only offers
+   * the queue button after a preview the human has read.
+   */
+  async function runPreview() {
+    setBusy(true)
+    const result = await previewRejectionMessage(candidateId, {
+      by: by.trim(),
+      language,
+      channel,
+      to_email: recipient,
+      to_phone: phone,
+    })
+    setBusy(false)
+    if (result.status === 200 && result.preview !== undefined) {
+      setPreview(result.preview)
+      setProblem(null)
+      return
+    }
+    setPreview(null)
     setProblem(errorFor(result.status))
   }
 
@@ -223,7 +273,10 @@ function CommunicationDialog({
             <Input
               id={`communication-by-${mode}`}
               value={by}
-              onChange={(event) => setBy(event.target.value)}
+              onChange={(event) => {
+                setBy(event.target.value)
+                invalidatePreview()
+              }}
               placeholder={t('communication.fields.byPlaceholder')}
               autoComplete="off"
             />
@@ -250,7 +303,10 @@ function CommunicationDialog({
                   <DropdownMenuContent align="start">
                     <DropdownMenuRadioGroup
                       value={language}
-                      onValueChange={(value) => setLanguage(value as 'en' | 'id')}
+                      onValueChange={(value) => {
+                        setLanguage(value as 'en' | 'id')
+                        invalidatePreview()
+                      }}
                     >
                       <DropdownMenuRadioItem value="en">
                         {t('communication.languages.en')}
@@ -282,7 +338,10 @@ function CommunicationDialog({
                   <DropdownMenuContent align="start">
                     <DropdownMenuRadioGroup
                       value={channel}
-                      onValueChange={(value) => setChannel(value as Channel)}
+                      onValueChange={(value) => {
+                        setChannel(value as Channel)
+                        invalidatePreview()
+                      }}
                     >
                       {COMMUNICATION_CHANNELS.map((option) => (
                         <DropdownMenuRadioItem key={option} value={option}>
@@ -333,7 +392,10 @@ function CommunicationDialog({
                 id={`communication-to-${mode}`}
                 type="email"
                 value={toEmail}
-                onChange={(event) => setToEmail(event.target.value)}
+                onChange={(event) => {
+                  setToEmail(event.target.value)
+                  invalidatePreview()
+                }}
                 placeholder={t('communication.fields.toEmailPlaceholder')}
                 autoComplete="off"
               />
@@ -352,7 +414,10 @@ function CommunicationDialog({
                 id={`communication-phone-${mode}`}
                 type="tel"
                 value={toPhone}
-                onChange={(event) => setToPhone(event.target.value)}
+                onChange={(event) => {
+                  setToPhone(event.target.value)
+                  invalidatePreview()
+                }}
                 placeholder={t('communication.fields.toPhonePlaceholder')}
                 autoComplete="off"
               />
@@ -361,6 +426,33 @@ function CommunicationDialog({
               </span>
             </div>
           ) : null}
+
+          {preview === null ? null : (
+            <div className="border-line bg-surface-subtle flex flex-col gap-2 rounded-md border p-3">
+              <span className="text-ink-strong text-xs font-medium">
+                {preview.can_queue
+                  ? t('communication.previewTitle')
+                  : t('communication.previewBlockedTitle')}
+              </span>
+              {preview.can_queue ? (
+                <>
+                  {preview.subject === null ? null : (
+                    <span className="text-2xs text-ink-muted">{preview.subject}</span>
+                  )}
+                  <pre className="text-ink-strong text-2xs whitespace-pre-wrap">{preview.body}</pre>
+                </>
+              ) : (
+                <ul className="text-error text-2xs flex flex-col gap-1">
+                  {preview.blockers.map((blocker) => (
+                    <li key={blocker} className="flex items-start gap-1">
+                      <span aria-hidden="true">●</span>
+                      <span>{blocker}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {link === null ? null : (
             <div className="border-line bg-surface-subtle flex flex-col gap-2 rounded-md border p-3">
@@ -389,12 +481,20 @@ function CommunicationDialog({
 
           <DialogFooter>
             {link !== null ? null : (
-              <Button type="submit" size="sm" disabled={busy}>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={busy || (mode === 'rejection' && preview?.can_queue === false)}
+              >
                 {mode === 'sent'
                   ? t('communication.confirmSent')
                   : mode === 'link'
                     ? t('communication.composeLink')
-                    : t('communication.confirm')}
+                    : mode === 'rejection' && preview === null
+                      ? t('communication.previewAction')
+                      : mode === 'rejection'
+                        ? t('communication.queueAfterPreview')
+                        : t('communication.confirm')}
               </Button>
             )}
           </DialogFooter>

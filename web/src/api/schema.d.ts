@@ -233,6 +233,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/candidates/{candidate_id}/communications/rejection/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview the rejection message and the reasons it cannot be queued
+         * @description Render the message a queue would store without storing anything.
+         *
+         *     A preview is a read: it writes no message, no audit entry, and no approval.
+         *     ``blockers`` is exactly what the queue endpoint will refuse with, because
+         *     both read the same gates.
+         */
+        post: operations["preview_rejection_v1_candidates__candidate_id__communications_rejection_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/candidates/{candidate_id}/feedback": {
         parameters: {
             query?: never;
@@ -3204,6 +3228,40 @@ export interface components {
          */
         CommunicationKind: "rejection" | "offer";
         /**
+         * CommunicationPreviewView
+         * @description The exact message a queue would store, plus every reason it cannot be.
+         */
+        CommunicationPreviewView: {
+            /** Application Id */
+            application_id: string | null;
+            /** Blockers */
+            blockers: string[];
+            /** Body */
+            body: string | null;
+            /** Can Queue */
+            can_queue: boolean;
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            channel: components["schemas"]["Channel"];
+            /** Evaluation Id */
+            evaluation_id: string | null;
+            kind: components["schemas"]["CommunicationKind"];
+            /**
+             * Language
+             * @enum {string}
+             */
+            language: "en" | "id";
+            /** Recipient */
+            recipient: string | null;
+            /** Recipient Phone */
+            recipient_phone: string | null;
+            /** Subject */
+            subject: string | null;
+        };
+        /**
          * CommunicationSentRequest
          * @description Record manual dispatch evidence (a human sent it from their own client).
          */
@@ -5063,6 +5121,26 @@ export interface components {
             subject_kind: components["schemas"]["SubjectKind"];
         };
         /**
+         * RejectionPreviewRequest
+         * @description Ask what queueing this rejection would produce, before queueing it.
+         */
+        RejectionPreviewRequest: {
+            /** By */
+            by: string;
+            /** @default email */
+            channel: components["schemas"]["Channel"];
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "id";
+            /** To Email */
+            to_email?: string | null;
+            /** To Phone */
+            to_phone?: string | null;
+        };
+        /**
          * RejectionQueueRequest
          * @description Queue a rejection message; the server composes it from the feedback report.
          */
@@ -6639,6 +6717,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommunicationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_rejection_v1_candidates__candidate_id__communications_rejection_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectionPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommunicationPreviewView"];
                 };
             };
             /** @description Validation Error */

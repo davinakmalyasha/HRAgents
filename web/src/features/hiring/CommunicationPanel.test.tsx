@@ -25,6 +25,7 @@ vi.mock('./useCommunications', () => ({
 
 vi.mock('./communicationApi', () => ({
   queueRejectionMessage: vi.fn(),
+  previewRejectionMessage: vi.fn(),
   queueOfferMessage: vi.fn(),
   markCommunicationSent: vi.fn(),
   listReplies: vi.fn(),
@@ -34,15 +35,36 @@ vi.mock('./communicationApi', () => ({
 import {
   composeDispatchLink,
   markCommunicationSent,
+  previewRejectionMessage,
   queueOfferMessage,
   queueRejectionMessage,
+  type CommunicationPreview,
 } from './communicationApi'
 import { CommunicationPanel } from './CommunicationPanel'
 
 const queueRejectionMock = vi.mocked(queueRejectionMessage)
+const previewMock = vi.mocked(previewRejectionMessage)
 const queueOfferMock = vi.mocked(queueOfferMessage)
 const markSentMock = vi.mocked(markCommunicationSent)
 const composeLinkMock = vi.mocked(composeDispatchLink)
+
+function preview(overrides: Partial<CommunicationPreview> = {}): CommunicationPreview {
+  return {
+    kind: 'rejection',
+    can_queue: true,
+    blockers: [],
+    candidate_id: 'cand-1',
+    application_id: 'app-1',
+    evaluation_id: 'eval-1',
+    language: 'en',
+    subject: 'Your application for Backend Engineer',
+    body: 'Where to strengthen:\n- more concrete evidence',
+    recipient: null,
+    recipient_phone: null,
+    channel: 'email',
+    ...overrides,
+  }
+}
 
 function communication(overrides: Partial<CommunicationView> = {}): CommunicationView {
   return {
@@ -106,6 +128,7 @@ beforeEach(() => {
   state.overrides = []
   state.replies = []
   queueRejectionMock.mockReset()
+  previewMock.mockReset()
   queueOfferMock.mockReset()
   markSentMock.mockReset()
   composeLinkMock.mockReset()
@@ -166,8 +189,9 @@ describe('CommunicationPanel', () => {
     expect(screen.getByText(i18n.t('communication.rejectionLocked'))).toBeInTheDocument()
   })
 
-  it('queues a rejection message once the decision is recorded', async () => {
+  it('previews a rejection message before anything is queued', async () => {
     state.overrides = [override()]
+    previewMock.mockResolvedValue({ status: 200, preview: preview() })
     queueRejectionMock.mockResolvedValue({ status: 201, communication: communication() })
     renderPanel('hitl_soft_rejection')
 
@@ -175,7 +199,27 @@ describe('CommunicationPanel', () => {
       screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
     )
     await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.confirm') }))
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    )
+
+    // The preview rendered the body; the queue endpoint has not been touched.
+    expect(previewMock).toHaveBeenCalledWith('cand-1', {
+      by: 'lead-1',
+      language: 'en',
+      channel: 'email',
+      to_email: null,
+      to_phone: null,
+    })
+    expect(queueRejectionMock).not.toHaveBeenCalled()
+    expect(screen.getByText(/Where to strengthen/)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: i18n.t('communication.queueAfterPreview') }),
+    ).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueAfterPreview') }),
+    )
 
     expect(queueRejectionMock).toHaveBeenCalledWith('cand-1', {
       by: 'lead-1',
@@ -184,6 +228,117 @@ describe('CommunicationPanel', () => {
       to_email: null,
       to_phone: null,
     })
+    expect(previewMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-previews when a field that shapes the message changes', async () => {
+    state.overrides = [override()]
+    previewMock.mockResolvedValue({ status: 200, preview: preview() })
+    queueRejectionMock.mockResolvedValue({ status: 201, communication: communication() })
+    renderPanel('hitl_soft_rejection')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
+    )
+    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    )
+    expect(
+      screen.getByRole('button', { name: i18n.t('communication.queueAfterPreview') }),
+    ).toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText(i18n.t('communication.fields.toEmail')))
+    await userEvent.type(
+      screen.getByLabelText(i18n.t('communication.fields.toEmail')),
+      'budi@example.com',
+    )
+
+    // A stale preview is never queueable: the button goes back to previewing.
+    expect(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    ).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    )
+    expect(previewMock).toHaveBeenLastCalledWith('cand-1', {
+      by: 'lead-1',
+      language: 'en',
+      channel: 'email',
+      to_email: 'budi@example.com',
+      to_phone: null,
+    })
+  })
+
+  it('shows the server blockers and refuses to queue behind them', async () => {
+    state.overrides = [override()]
+    previewMock.mockResolvedValue({
+      status: 200,
+      preview: preview({
+        can_queue: false,
+        blockers: ['an active rejection message already exists for this candidate'],
+        body: null,
+        subject: null,
+      }),
+    })
+    renderPanel('hitl_soft_rejection')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
+    )
+    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    )
+
+    expect(
+      screen.getByText('an active rejection message already exists for this candidate'),
+    ).toBeInTheDocument()
+    const queueButton = screen.getByRole('button', {
+      name: i18n.t('communication.queueAfterPreview'),
+    })
+    expect(queueButton).toBeDisabled()
+    queueRejectionMock.mockClear()
+    await userEvent.click(queueButton)
+    expect(queueRejectionMock).not.toHaveBeenCalled()
+  })
+
+  it('re-previews when the queue is refused after a good preview', async () => {
+    state.overrides = [override()]
+    previewMock.mockResolvedValueOnce({ status: 200, preview: preview() })
+    previewMock.mockResolvedValueOnce({
+      status: 200,
+      preview: preview({
+        can_queue: false,
+        blockers: ['an active rejection message already exists for this candidate'],
+        body: null,
+        subject: null,
+      }),
+    })
+    queueRejectionMock.mockResolvedValue({ status: 409 })
+    renderPanel('hitl_soft_rejection')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
+    )
+    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueAfterPreview') }),
+    )
+
+    // Someone else queued in between: the dialog re-previews instead of showing
+    // a bare conflict, and the human sees the new blocker.
+    expect(previewMock).toHaveBeenCalledTimes(2)
+    expect(
+      screen.getByText('an active rejection message already exists for this candidate'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: i18n.t('communication.queueAfterPreview') }),
+    ).toBeDisabled()
+    expect(queueRejectionMock).toHaveBeenCalledTimes(1)
   })
 
   it('requires a body before queueing an offer and submits the authored message', async () => {
@@ -222,6 +377,10 @@ describe('CommunicationPanel', () => {
 
   it('captures the recipient address so a transport can deliver the message', async () => {
     state.overrides = [override()]
+    previewMock.mockResolvedValue({
+      status: 200,
+      preview: preview({ recipient: 'budi@example.com' }),
+    })
     queueRejectionMock.mockResolvedValue({ status: 201, communication: communication() })
     renderPanel('hitl_soft_rejection')
 
@@ -233,7 +392,12 @@ describe('CommunicationPanel', () => {
       screen.getByLabelText(i18n.t('communication.fields.toEmail')),
       'budi@example.com',
     )
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.confirm') }))
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueAfterPreview') }),
+    )
 
     expect(queueRejectionMock).toHaveBeenCalledWith('cand-1', {
       by: 'lead-1',

@@ -184,6 +184,151 @@ def test_rejection_rejects_agent_actors() -> None:
     assert response.status_code == 403
 
 
+def test_rejection_preview_renders_the_message_without_queueing_anything() -> None:
+    with make_client() as client:
+        job = create_job(client)
+        application = submit_application(client, job["id"])
+        register_evaluation(
+            client,
+            application_id=application["application_id"],
+            candidate_id=application["candidate_id"],
+            job_id=job["id"],
+            s_tech=0.50,
+        )
+        candidate_id = application["candidate_id"]
+
+        preview = client.post(
+            f"/v1/candidates/{candidate_id}/communications/rejection/preview",
+            json=rejection_payload(to_email="budi@example.com", to_phone="+628123456789"),
+        )
+        history = client.get(f"/v1/candidates/{candidate_id}/communications")
+        # The queue still works after a preview: nothing was consumed by looking.
+        queued = client.post(
+            f"/v1/candidates/{candidate_id}/communications/rejection",
+            json=rejection_payload(to_email="budi@example.com"),
+        )
+        after = client.get(f"/v1/candidates/{candidate_id}/communications")
+
+    assert preview.status_code == 200, preview.text
+    body = preview.json()
+    assert body["can_queue"] is True
+    assert body["blockers"] == []
+    assert body["kind"] == "rejection"
+    assert body["language"] == "en"
+    assert body["recipient"] == "budi@example.com"
+    assert body["recipient_phone"] == "+628123456789"
+    assert "Where to strengthen" in body["body"]
+    assert body["subject"] == queued.json()["subject"]
+    assert body["body"] == queued.json()["body"]
+    # The preview itself stored nothing: only the explicit queue did.
+    assert history.status_code == 200
+    assert history.json() == []
+    assert queued.status_code == 201, queued.text
+    assert len(after.json()) == 1
+
+
+def test_rejection_preview_reports_the_gates_that_block_queueing() -> None:
+    with make_client() as client:
+        job = create_job(client)
+        application = submit_application(client, job["id"])
+        candidate_id = application["candidate_id"]
+
+        unknown = client.post(
+            f"/v1/candidates/{candidate_id}/communications/rejection/preview",
+            json=rejection_payload(),
+        )
+        evaluation = register_evaluation(
+            client,
+            application_id=application["application_id"],
+            candidate_id=candidate_id,
+            job_id=job["id"],
+            s_tech=0.80,
+        )
+        gated = client.post(
+            f"/v1/candidates/{candidate_id}/communications/rejection/preview",
+            json=rejection_payload(),
+        )
+        client.post(
+            f"/v1/evaluations/{evaluation.id}/overrides",
+            json={
+                "reviewer_id": "lead-1",
+                "reviewer_role": "engineering_lead",
+                "override_decision": "hitl_soft_rejection",
+                "reason_code": "below_bar_after_review",
+            },
+        )
+        allowed = client.post(
+            f"/v1/candidates/{candidate_id}/communications/rejection/preview",
+            json=rejection_payload(language="id"),
+        )
+        client.post(
+            f"/v1/candidates/{candidate_id}/communications/rejection",
+            json=rejection_payload(by="lead-1", language="id"),
+        )
+        duplicate = client.post(
+            f"/v1/candidates/{candidate_id}/communications/rejection/preview",
+            json=rejection_payload(by="lead-1", language="id"),
+        )
+        queued = client.get(f"/v1/candidates/{candidate_id}/communications")
+
+    # No evaluation at all.
+    assert unknown.status_code == 200
+    assert unknown.json()["can_queue"] is False
+    assert unknown.json()["blockers"] == ["no evaluation"]
+    assert unknown.json()["body"] is None
+
+    # Evaluated, but the rejection has no recorded human decision yet.
+    assert gated.json()["can_queue"] is False
+    assert len(gated.json()["blockers"]) == 1
+    assert "recorded rejection decision" in gated.json()["blockers"][0]
+
+    # After the override the same call renders the Indonesian message.
+    assert allowed.json()["can_queue"] is True
+    assert allowed.json()["language"] == "id"
+    assert "Yang menonjol" in allowed.json()["body"]
+
+    # A second active rejection is the other blocker the queue refuses with.
+    assert duplicate.json()["can_queue"] is False
+    assert duplicate.json()["blockers"] == [
+        "an active rejection message already exists for this candidate"
+    ]
+    assert len(queued.json()) == 1
+
+
+def test_rejection_preview_unknown_candidate_and_agent_actor() -> None:
+    with make_client() as client:
+        unknown = client.post(
+            f"/v1/candidates/{uuid4()}/communications/rejection/preview",
+            json=rejection_payload(),
+        )
+        job = create_job(client)
+        application = submit_application(client, job["id"])
+        register_evaluation(
+            client,
+            application_id=application["application_id"],
+            candidate_id=application["candidate_id"],
+            job_id=job["id"],
+            s_tech=0.50,
+        )
+        agent = client.post(
+            f"/v1/candidates/{application['candidate_id']}/communications/rejection/preview",
+            json=rejection_payload(by="agent:screening_coordinator"),
+        )
+        blank = client.post(
+            f"/v1/candidates/{application['candidate_id']}/communications/rejection/preview",
+            json=rejection_payload(by="   "),
+        )
+        history = client.get(f"/v1/candidates/{application['candidate_id']}/communications")
+
+    # A preview is readable for anyone who may queue, including an agent: it is
+    # only the queue that needs a named human.
+    assert unknown.json()["can_queue"] is False
+    assert agent.status_code == 200
+    assert agent.json()["can_queue"] is True
+    assert blank.status_code == 422
+    assert history.json() == []
+
+
 def test_rejection_unknown_candidate_is_404() -> None:
     with make_client() as client:
         response = client.post(

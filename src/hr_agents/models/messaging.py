@@ -58,6 +58,28 @@ class CommunicationStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class CommunicationPreview(StrictModel):
+    """What queueing a message would produce, decided before anything is stored.
+
+    A preview is a read: it never queues, never audits, and never approves. The
+    human sees the exact subject and body (and why it cannot be queued at all)
+    before deciding to queue.
+    """
+
+    kind: CommunicationKind
+    language: Literal["en", "id"] = "en"
+    can_queue: bool
+    blockers: list[str] = Field(default_factory=list)
+    candidate_id: UUID
+    application_id: UUID | None = None
+    evaluation_id: UUID | None = None
+    subject: str | None = None
+    body: str | None = None
+    recipient: EmailStr | None = None
+    recipient_phone: str | None = None
+    channel: Channel = Channel.EMAIL
+
+
 class CandidateCommunication(StrictModel):
     """A candidate-facing message, queued only behind a named human.
 

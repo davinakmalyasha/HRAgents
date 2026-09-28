@@ -417,7 +417,7 @@
     },
     "dialogs": {
       "rejectionTitle": "Queue rejection message",
-      "rejectionHint": "The message is composed from the candidate's grounded feedback report. Nothing is sent automatically — review the queued message, then record dispatch yourself.",
+      "rejectionHint": "The message is composed from the candidate's grounded feedback report. Preview it first — queueing stores it but never sends it; record dispatch yourself.",
       "offerTitle": "Compose offer message",
       "offerHint": "You write the offer; queueing records your name as approver. Nothing is sent automatically.",
       "sentTitle": "Record dispatch",
@@ -440,7 +440,11 @@
       "invalidRecipient": "That email address is not valid.",
       "invalidPhone": "That WhatsApp number cannot be used.",
       "failed": "Could not queue the message. Please try again."
-    }
+    },
+    "previewAction": "Preview message",
+    "queueAfterPreview": "Queue message",
+    "previewTitle": "Message as it will be queued",
+    "previewBlockedTitle": "This rejection cannot be queued yet"
   },
   "scheduling": {
     "title": "Interview scheduling",

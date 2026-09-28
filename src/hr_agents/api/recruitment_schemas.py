@@ -18,6 +18,7 @@ from hr_agents.models import (
     CandidateReply,
     Channel,
     CommunicationKind,
+    CommunicationPreview,
     CommunicationStatus,
     DimensionScore,
     EvaluationFlag,
@@ -423,6 +424,50 @@ class RejectionQueueRequest(StrictModel):
     language: Literal["en", "id"] = "en"
     to_email: EmailStr | None = None
     to_phone: str | None = Field(default=None, max_length=32)
+
+
+class RejectionPreviewRequest(StrictModel):
+    """Ask what queueing this rejection would produce, before queueing it."""
+
+    by: str = Field(min_length=1, max_length=200)
+    channel: Channel = Channel.EMAIL
+    language: Literal["en", "id"] = "en"
+    to_email: EmailStr | None = None
+    to_phone: str | None = Field(default=None, max_length=32)
+
+
+class CommunicationPreviewView(StrictModel):
+    """The exact message a queue would store, plus every reason it cannot be."""
+
+    kind: CommunicationKind
+    can_queue: bool
+    blockers: list[str]
+    candidate_id: UUID
+    application_id: UUID | None
+    evaluation_id: UUID | None
+    language: Literal["en", "id"]
+    subject: str | None
+    body: str | None
+    recipient: str | None
+    recipient_phone: str | None
+    channel: Channel
+
+    @classmethod
+    def from_model(cls, preview: CommunicationPreview) -> CommunicationPreviewView:
+        return cls(
+            kind=preview.kind,
+            can_queue=preview.can_queue,
+            blockers=preview.blockers,
+            candidate_id=preview.candidate_id,
+            application_id=preview.application_id,
+            evaluation_id=preview.evaluation_id,
+            language=preview.language,
+            subject=preview.subject,
+            body=preview.body,
+            recipient=preview.recipient,
+            recipient_phone=preview.recipient_phone,
+            channel=preview.channel,
+        )
 
 
 class OfferQueueRequest(StrictModel):

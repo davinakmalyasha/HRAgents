@@ -27,7 +27,7 @@ import hashlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, Field
@@ -44,6 +44,7 @@ from hr_agents.models import (
     CandidateCommunication,
     Channel,
     CommunicationKind,
+    CommunicationPreview,
     CommunicationStatus,
     FeedbackGrowthArea,
     FeedbackReport,
@@ -767,6 +768,80 @@ class CommunicationService:
         self._items[item.id] = item
 
     # queueing
+
+    def _rejection_blockers(
+        self,
+        candidate_id: UUID,
+        record: EvaluationRecord | None,
+    ) -> list[str]:
+        """Every reason this rejection could not be queued, in gate order."""
+        blockers: list[str] = []
+        if record is None:
+            return ["no evaluation"]
+        try:
+            self._require_rejection_proof(record)
+        except RecruitingError as exc:
+            blockers.append(str(exc))
+        try:
+            self._require_no_active(candidate_id, CommunicationKind.REJECTION)
+        except RecruitingError as exc:
+            blockers.append(str(exc))
+        return blockers
+
+    def preview_rejection(
+        self,
+        candidate_id: UUID,
+        *,
+        by: str,
+        language: str = "en",
+        to_email: EmailStr | None = None,
+        to_phone: str | None = None,
+        channel: Channel = Channel.EMAIL,
+    ) -> CommunicationPreview:
+        """Render the rejection a human is about to queue, and why it might not work.
+
+        Read-only: no message is stored, no audit entry is written, and no
+        approval is implied. ``can_queue`` is exactly the condition the queue
+        endpoint will apply, because both read the same blockers. The actor
+        still has to be a named human at queue time.
+        """
+        del by  # the named-human gate belongs to queueing, not to a preview
+        try:
+            record: EvaluationRecord | None = self._evaluations.get_by_candidate(candidate_id)
+        except RecruitingError:
+            record = None
+        blockers = self._rejection_blockers(candidate_id, record)
+        normalized: Literal["en", "id"] = "id" if language == "id" else "en"
+        if record is None or blockers:
+            return CommunicationPreview(
+                kind=CommunicationKind.REJECTION,
+                can_queue=False,
+                blockers=blockers or ["no evaluation"],
+                candidate_id=candidate_id,
+                language=normalized,
+                recipient=to_email,
+                recipient_phone=to_phone,
+                channel=channel,
+            )
+        report = synthesize_feedback(
+            record.evaluation,
+            candidate_name=record.candidate_name,
+            job_title=record.job_title,
+            language=normalized,
+        )
+        return CommunicationPreview(
+            kind=CommunicationKind.REJECTION,
+            can_queue=True,
+            candidate_id=candidate_id,
+            application_id=record.application_id,
+            evaluation_id=record.evaluation.id,
+            language=report.language,
+            subject=_REJECTION_SUBJECTS[report.language].format(job_title=record.job_title),
+            body=compose_rejection_body(report),
+            recipient=to_email,
+            recipient_phone=to_phone,
+            channel=channel,
+        )
 
     def queue_rejection(
         self,

@@ -4,11 +4,36 @@ import type { components } from '@/api/schema'
 import type { CommunicationView, ReplyView, WhatsappDispatchLinkView } from './communication'
 
 export type RejectionQueueRequest = components['schemas']['RejectionQueueRequest']
+export type RejectionPreviewRequest = components['schemas']['RejectionPreviewRequest']
 export type OfferQueueRequest = components['schemas']['OfferQueueRequest']
+export type CommunicationPreview = components['schemas']['CommunicationPreviewView']
 
 export interface CommunicationResult {
   status: number
   communication?: CommunicationView
+}
+
+export interface PreviewResult {
+  status: number
+  preview?: CommunicationPreview
+}
+
+/**
+ * Ask the server what queueing would produce. This is a read: the preview stores
+ * nothing, so a human can check the wording and the blockers before committing.
+ */
+export async function previewRejectionMessage(
+  candidateId: string,
+  body: RejectionPreviewRequest,
+): Promise<PreviewResult> {
+  const { data, response } = await api.POST(
+    '/v1/candidates/{candidate_id}/communications/rejection/preview',
+    {
+      params: { path: { candidate_id: candidateId } },
+      body,
+    },
+  )
+  return { status: response.status, preview: data }
 }
 
 export interface DispatchLinkResult {

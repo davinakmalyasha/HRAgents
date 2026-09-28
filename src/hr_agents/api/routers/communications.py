@@ -15,9 +15,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from hr_agents.api.deps import require_permission
 from hr_agents.api.recruitment_schemas import (
+    CommunicationPreviewView,
     CommunicationSentRequest,
     CommunicationView,
     OfferQueueRequest,
+    RejectionPreviewRequest,
     RejectionQueueRequest,
     ReplyView,
     WhatsappDispatchLinkRequest,
@@ -110,6 +112,32 @@ def queue_rejection(
             raise _forbidden(message) from exc
         raise _conflict(exc) from exc
     return CommunicationView.from_model(item)
+
+
+@router.post(
+    "/candidates/{candidate_id}/communications/rejection/preview",
+    response_model=CommunicationPreviewView,
+    dependencies=[Depends(require_permission(Permission.RECRUITING_OVERRIDE))],
+    summary="Preview the rejection message and the reasons it cannot be queued",
+)
+def preview_rejection(
+    candidate_id: UUID, payload: RejectionPreviewRequest, communications: CommunicationsDep
+) -> CommunicationPreviewView:
+    """Render the message a queue would store without storing anything.
+
+    A preview is a read: it writes no message, no audit entry, and no approval.
+    ``blockers`` is exactly what the queue endpoint will refuse with, because
+    both read the same gates.
+    """
+    preview = communications.preview_rejection(
+        candidate_id,
+        by=payload.by,
+        channel=payload.channel,
+        language=payload.language,
+        to_email=payload.to_email,
+        to_phone=payload.to_phone,
+    )
+    return CommunicationPreviewView.from_model(preview)
 
 
 @router.post(
