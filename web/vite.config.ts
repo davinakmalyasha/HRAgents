@@ -65,5 +65,10 @@ export default defineConfig({
     css: false,
     // Radix/dnd interaction tests flake under parallel CPU load at the 5s default.
     testTimeout: 15000,
+    // Bound the worker pool: one fork per core exhausts memory on an 8 GB
+    // machine (and in CI containers), which surfaces as "Failed to start forks
+    // worker" or 15s timeouts rather than as a real test failure.
+    maxWorkers: 3,
+    fileParallelism: true,
   },
 })
