@@ -316,9 +316,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       pre-queue preview endpoint remain (Phase 7)
 
 ### 6.4 Other workspaces (Wave-1 surfaces)
-- [ ] Policy workspace: Q&A with citations + knowledge browser
-- [ ] Onboarding workspace: checklists, document collection status
-- [ ] Records workspace: employee directory, expiry alerts
+- [x] Policy workspace: Q&A with citations + knowledge browser
+- [x] Onboarding workspace: checklists, document collection status
+- [x] Records workspace: employee directory (unit filterable), org chart with roll-up headcount,
+      document vault, expiry alerts, named-human document verification
 - [ ] Payroll workspace (prep & verify): data assembly, anomaly flags, export
 - [ ] Audit viewer: searchable, verified chain, export
 - [ ] Skills/knowledge editor (markdown editing with preview, versioning)

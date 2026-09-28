@@ -2,7 +2,7 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **1046 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **1050 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
@@ -10,7 +10,9 @@ detail (W2d), the interview scheduling view (W2e), job management (W2f), the gat
 candidate communication panel (W2g), proposal confirm/cancel/reschedule decisions (W2h), and
 full offer records (W2i). The onboarding workspace is real too: plan board, checklist with
 named-actor completion and waivers, document collection status, and a start-plan flow that
-creates the hire when needed. The email transport bridge is live: `scripts/run_messaging.py`
+creates the hire when needed. The Records workspace is real too: org chart with roll-up headcount,
+a unit-filtered directory, and the expiry vault where a named human verifies or rejects a
+document (`/v1/documents`, `/v1/documents/{id}/verify`, `/v1/org-units`). The email transport bridge is live: `scripts/run_messaging.py`
 carries queued candidate messages over SMTP and polls IMAP for replies (sandbox-safe by
 default; dispatch evidence and deduplicated inbound replies are persisted). The department
 clock runs as well: `scripts/run_scheduler.py` calls the
@@ -167,7 +169,9 @@ documented.
       what needs a human now, complete/waive with a named actor (a waiver needs a reason and is not
       offered for required steps), document collection status with linking of an on-file document,
       and starting a plan for an existing hire or a new one created in the same flow
-- [ ] Records workspace: employee directory, document vault, expiry alerts, org chart
+- [x] Records workspace: employee directory filterable by org unit, org chart with roll-up
+      headcount, document vault ordered by urgency, expiry alerts, and named-human document
+      verification (backend: `/v1/documents`, `/v1/documents/{id}/verify`, `/v1/org-units`)
 - [ ] Leave workspace: policies, balances, request calendar, approval queue
 - [ ] Payroll workspace: run assembly, anomaly review, sign-off submission, XLSX packet download
       (with the "no payments executed" notice rendered in the UI)
