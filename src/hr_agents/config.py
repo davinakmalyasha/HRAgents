@@ -58,6 +58,15 @@ class Settings(BaseSettings):
         """Sync-driver URL for store adapters (psycopg); see ADR 0005."""
         return self.database_url.replace("+asyncpg", "+psycopg")
 
+    # --- API hardening ---
+    # Bodies are capped before they are read; the document endpoint enforces the
+    # same ceiling per file. Rate limit is per principal (or client address).
+    api_max_body_bytes: int = Field(default=10 * 1024 * 1024, ge=1024)
+    api_rate_limit_per_minute: int = Field(default=300, ge=1)
+    # CORS is off unless origins are listed: the dashboard is served same-origin
+    # at /app, so a wildcard is never needed.
+    api_cors_origins: list[str] = Field(default_factory=list)
+
     # --- Object storage ---
     s3_endpoint_url: str | None = "http://localhost:9000"
     s3_access_key: str = "hragents"

@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from hr_agents import __version__
 from hr_agents.agents.policy_assistant import PolicyAssistant
 from hr_agents.agents.runtime import AgentRuntime
+from hr_agents.api.hardening import install_hardening, readiness_report
 from hr_agents.api.routers import (
     applications,
     communications,
@@ -218,6 +219,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_exception_handler(HTTPException, _problem_response)  # type: ignore[arg-type]
+    install_hardening(app, settings)
     app.include_router(workspaces.router)
     app.include_router(chat_router.router)
     app.include_router(applications.router)
@@ -248,6 +250,12 @@ def create_app() -> FastAPI:
             "version": __version__,
             "environment": settings.environment,
         }
+
+    @app.get("/readyz", tags=["system"], summary="Readiness probe (dependencies)")
+    async def readyz() -> JSONResponse:
+        report = readiness_report(app)
+        code = 200 if report["status"] == "ok" else 503
+        return JSONResponse(status_code=code, content={**report, "version": __version__})
 
     _mount_web_app(app)
     return app
