@@ -50,11 +50,15 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [ ] Retry/backoff policy audit per provider (failed sends stay queued and retry on the
       next run); circuit breakers for flaky integrations
 - [ ] Dead-letter dashboard + alerting; worker stuck-job reaper
-- [ ] `/readyz` endpoint (DB + queue + storage checks) distinct from `/healthz`
+- [x] `/readyz` endpoint (DB + messaging + audit sink checks, 503 when degraded), distinct from
+      `/healthz`; security headers, body-size ceiling, and per-principal rate limits in
+      `api/hardening.py`
 - [ ] Graceful shutdown: drain in-flight pipeline runs on SIGTERM
-- [ ] Backup/restore drill documented with measured RTO/RPO
+- [x] Backup/restore drill documented and scripted (`scripts/backup.py --verify` restores into a
+      scratch database and re-verifies the audit chain; runbook in `docs/deployment.md`)
 - [~] Audit chain verification scheduled: the `audit-verify` scheduler job exists
-      (`scripts/run_scheduler.py`); compose cron wiring + after-restore check automation remain
+      (`scripts/run_scheduler.py`) and runs from the compose `scheduler` service; an automated
+      after-restore check is available via `backup.py --verify`
 
 ## Beauty / UX
 

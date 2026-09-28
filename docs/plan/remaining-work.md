@@ -2,7 +2,7 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **1014 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **1046 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
@@ -234,12 +234,16 @@ latency, costs, and failure modes documented.
 
 - [ ] Setup wizard (CLI + first-run web flow): admin account, organization profile, provider
       connect-or-skip, starter templates (onboarding/offboarding leave policies, rate tables)
-- [ ] One-command self-host: `docker compose up` with postgres+pgvector, redis, minio, mailpit;
-      migrations auto-run; `/healthz` + readiness endpoint
+- [x] One-command self-host: `Dockerfile` (multi-stage, non-root, dashboard baked in) and a
+      compose stack with postgres+pgvector, redis, minio, mailpit, a one-shot `migrate` service
+      the API waits on, and `scheduler`/`messaging` loops; `/healthz` + `/readyz` (per-dependency
+      readiness, 503 when degraded)
 - [ ] Provider settings UI with health badges, env-lock indicators, masked secrets (Settings →
       Connections)
 - [ ] Local-model mode (Ollama): fully offline operation, documented model floor (size/quality)
-- [ ] Backup/restore docs + scripts (pg_dump, document storage, chain verification after restore)
+- [x] Backup/restore script with a verification drill (`scripts/backup.py --verify` restores into a
+      scratch database and re-verifies the audit chain) and a runbook in `docs/deployment.md`;
+      measured RTO/RPO numbers are still to be recorded
 - [ ] Region recipes: Jakarta / Singapore deployment notes; Cloudflare Tunnel guide for webhooks
 - [ ] Security hardening: key management, secrets rotation, rate limits, upload scanning hook,
       pen-test checklist, dependency scanning in CI
@@ -251,8 +255,8 @@ latency, costs, and failure modes documented.
       tasks, offer expiry, overdue-tasks report, audit-chain verification, and the reply-SLA
       anti-ghosting check (a dispatched message with no reply after 72h becomes a recruiter
       follow-up task) — all through `scripts/run_scheduler.py` (one CLI over the app containers,
-      `--job` selectable, `--json` output, nonzero exit on job failure). Remains: compose/cron
-      wiring, backup/restore drill, and alerting on the report.
+      `--job` selectable, `--json` output, nonzero exit on job failure), and composed into
+      `docker-compose.yml` as a 15-minute loop. Remains: alerting on the report.
 - [ ] Managed cloud SaaS + billing — **deferred until proven demand** (`[-]` in master plan)
 - [ ] Dedicated instance (BYOC) recipes — only if requested
 - [ ] Office Connector folder-sync agent — only if demanded
