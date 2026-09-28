@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,14 +16,17 @@ const state = vi.hoisted(() => ({
   employees: [] as unknown[],
   documents: [] as unknown[],
   documentStatus: {} as Record<string, string>,
+  templates: [{ id: 'tpl-1', name: 'Engineering onboarding', step_count: 6 }] as unknown[],
+  starter: null as unknown,
 }))
 
 vi.mock('./useOnboarding', () => ({
   useOnboardingPlans: () => ({ isLoading: false, data: state.plans }),
   useOnboardingTemplates: () => ({
     isLoading: false,
-    data: [{ id: 'tpl-1', name: 'Engineering onboarding', step_count: 6 }],
+    data: state.templates,
   }),
+  useStarterTemplate: () => ({ isLoading: false, data: state.starter }),
   useEmployees: () => ({ isLoading: false, data: state.employees }),
   useEmployeeDocuments: () => ({ isLoading: false, data: state.documents }),
   useDocumentStatus: () => ({ isLoading: false, data: state.documentStatus }),
@@ -32,17 +35,20 @@ vi.mock('./useOnboarding', () => ({
 vi.mock('./onboardingApi', () => ({
   startPlan: vi.fn(),
   createEmployee: vi.fn(),
+  createTemplate: vi.fn(),
+  getStarterTemplate: vi.fn(),
   completeStep: vi.fn(),
   waiveStep: vi.fn(),
   linkDocument: vi.fn(),
 }))
 
-import { completeStep, createEmployee, startPlan, waiveStep } from './onboardingApi'
+import { completeStep, createEmployee, createTemplate, startPlan, waiveStep } from './onboardingApi'
 import { OnboardingBoard } from './OnboardingBoard'
 import { OnboardingChecklist } from './OnboardingChecklist'
 
 const startPlanMock = vi.mocked(startPlan)
 const createEmployeeMock = vi.mocked(createEmployee)
+const createTemplateMock = vi.mocked(createTemplate)
 const completeStepMock = vi.mocked(completeStep)
 const waiveStepMock = vi.mocked(waiveStep)
 
@@ -115,8 +121,11 @@ beforeEach(() => {
   state.employees = []
   state.documents = []
   state.documentStatus = {}
+  state.templates = [{ id: 'tpl-1', name: 'Engineering onboarding', step_count: 6 }]
+  state.starter = null
   startPlanMock.mockReset()
   createEmployeeMock.mockReset()
+  createTemplateMock.mockReset()
   completeStepMock.mockReset()
   waiveStepMock.mockReset()
 })
@@ -186,6 +195,53 @@ describe('OnboardingBoard', () => {
     })
   })
 
+  it('offers the starter checklist when no template exists yet', async () => {
+    state.templates = []
+    state.starter = {
+      name: 'Engineering (PKWT/PKWTT) - starter',
+      description: 'Starter checklist',
+      applies_to_contract_types: [],
+      applies_to_roles: ['engineer'],
+      steps: [{ key: 'collect_ktp', title: 'Collect KTP', kind: 'document' }],
+    }
+    createTemplateMock.mockResolvedValue({
+      id: 'tpl-new',
+      name: 'Engineering (PKWT/PKWTT) - starter',
+      description: 'Starter checklist',
+      active: true,
+      applies_to_contract_types: [],
+      applies_to_roles: ['engineer'],
+      step_count: 1,
+    })
+    startPlanMock.mockResolvedValue({ status: 201, plan: plan({ id: 'plan-9' }) })
+    createEmployeeMock.mockResolvedValue(employee({ id: 'emp-9' }))
+
+    renderWithRouter(<OnboardingBoard />)
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('onboarding.startPlan') }))
+
+    expect(screen.getByText(i18n.t('onboarding.startDialog.noTemplates'))).toBeInTheDocument()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('onboarding.startDialog.createStarter') }),
+    )
+    expect(createTemplateMock).not.toHaveBeenCalled()
+
+    await userEvent.type(
+      screen.getByLabelText(i18n.t('onboarding.startDialog.createdBy')),
+      'Sinta Prabowo',
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('onboarding.startDialog.createStarter') }),
+    )
+
+    expect(createTemplateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        created_by: 'Sinta Prabowo',
+        steps: [expect.objectContaining({ key: 'collect_ktp' })],
+      }),
+    )
+  })
+
   it('refuses to start without a named person', async () => {
     state.employees = [employee()]
     startPlanMock.mockResolvedValue({ status: 201, plan: plan() })
@@ -247,16 +303,29 @@ describe('OnboardingChecklist', () => {
     })
   })
 
-  it('only offers a waiver for optional steps and demands a reason', async () => {
+  it('offers a waiver for every unfinished step and demands a reason', async () => {
     state.plans = [
       plan({
-        steps: [step({ key: 'swag', title: 'Send welcome swag', kind: 'task', required: false })],
+        steps: [
+          step({ key: 'swag', title: 'Send welcome swag', kind: 'task', required: false }),
+          step({ key: 'ktp' }),
+        ],
       }),
     ]
     waiveStepMock.mockResolvedValue({ status: 200, plan: plan() })
     renderWithRouter(<OnboardingChecklist />, route)
 
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('onboarding.actions.waive') }))
+    expect(
+      screen.getAllByRole('button', { name: i18n.t('onboarding.actions.waive') }),
+    ).toHaveLength(2)
+
+    const optionalRow = screen.getByText('Send welcome swag').closest('li')
+    expect(optionalRow).not.toBeNull()
+    await userEvent.click(
+      within(optionalRow as HTMLElement).getByRole('button', {
+        name: i18n.t('onboarding.actions.waive'),
+      }),
+    )
     await userEvent.type(screen.getByLabelText(i18n.t('onboarding.fields.by')), 'Sinta Prabowo')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('onboarding.actions.confirmWaive') }),
@@ -295,6 +364,15 @@ describe('OnboardingChecklist', () => {
     expect(
       screen.getAllByRole('button', { name: i18n.t('onboarding.actions.linkDocument') }),
     ).toHaveLength(1)
+  })
+
+  it('warns that waiving a required step is an audited exception', async () => {
+    state.plans = [plan()]
+    renderWithRouter(<OnboardingChecklist />, route)
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('onboarding.actions.waive') }))
+
+    expect(screen.getByText(i18n.t('onboarding.actions.requiredStepNotice'))).toBeInTheDocument()
   })
 
   it('asks for a plan before showing a checklist', () => {

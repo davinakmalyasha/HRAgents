@@ -2099,6 +2099,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/onboarding/templates/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Default Template
+         * @description The built-in starter checklist, ready to save as the operator's first template.
+         *
+         *     Served from the domain so the client never retypes the steps; creating a
+         *     template from it stays an explicit, named action.
+         */
+        get: operations["default_template_v1_onboarding_templates_default_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payroll/approvals/{approval_id}/sync": {
         parameters: {
             query?: never;
@@ -5427,6 +5450,25 @@ export interface components {
             /** Title */
             title: string;
         };
+        /**
+         * TemplateDraftView
+         * @description A ready-to-save starter template, served by the API (not stored yet).
+         *
+         *     Operators create a template from this draft, so the checklist definition
+         *     always comes from the domain rather than being retyped in the client.
+         */
+        TemplateDraftView: {
+            /** Applies To Contract Types */
+            applies_to_contract_types: components["schemas"]["ContractType"][];
+            /** Applies To Roles */
+            applies_to_roles: string[];
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+            /** Steps */
+            steps: components["schemas"]["hr_agents__api__onboarding_schemas__TemplateStepView"][];
+        };
         /** TemplateStepInput */
         TemplateStepInput: {
             /** @default hr_admin */
@@ -5456,7 +5498,7 @@ export interface components {
             title: string;
         };
         /** TemplateStepView */
-        TemplateStepView: {
+        "TemplateStepView-Input": {
             assignee_role: components["schemas"]["ApproverRole"];
             /** Description */
             description: string;
@@ -5823,7 +5865,25 @@ export interface components {
             /** Name */
             name: string;
             /** Steps */
-            steps: components["schemas"]["TemplateStepView"][];
+            steps: components["schemas"]["TemplateStepView-Input"][];
+        };
+        /** TemplateStepView */
+        hr_agents__api__offboarding_schemas__TemplateStepView: {
+            assignee_role: components["schemas"]["ApproverRole"];
+            /** Description */
+            description: string;
+            document_kind: components["schemas"]["DocumentKind"] | null;
+            /** Due Days Before Last Day */
+            due_days_before_last_day: number | null;
+            /** Key */
+            key: string;
+            kind: components["schemas"]["OffboardingStepKind"];
+            /** Required */
+            required: boolean;
+            /** Requires Human Signoff */
+            requires_human_signoff: boolean;
+            /** Title */
+            title: string;
         };
         /** TemplateView */
         hr_agents__api__offboarding_schemas__TemplateView: {
@@ -5843,7 +5903,7 @@ export interface components {
             /** Name */
             name: string;
             /** Steps */
-            steps: components["schemas"]["TemplateStepView"][];
+            steps: components["schemas"]["hr_agents__api__offboarding_schemas__TemplateStepView"][];
         };
         /** PlanView */
         hr_agents__api__onboarding_schemas__PlanView: {
@@ -5922,6 +5982,24 @@ export interface components {
             name: string;
             /** Steps */
             steps: components["schemas"]["TemplateStepInput"][];
+        };
+        /** TemplateStepView */
+        hr_agents__api__onboarding_schemas__TemplateStepView: {
+            assignee_role: components["schemas"]["ApproverRole"];
+            /** Description */
+            description: string;
+            document_kind: components["schemas"]["DocumentKind"] | null;
+            /** Due Days After Hire */
+            due_days_after_hire: number | null;
+            /** Key */
+            key: string;
+            kind: components["schemas"]["StepKind"];
+            /** Required */
+            required: boolean;
+            /** Requires Human Signoff */
+            requires_human_signoff: boolean;
+            /** Title */
+            title: string;
         };
         /** TemplateView */
         hr_agents__api__onboarding_schemas__TemplateView: {
@@ -11067,6 +11145,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["hr_agents__api__onboarding_schemas__TemplateView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    default_template_v1_onboarding_templates_default_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateDraftView"];
                 };
             };
             /** @description Validation Error */

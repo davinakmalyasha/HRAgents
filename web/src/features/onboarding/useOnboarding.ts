@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import {
   documentStatus,
+  getStarterTemplate,
   listEmployeeDocuments,
   listEmployees,
   listPlans,
@@ -20,6 +21,14 @@ export function useOnboardingTemplates(enabled: boolean) {
     queryKey: ['onboarding', 'templates'],
     enabled,
     queryFn: listTemplates,
+  })
+}
+
+export function useStarterTemplate(enabled: boolean) {
+  return useQuery({
+    queryKey: ['onboarding', 'template-draft'],
+    enabled,
+    queryFn: getStarterTemplate,
   })
 }
 

@@ -601,9 +601,10 @@
       "completeHint": "Records your name and closes the step for this plan.",
       "waiveTitle": "Waive checklist step",
       "waiveHint": "A waiver needs a reason and stays on the audit trail.",
-      "requiredStepNotice": "This step is required, so a waiver will be refused by the server.",
+      "requiredStepNotice": "This step is required: waiving it is an audited exception, recorded with your name and reason.",
       "confirmComplete": "Mark complete",
-      "confirmWaive": "Waive step"
+      "confirmWaive": "Waive step",
+      "conflict": "The server refused this change (the step may already be finished, or the plan is gone)."
     },
     "startDialog": {
       "title": "Start onboarding",
@@ -618,10 +619,13 @@
       "email": "Email",
       "jobTitle": "Job title",
       "template": "Template",
-      "templateDefault": "Engineering default",
+      "templateDefault": "Use the server default",
       "createdBy": "Started by",
       "createdByPlaceholder": "e.g. Sinta Prabowo",
-      "confirm": "Start onboarding"
+      "confirm": "Start onboarding",
+      "templatePlaceholder": "Select a template",
+      "createStarter": "Use starter checklist",
+      "noTemplates": "No template yet. Create the starter checklist (it comes from the server, not the browser)."
     },
     "linkDialog": {
       "title": "Link a document",

@@ -15,8 +15,8 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
-import { createEmployee, startPlan } from './onboardingApi'
-import { useEmployees, useOnboardingTemplates } from './useOnboarding'
+import { createEmployee, createTemplate, startPlan } from './onboardingApi'
+import { useEmployees, useOnboardingTemplates, useStarterTemplate } from './useOnboarding'
 
 const labelClass = 'text-ink-strong text-xs font-medium'
 
@@ -58,6 +58,7 @@ export function StartPlanDialog({
   const [, setSearchParams] = useSearchParams()
   const employees = useEmployees(open)
   const templates = useOnboardingTemplates(open)
+  const starter = useStarterTemplate(open && (templates.data ?? []).length === 0)
   const [mode, setMode] = useState<'existing' | 'new'>('existing')
   const [employeeId, setEmployeeId] = useState('')
   const [fullName, setFullName] = useState('')
@@ -68,6 +69,34 @@ export function StartPlanDialog({
   const [createdBy, setCreatedBy] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+
+  const hasTemplates = (templates.data ?? []).length > 0
+
+  async function seedStarterTemplate() {
+    const draft = starter.data
+    if (draft === null || draft === undefined || createdBy.trim() === '') {
+      setProblem(t('onboarding.errors.byRequired'))
+      return
+    }
+    setProblem(null)
+    setSeeding(true)
+    const created = await createTemplate({
+      name: draft.name,
+      description: draft.description,
+      created_by: createdBy.trim(),
+      applies_to_contract_types: draft.applies_to_contract_types,
+      applies_to_roles: draft.applies_to_roles,
+      steps: draft.steps,
+    })
+    setSeeding(false)
+    if (created === null) {
+      setProblem(errorFor(422, t))
+      return
+    }
+    setTemplateId(created.id)
+    await queryClient.invalidateQueries({ queryKey: ['onboarding', 'templates'] })
+  }
 
   function close(next: boolean) {
     if (!next) {
@@ -242,7 +271,7 @@ export function StartPlanDialog({
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="onboarding-template" className={labelClass}>
+            <label htmlFor="onboarding-template" className="text-ink-strong text-xs font-medium">
               {t('onboarding.startDialog.template')}
             </label>
             <div className="flex flex-wrap items-center gap-2">
@@ -252,19 +281,38 @@ export function StartPlanDialog({
                 onChange={(event) => setTemplateId(event.target.value)}
                 className="border-line bg-surface text-ink h-9 rounded-md border px-2 text-sm"
               >
-                <option value="">{t('onboarding.startDialog.templateDefault')}</option>
+                <option value="">
+                  {hasTemplates
+                    ? t('onboarding.startDialog.templatePlaceholder')
+                    : t('onboarding.startDialog.templateDefault')}
+                </option>
                 {(templates.data ?? []).map((template) => (
                   <option key={template.id} value={template.id}>
                     {template.name}
                   </option>
                 ))}
               </select>
-              {templates.data !== undefined && templates.data.length > 0 ? (
+              {hasTemplates ? (
                 <Badge variant="outline" className="text-2xs">
-                  {t('onboarding.templatesAvailable', { count: templates.data.length })}
+                  {t('onboarding.templatesAvailable', { count: (templates.data ?? []).length })}
                 </Badge>
+              ) : starter.data !== null && starter.data !== undefined ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  disabled={seeding}
+                  onClick={() => void seedStarterTemplate()}
+                >
+                  {t('onboarding.startDialog.createStarter')}
+                </Button>
               ) : null}
             </div>
+            {hasTemplates ? null : (
+              <span className="text-2xs text-ink-muted">
+                {t('onboarding.startDialog.noTemplates')}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">

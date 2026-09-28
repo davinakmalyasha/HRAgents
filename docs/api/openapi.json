@@ -8174,6 +8174,50 @@
         "title": "TaskView",
         "type": "object"
       },
+      "TemplateDraftView": {
+        "additionalProperties": false,
+        "description": "A ready-to-save starter template, served by the API (not stored yet).\n\nOperators create a template from this draft, so the checklist definition\nalways comes from the domain rather than being retyped in the client.",
+        "properties": {
+          "applies_to_contract_types": {
+            "items": {
+              "$ref": "#/components/schemas/ContractType"
+            },
+            "title": "Applies To Contract Types",
+            "type": "array"
+          },
+          "applies_to_roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Applies To Roles",
+            "type": "array"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/hr_agents__api__onboarding_schemas__TemplateStepView"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "applies_to_contract_types",
+          "applies_to_roles",
+          "steps"
+        ],
+        "title": "TemplateDraftView",
+        "type": "object"
+      },
       "TemplateStepInput": {
         "additionalProperties": false,
         "properties": {
@@ -8245,7 +8289,7 @@
         "title": "TemplateStepInput",
         "type": "object"
       },
-      "TemplateStepView": {
+      "TemplateStepView-Input": {
         "additionalProperties": false,
         "properties": {
           "assignee_role": {
@@ -9255,7 +9299,7 @@
           },
           "steps": {
             "items": {
-              "$ref": "#/components/schemas/TemplateStepView"
+              "$ref": "#/components/schemas/TemplateStepView-Input"
             },
             "minItems": 1,
             "title": "Steps",
@@ -9268,6 +9312,71 @@
           "created_by"
         ],
         "title": "TemplateCreate",
+        "type": "object"
+      },
+      "hr_agents__api__offboarding_schemas__TemplateStepView": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee_role": {
+            "$ref": "#/components/schemas/ApproverRole"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "document_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_days_before_last_day": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Days Before Last Day"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/OffboardingStepKind"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "requires_human_signoff": {
+            "title": "Requires Human Signoff",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "kind",
+          "description",
+          "document_kind",
+          "assignee_role",
+          "due_days_before_last_day",
+          "required",
+          "requires_human_signoff"
+        ],
+        "title": "TemplateStepView",
         "type": "object"
       },
       "hr_agents__api__offboarding_schemas__TemplateView": {
@@ -9306,7 +9415,7 @@
           },
           "steps": {
             "items": {
-              "$ref": "#/components/schemas/TemplateStepView"
+              "$ref": "#/components/schemas/hr_agents__api__offboarding_schemas__TemplateStepView"
             },
             "title": "Steps",
             "type": "array"
@@ -9552,6 +9661,71 @@
           "steps"
         ],
         "title": "TemplateCreate",
+        "type": "object"
+      },
+      "hr_agents__api__onboarding_schemas__TemplateStepView": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee_role": {
+            "$ref": "#/components/schemas/ApproverRole"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "document_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "due_days_after_hire": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Days After Hire"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/StepKind"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "requires_human_signoff": {
+            "title": "Requires Human Signoff",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "kind",
+          "description",
+          "document_kind",
+          "assignee_role",
+          "due_days_after_hire",
+          "required",
+          "requires_human_signoff"
+        ],
+        "title": "TemplateStepView",
         "type": "object"
       },
       "hr_agents__api__onboarding_schemas__TemplateView": {
@@ -19217,6 +19391,56 @@
           }
         },
         "summary": "Create Template",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/v1/onboarding/templates/default": {
+      "get": {
+        "description": "The built-in starter checklist, ready to save as the operator's first template.\n\nServed from the domain so the client never retypes the steps; creating a\ntemplate from it stays an explicit, named action.",
+        "operationId": "default_template_v1_onboarding_templates_default_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateDraftView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Default Template",
         "tags": [
           "onboarding"
         ]

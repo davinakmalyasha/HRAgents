@@ -126,11 +126,9 @@ function StepRow({
           <Button size="xs" onClick={() => onAction({ mode: 'complete', step })}>
             {t('onboarding.actions.complete')}
           </Button>
-          {step.required ? null : (
-            <Button size="xs" variant="outline" onClick={() => onAction({ mode: 'waive', step })}>
-              {t('onboarding.actions.waive')}
-            </Button>
-          )}
+          <Button size="xs" variant="outline" onClick={() => onAction({ mode: 'waive', step })}>
+            {t('onboarding.actions.waive')}
+          </Button>
         </div>
       )}
     </li>
@@ -139,8 +137,9 @@ function StepRow({
 
 /**
  * The checklist room: one plan at a time, ordered by what needs a human now.
- * Completing, waiving, and linking a document all record a named human; a
- * required step cannot be waived here (and the server would refuse it anyway).
+ * Completing, waiving, and linking a document all record a named human; a waiver
+ * always needs a reason, including for a required step — that is the audited
+ * escape hatch, not a silent skip.
  */
 export function OnboardingChecklist() {
   const { t } = useTranslation()

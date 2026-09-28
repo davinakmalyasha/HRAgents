@@ -13,6 +13,9 @@ export type StepWaiveRequest = components['schemas']['StepWaiveRequest']
 export type StepActionRequest = components['schemas']['StepActionRequest']
 export type StepLinkDocumentRequest = components['schemas']['StepLinkDocumentRequest']
 export type EmployeeCreate = components['schemas']['EmployeeCreate']
+export type TemplateCreate =
+  components['schemas']['hr_agents__api__onboarding_schemas__TemplateCreate']
+export type TemplateDraft = components['schemas']['TemplateDraftView']
 
 export interface PlanResult {
   status: number
@@ -36,6 +39,16 @@ export async function getPlan(planId: string): Promise<OnboardingPlan | null> {
 export async function listTemplates(): Promise<OnboardingTemplate[]> {
   const { data } = await api.GET('/v1/onboarding/templates')
   return data ?? []
+}
+
+export async function getStarterTemplate(): Promise<TemplateDraft | null> {
+  const { data } = await api.GET('/v1/onboarding/templates/default')
+  return data ?? null
+}
+
+export async function createTemplate(body: TemplateCreate): Promise<OnboardingTemplate | null> {
+  const { data, response } = await api.POST('/v1/onboarding/templates', { body })
+  return response.status === 201 ? (data ?? null) : null
 }
 
 export async function startPlan(body: PlanStartRequest): Promise<PlanResult> {

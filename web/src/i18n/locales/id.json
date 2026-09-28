@@ -601,9 +601,10 @@
       "completeHint": "Mencatat nama Anda dan menutup langkah pada rencana ini.",
       "waiveTitle": "Lewati langkah",
       "waiveHint": "Penglepasan wajib menyertakan alasan dan tercatat pada audit.",
-      "requiredStepNotice": "Langkah ini wajib, jadi server akan menolak penglepasan.",
+      "requiredStepNotice": "Langkah ini wajib: melepaskannya adalah pengecualian yang tercatat bersama nama dan alasan Anda.",
       "confirmComplete": "Tandai selesai",
-      "confirmWaive": "Lewati langkah"
+      "confirmWaive": "Lewati langkah",
+      "conflict": "Server menolak perubahan ini (langkah mungkin sudah selesai atau rencana sudah tidak ada)."
     },
     "startDialog": {
       "title": "Mulai onboarding",
@@ -618,10 +619,13 @@
       "email": "Email",
       "jobTitle": "Jabatan",
       "template": "Templat",
-      "templateDefault": "Default rekayasa",
+      "templateDefault": "Gunakan default server",
       "createdBy": "Dimulai oleh",
       "createdByPlaceholder": "mis. Sinta Prabowo",
-      "confirm": "Mulai onboarding"
+      "confirm": "Mulai onboarding",
+      "templatePlaceholder": "Pilih templat",
+      "createStarter": "Pakai daftar awal",
+      "noTemplates": "Belum ada templat. Buat daftar awal (berasal dari server, bukan peramban)."
     },
     "linkDialog": {
       "title": "Hubungkan dokumen",
