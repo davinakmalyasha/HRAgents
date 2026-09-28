@@ -40,6 +40,10 @@ class OnboardingError(RuntimeError):
     """Raised for invalid onboarding operations."""
 
 
+class OnboardingActorError(OnboardingError):
+    """Raised when the caller is not a named human (agent/system actors)."""
+
+
 def template_hash(template: OnboardingTemplate) -> str:
     """Stable content hash of a template (for audit reconstruction)."""
     material = template.model_dump_json(exclude={"id", "created_at", "updated_at"})
@@ -227,8 +231,8 @@ class OnboardingService:
         note: str | None = None,
     ) -> OnboardingPlan:
         """Complete a step as a human. Steps are human work items by default."""
-        if by.startswith("agent:"):
-            raise OnboardingError(
+        if not by.strip() or by.strip().startswith("agent:"):
+            raise OnboardingActorError(
                 "onboarding steps are completed by humans; agents use "
                 "auto_complete_document_step after validation"
             )
@@ -321,11 +325,11 @@ class OnboardingService:
         by: str,
         reason: str,
     ) -> OnboardingPlan:
-        """Waive a required step — a human decision, always audited."""
+        """Waive a step (required or not) — a human decision, always audited."""
         if not reason.strip():
             raise OnboardingError("waiving a step requires a reason")
-        if by.startswith("agent:"):
-            raise OnboardingError("waiving steps requires a named human")
+        if not by.strip() or by.strip().startswith("agent:"):
+            raise OnboardingActorError("waiving steps requires a named human")
         plan = self.get_plan(plan_id)
         step = self._require_step(plan, step_key)
         if step.complete:
