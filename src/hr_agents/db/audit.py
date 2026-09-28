@@ -1,9 +1,11 @@
 """Postgres-backed audit chain.
 
 Same hash-chain semantics as the in-memory ``AuditChain``; the chain lives in
-``audit_log`` so tamper evidence survives restarts. Appends read the current
-tail inside the transaction (single-writer per deployment; an advisory lock is
-tracked in the polish backlog).
+``audit_log`` so tamper evidence survives restarts. Appends take a transaction
+advisory lock before reading the tail, so two writers cannot claim the same
+``seq`` (``seq`` is the primary key, so a bypassed lock still cannot corrupt the
+chain — it just fails the append). Verification streams the chain in pages: it
+never holds the whole log in memory.
 """
 
 from __future__ import annotations
@@ -11,13 +13,23 @@ from __future__ import annotations
 from datetime import UTC
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.session import sync_session_scope
 from hr_agents.db.tables import AuditLog
 from hr_agents.models import AuditActor, AuditEntry
-from hr_agents.services.audit import AuditChain, verify_entries
+from hr_agents.services.audit import AuditChain, ChainCursor, chain_is_linked
+
+AUDIT_CHAIN_LOCK_ID = 918_273_645
+"""Advisory-lock key for the append path (PostgreSQL only)."""
+
+VERIFY_PAGE_SIZE = 500
+"""Entries per page while streaming verification."""
+
+
+def _is_postgres(session: Session) -> bool:
+    return session.get_bind().dialect.name == "postgresql"
 
 
 class DbAuditChain(AuditChain):
@@ -37,6 +49,11 @@ class DbAuditChain(AuditChain):
         payload: dict[str, Any] | None = None,
     ) -> AuditEntry:
         with sync_session_scope(self._session_factory) as session:
+            if _is_postgres(session):
+                session.execute(
+                    text("SELECT pg_advisory_xact_lock(:key)"),
+                    {"key": AUDIT_CHAIN_LOCK_ID},
+                )
             tail = session.execute(
                 select(AuditLog.seq, AuditLog.entry_hash).order_by(AuditLog.seq.desc()).limit(1)
             ).first()
@@ -83,7 +100,25 @@ class DbAuditChain(AuditChain):
             return row[0] if row is not None else None
 
     def verify(self) -> int:
-        return verify_entries(self.entries)
+        """Verify the chain page by page, returning the first invalid ``seq``.
+
+        The persisted chain grows without bound, so verification streams it
+        instead of materializing every entry.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            cursor = ChainCursor()
+            while True:
+                query = select(AuditLog).order_by(AuditLog.seq).limit(VERIFY_PAGE_SIZE)
+                if cursor.last_seq is not None:
+                    query = query.where(AuditLog.seq > cursor.last_seq)
+                rows = session.execute(query).scalars().all()
+                if not rows:
+                    return -1
+                for row in rows:
+                    entry = self._to_entry(row)
+                    if not chain_is_linked(entry, cursor):
+                        return entry.seq
+                    cursor = ChainCursor(expected_prev=entry.entry_hash, last_seq=entry.seq)
 
     @staticmethod
     def _to_entry(row: AuditLog) -> AuditEntry:

@@ -7,7 +7,8 @@ without cryptography infrastructure.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from hr_agents.models import ActorType, AuditActor, AuditEntry
@@ -17,15 +18,37 @@ class AuditChainError(RuntimeError):
     """Raised when a chain write would break integrity."""
 
 
+@dataclass(frozen=True)
+class ChainCursor:
+    """Carried state for streaming verification of a long chain."""
+
+    expected_prev: str | None = None
+    last_seq: int | None = None
+
+
+def chain_is_linked(entry: AuditEntry, cursor: ChainCursor) -> bool:
+    """Is this entry correctly linked to the one before it, given the cursor?"""
+    if entry.prev_hash != cursor.expected_prev:
+        return False
+    return entry.verify()
+
+
 def verify_entries(entries: Sequence[AuditEntry]) -> int:
     """Return -1 when the chain is intact, else the first invalid ``seq``."""
-    expected_prev: str | None = None
+    return verify_stream(entries)
+
+
+def verify_stream(entries: Iterable[AuditEntry]) -> int:
+    """Verify a chain of any length without materializing it.
+
+    Streaming matters because the persisted chain grows forever: a verification
+    pass that loads every entry turns a routine ops check into an OOM risk.
+    """
+    cursor = ChainCursor()
     for entry in entries:
-        if entry.prev_hash != expected_prev:
+        if not chain_is_linked(entry, cursor):
             return entry.seq
-        if not entry.verify():
-            return entry.seq
-        expected_prev = entry.entry_hash
+        cursor = ChainCursor(expected_prev=entry.entry_hash, last_seq=entry.seq)
     return -1
 
 
