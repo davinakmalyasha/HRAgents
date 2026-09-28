@@ -1,5 +1,35 @@
 name: hragents
 
+# One-command self-host: the API, the department clock, and the messaging bridge
+# on top of postgres (pgvector), redis, minio, and mailpit. Migrations run once
+# before the API starts; no cloud keys are required.
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: hragents:local
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  environment:
+    HRAGENTS_STORE_BACKEND: postgres
+    HRAGENTS_DATABASE_URL: postgresql+asyncpg://hragents:hragents@postgres:5432/hragents
+    HRAGENTS_REDIS_URL: redis://redis:6379/0
+    HRAGENTS_PROVIDER_QUEUE: queue.redis
+    HRAGENTS_PROVIDER_QUEUE_CONFIG: '{"redis_url":"redis://redis:6379/0"}'
+    HRAGENTS_S3_ENDPOINT_URL: http://minio:9000
+    HRAGENTS_S3_ACCESS_KEY: hragents
+    HRAGENTS_S3_SECRET_KEY: hragents123
+    HRAGENTS_S3_BUCKET: hragents-documents
+    # Mailpit is the local mail server: nothing leaves the machine.
+    HRAGENTS_MESSAGING_SANDBOX: "false"
+    HRAGENTS_SMTP_HOST: mailpit
+    HRAGENTS_SMTP_PORT: "1025"
+    HRAGENTS_SMTP_FROM: hragents@example.com
+  restart: unless-stopped
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -57,7 +87,75 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  # Migrations run to completion before anything serves traffic.
+  migrate:
+    <<: *app
+    container_name: hragents-migrate
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    container_name: hragents-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    volumes:
+      - documents:/app/data/documents
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  # The department clock: approvals, retention, expiries, SLA checks. The
+  # retention sweep purges on this schedule (see docs/plan/remaining-work.md).
+  scheduler:
+    <<: *app
+    container_name: hragents-scheduler
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - >-
+        while true; do
+          echo "[scheduler] $(date -u +%FT%TZ) run";
+          python scripts/run_scheduler.py --purge || echo "[scheduler] run failed (see above)";
+          sleep 900;
+        done
+
+  # The messaging bridge: poll the inbox for replies, carry queued messages.
+  # Messaging stays sandboxed until HRAGENTS_MESSAGING_SANDBOX=false is set here.
+  messaging:
+    <<: *app
+    container_name: hragents-messaging
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command:
+      - sh
+      - -c
+      - >-
+        while true; do
+          echo "[messaging] $(date -u +%FT%TZ) run";
+          python scripts/run_messaging.py || echo "[messaging] run failed (see above)";
+          sleep 300;
+        done
+
 volumes:
   pgdata:
   redisdata:
   miniodata:
+  documents:

@@ -13,7 +13,7 @@ technical work — see [Work with the author](#work-with-the-author).
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 
 **Status:** active development. Platform core, agents, recruitment API surface, and all
-Wave-1 department engines are operational (1014 tests, 93% coverage); the hiring dashboard
+Wave-1 department engines are operational (1046 tests, 93% coverage); the hiring dashboard
 workspaces are usable end-to-end, the department clock and email transport bridge are live,
 and the remaining workspaces, MCP layer, and public release are next. No public release yet —
 see the [remaining work plan](docs/plan/remaining-work.md).
@@ -119,6 +119,7 @@ landing/           public site (Next.js) — planned
 - [HR domain guide](docs/plan/hr-domain-guide.md) — how HR actually works, Indonesian specifics, glossary
 - [Literature review](docs/research/literature-review.md) — evidence base and design principles
 - [System architecture](docs/architecture/system-architecture.md) — pipeline, HITL flows, Mermaid diagrams
+- [Deployment & operations](docs/deployment.md) — self-host with Docker Compose, backups, runbooks
 - [HITL bounds](docs/architecture/hitl-bounds.md) — exact automation boundaries and anti-goals
 - [Benchmarks](docs/architecture/benchmarks.md) — measured performance
 

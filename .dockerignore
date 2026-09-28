@@ -1,0 +1,22 @@
+# Build context exclusions: keep the image small and secrets out of layers.
+.git
+.github
+.venv
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/node_modules
+**/coverage
+**/dist
+!web/dist
+.env
+.env.*
+!.env.example
+landing/
+docs/
+*.md
+!README.md
+web/.vite
+web/coverage
