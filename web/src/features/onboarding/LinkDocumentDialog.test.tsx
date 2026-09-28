@@ -42,7 +42,9 @@ function document(overrides: Partial<DocumentView> = {}): DocumentView {
     sha256: 'a'.repeat(64),
     status: 'verified',
     filename: 'ktp.pdf',
+    issued_on: null,
     expires_on: null,
+    days_to_expiry: null,
     ...overrides,
   }
 }

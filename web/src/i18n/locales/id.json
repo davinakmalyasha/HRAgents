@@ -655,5 +655,64 @@
       "invalid": "Sebagian detail tidak valid.",
       "failed": "Gagal menyimpan. Silakan coba lagi."
     }
+  },
+  "records": {
+    "orgTitle": "Data dan dokumen karyawan",
+    "orgChart": "Struktur organisasi",
+    "directory": "Direktori",
+    "noOrgUnits": "Belum ada unit organisasi. Buat lewat API atau seed data.",
+    "noEmployees": "Tidak ada karyawan pada tampilan ini.",
+    "noJobTitle": "Tanpa jabatan",
+    "clearFilter": "Tampilkan semua",
+    "headcount": "{{count}} orang",
+    "headcountTotal": "{{count}} di direktori",
+    "probation": "Masa uji sampai {{date}}",
+    "summaryPeople": "Karyawan",
+    "summaryContracts": "Kontrak",
+    "summaryDocuments": "Antrean kedaluwarsa",
+    "contractsActive": "kontrak aktif",
+    "expirySummary": "{{overdue}} kedaluwarsa · {{soon}} dalam {{days}} hari",
+    "vaultTitle": "Vault dokumen",
+    "vaultHint": "Peringatan kedaluwarsa lebih dulu. Memverifikasi atau menolak dokumen selalu mencatat nama yang memutuskan.",
+    "noDocuments": "Tidak ada dokumen yang akan kedaluwarsa. Tambahkan dokumen karyawan lewat API.",
+    "expiredCount": "Kedaluwarsa",
+    "expiringSoon": "Segera kedaluwarsa",
+    "noExpiry": "Tanpa kedaluwarsa",
+    "expiredDays": "Kedaluwarsa {{count}} hari lalu",
+    "expiresInDays": "Kedaluwarsa dalam {{count}} hari",
+    "verifier": "Diverifikasi oleh",
+    "verifierPlaceholder": "mis. Sinta Prabowo",
+    "verify": "Verifikasi",
+    "reject": "Tolak",
+    "status": {
+      "invited": "Diundang",
+      "onboarding": "Orientasi",
+      "probation": "Masa uji",
+      "active": "Aktif",
+      "notice_period": "Masa pemberitahuan",
+      "offboarded": "Selesai"
+    },
+    "documentKinds": {
+      "ktp": "KTP",
+      "npwp": "NPWP",
+      "bank_account": "Rekening bank",
+      "bpjs_kesehatan": "BPJS Kesehatan",
+      "bpjs_ketenagakerjaan": "BPJS Ketenagakerjaan",
+      "contract": "Kontrak",
+      "education_certificate": "Sertifikat pendidikan",
+      "other": "Lainnya"
+    },
+    "documentStatuses": {
+      "claimed": "Diunggah",
+      "verified": "Terverifikasi",
+      "unverified": "Belum diverifikasi",
+      "expired": "Kedaluwarsa",
+      "failed": "Ditolak"
+    },
+    "errors": {
+      "byRequired": "Nama orang wajib diisi sebelum dokumen dinilai.",
+      "forbidden": "Peran Anda tidak boleh memverifikasi dokumen.",
+      "failed": "Gagal menyimpan. Silakan coba lagi."
+    }
   }
 }

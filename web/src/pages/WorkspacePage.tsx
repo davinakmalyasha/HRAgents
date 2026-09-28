@@ -9,6 +9,7 @@ import { ReviewQueue } from '@/features/hiring/ReviewQueue'
 import { SchedulingView } from '@/features/hiring/SchedulingView'
 import { OnboardingBoard } from '@/features/onboarding/OnboardingBoard'
 import { OnboardingChecklist } from '@/features/onboarding/OnboardingChecklist'
+import { RecordsBoard, RecordsQueue } from '@/features/records/RecordsWorkspace'
 import { useWorkspaces, workspaceName } from '@/features/workspaces/useWorkspaces'
 import { isWorkspaceId, WORKSPACE_ICONS } from '@/lib/workspaces'
 
@@ -53,6 +54,8 @@ export function WorkspacePage() {
             <PipelineBoard />
           ) : workspaceId === 'onboarding' ? (
             <OnboardingBoard />
+          ) : workspaceId === 'records' ? (
+            <RecordsBoard />
           ) : (
             <EmptyState title={t('workspace.boardPlaceholder', { name })} />
           )
@@ -70,6 +73,8 @@ export function WorkspacePage() {
             </div>
           ) : workspaceId === 'onboarding' ? (
             <OnboardingChecklist />
+          ) : workspaceId === 'records' ? (
+            <RecordsQueue />
           ) : (
             <EmptyState title={t('workspace.queuePlaceholder')} />
           )

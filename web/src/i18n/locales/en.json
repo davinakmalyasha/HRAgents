@@ -655,5 +655,64 @@
       "invalid": "Some of those details are not valid.",
       "failed": "Could not save. Please try again."
     }
+  },
+  "records": {
+    "orgTitle": "People and records",
+    "orgChart": "Org chart",
+    "directory": "Directory",
+    "noOrgUnits": "No org units yet. Create one from the API or seed it.",
+    "noEmployees": "No employees in this view.",
+    "noJobTitle": "No job title",
+    "clearFilter": "Show everyone",
+    "headcount": "{{count}} people",
+    "headcountTotal": "{{count}} in the directory",
+    "probation": "Probation to {{date}}",
+    "summaryPeople": "People",
+    "summaryContracts": "Contracts",
+    "summaryDocuments": "Expiry queue",
+    "contractsActive": "active contracts",
+    "expirySummary": "{{overdue}} expired · {{soon}} within {{days}} days",
+    "vaultTitle": "Document vault",
+    "vaultHint": "Expiry alerts first. Verifying or rejecting a document always records the name of the person who decided.",
+    "noDocuments": "Nothing expiring. Add documents to an employee in the API to build the vault.",
+    "expiredCount": "Expired",
+    "expiringSoon": "Expiring soon",
+    "noExpiry": "No expiry",
+    "expiredDays": "Expired {{count}}d ago",
+    "expiresInDays": "Expires in {{count}}d",
+    "verifier": "Verified by",
+    "verifierPlaceholder": "e.g. Sinta Prabowo",
+    "verify": "Verify",
+    "reject": "Reject",
+    "status": {
+      "invited": "Invited",
+      "onboarding": "Onboarding",
+      "probation": "Probation",
+      "active": "Active",
+      "notice_period": "Notice period",
+      "offboarded": "Offboarded"
+    },
+    "documentKinds": {
+      "ktp": "National ID (KTP)",
+      "npwp": "Tax number (NPWP)",
+      "bank_account": "Bank account",
+      "bpjs_kesehatan": "Health insurance (BPJS)",
+      "bpjs_ketenagakerjaan": "Employment insurance (BPJS)",
+      "contract": "Contract",
+      "education_certificate": "Education certificate",
+      "other": "Other"
+    },
+    "documentStatuses": {
+      "claimed": "Uploaded",
+      "verified": "Verified",
+      "unverified": "Unverified",
+      "expired": "Expired",
+      "failed": "Rejected"
+    },
+    "errors": {
+      "byRequired": "A named person is required before a document can be judged.",
+      "forbidden": "Your role cannot verify documents.",
+      "failed": "Could not save. Please try again."
+    }
   }
 }
