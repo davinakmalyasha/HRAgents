@@ -101,8 +101,44 @@ def test_agent_step_completion_rejected_via_api() -> None:
             json={"by": "agent:onboarding_coordinator"},
         )
 
-    assert response.status_code == 409
+    # An agent actor is a permission problem, not a state conflict.
+    assert response.status_code == 403
     assert "completed by humans" in response.json()["title"]
+
+
+def test_agent_cannot_waive_and_a_required_step_can_still_be_waived() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        template = create_template(client)
+        plan = client.post(
+            "/v1/onboarding/plans",
+            json={
+                "employee_id": employee["id"],
+                "created_by": "hr-admin",
+                "template_id": template["id"],
+            },
+        ).json()
+
+        agent = client.post(
+            f"/v1/onboarding/plans/{plan['id']}/steps/collect_ktp/waive",
+            json={"by": "agent:onboarding_coordinator", "reason": "skip it"},
+        )
+        waived = client.post(
+            f"/v1/onboarding/plans/{plan['id']}/steps/collect_ktp/waive",
+            json={"by": "Sinta Prabowo", "reason": "document submitted offline"},
+        )
+        blank = client.post(
+            f"/v1/onboarding/plans/{plan['id']}/steps/sign_contract/waive",
+            json={"by": "Sinta Prabowo", "reason": "   "},
+        )
+
+    assert agent.status_code == 403
+    assert waived.status_code == 200
+    assert any(
+        step["key"] == "collect_ktp" and step["status"] == "waived"
+        for step in waived.json()["steps"]
+    )
+    assert blank.status_code == 422
 
 
 def test_document_link_and_status_via_api() -> None:
@@ -199,6 +235,60 @@ def test_templates_listing() -> None:
     assert response.status_code == 200
     assert len(response.json()) == 1
     assert response.json()[0]["step_count"] == 2
+
+
+def test_starter_template_is_served_and_saves_as_a_template() -> None:
+    with make_client() as client:
+        draft = client.get("/v1/onboarding/templates/default")
+        body = draft.json()
+        created = client.post(
+            "/v1/onboarding/templates",
+            json={
+                "name": body["name"],
+                "description": body["description"],
+                "created_by": "hr-admin",
+                "applies_to_contract_types": body["applies_to_contract_types"],
+                "applies_to_roles": body["applies_to_roles"],
+                "steps": body["steps"],
+            },
+        )
+        listed = client.get("/v1/onboarding/templates")
+
+    assert draft.status_code == 200
+    assert len(body["steps"]) > 0
+    assert {step["key"] for step in body["steps"]} >= {"collect_ktp", "sign_contract"}
+    assert created.status_code == 201, created.text
+    assert listed.json()[0]["step_count"] == len(body["steps"])
+
+
+def test_creating_a_template_from_the_starter_unblocks_starting_a_plan() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        blocked = client.post(
+            "/v1/onboarding/plans",
+            json={"employee_id": employee["id"], "created_by": "hr-admin"},
+        )
+        draft = client.get("/v1/onboarding/templates/default").json()
+        client.post(
+            "/v1/onboarding/templates",
+            json={
+                "name": draft["name"],
+                "description": draft["description"],
+                "created_by": "hr-admin",
+                "applies_to_contract_types": draft["applies_to_contract_types"],
+                "applies_to_roles": draft["applies_to_roles"],
+                "steps": draft["steps"],
+            },
+        )
+        started = client.post(
+            "/v1/onboarding/plans",
+            json={"employee_id": employee["id"], "created_by": "hr-admin"},
+        )
+
+    assert blocked.status_code == 409
+    assert "provide template_id" in blocked.json()["title"]
+    assert started.status_code == 201, started.text
+    assert len(started.json()["steps"]) > 0
 
 
 def test_onboarding_due_date_math() -> None:
