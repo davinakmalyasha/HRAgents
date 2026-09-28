@@ -13,7 +13,7 @@ technical work — see [Work with the author](#work-with-the-author).
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 
 **Status:** active development. Platform core, agents, recruitment API surface, and all
-Wave-1 department engines are operational (1050 tests, 93% coverage); the hiring dashboard
+Wave-1 department engines are operational (1053 tests, 93% coverage); the hiring dashboard
 workspaces are usable end-to-end, the department clock and email transport bridge are live,
 and the remaining workspaces, MCP layer, and public release are next. No public release yet —
 see the [remaining work plan](docs/plan/remaining-work.md).

@@ -2,7 +2,7 @@
 
 Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **1050 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
+cross-workspace handoff) is built and tested: **1053 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
 The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
 plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
 the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
@@ -154,8 +154,10 @@ documented.
       named-human approvers, full body review before dispatch, `mark sent` evidence, history,
       the transport state the backend records (recipient, provider, attempts, last error), the
       inbound replies the mailbox poll captured, and a wa.me link composer for WhatsApp messages
-      (the human opens it, sends, then records dispatch). Still open: a pre-queue preview
-      endpoint and the Meta Cloud WhatsApp transport
+      (the human opens it, sends, then records dispatch). A pre-queue preview
+      endpoint now renders the exact rejection message and lists the gates that
+      block it, and the panel makes that a two-step (preview, then queue). Still
+      open: the Meta Cloud WhatsApp transport
 - [x] Job management: create/edit dialog, status lifecycle with a named actor, dimension-weight
       editor with inline sum-to-1.0 validation (`/w/hiring/jobs`)
 - [x] Offer records (application detail): terms with append-only revisions, submit → shared
