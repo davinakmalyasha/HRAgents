@@ -7,6 +7,8 @@ import { ChatPanel } from '@/features/chat/ChatPanel'
 import { PipelineBoard } from '@/features/hiring/PipelineBoard'
 import { ReviewQueue } from '@/features/hiring/ReviewQueue'
 import { SchedulingView } from '@/features/hiring/SchedulingView'
+import { OnboardingBoard } from '@/features/onboarding/OnboardingBoard'
+import { OnboardingChecklist } from '@/features/onboarding/OnboardingChecklist'
 import { useWorkspaces, workspaceName } from '@/features/workspaces/useWorkspaces'
 import { isWorkspaceId, WORKSPACE_ICONS } from '@/lib/workspaces'
 
@@ -49,6 +51,8 @@ export function WorkspacePage() {
         board={
           workspaceId === 'hiring' ? (
             <PipelineBoard />
+          ) : workspaceId === 'onboarding' ? (
+            <OnboardingBoard />
           ) : (
             <EmptyState title={t('workspace.boardPlaceholder', { name })} />
           )
@@ -64,6 +68,8 @@ export function WorkspacePage() {
               </section>
               <SchedulingView />
             </div>
+          ) : workspaceId === 'onboarding' ? (
+            <OnboardingChecklist />
           ) : (
             <EmptyState title={t('workspace.queuePlaceholder')} />
           )

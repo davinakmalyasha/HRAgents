@@ -1,16 +1,39 @@
 {
-  "app": { "name": "HRAgents" },
-  "nav": { "home": "Beranda", "workspaces": "Ruang kerja" },
+  "app": {
+    "name": "HRAgents"
+  },
+  "nav": {
+    "home": "Beranda",
+    "workspaces": "Ruang kerja"
+  },
   "workspaces": {
-    "hiring": { "name": "Perekrutan" },
-    "policy": { "name": "Tanya HR" },
-    "onboarding": { "name": "Orientasi" },
-    "records": { "name": "Kepegawaian" },
-    "leave": { "name": "Cuti" },
-    "payroll": { "name": "Penggajian" },
-    "growth": { "name": "Pengembangan" },
-    "offboarding": { "name": "Offboarding" },
-    "compliance": { "name": "Kepatuhan" }
+    "hiring": {
+      "name": "Perekrutan"
+    },
+    "policy": {
+      "name": "Tanya HR"
+    },
+    "onboarding": {
+      "name": "Orientasi"
+    },
+    "records": {
+      "name": "Kepegawaian"
+    },
+    "leave": {
+      "name": "Cuti"
+    },
+    "payroll": {
+      "name": "Penggajian"
+    },
+    "growth": {
+      "name": "Pengembangan"
+    },
+    "offboarding": {
+      "name": "Offboarding"
+    },
+    "compliance": {
+      "name": "Kepatuhan"
+    }
   },
   "home": {
     "needsYou": "Perlu Anda hari ini",
@@ -18,8 +41,16 @@
     "watching": "Dipantau",
     "watchingEmpty": "Belum ada pekerjaan berjalan."
   },
-  "rooms": { "board": "Papan", "queue": "Antrean", "chat": "Obrolan" },
-  "status": { "waiting": "Menunggu manusia", "error": "Terlambat", "done": "Terverifikasi" },
+  "rooms": {
+    "board": "Papan",
+    "queue": "Antrean",
+    "chat": "Obrolan"
+  },
+  "status": {
+    "waiting": "Menunggu manusia",
+    "error": "Terlambat",
+    "done": "Terverifikasi"
+  },
   "workspace": {
     "boardPlaceholder": "Papan {name} hadir pada tahap berikutnya.",
     "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini."
@@ -127,8 +158,18 @@
       "savedByPlaceholder": "mis. Sinta Prabowo"
     },
     "weightsTotal": "Total: {{total}}",
-    "status": { "draft": "Draf", "open": "Dibuka", "paused": "Dijeda", "closed": "Ditutup" },
-    "actions": { "open": "Buka", "pause": "Jeda", "close": "Tutup", "reopen": "Buka lagi" },
+    "status": {
+      "draft": "Draf",
+      "open": "Dibuka",
+      "paused": "Dijeda",
+      "closed": "Ditutup"
+    },
+    "actions": {
+      "open": "Buka",
+      "pause": "Jeda",
+      "close": "Tutup",
+      "reopen": "Buka lagi"
+    },
     "transitionTitle": "Ubah status lowongan",
     "transitionBody": "{{action}} \"{{title}}\"?",
     "transitionBy": "Diubah oleh",
@@ -340,9 +381,19 @@
     "replyFrom": "Dari {{address}}",
     "replyVia": "melalui {{provider}}",
     "replyNoSubject": "(tanpa subjek)",
-    "kinds": { "rejection": "Penolakan", "offer": "Tawaran" },
-    "statuses": { "queued": "Siap dikirim", "sent": "Terkirim", "cancelled": "Dibatalkan" },
-    "languages": { "en": "Inggris", "id": "Bahasa Indonesia" },
+    "kinds": {
+      "rejection": "Penolakan",
+      "offer": "Tawaran"
+    },
+    "statuses": {
+      "queued": "Siap dikirim",
+      "sent": "Terkirim",
+      "cancelled": "Dibatalkan"
+    },
+    "languages": {
+      "en": "Inggris",
+      "id": "Bahasa Indonesia"
+    },
     "channels": {
       "email": "Email",
       "whatsapp": "WhatsApp",
@@ -466,10 +517,139 @@
       "failed": "Gagal memindahkan kartu. Silakan coba lagi."
     }
   },
-  "notFound": { "title": "Halaman tidak ditemukan", "back": "Kembali ke beranda" },
+  "notFound": {
+    "title": "Halaman tidak ditemukan",
+    "back": "Kembali ke beranda"
+  },
   "common": {
     "language": "Bahasa",
     "toggleTheme": "Ubah tema warna",
     "changeLanguage": "Ubah bahasa"
+  },
+  "onboarding": {
+    "plansTitle": "Rencana onboarding",
+    "boardHint": "Kandidat yang terblokir dan terlambat didahulukan. Memulai rencana mencatat siapa yang memulai.",
+    "emptyPlans": "Belum ada onboarding berjalan.",
+    "startPlan": "Mulai onboarding",
+    "progressLabel": "Progres daftar periksa",
+    "openSteps": "terbuka · {{count}}",
+    "blockerCount": "{{count}} penghambat",
+    "startedAt": "Dimulai {{date}}",
+    "openChecklist": "Buka daftar periksa",
+    "planComplete": "Selesai",
+    "inProgress": "Berjalan",
+    "blocked": "Terblokir",
+    "overdue": "Terlambat",
+    "requiresSignoff": "Perlu persetujuan",
+    "due": "Jatuh tempo {{date}}",
+    "wantsDocument": "Perlu {{kind}}",
+    "expires": "Kedaluwarsa {{date}}",
+    "blockerNotice": "{{count}} langkah menghambat rencana ini.",
+    "templatesAvailable": "{{count}} templat",
+    "stepStatuses": {
+      "pending": "Menunggu",
+      "in_progress": "Berjalan",
+      "blocked": "Terblokir",
+      "done": "Selesai",
+      "waived": "Dilewati"
+    },
+    "stepKinds": {
+      "document": "Dokumen",
+      "task": "Tugas",
+      "contract": "Kontrak",
+      "account_setup": "Pembuatan akun",
+      "orientation": "Orientasi",
+      "confirmation": "Konfirmasi"
+    },
+    "documentKinds": {
+      "ktp": "Kartu tanda penduduk (KTP)",
+      "npwp": "Nomor pajak (NPWP)",
+      "bank_account": "Rekening bank",
+      "bpjs_kesehatan": "Asuransi kesehatan (BPJS)",
+      "bpjs_ketenagakerjaan": "Asuransi ketenagakerjaan (BPJS)",
+      "contract": "Kontrak",
+      "education_certificate": "Sertifikat pendidikan",
+      "other": "Lainnya"
+    },
+    "documentStatuses": {
+      "claimed": "Diunggah",
+      "verified": "Terverifikasi",
+      "unverified": "Belum terverifikasi",
+      "expired": "Kedaluwarsa",
+      "failed": "Ditolak"
+    },
+    "roles": {
+      "hr_admin": "Admin HR",
+      "recruiter_lead": "Kepala rekrutmen",
+      "engineering_lead": "Kepala rekayasa",
+      "finance": "Keuangan",
+      "manager": "Manajer",
+      "data_protection": "Perlindungan data"
+    },
+    "checklist": {
+      "title": "Daftar periksa onboarding",
+      "hint": "Diurutkan sesuai yang perlu ditangani manusia: terlambat, dokumen, lalu tugas.",
+      "empty": "Pilih rencana untuk menjalankan daftar periksa.",
+      "pickPlan": "Rencana",
+      "pickPlanPlaceholder": "Pilih rencana"
+    },
+    "actions": {
+      "complete": "Selesaikan",
+      "waive": "Lewati",
+      "linkDocument": "Hubungkan dokumen",
+      "completeTitle": "Selesaikan langkah",
+      "completeHint": "Mencatat nama Anda dan menutup langkah pada rencana ini.",
+      "waiveTitle": "Lewati langkah",
+      "waiveHint": "Penglepasan wajib menyertakan alasan dan tercatat pada audit.",
+      "requiredStepNotice": "Langkah ini wajib, jadi server akan menolak penglepasan.",
+      "confirmComplete": "Tandai selesai",
+      "confirmWaive": "Lewati langkah"
+    },
+    "startDialog": {
+      "title": "Mulai onboarding",
+      "hint": "Pilih karyawan yang ada atau tambahkan yang baru di sini. Rencana mencatat siapa yang memulai.",
+      "hireSource": "Siapa yang di-onboarding?",
+      "existingHire": "Karyawan ada",
+      "newHire": "Karyawan baru",
+      "employee": "Karyawan",
+      "employeePlaceholder": "Pilih karyawan",
+      "fullName": "Nama lengkap",
+      "hireDate": "Tanggal masuk",
+      "email": "Email",
+      "jobTitle": "Jabatan",
+      "template": "Templat",
+      "templateDefault": "Default rekayasa",
+      "createdBy": "Dimulai oleh",
+      "createdByPlaceholder": "mis. Sinta Prabowo",
+      "confirm": "Mulai onboarding"
+    },
+    "linkDialog": {
+      "title": "Hubungkan dokumen",
+      "hint": "Pilih dokumen yang sudah tersimpan untuk karyawan ini; onboarding tidak mengunggah berkas.",
+      "noDocuments": "Belum ada dokumen. Tambahkan di workspace Records.",
+      "confirm": "Hubungkan dokumen"
+    },
+    "fields": {
+      "by": "Ditangani oleh",
+      "byPlaceholder": "mis. Sinta Prabowo",
+      "reason": "Alasan",
+      "reasonHint": "Wajib. Tersimpan pada rantai audit bersama nama Anda.",
+      "note": "Catatan",
+      "linkedBy": "Dihubungkan oleh"
+    },
+    "errors": {
+      "byRequired": "Nama orang wajib diisi.",
+      "employeeRequired": "Pilih karyawan yang akan di-onboarding.",
+      "nameRequired": "Nama lengkap wajib diisi.",
+      "reasonRequired": "Penglepasan wajib menyertakan alasan.",
+      "documentRequired": "Pilih dokumen yang akan dihubungkan.",
+      "documentNotFound": "Dokumen itu sudah tidak ada.",
+      "employeeNotFound": "Karyawan itu sudah tidak ada.",
+      "planNotFound": "Rencana itu sudah tidak ada.",
+      "forbidden": "Peran Anda tidak boleh mengubah langkah onboarding.",
+      "conflict": "Server menolak perubahan ini (langkah wajib tidak boleh dilewati).",
+      "invalid": "Sebagian detail tidak valid.",
+      "failed": "Gagal menyimpan. Silakan coba lagi."
+    }
   }
 }

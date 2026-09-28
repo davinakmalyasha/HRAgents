@@ -1,16 +1,39 @@
 {
-  "app": { "name": "HRAgents" },
-  "nav": { "home": "Home", "workspaces": "Workspaces" },
+  "app": {
+    "name": "HRAgents"
+  },
+  "nav": {
+    "home": "Home",
+    "workspaces": "Workspaces"
+  },
   "workspaces": {
-    "hiring": { "name": "Hiring" },
-    "policy": { "name": "Ask HR" },
-    "onboarding": { "name": "Onboarding" },
-    "records": { "name": "People" },
-    "leave": { "name": "Leave" },
-    "payroll": { "name": "Payroll" },
-    "growth": { "name": "Growth" },
-    "offboarding": { "name": "Offboarding" },
-    "compliance": { "name": "Compliance" }
+    "hiring": {
+      "name": "Hiring"
+    },
+    "policy": {
+      "name": "Ask HR"
+    },
+    "onboarding": {
+      "name": "Onboarding"
+    },
+    "records": {
+      "name": "People"
+    },
+    "leave": {
+      "name": "Leave"
+    },
+    "payroll": {
+      "name": "Payroll"
+    },
+    "growth": {
+      "name": "Growth"
+    },
+    "offboarding": {
+      "name": "Offboarding"
+    },
+    "compliance": {
+      "name": "Compliance"
+    }
   },
   "home": {
     "needsYou": "Needs you today",
@@ -18,8 +41,16 @@
     "watching": "Watching",
     "watchingEmpty": "No work in flight yet."
   },
-  "rooms": { "board": "Board", "queue": "Queue", "chat": "Chat" },
-  "status": { "waiting": "Awaiting human", "error": "Overdue", "done": "Verified" },
+  "rooms": {
+    "board": "Board",
+    "queue": "Queue",
+    "chat": "Chat"
+  },
+  "status": {
+    "waiting": "Awaiting human",
+    "error": "Overdue",
+    "done": "Verified"
+  },
   "workspace": {
     "boardPlaceholder": "The {name} board lands in a later slice.",
     "queuePlaceholder": "Decisions waiting on you will appear here."
@@ -127,8 +158,18 @@
       "savedByPlaceholder": "e.g. Sinta Prabowo"
     },
     "weightsTotal": "Total: {{total}}",
-    "status": { "draft": "Draft", "open": "Open", "paused": "Paused", "closed": "Closed" },
-    "actions": { "open": "Open", "pause": "Pause", "close": "Close", "reopen": "Reopen" },
+    "status": {
+      "draft": "Draft",
+      "open": "Open",
+      "paused": "Paused",
+      "closed": "Closed"
+    },
+    "actions": {
+      "open": "Open",
+      "pause": "Pause",
+      "close": "Close",
+      "reopen": "Reopen"
+    },
     "transitionTitle": "Change job status",
     "transitionBody": "{{action}} \"{{title}}\"?",
     "transitionBy": "Changed by",
@@ -340,9 +381,19 @@
     "replyFrom": "From {{address}}",
     "replyVia": "via {{provider}}",
     "replyNoSubject": "(no subject)",
-    "kinds": { "rejection": "Rejection", "offer": "Offer" },
-    "statuses": { "queued": "Ready to send", "sent": "Sent", "cancelled": "Cancelled" },
-    "languages": { "en": "English", "id": "Bahasa Indonesia" },
+    "kinds": {
+      "rejection": "Rejection",
+      "offer": "Offer"
+    },
+    "statuses": {
+      "queued": "Ready to send",
+      "sent": "Sent",
+      "cancelled": "Cancelled"
+    },
+    "languages": {
+      "en": "English",
+      "id": "Bahasa Indonesia"
+    },
     "channels": {
       "email": "Email",
       "whatsapp": "WhatsApp",
@@ -466,10 +517,139 @@
       "failed": "Could not move the card. Please try again."
     }
   },
-  "notFound": { "title": "Page not found", "back": "Back to home" },
+  "notFound": {
+    "title": "Page not found",
+    "back": "Back to home"
+  },
   "common": {
     "language": "Language",
     "toggleTheme": "Toggle color theme",
     "changeLanguage": "Change language"
+  },
+  "onboarding": {
+    "plansTitle": "Onboarding plans",
+    "boardHint": "Blocked and overdue hires first. Starting a plan records who created it.",
+    "emptyPlans": "No onboarding in flight yet.",
+    "startPlan": "Start onboarding",
+    "progressLabel": "Checklist progress",
+    "openSteps": "open · {{count}}",
+    "blockerCount": "{{count}} blocker(s)",
+    "startedAt": "Started {{date}}",
+    "openChecklist": "Open checklist",
+    "planComplete": "Complete",
+    "inProgress": "In progress",
+    "blocked": "Blocked",
+    "overdue": "Overdue",
+    "requiresSignoff": "Needs sign-off",
+    "due": "Due {{date}}",
+    "wantsDocument": "Needs {{kind}}",
+    "expires": "Expires {{date}}",
+    "blockerNotice": "{{count}} step(s) are blocking this plan.",
+    "templatesAvailable": "{{count}} template(s)",
+    "stepStatuses": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "blocked": "Blocked",
+      "done": "Done",
+      "waived": "Waived"
+    },
+    "stepKinds": {
+      "document": "Document",
+      "task": "Task",
+      "contract": "Contract",
+      "account_setup": "Account setup",
+      "orientation": "Orientation",
+      "confirmation": "Confirmation"
+    },
+    "documentKinds": {
+      "ktp": "National ID (KTP)",
+      "npwp": "Tax number (NPWP)",
+      "bank_account": "Bank account",
+      "bpjs_kesehatan": "Health insurance (BPJS)",
+      "bpjs_ketenagakerjaan": "Employment insurance (BPJS)",
+      "contract": "Contract",
+      "education_certificate": "Education certificate",
+      "other": "Other"
+    },
+    "documentStatuses": {
+      "claimed": "Uploaded",
+      "verified": "Verified",
+      "unverified": "Unverified",
+      "expired": "Expired",
+      "failed": "Rejected"
+    },
+    "roles": {
+      "hr_admin": "HR admin",
+      "recruiter_lead": "Recruiting lead",
+      "engineering_lead": "Engineering lead",
+      "finance": "Finance",
+      "manager": "Manager",
+      "data_protection": "Data protection"
+    },
+    "checklist": {
+      "title": "Onboarding checklist",
+      "hint": "Ordered by what needs a human now: overdue work, then documents, then tasks.",
+      "empty": "Pick a plan to work through its checklist.",
+      "pickPlan": "Plan",
+      "pickPlanPlaceholder": "Select a plan"
+    },
+    "actions": {
+      "complete": "Complete",
+      "waive": "Waive",
+      "linkDocument": "Link document",
+      "completeTitle": "Complete checklist step",
+      "completeHint": "Records your name and closes the step for this plan.",
+      "waiveTitle": "Waive checklist step",
+      "waiveHint": "A waiver needs a reason and stays on the audit trail.",
+      "requiredStepNotice": "This step is required, so a waiver will be refused by the server.",
+      "confirmComplete": "Mark complete",
+      "confirmWaive": "Waive step"
+    },
+    "startDialog": {
+      "title": "Start onboarding",
+      "hint": "Pick an existing hire or add the new one here. The plan records who started it.",
+      "hireSource": "Who is onboarding?",
+      "existingHire": "Existing hire",
+      "newHire": "New hire",
+      "employee": "Employee",
+      "employeePlaceholder": "Select an employee",
+      "fullName": "Full name",
+      "hireDate": "Hire date",
+      "email": "Email",
+      "jobTitle": "Job title",
+      "template": "Template",
+      "templateDefault": "Engineering default",
+      "createdBy": "Started by",
+      "createdByPlaceholder": "e.g. Sinta Prabowo",
+      "confirm": "Start onboarding"
+    },
+    "linkDialog": {
+      "title": "Link a document",
+      "hint": "Pick a document already on file for this hire; onboarding never uploads files.",
+      "noDocuments": "No documents on file yet. Add them in the Records workspace.",
+      "confirm": "Link document"
+    },
+    "fields": {
+      "by": "Handled by",
+      "byPlaceholder": "e.g. Sinta Prabowo",
+      "reason": "Reason",
+      "reasonHint": "Required. Stored on the audit chain with your name.",
+      "note": "Note",
+      "linkedBy": "Linked by"
+    },
+    "errors": {
+      "byRequired": "A named person is required.",
+      "employeeRequired": "Pick an employee to onboard.",
+      "nameRequired": "A full name is required.",
+      "reasonRequired": "A waiver needs a reason.",
+      "documentRequired": "Pick a document to link.",
+      "documentNotFound": "That document no longer exists.",
+      "employeeNotFound": "That employee no longer exists.",
+      "planNotFound": "That plan no longer exists.",
+      "forbidden": "Your role cannot change onboarding steps.",
+      "conflict": "The server refused this change (a required step cannot be waived).",
+      "invalid": "Some of those details are not valid.",
+      "failed": "Could not save. Please try again."
+    }
   }
 }
