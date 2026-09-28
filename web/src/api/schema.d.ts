@@ -825,10 +825,34 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Documents
+         * @description The document vault, soonest expiry first, with the records filters.
+         */
+        get: operations["list_documents_v1_documents_get"];
         put?: never;
         /** Upload a source document (CV, portfolio, questionnaire) */
         post: operations["upload_document_v1_documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/documents/{document_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Document
+         * @description Mark a document verified or rejected; only a named human may judge one.
+         */
+        post: operations["verify_document_v1_documents__document_id__verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2133,6 +2157,27 @@ export interface paths {
         get: operations["default_template_v1_onboarding_templates_default_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/org-units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Org Units
+         * @description Org units with their direct headcount (the workspace nests them itself).
+         */
+        get: operations["list_org_units_v1_org_units_get"];
+        put?: never;
+        /** Create Org Unit */
+        post: operations["create_org_unit_v1_org_units_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3576,8 +3621,23 @@ export interface components {
             /** Size Bytes */
             size_bytes: number;
         };
+        /**
+         * DocumentVerifyRequest
+         * @description Verification is a human judgement about a document, never an agent's.
+         */
+        DocumentVerifyRequest: {
+            /**
+             * Verified
+             * @default true
+             */
+            verified: boolean;
+            /** Verified By */
+            verified_by: string;
+        };
         /** DocumentView */
         DocumentView: {
+            /** Days To Expiry */
+            days_to_expiry: number | null;
             /**
              * Employee Id
              * Format: uuid
@@ -3592,6 +3652,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Issued On */
+            issued_on: string | null;
             kind: components["schemas"]["DocumentKind"];
             /** Sha256 */
             sha256: string;
@@ -4612,6 +4674,38 @@ export interface components {
              */
             updated_at: string;
         };
+        /** OrgUnitCreate */
+        OrgUnitCreate: {
+            /** Cost Center */
+            cost_center?: string | null;
+            /** Created By */
+            created_by: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+        };
+        /** OrgUnitView */
+        OrgUnitView: {
+            /** Children */
+            children?: components["schemas"]["OrgUnitView"][];
+            /** Cost Center */
+            cost_center: string | null;
+            /**
+             * Headcount
+             * @default 0
+             */
+            headcount: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id: string | null;
+        };
         /** OverdueStepView */
         OverdueStepView: {
             /**
@@ -5594,6 +5688,12 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * VerificationStatus
+         * @description Verification state of a claimed credential or fact.
+         * @enum {string}
+         */
+        VerificationStatus: "claimed" | "unverified" | "verified" | "failed" | "expired";
         /**
          * WhatsappDispatchLinkRequest
          * @description Ask the manual-links transport to compose a wa.me link for a queued message.
@@ -7973,6 +8073,41 @@ export interface operations {
             };
         };
     };
+    list_documents_v1_documents_get: {
+        parameters: {
+            query?: {
+                employee_id?: string | null;
+                expiring_within_days?: number | null;
+                status?: components["schemas"]["VerificationStatus"] | null;
+            };
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     upload_document_v1_documents_post: {
         parameters: {
             query?: never;
@@ -7995,6 +8130,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_document_v1_documents__document_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentView"];
                 };
             };
             /** @description Validation Error */
@@ -11213,6 +11385,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TemplateDraftView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_org_units_v1_org_units_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgUnitView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_org_unit_v1_org_units_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-API-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrgUnitCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgUnitView"];
                 };
             };
             /** @description Validation Error */

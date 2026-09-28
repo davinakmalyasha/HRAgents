@@ -21,17 +21,25 @@ from hr_agents.api.people_schemas import (
     ContractCreate,
     ContractView,
     DocumentCreate,
+    DocumentVerifyRequest,
     DocumentView,
     EmployeeCreate,
     EmployeeTransitionRequest,
     EmployeeView,
+    OrgUnitCreate,
+    OrgUnitView,
     RateTableCreate,
     RateTableView,
     TaskCompleteRequest,
     TaskCreate,
     TaskView,
 )
-from hr_agents.models import ApprovalStatus, ApproverRole, EmployeeStatus
+from hr_agents.models import (
+    ApprovalStatus,
+    ApproverRole,
+    EmployeeStatus,
+    VerificationStatus,
+)
 from hr_agents.rbac import Permission
 from hr_agents.services import (
     ApprovalError,
@@ -51,6 +59,16 @@ PeopleDep = Annotated[PeopleServices, Depends(get_people)]
 employees_router = APIRouter(
     prefix="/v1/employees",
     tags=["employees"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
+)
+org_units_router = APIRouter(
+    prefix="/v1/org-units",
+    tags=["records"],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
+)
+documents_router = APIRouter(
+    prefix="/v1/documents",
+    tags=["records"],
     dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
 )
 contracts_router = APIRouter(
@@ -158,6 +176,73 @@ def employee_contracts(employee_id: UUID, people: PeopleDep) -> list[ContractVie
     return [
         ContractView.from_model(contract) for contract in people.contracts.for_employee(employee_id)
     ]
+
+
+# --- records: document vault, expiry alerts, org chart ------------------------
+
+
+@documents_router.get("", response_model=list[DocumentView])
+def list_documents(
+    people: PeopleDep,
+    employee_id: UUID | None = None,
+    expiring_within_days: Annotated[int | None, Query(ge=0, le=3650)] = None,
+    document_status: Annotated[VerificationStatus | None, Query(alias="status")] = None,
+) -> list[DocumentView]:
+    """The document vault, soonest expiry first, with the records filters."""
+    documents = people.employees.document_vault(
+        employee_id=employee_id,
+        expiring_within_days=expiring_within_days,
+        status=document_status,
+    )
+    return [DocumentView.from_model(document) for document in documents]
+
+
+@documents_router.post("/{document_id}/verify", response_model=DocumentView)
+def verify_document(
+    document_id: UUID,
+    payload: DocumentVerifyRequest,
+    people: PeopleDep,
+) -> DocumentView:
+    """Mark a document verified or rejected; only a named human may judge one."""
+    if not payload.verified_by.strip() or payload.verified_by.strip().startswith("agent:"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="document verification requires a named human",
+        )
+    try:
+        document = people.employees.mark_document_verified(
+            document_id,
+            verified_by=payload.verified_by.strip(),
+            verified=payload.verified,
+        )
+    except EmployeeError as exc:
+        raise _not_found(str(exc)) from exc
+    return DocumentView.from_model(document)
+
+
+@org_units_router.get("", response_model=list[OrgUnitView])
+def list_org_units(people: PeopleDep) -> list[OrgUnitView]:
+    """Org units with their direct headcount (the workspace nests them itself)."""
+    units = people.employees.list_org_units()
+    headcount: dict[UUID, int] = {}
+    for employee in people.employees.list_employees():
+        if employee.org_unit_id is not None:
+            headcount[employee.org_unit_id] = headcount.get(employee.org_unit_id, 0) + 1
+    return [OrgUnitView.from_model(unit, headcount=headcount.get(unit.id, 0)) for unit in units]
+
+
+@org_units_router.post("", status_code=status.HTTP_201_CREATED, response_model=OrgUnitView)
+def create_org_unit(payload: OrgUnitCreate, people: PeopleDep) -> OrgUnitView:
+    try:
+        unit = people.employees.create_org_unit(
+            name=payload.name,
+            created_by=payload.created_by,
+            parent_id=payload.parent_id,
+            cost_center=payload.cost_center,
+        )
+    except EmployeeError as exc:
+        raise _conflict(exc) from exc
+    return OrgUnitView.from_model(unit)
 
 
 # --- contracts ---------------------------------------------------------------

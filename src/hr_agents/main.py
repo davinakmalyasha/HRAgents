@@ -232,6 +232,8 @@ def create_app() -> FastAPI:
     app.include_router(communications.router)
     app.include_router(offers.router)
     app.include_router(people_router.employees_router)
+    app.include_router(people_router.org_units_router)
+    app.include_router(people_router.documents_router)
     app.include_router(people_router.contracts_router)
     app.include_router(people_router.approvals_router)
     app.include_router(people_router.tasks_router)

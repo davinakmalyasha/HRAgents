@@ -7,6 +7,7 @@ services' responsibility (stores are dumb persistence).
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from hr_agents.models import (
@@ -67,11 +68,19 @@ class EmployeeStore:
         return sorted(self._org_units.values(), key=lambda item: item.name.lower())
 
     # documents
+
     def add_document(self, document: EmployeeDocument) -> None:
         self._documents[document.id] = document
 
     def list_documents(self, employee_id: UUID) -> list[EmployeeDocument]:
         return [doc for doc in self._documents.values() if doc.employee_id == employee_id]
+
+    def all_documents(self) -> list[EmployeeDocument]:
+        """Every document in the vault, soonest expiry first."""
+        return sorted(
+            self._documents.values(),
+            key=lambda doc: (doc.expires_on is None, doc.expires_on or date.min),
+        )
 
 
 class ContractStore:

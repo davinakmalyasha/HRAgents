@@ -8,10 +8,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import people_tables as pt
-from hr_agents.db.mapping import add_model, get_model, list_models, save_model
+from hr_agents.db.mapping import add_model, get_model, list_models, model_from_row, save_model
+from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
     ApprovalRequest,
     Contract,
@@ -62,8 +64,27 @@ class DbEmployeeStore(EmployeeStore):
         add_model(self._session_factory, document, pt.EmployeeDocumentRecord)
 
     def list_documents(self, employee_id: UUID) -> list[EmployeeDocument]:
-        documents = list_models(self._session_factory, EmployeeDocument, pt.EmployeeDocumentRecord)
-        return [doc for doc in documents if doc.employee_id == employee_id]
+        return [doc for doc in self.all_documents() if doc.employee_id == employee_id]
+
+    def all_documents(self) -> list[EmployeeDocument]:
+        """The whole vault, soonest expiry first (records workspace, expiry sweep).
+
+        The records endpoints filter in SQL where they can; this keeps the
+        tenant-scoped read in one place instead of trusting a Python-side filter.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            rows = (
+                session.execute(
+                    select(pt.EmployeeDocumentRecord).order_by(
+                        pt.EmployeeDocumentRecord.expires_on.is_(None),
+                        pt.EmployeeDocumentRecord.expires_on,
+                        pt.EmployeeDocumentRecord.uploaded_at,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(EmployeeDocument, row) for row in rows]
 
 
 class DbContractStore(ContractStore):

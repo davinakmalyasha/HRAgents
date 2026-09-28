@@ -84,6 +84,41 @@ def test_employee_store_round_trip(factory: sessionmaker[Session]) -> None:
     assert fresh.list_documents(uuid4()) == []
 
 
+def test_employee_store_vault_reads_the_database_soonest_expiry_first(
+    factory: sessionmaker[Session],
+) -> None:
+    """The records vault must not fall back to the in-memory dict on Postgres."""
+    store = DbEmployeeStore(factory)
+    employee = _add_employee(store)
+    soon = EmployeeDocument(
+        employee_id=employee.id,
+        kind=DocumentKind.NPWP,
+        storage_key="docs/npwp.pdf",
+        sha256="b" * 64,
+        expires_on=date(2026, 2, 1),
+    )
+    far = EmployeeDocument(
+        employee_id=employee.id,
+        kind=DocumentKind.BANK_ACCOUNT,
+        storage_key="docs/bank.pdf",
+        sha256="c" * 64,
+        expires_on=date(2030, 1, 1),
+    )
+    forever = EmployeeDocument(
+        employee_id=employee.id,
+        kind=DocumentKind.KTP,
+        storage_key="docs/ktp.pdf",
+        sha256="d" * 64,
+    )
+    for document in (far, forever, soon):
+        store.add_document(document)
+
+    fresh = DbEmployeeStore(factory)
+    assert [doc.id for doc in fresh.all_documents()] == [soon.id, far.id, forever.id]
+    assert [doc.id for doc in fresh.list_documents(employee.id)] == [soon.id, far.id, forever.id]
+    assert fresh.list_documents(uuid4()) == []
+
+
 def test_contract_store_round_trip(factory: sessionmaker[Session]) -> None:
     employees = DbEmployeeStore(factory)
     employee = _add_employee(employees)

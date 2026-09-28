@@ -124,6 +124,128 @@ def test_employee_documents_are_listed_per_employee() -> None:
     assert unknown.status_code == 404
 
 
+def test_document_vault_filters_and_expiry_windows() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        soon = client.post(
+            f"/v1/employees/{employee['id']}/documents",
+            json={
+                "kind": "ktp",
+                "storage_key": "employees/ktp.pdf",
+                "sha256": "a" * 64,
+                "uploaded_by": "hr-admin",
+                "expires_on": (TODAY + timedelta(days=10)).isoformat(),
+            },
+        ).json()
+        client.post(
+            f"/v1/employees/{employee['id']}/documents",
+            json={
+                "kind": "npwp",
+                "storage_key": "employees/npwp.pdf",
+                "sha256": "b" * 64,
+                "uploaded_by": "hr-admin",
+                "expires_on": (TODAY + timedelta(days=200)).isoformat(),
+            },
+        )
+        client.post(
+            f"/v1/employees/{employee['id']}/documents",
+            json={
+                "kind": "bank_account",
+                "storage_key": "employees/bank.pdf",
+                "sha256": "c" * 64,
+                "uploaded_by": "hr-admin",
+            },
+        )
+
+        vault = client.get("/v1/documents")
+        expiring = client.get("/v1/documents", params={"expiring_within_days": 30})
+        scoped = client.get("/v1/documents", params={"employee_id": employee["id"]})
+        other = client.get("/v1/documents", params={"employee_id": str(uuid4())})
+
+    assert vault.status_code == 200
+    # Soonest expiry first, and the no-expiry document last.
+    assert [document["kind"] for document in vault.json()] == ["ktp", "npwp", "bank_account"]
+    assert soon["days_to_expiry"] == 10
+    assert [document["kind"] for document in expiring.json()] == ["ktp"]
+    assert len(scoped.json()) == 3
+    assert other.json() == []
+
+
+def test_document_verification_requires_a_named_human() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        document = client.post(
+            f"/v1/employees/{employee['id']}/documents",
+            json={
+                "kind": "ktp",
+                "storage_key": "employees/ktp.pdf",
+                "sha256": "a" * 64,
+                "uploaded_by": "hr-admin",
+            },
+        ).json()
+
+        agent = client.post(
+            f"/v1/documents/{document['id']}/verify",
+            json={"verified_by": "agent:onboarding_coordinator"},
+        )
+        blank = client.post(
+            f"/v1/documents/{document['id']}/verify",
+            json={"verified_by": "  "},
+        )
+        verified = client.post(
+            f"/v1/documents/{document['id']}/verify",
+            json={"verified_by": "Sinta Prabowo"},
+        )
+        rejected = client.post(
+            f"/v1/documents/{document['id']}/verify",
+            json={"verified_by": "Sinta Prabowo", "verified": False},
+        )
+        unknown = client.post(
+            f"/v1/documents/{uuid4()}/verify",
+            json={"verified_by": "Sinta Prabowo"},
+        )
+        filtered = client.get("/v1/documents", params={"status": "failed"})
+
+    assert document["status"] == "claimed"
+    assert agent.status_code == 403
+    # A blank actor never reaches the service: the schema rejects it first.
+    assert blank.status_code == 422
+    assert verified.status_code == 200
+    assert verified.json()["status"] == "verified"
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "failed"
+    assert unknown.status_code == 404
+    assert [document["id"] for document in filtered.json()] == [document["id"]]
+
+
+def test_org_units_report_headcount_and_reject_unknown_parents() -> None:
+    with make_client() as client:
+        root = client.post(
+            "/v1/org-units", json={"name": "Engineering", "created_by": "hr-admin"}
+        ).json()
+        child = client.post(
+            "/v1/org-units",
+            json={
+                "name": "Platform",
+                "created_by": "hr-admin",
+                "parent_id": root["id"],
+                "cost_center": "CC-1",
+            },
+        ).json()
+        create_employee(client, full_name="Budi Santoso")
+        listed = client.get("/v1/org-units")
+        orphan = client.post(
+            "/v1/org-units",
+            json={"name": "Ghost", "created_by": "hr-admin", "parent_id": str(uuid4())},
+        )
+
+    assert child["parent_id"] == root["id"]
+    assert listed.status_code == 200
+    assert [unit["name"] for unit in listed.json()] == ["Engineering", "Platform"]
+    assert all(unit["headcount"] == 0 for unit in listed.json())
+    assert orphan.status_code == 409
+
+
 def test_contract_lifecycle_via_api() -> None:
     with make_client() as client:
         employee = create_employee(client)

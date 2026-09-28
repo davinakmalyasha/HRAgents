@@ -224,6 +224,38 @@ class EmployeeService:
         self._require(employee_id)
         return self._store.list_documents(employee_id)
 
+    def document_vault(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        expiring_within_days: int | None = None,
+        status: VerificationStatus | None = None,
+    ) -> list[EmployeeDocument]:
+        """The whole vault with the filters the records workspace needs.
+
+        Soonest expiry first, so an expiry sweep and a human reviewing the vault
+        read the same order.
+        """
+        today = date.today()
+        documents = (
+            self._store.list_documents(employee_id) if employee_id else self._store.all_documents()
+        )
+        selected: list[EmployeeDocument] = []
+        for document in documents:
+            if status is not None and document.status is not status:
+                continue
+            if expiring_within_days is not None:
+                if document.expires_on is None:
+                    continue
+                days = (document.expires_on - today).days
+                if not 0 <= days <= expiring_within_days:
+                    continue
+            selected.append(document)
+        return sorted(
+            selected,
+            key=lambda doc: (doc.expires_on is None, doc.expires_on or date.min),
+        )
+
     def expiring_documents(self, *, within_days: int = 60) -> list[EmployeeDocument]:
         today = date.today()
         result: list[EmployeeDocument] = []
@@ -236,6 +268,10 @@ class EmployeeService:
         return sorted(result, key=lambda doc: doc.expires_on or today)
 
     # --- org units ------------------------------------------------------
+
+    def list_org_units(self) -> list[OrgUnit]:
+        """Every org unit, name-ordered (the records org chart reads this)."""
+        return self._store.list_org_units()
 
     def create_org_unit(
         self,

@@ -19,6 +19,7 @@ from hr_agents.models import (
     Employee,
     EmployeeDocument,
     EmployeeStatus,
+    OrgUnit,
     RateTable,
     RateTableKind,
     StrictModel,
@@ -98,11 +99,19 @@ class DocumentView(StrictModel):
     storage_key: str
     filename: str | None
     sha256: str
+    issued_on: date | None
     expires_on: date | None
     status: str
+    days_to_expiry: int | None
 
     @classmethod
-    def from_model(cls, document: EmployeeDocument) -> DocumentView:
+    def from_model(
+        cls,
+        document: EmployeeDocument,
+        *,
+        as_of: date | None = None,
+    ) -> DocumentView:
+        today = as_of or date.today()
         return cls(
             id=document.id,
             employee_id=document.employee_id,
@@ -110,8 +119,45 @@ class DocumentView(StrictModel):
             storage_key=document.storage_key,
             filename=document.filename,
             sha256=document.sha256,
+            issued_on=document.issued_on,
             expires_on=document.expires_on,
             status=document.status.value,
+            days_to_expiry=(
+                None if document.expires_on is None else (document.expires_on - today).days
+            ),
+        )
+
+
+class DocumentVerifyRequest(StrictModel):
+    """Verification is a human judgement about a document, never an agent's."""
+
+    verified_by: str = Field(min_length=1, max_length=200)
+    verified: bool = True
+
+
+class OrgUnitCreate(StrictModel):
+    name: str = Field(min_length=1, max_length=200)
+    created_by: str = Field(min_length=1, max_length=200)
+    parent_id: UUID | None = None
+    cost_center: str | None = Field(default=None, max_length=100)
+
+
+class OrgUnitView(StrictModel):
+    id: UUID
+    name: str
+    parent_id: UUID | None
+    cost_center: str | None
+    headcount: int = 0
+    children: list[OrgUnitView] = Field(default_factory=list)
+
+    @classmethod
+    def from_model(cls, unit: OrgUnit, *, headcount: int = 0) -> OrgUnitView:
+        return cls(
+            id=unit.id,
+            name=unit.name,
+            parent_id=unit.parent_id,
+            cost_center=unit.cost_center,
+            headcount=headcount,
         )
 
 

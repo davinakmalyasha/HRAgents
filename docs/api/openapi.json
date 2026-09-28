@@ -2977,9 +2977,42 @@
         "title": "DocumentUploadResponse",
         "type": "object"
       },
+      "DocumentVerifyRequest": {
+        "additionalProperties": false,
+        "description": "Verification is a human judgement about a document, never an agent's.",
+        "properties": {
+          "verified": {
+            "default": true,
+            "title": "Verified",
+            "type": "boolean"
+          },
+          "verified_by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Verified By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verified_by"
+        ],
+        "title": "DocumentVerifyRequest",
+        "type": "object"
+      },
       "DocumentView": {
         "additionalProperties": false,
         "properties": {
+          "days_to_expiry": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days To Expiry"
+          },
           "employee_id": {
             "format": "uuid",
             "title": "Employee Id",
@@ -3013,6 +3046,18 @@
             "title": "Id",
             "type": "string"
           },
+          "issued_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued On"
+          },
           "kind": {
             "$ref": "#/components/schemas/DocumentKind"
           },
@@ -3036,8 +3081,10 @@
           "storage_key",
           "filename",
           "sha256",
+          "issued_on",
           "expires_on",
-          "status"
+          "status",
+          "days_to_expiry"
         ],
         "title": "DocumentView",
         "type": "object"
@@ -5912,6 +5959,110 @@
         "title": "OfferView",
         "type": "object"
       },
+      "OrgUnitCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "cost_center": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Center"
+          },
+          "created_by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Created By",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "name",
+          "created_by"
+        ],
+        "title": "OrgUnitCreate",
+        "type": "object"
+      },
+      "OrgUnitView": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/OrgUnitView"
+            },
+            "title": "Children",
+            "type": "array"
+          },
+          "cost_center": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Center"
+          },
+          "headcount": {
+            "default": 0,
+            "title": "Headcount",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "parent_id",
+          "cost_center"
+        ],
+        "title": "OrgUnitView",
+        "type": "object"
+      },
       "OverdueStepView": {
         "additionalProperties": false,
         "properties": {
@@ -8484,6 +8635,18 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VerificationStatus": {
+        "description": "Verification state of a claimed credential or fact.",
+        "enum": [
+          "claimed",
+          "unverified",
+          "verified",
+          "failed",
+          "expired"
+        ],
+        "title": "VerificationStatus",
+        "type": "string"
       },
       "WhatsappDispatchLinkRequest": {
         "additionalProperties": false,
@@ -13411,6 +13574,109 @@
       }
     },
     "/v1/documents": {
+      "get": {
+        "description": "The document vault, soonest expiry first, with the records filters.",
+        "operationId": "list_documents_v1_documents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "employee_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Employee Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expiring_within_days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 3650,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Expiring Within Days"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/VerificationStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentView"
+                  },
+                  "title": "Response List Documents V1 Documents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Documents",
+        "tags": [
+          "records"
+        ]
+      },
       "post": {
         "operationId": "upload_document_v1_documents_post",
         "parameters": [
@@ -13466,6 +13732,76 @@
         "summary": "Upload a source document (CV, portfolio, questionnaire)",
         "tags": [
           "documents"
+        ]
+      }
+    },
+    "/v1/documents/{document_id}/verify": {
+      "post": {
+        "description": "Mark a document verified or rejected; only a named human may judge one.",
+        "operationId": "verify_document_v1_documents__document_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentVerifyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Document",
+        "tags": [
+          "records"
         ]
       }
     },
@@ -19462,6 +19798,117 @@
         "summary": "Default Template",
         "tags": [
           "onboarding"
+        ]
+      }
+    },
+    "/v1/org-units": {
+      "get": {
+        "description": "Org units with their direct headcount (the workspace nests them itself).",
+        "operationId": "list_org_units_v1_org_units_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OrgUnitView"
+                  },
+                  "title": "Response List Org Units V1 Org Units Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Org Units",
+        "tags": [
+          "records"
+        ]
+      },
+      "post": {
+        "operationId": "create_org_unit_v1_org_units_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrgUnitCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgUnitView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Org Unit",
+        "tags": [
+          "records"
         ]
       }
     },
