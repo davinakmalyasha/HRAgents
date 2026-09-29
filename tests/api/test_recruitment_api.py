@@ -83,7 +83,10 @@ def register_evaluation(
     evaluation = TechnicalEvaluation(
         candidate_id=UUID(candidate_id),
         job_id=UUID(job_id),
-        runs=[ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector)],
+        runs=[
+            ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector),
+            ScoringRun(run_index=1, extraction_id=uuid4(), vector=vector),
+        ],
         mean_vector=vector,
         s_tech=s_tech,
         sigma=sigma,

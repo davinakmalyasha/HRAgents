@@ -13,8 +13,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
-    ActorType,
     ApprovalRequest,
     ApprovalStatus,
     ApprovalSubject,
@@ -97,8 +97,7 @@ class ApprovalEngine:
         request = self._require(request_id)
         if not request.active:
             raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot decide")
-        if not decided_by or decided_by.startswith(AGENT_ACTOR_PREFIX):
-            raise ApprovalError("decisions require a named human actor")
+        decided_by = require_named_human(decided_by, "a decision", ApprovalError)
 
         action = "approved" if approve else "rejected"
         decided = request.model_copy(
@@ -284,11 +283,7 @@ class ApprovalEngine:
     def _record(
         self, request: ApprovalRequest, *, action: str, actor_id: str = "approval-engine"
     ) -> None:
-        actor_type = (
-            ActorType.HUMAN if not actor_id.startswith(AGENT_ACTOR_PREFIX) else ActorType.AGENT
-        )
-        if actor_id in {"approval-engine", "system"}:
-            actor_type = ActorType.SYSTEM
+        actor_type = classify_actor(actor_id)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,

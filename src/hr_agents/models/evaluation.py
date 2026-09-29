@@ -114,7 +114,15 @@ class TechnicalEvaluation(StrictModel):
     candidate_id: UUID
     job_id: UUID | None = None
 
-    runs: list[ScoringRun] = Field(min_length=1)
+    runs: list[ScoringRun] = Field(
+        min_length=2,
+        description=(
+            "Independent extraction passes. At least two are required: sigma is the "
+            "population standard deviation across runs, and over a single run it is "
+            "0.0 by definition — which would satisfy the auto-schedule gate with the "
+            "least evidence rather than the most."
+        ),
+    )
     mean_vector: ScoreVector
     dimension_stddev: dict[ScoreDimension, float] = Field(default_factory=dict)
     s_tech: float = Field(ge=0.0, le=1.0)

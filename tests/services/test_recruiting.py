@@ -53,7 +53,10 @@ def make_evaluation(
     return TechnicalEvaluation(
         candidate_id=candidate_id,
         job_id=uuid4(),
-        runs=[ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector)],
+        runs=[
+            ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector),
+            ScoringRun(run_index=1, extraction_id=uuid4(), vector=vector),
+        ],
         mean_vector=vector,
         s_tech=s_tech,
         sigma=sigma,

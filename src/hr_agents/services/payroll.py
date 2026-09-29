@@ -23,8 +23,8 @@ from uuid import UUID
 
 from openpyxl import Workbook
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
-    ActorType,
     AnomalySeverity,
     ApprovalStatus,
     ApprovalSubject,
@@ -533,6 +533,7 @@ class PayrollService:
         return updated
 
     def mark_exported(self, run_id: UUID, *, by: str) -> PayrollRun:
+        by = require_named_human(by, "exporting a payroll run", PayrollError)
         run = self.get_run(run_id)
         if run.status is not PayrollRunStatus.APPROVED:
             raise PayrollError(f"run is {run.status.value}; only approved runs may be exported")
@@ -553,6 +554,7 @@ class PayrollService:
         return updated
 
     def cancel_run(self, run_id: UUID, *, by: str, reason: str) -> PayrollRun:
+        by = require_named_human(by, "cancelling a payroll run", PayrollError)
         run = self.get_run(run_id)
         if run.status in {PayrollRunStatus.APPROVED, PayrollRunStatus.EXPORTED}:
             raise PayrollError(f"run is {run.status.value}; cannot cancel")
@@ -706,12 +708,7 @@ class PayrollService:
         actor_id: str,
         payload: dict[str, object],
     ) -> None:
-        if actor_id.startswith("agent:"):
-            actor_type = ActorType.AGENT
-        elif actor_id == "system":
-            actor_type = ActorType.SYSTEM
-        else:
-            actor_type = ActorType.HUMAN
+        actor_type = classify_actor(actor_id)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,

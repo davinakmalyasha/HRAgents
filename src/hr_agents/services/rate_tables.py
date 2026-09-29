@@ -10,8 +10,8 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
+from hr_agents.identity import classify_actor
 from hr_agents.models import (
-    ActorType,
     AuditActor,
     RateEntry,
     RateTable,
@@ -159,7 +159,7 @@ class RateTableService:
             payload.update(extra)
         self._audit.append(
             actor=AuditActor(
-                actor_type=ActorType.SYSTEM if actor_id == "system" else ActorType.HUMAN,
+                actor_type=classify_actor(actor_id),
                 actor_id=actor_id,
             ),
             action=action,

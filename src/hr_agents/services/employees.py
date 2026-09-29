@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
     ActorType,
     AuditActor,
@@ -123,6 +124,20 @@ class EmployeeService:
         force: bool = False,
         reason: str | None = None,
     ) -> Employee:
+        """Move an employee through their lifecycle.
+
+        The most consequential state change in the people domain, and the one an
+        agent must never make: every status here changes someone's employment.
+        The gate sits here rather than in the router so no caller can route around
+        it, and above the idempotent early return below, so a repeat call by a
+        system actor is refused rather than quietly succeeding.
+        """
+        by = require_named_human(
+            by,
+            "changing an employee status",
+            EmployeeError,
+            subject=f"employee {employee_id} -> {target.value}",
+        )
         employee = self._require(employee_id)
         if target is employee.status:
             return employee
@@ -194,6 +209,15 @@ class EmployeeService:
         verified_by: str,
         verified: bool,
     ) -> EmployeeDocument:
+        """Judge a document verified or failed — a named human only.
+
+        The gate lives here, not in the router: any other caller (an agent tool, a
+        worker, a future service) would otherwise be able to verify a legal
+        document without passing it.
+        """
+        actor = require_named_human(
+            verified_by, "verifying a document", EmployeeError, subject=f"document {document_id}"
+        )
         document = self.get_document(document_id)
         if document is None:
             raise EmployeeError(f"unknown document {document_id}")
@@ -207,7 +231,7 @@ class EmployeeService:
         self._record(
             employee,
             action="employee.document_verified" if verified else "employee.document_failed",
-            actor_id=verified_by,
+            actor_id=actor,
             extra={"document_id": str(updated.id), "kind": updated.kind.value},
         )
         return updated
@@ -340,7 +364,7 @@ class EmployeeService:
             payload.update(extra)
         self._audit.append(
             actor=AuditActor(
-                actor_type=ActorType.SYSTEM if actor_id == "system" else ActorType.HUMAN,
+                actor_type=classify_actor(actor_id),
                 actor_id=actor_id,
             ),
             action=action,

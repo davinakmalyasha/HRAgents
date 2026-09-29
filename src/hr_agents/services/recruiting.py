@@ -32,6 +32,7 @@ from uuid import UUID, uuid4
 
 from pydantic import EmailStr, Field
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
     TERMINAL_PROPOSAL_STATUSES,
     ActorType,
@@ -204,13 +205,7 @@ class DocumentService:
 
     @staticmethod
     def _actor(actor_id: str) -> AuditActor:
-        if actor_id.startswith(AGENT_ACTOR_PREFIX):
-            actor_type = ActorType.AGENT
-        elif actor_id == "system" or actor_id.startswith("system:"):
-            actor_type = ActorType.SYSTEM
-        else:
-            actor_type = ActorType.HUMAN
-        return AuditActor(actor_type=actor_type, actor_id=actor_id)
+        return AuditActor(actor_type=classify_actor(actor_id), actor_id=actor_id)
 
 
 # --- jobs ----------------------------------------------------------------------
@@ -1176,9 +1171,8 @@ class CommunicationService:
         return item
 
     @staticmethod
-    def _require_human(actor: str) -> None:
-        if not actor.strip() or actor.strip().startswith(AGENT_ACTOR_PREFIX):
-            raise RecruitingError("communications require a named human actor")
+    def _require_human(actor: str) -> str:
+        return require_named_human(actor, "a candidate communication", RecruitingError)
 
 
 # --- scheduling -----------------------------------------------------------------

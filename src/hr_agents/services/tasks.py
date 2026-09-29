@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
-    ActorType,
     ApproverRole,
     AuditActor,
     TaskItem,
@@ -112,6 +112,8 @@ class TaskEngine:
         )
 
     def complete(self, task_id: UUID, *, by: str) -> TaskItem:
+        """Close a task. A task is a human work item, so an agent cannot close one."""
+        by = require_named_human(by, "completing a task", TaskError)
         task = self._require(task_id)
         if not task.is_open:
             raise TaskError(f"task {task_id} is {task.status.value}; cannot complete")
@@ -128,6 +130,7 @@ class TaskEngine:
         return updated
 
     def cancel(self, task_id: UUID, *, by: str, reason: str = "") -> TaskItem:
+        by = require_named_human(by, "cancelling a task", TaskError)
         task = self._require(task_id)
         if not task.is_open:
             raise TaskError(f"task {task_id} is {task.status.value}; cannot cancel")
@@ -203,12 +206,7 @@ class TaskEngine:
         return task
 
     def _record(self, task: TaskItem, *, action: str, actor_id: str) -> None:
-        if actor_id.startswith("agent:"):
-            actor_type = ActorType.AGENT
-        elif actor_id == "system":
-            actor_type = ActorType.SYSTEM
-        else:
-            actor_type = ActorType.HUMAN
+        actor_type = classify_actor(actor_id)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,

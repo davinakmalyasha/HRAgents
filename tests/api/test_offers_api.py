@@ -55,7 +55,10 @@ def seeded_application(client: TestClient) -> dict:
     evaluation = TechnicalEvaluation(
         candidate_id=UUID(application["candidate_id"]),
         job_id=UUID(job["id"]),
-        runs=[ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector)],
+        runs=[
+            ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector),
+            ScoringRun(run_index=1, extraction_id=uuid4(), vector=vector),
+        ],
         mean_vector=vector,
         s_tech=0.9,
         sigma=0.0,

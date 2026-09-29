@@ -206,19 +206,23 @@ def verify_document(
     payload: DocumentVerifyRequest,
     people: PeopleDep,
 ) -> DocumentView:
-    """Mark a document verified or rejected; only a named human may judge one."""
-    if not payload.verified_by.strip() or payload.verified_by.strip().startswith("agent:"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="document verification requires a named human",
-        )
+    """Mark a document verified or rejected; only a named human may judge one.
+
+    The gate itself lives in ``EmployeeService.mark_document_verified`` so that
+    non-HTTP callers cannot bypass it; this wrapper only maps the refusal to 403.
+    """
     try:
         document = people.employees.mark_document_verified(
             document_id,
-            verified_by=payload.verified_by.strip(),
+            verified_by=payload.verified_by,
             verified=payload.verified,
         )
     except EmployeeError as exc:
+        if "named human" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=str(exc),
+            ) from exc
         raise _not_found(str(exc)) from exc
     return DocumentView.from_model(document)
 

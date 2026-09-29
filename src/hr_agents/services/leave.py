@@ -10,9 +10,9 @@ import contextlib
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
     AccrualMethod,
-    ActorType,
     ApprovalSubject,
     AuditActor,
     Employee,
@@ -57,6 +57,9 @@ class LeaveService:
     # --- policy management ----------------------------------------------
 
     def set_policy(self, policy: LeaveTypePolicy, *, by: str) -> LeaveTypePolicy:
+        """Install a leave policy. Accrual, caps, and minimum service are money-like
+        rules that change for every employee at once, so a named human sets them."""
+        by = require_named_human(by, "setting a leave policy", LeaveError)
         self._policies[policy.leave_type] = policy
         self._record(
             action="leave.policy_set",
@@ -232,7 +235,12 @@ class LeaveService:
         by: str,
         reason: str | None = None,
     ) -> LeaveBalance:
-        """Manual adjustment (positive or negative) — always audited."""
+        """Manual adjustment (positive or negative) — always audited.
+
+        A balance is a money-like entitlement, so an agent may not move one; the
+        human attribution is what makes the ledger entry reviewable.
+        """
+        by = require_named_human(by, "adjusting a leave balance", LeaveError)
         self._require_employee(employee_id)
         self.get_policy(leave_type)
         target_year = year or date.today().year
@@ -475,12 +483,7 @@ class LeaveService:
         actor_id: str,
         payload: dict[str, object],
     ) -> None:
-        if actor_id.startswith("agent:"):
-            actor_type = ActorType.AGENT
-        elif actor_id == "system":
-            actor_type = ActorType.SYSTEM
-        else:
-            actor_type = ActorType.HUMAN
+        actor_type = classify_actor(actor_id)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,

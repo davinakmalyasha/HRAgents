@@ -13,8 +13,8 @@ import hashlib
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
-    ActorType,
     ApproverRole,
     AssetStatus,
     AuditActor,
@@ -34,7 +34,6 @@ from hr_agents.models import (
     TaskSource,
     utc_now,
 )
-from hr_agents.services.approvals import AGENT_ACTOR_PREFIX
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.payroll import PayrollService, current_period
@@ -558,8 +557,12 @@ class OffboardingService:
         """Complete the plan (if needed), then transition the employee to OFFBOARDED.
 
         The employee transition keeps its own guards (open approvals block it
-        unless a human forces it separately).
+        unless a human forces it separately) and its own named-human gate. This
+        method previously had none of its own, so calling it against an
+        already-completed plan was a one-call path to firing someone that
+        validated nothing at all.
         """
+        by = require_named_human(by, "finalizing an employee exit", OffboardingError)
         plan = self.get_plan(plan_id)
         if plan.completed_at is None:
             plan = self.complete_plan(plan_id, by=by)
@@ -594,9 +597,8 @@ class OffboardingService:
         steps = [updated if step.key == updated.key else step for step in plan.steps]
         return plan.model_copy(update={"steps": steps})
 
-    def _require_human(self, actor: str, action: str) -> None:
-        if actor.startswith(AGENT_ACTOR_PREFIX):
-            raise OffboardingError(f"agents cannot {action}; a named human is required")
+    def _require_human(self, actor: str, action: str) -> str:
+        return require_named_human(actor, action, OffboardingError)
 
     def _record(
         self,
@@ -607,12 +609,7 @@ class OffboardingService:
         subject_id: str,
         payload: dict[str, object],
     ) -> None:
-        if actor_id.startswith(AGENT_ACTOR_PREFIX):
-            actor_type = ActorType.AGENT
-        elif actor_id == "system" or actor_id.startswith("system:"):
-            actor_type = ActorType.SYSTEM
-        else:
-            actor_type = ActorType.HUMAN
+        actor_type = classify_actor(actor_id)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,

@@ -17,6 +17,7 @@ from uuid import UUID
 
 from pydantic import EmailStr
 
+from hr_agents.identity import require_named_human
 from hr_agents.models import (
     EXPIRABLE_OFFER_STATUSES,
     ActorType,
@@ -461,7 +462,4 @@ class OfferService:
 
     @staticmethod
     def _require_human(actor: str) -> str:
-        cleaned = actor.strip()
-        if not cleaned or cleaned.startswith(AGENT_ACTOR_PREFIX):
-            raise OfferError("offers require a named human actor")
-        return cleaned
+        return require_named_human(actor, "an offer decision", OfferError)

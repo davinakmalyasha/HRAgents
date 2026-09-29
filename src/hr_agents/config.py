@@ -63,6 +63,10 @@ class Settings(BaseSettings):
     # same ceiling per file. Rate limit is per principal (or client address).
     api_max_body_bytes: int = Field(default=10 * 1024 * 1024, ge=1024)
     api_rate_limit_per_minute: int = Field(default=300, ge=1)
+    # Trust X-Forwarded-For for rate limiting. Off by default: an unauthenticated
+    # caller can otherwise present a fresh address per request and bypass the
+    # limit entirely. Turn on only when a proxy you control sits in front.
+    trust_proxy_headers: bool = False
     # CORS is off unless origins are listed: the dashboard is served same-origin
     # at /app, so a wildcard is never needed.
     api_cors_origins: list[str] = Field(default_factory=list)

@@ -21,9 +21,13 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from uuid import UUID
 
+from hr_agents.identity import (
+    classify_actor,
+    require_named_human,
+    require_named_human_or_system,
+)
 from hr_agents.logging import get_logger
 from hr_agents.models import (
-    ActorType,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
@@ -57,7 +61,7 @@ from hr_agents.models import (
     Urgency,
     utc_now,
 )
-from hr_agents.services.approvals import AGENT_ACTOR_PREFIX, ApprovalEngine
+from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ComplianceStore
 
@@ -1036,13 +1040,11 @@ class ComplianceService:
             return None
         return handler(record, action)
 
-    def _require_human(self, actor: str, action: str) -> None:
-        if actor.startswith(AGENT_ACTOR_PREFIX):
-            raise ComplianceError(f"agents cannot {action}; a named human is required")
+    def _require_human(self, actor: str, action: str) -> str:
+        return require_named_human(actor, action, ComplianceError)
 
-    def _require_automatic_actor(self, actor: str, action: str) -> None:
-        if actor.startswith(AGENT_ACTOR_PREFIX):
-            raise ComplianceError(f"agents cannot {action}")
+    def _require_automatic_actor(self, actor: str, action: str) -> str:
+        return require_named_human_or_system(actor, action, ComplianceError)
 
     def _record(
         self,
@@ -1053,12 +1055,7 @@ class ComplianceService:
         actor_id: str,
         payload: dict[str, object],
     ) -> None:
-        if actor_id.startswith(AGENT_ACTOR_PREFIX):
-            actor_type = ActorType.AGENT
-        elif actor_id == "system" or actor_id.startswith("system:"):
-            actor_type = ActorType.SYSTEM
-        else:
-            actor_type = ActorType.HUMAN
+        actor_type = classify_actor(actor_id)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,

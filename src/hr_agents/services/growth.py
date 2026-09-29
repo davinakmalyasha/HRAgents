@@ -10,9 +10,9 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
     CYCLE_TRANSITIONS,
-    ActorType,
     ApproverRole,
     AssignmentStatus,
     AuditActor,
@@ -38,14 +38,6 @@ DEFAULT_REMINDER_WINDOW_DAYS = 3
 
 class GrowthError(RuntimeError):
     """Raised for invalid growth operations."""
-
-
-def _actor_type(actor_id: str) -> ActorType:
-    if actor_id.startswith("agent:"):
-        return ActorType.AGENT
-    if actor_id == "system" or actor_id.startswith("system:"):
-        return ActorType.SYSTEM
-    return ActorType.HUMAN
 
 
 class GrowthService:
@@ -630,9 +622,8 @@ class GrowthService:
 
     # --- internals -----------------------------------------------------------
 
-    def _require_human(self, actor: str, action: str) -> None:
-        if actor.startswith("agent:"):
-            raise GrowthError(f"agents cannot {action}; a named human is required")
+    def _require_human(self, actor: str, action: str) -> str:
+        return require_named_human(actor, action, GrowthError)
 
     def _record(
         self,
@@ -648,7 +639,7 @@ class GrowthService:
             Goal: "goal",
         }[type(subject)]
         self._audit.append(
-            actor=AuditActor(actor_type=_actor_type(actor_id), actor_id=actor_id),
+            actor=AuditActor(actor_type=classify_actor(actor_id), actor_id=actor_id),
             action=action,
             subject_type=subject_type,
             subject_id=str(subject.id),

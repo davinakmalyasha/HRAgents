@@ -11,8 +11,8 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
-    ActorType,
     ApproverRole,
     AuditActor,
     Contract,
@@ -77,6 +77,7 @@ class ContractService:
         return contract
 
     def activate(self, contract_id: UUID, *, by: str, signed_on: date | None = None) -> Contract:
+        by = require_named_human(by, "activating a contract", ContractError)
         contract = self._require(contract_id)
         if contract.status is not ContractStatus.DRAFT:
             raise ContractError(
@@ -144,6 +145,7 @@ class ContractService:
         ]
 
     def terminate(self, contract_id: UUID, *, by: str, reason: str) -> Contract:
+        by = require_named_human(by, "terminating a contract", ContractError)
         contract = self._require(contract_id)
         updated = contract.model_copy(
             update={
@@ -230,7 +232,7 @@ class ContractService:
     def _record(self, contract: Contract, *, action: str, actor_id: str) -> None:
         self._audit.append(
             actor=AuditActor(
-                actor_type=ActorType.SYSTEM if actor_id == "system" else ActorType.HUMAN,
+                actor_type=classify_actor(actor_id),
                 actor_id=actor_id,
             ),
             action=action,

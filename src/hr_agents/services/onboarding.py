@@ -13,8 +13,8 @@ import hashlib
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.identity import classify_actor, require_named_human
 from hr_agents.models import (
-    ActorType,
     ApproverRole,
     AuditActor,
     Contract,
@@ -328,8 +328,7 @@ class OnboardingService:
         """Waive a step (required or not) — a human decision, always audited."""
         if not reason.strip():
             raise OnboardingError("waiving a step requires a reason")
-        if not by.strip() or by.strip().startswith("agent:"):
-            raise OnboardingActorError("waiving steps requires a named human")
+        by = require_named_human(by, "waiving a step", OnboardingActorError)
         plan = self.get_plan(plan_id)
         step = self._require_step(plan, step_key)
         if step.complete:
@@ -433,12 +432,7 @@ class OnboardingService:
         actor_id: str,
         payload: dict[str, object],
     ) -> None:
-        if actor_id.startswith("agent:"):
-            actor_type = ActorType.AGENT
-        elif actor_id == "system":
-            actor_type = ActorType.SYSTEM
-        else:
-            actor_type = ActorType.HUMAN
+        actor_type = classify_actor(actor_id)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,

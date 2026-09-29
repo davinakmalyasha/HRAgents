@@ -23,7 +23,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from hr_agents.api.metrics import record_http_request
-from hr_agents.config import Settings
+from hr_agents.config import Settings, get_settings
 
 DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024
 """10 MiB: the same ceiling the document endpoint enforces per file."""
@@ -56,6 +56,7 @@ class RateLimiter:
 
     limit: int = DEFAULT_RATE_LIMIT_PER_MINUTE
     window_seconds: float = 60.0
+    max_tracked_keys: int = 10_000
     _hits: dict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
     _now: Callable[[], float] = time.monotonic
 
@@ -68,23 +69,45 @@ class RateLimiter:
         if len(window) >= self.limit:
             return False, max(0.0, self.window_seconds - (now - window[0]))
         window.append(now)
+        self._evict(now)
         return True, 0.0
+
+    def _evict(self, now: float) -> None:
+        """Bound the bucket table.
+
+        Buckets are only trimmed on *reuse*, so a caller presenting a fresh
+        client address on every request would otherwise grow this dict until the
+        process died. Insertion order is preserved, so the oldest bucket is the
+        least likely to be in active use.
+        """
+        if len(self._hits) <= self.max_tracked_keys:
+            return
+        for stale_key in list(self._hits)[: len(self._hits) - self.max_tracked_keys]:
+            del self._hits[stale_key]
 
     def reset(self) -> None:
         self._hits.clear()
 
 
 def client_key(request: Request) -> str:
-    """Prefer the authenticated key's actor, else the client address."""
+    """Bucket by authenticated actor, then API key, then client address.
+
+    ``X-Forwarded-For`` is honoured only when the operator declares a trusted
+    proxy in front of the app. Trusting it unconditionally lets any caller mint
+    a fresh rate-limit bucket per request simply by varying the header, which
+    defeats the limit entirely on the unauthenticated path — the default in a
+    fresh install.
+    """
     actor = getattr(request.state, "actor_id", None)
     if isinstance(actor, str) and actor:
         return f"actor:{actor}"
     api_key = request.headers.get("X-API-Key")
     if api_key:
         return f"key:{hash(api_key)}"
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return f"ip:{forwarded.split(',')[0].strip()}"
+    if get_settings().trust_proxy_headers:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            return f"ip:{forwarded.split(',')[0].strip()}"
     client = request.client
     return f"ip:{client.host if client else 'unknown'}"
 
