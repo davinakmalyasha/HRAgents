@@ -182,6 +182,16 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 4.5 Pipeline wiring `IN PROGRESS`
 - [x] `ApplicationPipeline`: received → guard → extract (k runs) → score → aggregate → policy → route → persist, fully audited
 - [x] `Worker` (claim/ack/nack/dead-letter) over any queue backend, bounded attempts
+- [x] **The worker actually runs**: `scripts/run_worker.py` + a `worker` service in Compose; the
+      submission routers publish via `EvaluationDispatcher` and the worker claims and evaluates.
+      Without this the pipeline had no production entry point — `202 Accepted` into a queue nobody
+      drained. Regression-tested by `tests/api/test_worker_seam.py`
+- [x] `hr_agents/queue.py` — one resolver both sides share, walking the provider chain and refusing a
+      process-local queue unless it is named explicitly (it would strand work the API accepts)
+- [x] `hr_agents/agentset.py` — the composition root that builds **all five** agents from the skills
+      library; previously only the policy assistant was constructed in production
+- [x] `HRAGENTS_SKILLS_ROOT` + a loud startup failure when the skills library is missing (the image
+      shipped without it, so every agent silently ran with no runbooks)
 - [x] Fairness harness: counterfactual name/city-swap invariance audit + summary (violation injection test proves detection)
 - [x] Storage port (`InMemoryStorage` now; Postgres adapter later)
 - [x] **Recruitment API surface** (`services/recruiting.py` + 6 routers, 19 endpoints): document upload with hashing/size gate, jobs CRUD + guarded lifecycle, evaluation read (`/v1/applications/{id}/evaluation`), append-only HITL overrides with audit receipts and role enforcement, feedback reports (stored agent report or deterministic EN/ID synthesis), scheduling proposals gated by the policy engine with an availability registry, and the gated candidate communication outbox (`candidate_communications` + migration `0007`; rejection composed deterministically from the feedback report, human-authored offers, named-human approver, manual dispatch evidence via `mark_sent` — nothing is ever auto-sent)
@@ -316,7 +326,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       pre-queue preview endpoint remain (Phase 7)
 
 ### 6.4 Other workspaces (Wave-1 surfaces)
-- [x] Policy workspace: Q&A with citations + knowledge browser
+- [~] Policy workspace: Q&A with citations (no knowledge browser — that surface is still open)
 - [x] Onboarding workspace: checklists, document collection status
 - [x] Records workspace: employee directory (unit filterable), org chart with roll-up headcount,
       document vault, expiry alerts, named-human document verification
@@ -384,6 +394,18 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] **Approval engine**: generic HITL queue — create → assign by role → decide → SLA escalate → expire; agents can request, never decide; every transition audited
 - [x] **Task engine**: create/assign/complete/cancel, overdue detection, agent-created tasks labeled; queue sorted overdue-first
 - [x] **Rate table engine**: operator-owned statutory rates; structure without numbers; verification gate (`usable`); payroll can never silently use unverified values
+- [x] **Rate table API: enter entries and verify** (`PUT /v1/rate-tables/{id}/entries`,
+      `POST /v1/rate-tables/{id}/verify` behind the previously dead `RATES_VERIFY` permission).
+      Payroll was unreachable through the API: a table could be created but never populated, so
+      `usable` was permanently false and every compute raised a blocking error
+- [x] `require_usable` selects the table **in force** on the payroll date (newest `effective_from`
+      among unexpired) instead of the last one by list order
+- [ ] Move the hourly divisor (173 h) and overtime multipliers (1.5×/2.0×) into verified rate tables
+      — they are statutory numbers hardcoded in `payroll.py`, against the project's own rule
+- [ ] Replace `float` money with `Decimal` + `ROUND_HALF_UP` and add a totals-equal-lines invariant
+- [ ] Progressive (marginal) PPh 21 TER brackets; today one bracket's rate is applied to the whole gross
+- [ ] Implement `THR` (a declared run kind with zero implementations) and the `MINIMUM_WAGE` check
+- [ ] Honour `PayrollInput.absence_days`, which is collected, validated, and persisted — then ignored
 - [x] Persistence: 7 tables + Alembic `0002_people` (16 tables total)
 - [x] API surface: employees, contracts, approvals, tasks, rate tables (18 endpoints) — all audited, integration-tested
 - [x] Tests: 111 new (engines + API integration) — suites pass offline, no LLM involved
@@ -475,6 +497,13 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Retention engine: per-entity operator policies (months + delete/anonymize action, **no hardcoded statutory window**), record ledger with anchor dates + overrides, deterministic scan (due / held / uncovered), dry-run and scheduled purge (`by="system"`), per-record purge handlers for store mutation, full audit trail
 - [x] Legal holds: human-only, reason required, never auto-purged by retention or erasure; reported per record
 - [x] Erasure workflow (UU PDP / GDPR shape): request → human identity verification → Data Protection approval (shared engine; agents can request, never decide) → **separate** human execution; per-record dispositions (deleted / anonymized / retained under hold) and consent revocation
+- [x] **Honest erasure outcomes**: `_apply_purge` returns `None` when no store handler is registered, so
+      the outcome is `skipped` (retention) or `not_executed` (erasure) instead of a false `deleted`.
+      Previously every erasure reported success and deleted zero bytes, in both the API response and
+      the audit chain. `consent` is the one entity with a real handler today; the rest are refused,
+      loudly
+- [ ] Register purge handlers for candidate, application, employee, document, and payroll records —
+      and feed the retention ledger from the services that create them (today it is operator-manual)
 - [x] Breach workflow: operator-editable checklist templates (starter default, not legal advice), materialized steps with configurable offsets, notification log, forward-only status lifecycle (close requires all required steps + closure note), overdue-step reporting
 - [x] Audit-chain verifier: end-to-end hash chain check with first-invalid-sequence reporting (`GET /v1/compliance/audit/verify`)
 - [x] API: 27 endpoints (consents, retention policies/records/scan/purge/holds, erasures + decision sync/execute, breaches + template/steps/notifications/status/overdue, audit verify)
@@ -482,7 +511,14 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tests: 48 new (service + API integration); agent/human actor boundaries, legal-hold precedence, and dry-run no-mutation covered explicitly
 - [ ] Labor-law knowledge base with citations — Phase 8.2 (knowledge docs exist in `skills/`)
 - [ ] WLKP/BPJS reporting reminders — Phase 8.2/8.6 follow-up
-- [ ] Scheduled job wiring (retention sweep, breach overdue alerts) — Phase 7/9 ops
+- [x] Scheduled job wiring (retention sweep, breach overdue, review reminders, expiries, offer expiry,
+      overdue tasks, audit verify, reply SLA) — all through `scripts/run_scheduler.py`, composed into
+      Compose as a 15-minute loop. Each tick writes a JSON report to a shared volume and every loop
+      container has a `HEALTHCHECK`, so a job failing inside `while true` is visible. Remains: alerting
+- [ ] **Business dates are server-local.** ≈20 bare `date.today()` calls and no `Settings.timezone`
+      anywhere, so on a UTC host "today" is yesterday for 17 hours a day in WIB — off-by-one leave
+      day counts, contract expiry windows, and payroll periods. Needs `HRAGENTS_TIMEZONE` threaded
+      through every business-date computation
 - [ ] Pipeline consent checkpoint (halt candidate processing when `has_active_consent` is false) — Phase 8.1 integration
 - [ ] Compliance workspace UI (Phase 6)
 
@@ -535,3 +571,51 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - No auto-rejection when any anomaly flag is present
 - No anonymous HITL overrides
 - No hidden ranking — every score inspectable with evidence
+
+## Appendix C — Known defects (measured, not hypothetical)
+
+Found in the Stage 0 audit. Ordered by blast radius. Each is a real code path,
+not a style opinion.
+
+1. **The named-human gate is a substring test on a self-declared string.** ~100 `by: str`
+   request fields; the authenticated `Principal` reaches only two services. Any holder of
+   one `hr_admin` key (or none — empty `api_keys` means `local-dev`/`HR_ADMIN`) can
+   attribute a payroll sign-off, an erasure, or a rejection to any name, and the
+   tamper-evident chain records it as fact. Three of eight `_require_human`
+   implementations also accept `""`, so state can mutate and the audit write then fail.
+2. **Actor classification is implemented 11 times with 3 behaviours.** `employees.py:343`,
+   `contracts.py:233`, and `rate_tables.py:140` record `agent:x` as `ActorType.HUMAN` —
+   the agent-is-not-a-principal promise, falsified on the chain. Fix: one `classify_actor`
+   in a shared module.
+3. **The scoring dimensions are engineering-shaped.** An 8-year ACCA accountant for a
+   Finance Supervisor role scores `S_tech ≈ 0.58` → `REJECT_AUTO` with no human in the
+   loop: `systems_literacy` matches only `{database,devops,cloud,systems,data}` and 15
+   engineering keywords, `publications` is 0.0 for every non-research role, and the
+   seniority tiers are all engineering words. This is a construct-validity failure, and
+   the name-swap fairness harness **cannot** catch it — swapping a name does not change
+   the distribution's shape. Fix: `DimensionTemplate` registry keyed by job family.
+4. **68 write endpoints are guarded by a READ permission**, and 6 of 17 permissions are
+   dead code (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`,
+   `AUDIT_READ`, `ADMIN_MANAGE`). A `manager` can waive offboarding steps and finalize an
+   employee exit.
+5. **`money` is `float` with banker's rounding**; `round(0.125, 2) == 0.12`. A rupiah can
+   be lost, and the XLSX totals row can disagree with the sum of its own lines.
+6. **No `CHECK` constraint exists anywhere in 35 tables** and 8 tables have no foreign
+   keys, so a direct write or a restore can produce states the domain cannot represent.
+7. **43 of 45 list endpoints are unpaginated**, and nearly every DB list is
+   `select(Table)` with no `LIMIT` followed by a Python `sorted`.
+8. **No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
+   version predicate and no unit of work, so two concurrent `complete_step` calls
+   silently lose one. A mid-loop erasure failure leaves a half-erased state.
+9. **Feedback and screening validators substring-match** `"age"`, so "message",
+   "average", "language", "coverage", and "manager" are false positives. Latent only
+   because the screening agent is not yet on the live path.
+10. **The knowledge corpus is 5 documents** with no Indonesian leave, payroll, or
+    termination content, and the hash-embedding provider makes retrieval 100% lexical
+    with a 60% weight on the noisier half of the "hybrid" score. A leave question returns
+    an empty template.
+11. **The frontend has no refresh affordance and never invalidates the attention queries**,
+    so a phone user cannot force fresh data and the home page can show a stale board.
+12. **`toLocaleString(undefined)` in `web/src/lib/dates.ts`** means the language switcher
+    does not control date formatting, and the app shows `2026-02-01` next to `Feb 1, 2026`
+    on one screen.

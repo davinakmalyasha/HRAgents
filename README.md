@@ -12,11 +12,43 @@ technical work — see [Work with the author](#work-with-the-author).
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 
-**Status:** active development. Platform core, agents, recruitment API surface, and all
-Wave-1 department engines are operational (1069 tests, 93% coverage); the hiring dashboard
-workspaces are usable end-to-end, the department clock and email transport bridge are live,
-and the remaining workspaces, MCP layer, and public release are next. No public release yet —
-see the [remaining work plan](docs/plan/remaining-work.md).
+**Status:** active development. The platform core, all five agents, the recruitment
+API surface, and all Wave-1 department engines are operational and wired into a
+running worker (1105 tests, 92% coverage). The hiring dashboard workspaces run
+end to end. Still open: the remaining dashboard workspaces, authentication
+screens, and the MCP layer. No public release yet — see the
+[remaining work plan](docs/plan/remaining-work.md).
+
+---
+
+## Quickstart
+
+Docker Desktop, five minutes, no cloud keys:
+
+```bash
+git clone https://github.com/davinakmalyasha/HRAgents
+cd HRAgents
+docker compose up --build -d
+```
+
+Then open **<http://localhost:8000/app>**. Six containers come up: postgres, redis,
+minio, mailpit, and the API plus a **worker** that evaluates submitted
+applications. Migrations run automatically before the API serves.
+
+Verify the pipeline is actually running before you trust anything you see:
+
+```bash
+curl -s localhost:8000/readyz | python -m json.tool   # queue + skills must be "ok"
+curl -s localhost:8000/metrics | grep stuck_queued   # non-zero = no worker draining
+```
+
+**Nothing leaves your machine.** Mailpit catches all email, messaging is
+sandboxed, and the LLM defaults to the offline `test` model. To use a real model,
+set `HRAGENTS_LLM_MODEL` and the matching provider config — see
+[`.env.example`](.env.example).
+
+Logs: `docker compose logs -f api worker`. Stop: `docker compose down`.
+Data survives; `docker compose down -v` deletes it.
 
 ---
 
@@ -42,6 +74,9 @@ of everything.
 
 > **Extract → Score → Gate → Communicate**
 
+A submitted application is published to a queue; a worker claims it and runs the
+full pipeline. Every step is auditable.
+
 1. **Extract** — LLM agents (PydanticAI) turn résumés, repositories, and documents into
    structured, provenance-tagged JSON. The LLM never judges a person; it structures facts.
 2. **Score** — a hand-specified, deterministic function computes the tensor score
@@ -54,6 +89,14 @@ of everything.
    availability and missing information, with response SLAs so no candidate is ghosted.
 
 Every step lands on a hash-chained audit log. Every score cites its evidence.
+
+> **Known limits, stated plainly.** The four scoring dimensions are calibrated for
+> engineering roles, so a non-technical candidate is systematically under-scored —
+> generalization to other job families is the top planned change. The knowledge
+> corpus behind "Ask HR" is a seed set, not an Indonesian HR library. And only the
+> `consent` entity has a working data-erasure handler today; erasing a candidate
+> record is reported as `not_executed` rather than falsely claiming success. See
+> [remaining work](docs/plan/remaining-work.md) for the full picture.
 
 ### Core formulas (locked)
 
@@ -92,20 +135,24 @@ docs/
   plan/            master build plan, problem statement, product concept, HR guide
   research/        verified literature review + BibTeX (13 sources)
   architecture/    system design, HITL bounds, storage decisions, benchmarks
-  api/             OpenAPI 3.0 specification
+  api/             OpenAPI 3.1 specification (generated from the live app)
 skills/            markdown skills + RAG knowledge — content, not code
+scripts/           run_worker (the pipeline), run_scheduler, run_messaging, backup, checks
 src/hr_agents/
+  agentset.py      composition root: builds every agent from the skills library
+  queue.py         resolves the live queue backend both the API and worker share
   models/          Pydantic v2 domain contracts
   services/        deterministic core: scorer, policy, priority, audit, documents
   skills/          skill loader → PydanticAI capabilities (on-demand)
   knowledge/       RAG: chunking, offline embeddings, namespace-scoped retriever
   tools/           least-privilege tool registry with audited execution
-  api/             FastAPI ingestion, queue, application status
+  api/             FastAPI ingestion, queue, application status, /metrics, /readyz
   db/              SQLAlchemy tables, async sessions
 migrations/        Alembic (PostgreSQL 16)
 tests/             test suite; ruff + mypy clean
-web/               dashboard SPA (React 19 + Vite + Tailwind + shadcn/ui) — scaffolded
+web/               dashboard SPA (React 19 + Vite + Tailwind + shadcn/ui)
 landing/           public site (Next.js) — planned
+docker/            Postgres init scripts (demote the superuser so RLS applies)
 ```
 
 ## Documentation
@@ -127,7 +174,7 @@ landing/           public site (Next.js) — planned
 
 - [x] Literature review and verified citation base
 - [x] Foundation: Python 3.14, uv, Docker Compose, CI
-- [x] Contracts: Pydantic v2 models, OpenAPI 3.0, database schema
+- [x] Contracts: Pydantic v2 models, OpenAPI 3.1, database schema
 - [x] Deterministic core: scorer, policy engine, priority queue, audit chain
 - [x] Ingestion API (measured 36,509 req/min in-process)
 - [x] Skills system: markdown → on-demand PydanticAI capabilities, versioned + hashed
@@ -138,24 +185,38 @@ landing/           public site (Next.js) — planned
 - [x] Recruitment API surface: documents, jobs, evaluations, overrides, feedback, scheduling
 - [x] Departments: Onboarding, Records, Leave, Payroll prep, Compliance, Growth, Offboarding
 - [x] Multi-department architecture: workspaces, RBAC, front door chat, tenant RLS, handoffs
+- [x] Evaluation worker: the API publishes, a worker claims and runs the pipeline end to end
+- [x] Verified rate tables: enter, verify with a source, and unblock payroll compute
+- [x] Operability: `/readyz` per-dependency, `/metrics` with a stuck-queue canary
 - [~] Dashboard SPA + PWA (monochrome design system) — chat, attention home, hiring board,
-      review queue, batch import, offline shell; settings UI, XLSX, and push remain
-- [ ] MCP layer + integrations (WhatsApp, Google Workspace, files, HRIS)
+      review queue, batch import, onboarding, records, offline shell; approvals decision UI,
+      XLSX, auth screens, and push remain
+- [ ] Scoring generalized beyond engineering (job-family dimension templates)
+- [ ] Indonesian statutory knowledge base + compliance calendar
+- [ ] MCP layer + integrations (WhatsApp Meta Cloud, Google Workspace, files, HRIS)
 - [ ] Full eval suite (50 profiles + fairness pairs) and the technical paper
-- [ ] Self-host setup wizard, observability, and public release (Apache-2.0)
+- [ ] Self-host setup wizard, demo dataset, and public release (Apache-2.0)
 
 ## Technology
 
-**Backend** Python 3.14 · FastAPI · Pydantic v2 · PydanticAI · PostgreSQL 16 + pgvector ·
-Redis · MinIO · Docker · OpenTelemetry
-**Dashboard** React 19 + Vite + Tailwind + shadcn/ui + PWA · **Public site** Next.js (SEO)
+**Backend** Python 3.14 · FastAPI · Pydantic v2 · PydanticAI · PostgreSQL 16 · Redis ·
+Docker · MinIO (reserved for object storage) · Dashboards: React 19 + Vite + Tailwind +
+shadcn/ui + PWA
 
-**Storage:** PostgreSQL is the production system of record — JSONB for profiles, pgvector
-for embedding recall, ACID + row-level security for compliance. SQLite is only the
-in-memory test engine. Rationale: [data storage decisions](docs/architecture/data-storage.md).
+**Storage:** PostgreSQL is the production system of record — JSONB for profiles and
+document bytes, ACID + row-level security for compliance. SQLite is only the in-memory
+test engine. Rationale: [data storage decisions](docs/architecture/data-storage.md).
+Documents currently live in Postgres (`candidate_documents`, 10 MiB cap) rather than
+S3/MinIO; the `storage` provider exists but is not yet wired to the document path.
 
 **Models:** provider-agnostic — local (Ollama), Anthropic, OpenAI, or a fully offline
 `test` model for development and CI. The system runs end-to-end without any API keys.
+
+**Observability:** `/readyz` reports each dependency (database, messaging, audit,
+**queue**, **skills**) and returns 503 when the product cannot actually work;
+`/metrics` exposes Prometheus text, including
+`hragents_applications_stuck_queued` — the canary for "submissions are being
+accepted but nothing is evaluating them".
 
 **Dashboard (development):**
 

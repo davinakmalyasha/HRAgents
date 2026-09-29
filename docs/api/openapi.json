@@ -2929,7 +2929,8 @@
         "enum": [
           "deleted",
           "anonymized",
-          "retained_legal_hold"
+          "retained_legal_hold",
+          "not_executed"
         ],
         "title": "DispositionAction",
         "type": "string"
@@ -6600,6 +6601,15 @@
         "title": "PurgeAction",
         "type": "string"
       },
+      "PurgeOutcomeStatus": {
+        "description": "Whether a purge pass actually touched the underlying store.\n\n``SKIPPED`` is a first-class result, not an error: the ledger disposition\nis still recorded, but nothing was deleted or anonymized. Reporting that as\na success would be a data-protection lie in both the API response and the\naudit chain.",
+        "enum": [
+          "purged",
+          "skipped"
+        ],
+        "title": "PurgeOutcomeStatus",
+        "type": "string"
+      },
       "PurgeOutcomeView": {
         "additionalProperties": false,
         "properties": {
@@ -6613,10 +6623,19 @@
           "entity": {
             "$ref": "#/components/schemas/RecordEntity"
           },
+          "purged": {
+            "default": true,
+            "title": "Purged",
+            "type": "boolean"
+          },
           "record_id": {
             "format": "uuid",
             "title": "Record Id",
             "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PurgeOutcomeStatus",
+            "default": "purged"
           },
           "subject_id": {
             "title": "Subject Id",
@@ -6666,6 +6685,14 @@
               "$ref": "#/components/schemas/PurgeOutcomeView"
             },
             "title": "Purged",
+            "type": "array"
+          },
+          "skipped": {
+            "description": "Records whose entity has no registered store purge handler. Their data is still present; the retention ledger was not marked purged for them.",
+            "items": {
+              "$ref": "#/components/schemas/PurgeOutcomeView"
+            },
+            "title": "Skipped",
             "type": "array"
           },
           "uncovered": {
@@ -6782,6 +6809,121 @@
         "title": "QueueResponse",
         "type": "object"
       },
+      "RateEntry": {
+        "additionalProperties": false,
+        "description": "One row in a rate table (e.g., a bracket, a risk class, a cap).",
+        "properties": {
+          "employee_share_percent": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee Share Percent"
+          },
+          "employer_share_percent": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employer Share Percent"
+          },
+          "flat_amount": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flat Amount"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "lower_bound": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower Bound"
+          },
+          "multiplier": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multiplier"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "upper_bound": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper Bound"
+          },
+          "wage_cap": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wage Cap"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "RateEntry",
+        "type": "object"
+      },
       "RateTableCreate": {
         "additionalProperties": false,
         "properties": {
@@ -6816,6 +6958,32 @@
         "title": "RateTableCreate",
         "type": "object"
       },
+      "RateTableEntriesUpdate": {
+        "additionalProperties": false,
+        "description": "Replace a table's rows. Setting entries always clears verification.",
+        "properties": {
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/RateEntry"
+            },
+            "minItems": 1,
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries",
+          "by"
+        ],
+        "title": "RateTableEntriesUpdate",
+        "type": "object"
+      },
       "RateTableKind": {
         "enum": [
           "bpjs_kesehatan",
@@ -6832,9 +7000,65 @@
         "title": "RateTableKind",
         "type": "string"
       },
+      "RateTableVerify": {
+        "additionalProperties": false,
+        "description": "Certify a rate table against a recorded source. Unblocks payroll compute.",
+        "properties": {
+          "by": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "By",
+            "type": "string"
+          },
+          "source_note": {
+            "description": "Where the numbers came from (regulation, official page, date fetched)",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "by",
+          "source_note"
+        ],
+        "title": "RateTableVerify",
+        "type": "object"
+      },
       "RateTableView": {
         "additionalProperties": false,
         "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/RateEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
           "entry_count": {
             "title": "Entry Count",
             "type": "integer"
@@ -6866,6 +7090,11 @@
             ],
             "title": "Source Note"
           },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
           "usable": {
             "title": "Usable",
             "type": "boolean"
@@ -6895,7 +7124,8 @@
           "verified",
           "usable",
           "verified_by",
-          "source_note"
+          "source_note",
+          "updated_at"
         ],
         "title": "RateTableView",
         "type": "object"
@@ -21015,6 +21245,205 @@
           }
         },
         "summary": "Unverified Rate Tables",
+        "tags": [
+          "rate-tables"
+        ]
+      }
+    },
+    "/v1/rate-tables/{table_id}": {
+      "get": {
+        "operationId": "get_rate_table_v1_rate_tables__table_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "table_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Table Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateTableView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Rate Table",
+        "tags": [
+          "rate-tables"
+        ]
+      }
+    },
+    "/v1/rate-tables/{table_id}/entries": {
+      "put": {
+        "description": "Replace a table's rows. Editing values always invalidates verification.",
+        "operationId": "set_rate_table_entries_v1_rate_tables__table_id__entries_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "table_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Table Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateTableEntriesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateTableView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Rate Table Entries",
+        "tags": [
+          "rate-tables"
+        ]
+      }
+    },
+    "/v1/rate-tables/{table_id}/verify": {
+      "post": {
+        "description": "Certify a rate table against a recorded source. Unblocks payroll compute.",
+        "operationId": "verify_rate_table_v1_rate_tables__table_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "table_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Table Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-API-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateTableVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateTableView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Rate Table",
         "tags": [
           "rate-tables"
         ]

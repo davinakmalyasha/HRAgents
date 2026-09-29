@@ -1,23 +1,21 @@
-# Remaining Work — MCP layer to paper & release
+# Remaining Work — core integrity, then MCP layer to paper & release
 
-Status snapshot: **2026-09-23**. Everything up to and including Phase 5 (multi-department
+Status snapshot: **2026-09-29**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
-cross-workspace handoff) is built and tested: **1069 tests · 4 skipped (Postgres-only RLS) · ruff+mypy clean**.
-The dashboard scaffold (Phase 6.0/6.0.1, W2a) has landed: tokens, shell, i18n, `/app` serving, CI job,
-plus the workspace metadata API, the Ask HR chat UI with citations and handoff suggestions (W2b),
-the attention-first home wired to real queues (W2c), the hiring pipeline board with candidate
-detail (W2d), the interview scheduling view (W2e), job management (W2f), the gated
-candidate communication panel (W2g), proposal confirm/cancel/reschedule decisions (W2h), and
-full offer records (W2i). The onboarding workspace is real too: plan board, checklist with
-named-actor completion and waivers, document collection status, and a start-plan flow that
-creates the hire when needed. The Records workspace is real too: org chart with roll-up headcount,
-a unit-filtered directory, and the expiry vault where a named human verifies or rejects a
-document (`/v1/documents`, `/v1/documents/{id}/verify`, `/v1/org-units`). The email transport bridge is live: `scripts/run_messaging.py`
-carries queued candidate messages over SMTP and polls IMAP for replies (sandbox-safe by
-default; dispatch evidence and deduplicated inbound replies are persisted). The department
-clock runs as well: `scripts/run_scheduler.py` calls the
-approval-SLA, retention, breach, growth, contract/document-expiry, offer-expiry, overdue-tasks,
-and audit-verify engines on one explicit clock (dry-run retention by default).
+cross-workspace handoff) is built and tested. Stage 0 of the core work landed: **the evaluation
+worker now runs**, all five agents are constructed in production, the rate-table API makes payroll
+reachable, erasure stops lying, and `/readyz` + `/metrics` make a stopped pipeline visible.
+**1105 tests (1101 passed, 4 skipped for Postgres) · 92% coverage · ruff + mypy clean**.
+
+> **What changed, and why it mattered.** The API accepted an application and returned `202`, but
+> nothing ever claimed the queue — the core loop was inert and looked like success. The container
+> image shipped without `skills/`, so every agent ran with no runbooks. Payroll could not be
+> completed through the API at all (no way to add rate-table entries). Erasure reported
+> `{"action":"deleted"}` and deleted zero bytes, in both the API response and the audit chain.
+> Those are fixed and regression-tested. The next slice is the **trust boundary** (the named-human
+> gate is still a substring test on a self-declared string) and **scoring generalization** (a
+> qualified accountant is auto-rejected today). The measured defect list is
+> `docs/plan/master-build-plan.md` Appendix C.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -27,7 +25,55 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 
 ---
 
-## 0. Known leftovers before the MCP layer (small, tracked here for completeness)
+## 0. Core integrity (the highest-leverage remaining work)
+
+> **Why this is first.** The central claim is "a named human gates every consequential outcome,
+> and every decision is reconstructible." Today the gate is `if not by.startswith("agent:")` on
+> a string the client typed, and the principal FastAPI already authenticated is discarded by every
+> router. Everything else is subordinate to fixing that.
+
+- [ ] **One actor identity from the trust boundary.** Resolve `Principal` once per request onto
+      `request.state.principal`; every service takes `actor: ActorRef` instead of `by: str`. Keep
+      the body name only where a *different* human is genuinely being named (an override reviewer)
+      and require a reason when it differs from the principal. ~100 schema fields plus the web
+      app — one router at a time, with the web change in the same commit.
+- [ ] **One `classify_actor()` and one `require_named_human()`**; delete the 11 + 8 reimplementations.
+      Fixes `agent:x` recorded as `ActorType.HUMAN` in `employees.py`, `contracts.py`, and
+      `rate_tables.py`, plus the three `_require_human` variants that accept `""`.
+- [ ] **Gate the ten ungated consequential operations**: `EmployeeService.transition`,
+      `mark_document_verified` (the check lives in the router, not the service),
+      `contracts.activate`/`terminate`, `tasks.complete`/`cancel`,
+      `leave.set_policy`/`adjust_balance`, `payroll.mark_exported`/`cancel_run`, and
+      `offboarding.finalize_employee_exit` (which validates nothing when the plan is complete).
+- [ ] **Bind approval decisions to `assignee_role`** — `decide` checks only that the actor is not
+      `agent:`, so a `MANAGER` can decide a `FINANCE`-assigned payroll sign-off.
+- [ ] **Fix the 68 write endpoints guarded by a READ permission** and wire the 6 dead permissions
+      (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`, `AUDIT_READ`,
+      `ADMIN_MANAGE`).
+- [ ] **Type errors once**: typed domain exceptions + a central status map instead of
+      `if message.startswith("unknown")` in 7 routers; then the missing
+      `RequestValidationError` → `problem+json` handler and stable `type` URIs, so the frontend
+      stops matching English prose to pick an error message.
+- [ ] **`Decimal` money with `ROUND_HALF_UP`**; move the 173-hour divisor and 1.5×/2.0× overtime
+      multipliers into verified rate tables; progressive PPh 21 TER brackets; honour
+      `absence_days`; add a totals-equal-lines invariant.
+- [ ] **Business dates in WIB**: `HRAGENTS_TIMEZONE` (default `Asia/Jakarta`) through the ~20 bare
+      `date.today()` calls. On a UTC host every business date is wrong for 17 hours a day.
+- [ ] **A unit of work with optimistic concurrency**: one transaction per service method, a
+      `version` column, and a lost-update guard on the ~35 read-modify-write sites. Also what
+      makes a mid-loop erasure failure detectable instead of silent.
+- [ ] **Schema integrity**: `CHECK` constraints on the enum-like and numeric columns, foreign keys
+      on the 8 orphan tables, and `ORDER BY` in the DB adapters instead of 12 Python re-sorts.
+- [ ] **Real purge handlers for candidate, application, employee, document, and payroll records**,
+      and feed the retention ledger from the services that create records (today it is
+      operator-manual, so `execute_purge` finds nothing to do).
+- [ ] **Consolidate the 13 `_record` audit methods, 6 state-transition formats, and the triplicated
+      approval→status sync** behind one auditor, one declarative state machine, and one
+      `ApprovalEngine.await_decision()`.
+
+---
+
+## 0.1 Known leftovers before the MCP layer (small, tracked here for completeness)
 
 > **Progress (2026-09-12, PR #2):** W0 complete — ADR 0005 (sync domain layer),
 > migration `0005_persistence`, `DbAuditChain` (hash chain in `audit_log`),
@@ -54,6 +100,49 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [x] **Application status transitions on worker processing.** `EvaluationJobHandler`
       marks `processing` on claim, audits `worker.processing`/`worker.failed`/
       `worker.completed`, and evaluation registration syncs the terminal status.
+
+---
+
+## 0.2 Scoring generalization to non-engineering roles
+
+> **The single most commercially damaging defect, and it is silent.** The four
+> dimensions are a backend-engineer rubric promoted to a universal schema. Worked
+> example with the code as written: an 8-year accountant with an ACCA membership
+> applying for a Finance Supervisor role scores `S_tech ≈ 0.58` → `REJECT_AUTO`
+> with no human in the loop and no sign-off required. `systems_literacy` matches
+> only `{database, devops, cloud, systems, data}` and 15 engineering keywords;
+> `publications` is 0.0 for every non-research role; the seniority tiers are
+> engineering words, so "Accounting Supervisor" matches none.
+>
+> The name-swap fairness harness **cannot** catch this: swapping a candidate's
+> name does not change the shape of the score distribution. It proves the
+> arithmetic is invariant; the risk is in the *extraction* and the *rubric*.
+
+- [ ] **`DimensionTemplate` as data, not code**: `{job_family, dimensions: [{key, weight, scorer,
+      evidence_requirement}], thresholds}` — versioned, audited, and snapshotted into every
+      evaluation. The scorer stays deterministic; only the dimension list becomes data.
+- [ ] **Composable primitive scorers with per-family taxonomies**: `evidence_count`,
+      `evidence_density(taxonomy)`, `tenure_saturation(cap)`, `credential_registry(family)`,
+      `title_seniority_tiers(family)`. A single per-family keyword taxonomy is the change that makes
+      the model general.
+- [ ] **Evidence-first scoring**: a dimension contributes nothing without at least one `EvidenceRef`
+      above a confidence floor. Structurally kills a whole class of extraction-failure silent passes.
+- [ ] **Real credential registries per family** (BNSP, AWS/Google/Azure, ACCA/CPA/CFA). Today
+      `verify_credential` is a dict lookup with no data, so a genuine certificate and a Coursera
+      badge score the same.
+- [ ] **Templates for `engineering`, `finance`, `sales`, `admin`, `operations`,
+      `customer_support`**, with thresholds as template data behind the same `verified` gate as rate
+      tables. **The engineering template must produce byte-identical scores to today** — that is the
+      regression test proving the generalization is additive.
+- [ ] **Replace the `σ ≤ 0.05` gate.** Today `scoring_runs` defaulted to 1, so `sigma` was always
+      `0.0000` and the gate always passed — a *degraded* path (one extraction) was more trusted than
+      a careful k=3 one. Replace with an evidence-sufficiency gate (every dimension evidenced, zero
+      flags, minimum run agreement) and surface per-dimension run agreement in the UI, which is both
+      honest and a better product surface than a bare σ.
+- [ ] **Extraction fairness pairs on the agent, not the scorer**: generated CV pairs differing only in
+      name, gender-coded name, photo, or school, run through the *agent*, asserting identical
+      extracted skills and scores. `tests/services/test_fairness.py` currently swaps fields the
+      scorer never reads, so it proves nothing about the real risk.
 
 ---
 
@@ -302,21 +391,42 @@ benchmarks, and self-host without contacting the author.
 
 ## Suggested execution order
 
+The order changed on 2026-09-29. The previous list put MCP and the landing site
+ahead of anything that made the product work, while the core loop was inert and
+the scoring model silently auto-rejected non-engineers. The new order is
+"make it true, then make it good, then make it known".
+
 | Order | Workstream | Depends on | Why this order |
 |---|---|---|---|
-| 1 | Postgres persistence for new surfaces + audit sink | — | Everything after (MCP, UI, ops) gets safer with durable state |
-| 2 | MCP layer (client manager → approval hook → server) | 1 | Unlocks ATS/HRIS integrations the market expects |
-| 3 | Dashboard + PWA (`web/`) | 1 | The product's adoption surface; needs stable APIs |
-| 4 | Evals expansion | — (parallel) | Runs offline; feeds the paper while UI is built |
-| 5 | Ops hardening (wizard, compose, observability) | 1, 3 | Must be stable before public release |
-| 6 | Landing + paper + release | 3, 4, 5 | Release last; paper cites measured results |
+| 1 | **Core integrity** (§0): the trust boundary, the shared primitives, `Decimal` money, WIB dates | — | The project's promise is an auditable record of human decisions. Today the actor is a self-declared string. Nothing else raises the floor |
+| 2 | **Scoring generalization** — `DimensionTemplate` registry keyed by job family | 1 | The system auto-rejects accountants, sales, and admin hires. That is a correctness failure with real people on the other end, and the fairness harness structurally cannot catch it |
+| 3 | **Dashboard** (§2): approvals inbox, home fix, auth, XLSX, mobile pass, streaming | 1 (typed error codes) | Makes the product usable by a human on a phone. The approvals inbox is one screen that makes five workspaces actionable |
+| 4 | **Knowledge + compliance calendar** — Indonesian statutory content, THR, the dated obligations nobody else ships | 1, 2 | The only genuinely differentiating feature for this market, and it needs no LLM |
+| 5 | Evals expansion (§4) — generated 50-profile set + extraction fairness pairs | 2 | Runs offline; feeds the paper and calibrates the templates |
+| 6 | Ops hardening (§5) — wizard, demo dataset, alerting | 1, 3 | Must be stable before any public release |
+| 7 | MCP layer, landing site, paper | 3, 4, 5 | Release last; the paper cites measured results |
+
+**Cut for now:** the MCP layer is the lowest-value work on the list for a solo-HR
+person who will never connect an ATS, and the landing site precedes having a
+working install. Both stay in this file; neither should block the four above.
 
 ### Risk notes
 
-- **MCP destructive-tool safety** is the highest-risk area: approval hook must land *with* the
-  manager, not after. Negative tests are the acceptance gate.
-- **LLM latency** (mean ~82 s live) shapes the UI: progress states and "watching" sections are
-  required before launch; do not hide processing time.
+- **The trust-boundary flip is the one change that can quietly break the product.**
+  If the dashboard's `by` payloads stop matching the principal, sign-offs fail at
+  runtime rather than at build. Mitigate by shipping the web change in the same
+  commit as each router, and by writing the negative tests first.
+- **The audit chain is the one thing that must not break mid-rewrite** — the
+  project promises tamper-evidence. Migrate services *to* the shared auditor; never
+  rewrite the hash semantics. The streaming-verify tests in `tests/services/test_audit.py`
+  are the guard.
+- **A literal big-bang rewrite of 26k LOC with one author is the highest-risk way
+  to lose what works.** Build each shared primitive as an unused, tested module,
+  prove the pattern on `compliance` (the best-tested service at 92%), then migrate
+  the rest with the 1101-test suite as the net.
+- **LLM latency** (mean ~82 s live) shapes the UI: progress states and "watching" sections
+  are required before launch; do not hide processing time. Parallelising the k
+  extraction runs (done) cuts it roughly k-fold.
 - **Coverage floor**: keep ≥ 90% on `src/hr_agents`; new UI work must not dilute the invariant
   suite (scoring, policy, fairness, audit chain, payroll gates stay at 100% branch).
 - **No scope creep into payment execution, biometric hardware, or accounting** — see

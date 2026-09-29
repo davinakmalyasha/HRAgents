@@ -16,17 +16,31 @@ What starts:
 
 | Service | What it does | Notes |
 |---|---|---|
-| `postgres` | pgvector database | volume `pgdata`, health-checked |
+| `postgres` | database | volume `pgdata`, health-checked, RLS enforced (see below) |
 | `redis` | queue backend | volume `redisdata` |
-| `minio` | document storage | volume `miniodata`, console on `:9001` |
+| `minio` | object storage (reserved) | volume `miniodata`, console on `:9001`; documents still live in Postgres |
 | `mailpit` | local mail server | SMTP `1025`, inbox UI `http://localhost:8025` |
 | `migrate` | `alembic upgrade head` | runs to completion, then the API starts |
 | `api` | FastAPI + dashboard at `/app` | `http://localhost:8000/app`, health on `/healthz` and `/readyz` |
+| `worker` | `scripts/run_worker.py` | **the pipeline**: claims queued applications and evaluates them |
 | `scheduler` | `scripts/run_scheduler.py --purge` every 15 min | the department clock |
 | `messaging` | `scripts/run_messaging.py` every 5 min | carries the outbox, polls replies |
 
 First start takes a few minutes (dashboard build). Watch progress with
-`docker compose logs -f api`.
+`docker compose logs -f api worker`.
+
+> **The worker is not optional.** The API accepts an application and publishes it;
+> only the worker evaluates it. Without it, submissions sit in `queued` forever
+> and everything looks like it worked. Check
+> `curl -s localhost:8000/metrics | grep stuck_queued` — a non-zero value means
+> nothing is draining the queue.
+
+> **Row-level security.** The Postgres image creates the database owner as a
+> superuser, and a superuser bypasses every RLS policy. `docker/postgres/` runs
+> once on first init to demote it (`NOSUPERUSER NOBYPASSRLS`). The policies on all
+> 35 tables are otherwise decorative in the shipped stack. If you are upgrading an
+> existing volume, run `ALTER ROLE hragents NOSUPERUSER NOCREATEROLE NOBYPASSRLS;`
+> by hand.
 
 ### Secrets
 
@@ -43,6 +57,15 @@ HRAGENTS_MESSAGING_SANDBOX=false                  # only after you configure a r
 ```
 
 Never commit `.env`; `.dockerignore` keeps it out of the image.
+
+> **Authentication is a documented limitation, not a recommendation.** With no
+> keys configured, every request is accepted as a local development principal
+> with full admin rights — appropriate for `localhost`, not for a server. With
+> keys configured, **the dashboard stops working**, because there are no login
+> screens yet: the SPA sends no `X-API-Key` and every call returns 401. So today
+> the only safe deployment is behind a reverse proxy that terminates TLS and
+> restricts access. Authentication screens land with the dashboard work tracked
+> in [remaining work](plan/remaining-work.md) §2.2.
 
 ## 2. Connecting a real mail provider
 
@@ -64,13 +87,34 @@ provider, the message id, and any failure on the message itself.
 ## 3. Health, logs, metrics
 
 ```bash
-curl -s localhost:8000/healthz   # liveness: the process is up
-curl -s localhost:8000/readyz    # readiness: database, messaging, audit sink
-docker compose logs -f scheduler messaging
+curl -s localhost:8000/healthz                    # liveness: the process is up
+curl -s localhost:8000/readyz                     # readiness, per dependency
+curl -s localhost:8000/metrics | grep stuck_queued # is anything draining the queue?
+docker compose logs -f api worker scheduler messaging
 ```
 
-`/readyz` returns `503` with a per-dependency breakdown when something the API
-needs is unreachable, which is what an orchestrator should probe.
+`/readyz` returns `503` with a per-dependency breakdown when something is
+unreachable, which is what an orchestrator should probe. It checks
+`database`, `messaging`, `audit`, **`queue`**, and **`skills`** — the last two
+because they decide whether the product *works* rather than whether it starts: no
+queue means submissions are accepted and never evaluated, and no skills library
+means every agent runs with no runbook.
+
+`/metrics` is plain Prometheus text; `curl` is enough, no exporter stack. The
+series worth alerting on:
+
+| Series | Meaning |
+|---|---|
+| `hragents_applications_stuck_queued` | accepted but never evaluated — **the worker is down or wedged** |
+| `hragents_scheduler_last_success_timestamp` | per job; a stale value means a job is failing inside the `while true` loop |
+| `hragents_applications_by_status` | where the pipeline actually is |
+| `hragents_http_request_duration_seconds_sum` | paired with `_count` for a mean |
+
+The `scheduler` and `messaging` loops swallow failures (`|| echo ...`) because a
+crashing tick should not kill the container. They rewrite their JSON report on a
+shared volume every tick, and the metrics endpoint reads it — that is how a
+silently failing loop becomes visible without adding a log aggregator. The
+containers also have `HEALTHCHECK`s, so `docker compose ps` shows the truth.
 
 ## 4. Backups (and proving they work)
 
