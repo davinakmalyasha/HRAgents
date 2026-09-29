@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     # --- LLM ---
     # PydanticAI model string. The special value "test" runs agents fully offline.
     llm_model: str = "test"
+    # Independent extraction passes per application (k for the sigma estimate).
+    # Below 2 sigma is meaningless — pstdev over one sample is 0.0 — so the
+    # pipeline floors this at 2 and the policy engine treats k=1 as no evidence.
+    scoring_runs: int = Field(default=3, ge=1, le=9)
+    # Skills library root. Empty = infer from the package location. A wrong path
+    # fails startup loudly rather than silently serving agents with no runbooks.
+    skills_root: str | None = None
 
     # --- External integrations ---
     github_token: str | None = None

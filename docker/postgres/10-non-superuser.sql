@@ -1,0 +1,13 @@
+-- Demote the image-created superuser so the platform's own connection is
+-- subject to row-level security.
+--
+-- The official Postgres image creates POSTGRES_USER with SUPERUSER, and a
+-- superuser silently bypasses every RLS policy in the schema. ADR 0006 knows
+-- this ("Superuser connections, for example the compose hragents user, bypass
+-- RLS") and deferred the fix. Without it, the tenant_isolation policies on all
+-- 35 tables are decorative in the shipped stack, even though
+-- tests/db/test_rls.py proves them on a purpose-made NOSUPERUSER role.
+--
+-- CREATEDB is retained: scripts/backup.py --verify restores into a scratch
+-- database. CREATEROLE and BYPASSRLS are not.
+ALTER ROLE hragents NOSUPERUSER NOCREATEROLE NOBYPASSRLS;

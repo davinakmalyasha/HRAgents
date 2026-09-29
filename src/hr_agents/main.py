@@ -10,13 +10,15 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from hr_agents import __version__
-from hr_agents.agents.policy_assistant import PolicyAssistant
 from hr_agents.agents.runtime import AgentRuntime
+from hr_agents.agentset import AgentSet, KnowledgeUnavailableError, build_agent_set
 from hr_agents.api.hardening import install_hardening, readiness_report
+from hr_agents.api.metrics import PROMETHEUS_CONTENT_TYPE
+from hr_agents.api.metrics import render as render_metrics
 from hr_agents.api.routers import (
     applications,
     communications,
@@ -42,21 +44,16 @@ from hr_agents.db import create_sync_engine, create_sync_session_factory
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.messaging import candidate_directory, reply_store
-from hr_agents.knowledge import KnowledgeRetriever
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
-from hr_agents.services import ApplicationStore, AuditChain, JobQueue
+from hr_agents.queue import QueueUnavailableError, resolve_queue_backend
+from hr_agents.services import ApplicationStore, AuditChain
 from hr_agents.services.chat import ChatService
+from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
 from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.recruiting import RecruitingServices
 from hr_agents.services.workspace_requests import HandoffService
-from hr_agents.skills import SkillRegistry, load_library
-from hr_agents.tools import (
-    ToolRegistry,
-    make_canonicalize_skill_tool,
-    make_search_knowledge_tool,
-)
 from hr_agents.workspaces import default_registry
 
 logger = get_logger(__name__)
@@ -64,42 +61,57 @@ logger = get_logger(__name__)
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-async def _build_chat(app: FastAPI) -> None:
-    """Build the Ask HR service; degrade quietly when the knowledge base is absent."""
+async def _build_agents(app: FastAPI) -> AgentSet | None:
+    """Build every agent from the skills library, or explain why we cannot."""
     audit = getattr(app.state, "audit", None)
-    skills_root = _REPO_ROOT / "skills"
-    if audit is None or not skills_root.is_dir():
+    if audit is None:
+        return None
+    try:
+        agent_set = await build_agent_set(
+            audit=audit,
+            runtime=AgentRuntime.from_env(),
+            skills_root=get_settings().skills_root,
+        )
+    except KnowledgeUnavailableError as exc:
+        # Loud, because a missing skills root means every agent silently runs
+        # without its runbooks. In a container this is a truncated image.
+        logger.error("skills_unavailable", error=str(exc))
+        app.state.skills_error = str(exc)
+        return None
+    logger.info(
+        "agents_ready",
+        agents=list(agent_set.agent_names),
+        namespaces=len(agent_set.namespaces),
+        skills=len(agent_set.skills),
+    )
+    return agent_set
+
+
+async def _build_chat(app: FastAPI, agents: AgentSet | None) -> None:
+    """Build the Ask HR service from the already-built agent set."""
+    if agents is None:
         app.state.chat = None
         app.state.handoffs = None
         return
     try:
-        skills = SkillRegistry(load_library(skills_root))
-        retriever = await KnowledgeRetriever.build(skills.knowledge())
         registry = default_registry()
-        namespaces = sorted(
-            {namespace for item in registry.list_all() for namespace in item.knowledge_namespaces}
-        )
-        tools = ToolRegistry(audit=audit)
-        tools.register(make_search_knowledge_tool(retriever, namespaces=namespaces))
-        tools.register(make_canonicalize_skill_tool())
-        assistant = PolicyAssistant(AgentRuntime.from_env(), skills=skills)
         app.state.chat = ChatService(
             front_door=FrontDoor(registry),
-            responder=assistant,
-            audit=audit,
-            tools=tools,
+            responder=agents.policy,
+            audit=app.state.audit,
+            tools=agents.tools,
         )
-        app.state.handoffs = HandoffService(registry=registry, audit=audit)
+        app.state.handoffs = HandoffService(registry=registry, audit=app.state.audit)
         logger.info("chat_ready", workspaces=len(registry.list_all()))
     except Exception as exc:
-        logger.warning("chat_unavailable", error=type(exc).__name__)
+        logger.warning("chat_unavailable", error=type(exc).__name__, detail=str(exc))
         app.state.chat = None
         app.state.handoffs = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Application lifespan: configure logging, build chat, dispose the DB engine."""
+    """Application lifespan: configure logging, build agents + queue, dispose the DB."""
     settings: Settings = get_settings()
     configure_logging(settings.log_level)
     logger.info(
@@ -108,8 +120,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         environment=settings.environment,
         version=__version__,
         store_backend=settings.store_backend,
+        scoring_runs=settings.scoring_runs,
     )
-    await _build_chat(app)
+    agents = await _build_agents(app)
+    app.state.agents = agents
+    await _build_chat(app, agents)
+
+    try:
+        app.state.queue = await resolve_queue_backend()
+        app.state.dispatcher = EvaluationDispatcher(
+            queue=app.state.queue, documents=app.state.recruiting.documents
+        )
+        logger.info("queue_ready", backend=type(app.state.queue).__name__)
+    except QueueUnavailableError as exc:
+        # Submissions still persist, but nothing will evaluate them. Readiness
+        # reports the outage rather than a green "ok".
+        logger.error("queue_unavailable", error=str(exc))
+        app.state.queue = None
+        app.state.dispatcher = UndispatchedDispatcher(str(exc))
+
     yield
     engine = getattr(app.state, "db_engine", None)
     if engine is not None:
@@ -191,7 +220,14 @@ def create_app() -> FastAPI:
 
     app.state.store = store
     app.state.audit = audit
-    app.state.job_queue = JobQueue()
+    # Filled in by the lifespan: agents, queue, dispatcher. Pre-seeded so that
+    # requests served before startup completes, and tests that skip the lifespan,
+    # see the same degraded shape instead of an AttributeError.
+    app.state.agents = None
+    app.state.skills_error = None
+    app.state.queue = None
+    app.state.chat = None
+    app.state.handoffs = None
     # People first: its approval engine is shared with recruiting so pending
     # scheduling confirmations surface in the same queues (and the same store).
     people_services = PeopleServices(audit=audit, session_factory=session_factory)
@@ -216,6 +252,9 @@ def create_app() -> FastAPI:
         replies=reply_store(session_factory),
         directory=candidate_directory(session_factory),
         live=not settings.messaging_sandbox,
+    )
+    app.state.dispatcher = UndispatchedDispatcher(
+        "queue backend is not resolved yet; the application lifespan must run"
     )
 
     app.add_exception_handler(HTTPException, _problem_response)  # type: ignore[arg-type]
@@ -258,6 +297,15 @@ def create_app() -> FastAPI:
         report = readiness_report(app)
         code = 200 if report["status"] == "ok" else 503
         return JSONResponse(status_code=code, content={**report, "version": __version__})
+
+    @app.get(
+        "/metrics",
+        tags=["system"],
+        summary="Prometheus metrics (text format)",
+        include_in_schema=False,
+    )
+    async def metrics() -> Response:
+        return Response(content=render_metrics(app), media_type=PROMETHEUS_CONTENT_TYPE)
 
     _mount_web_app(app)
     return app

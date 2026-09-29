@@ -148,9 +148,22 @@ class RedisQueueBackend:
                 if text.startswith("{"):
                     parsed = json.loads(text)
                     if isinstance(parsed, dict) and "message" in parsed:
-                        messages.append(QueueMessage.model_validate(parsed["message"]))
+                        message = QueueMessage.model_validate(parsed["message"])
+                        # The dead-letter envelope carries the reason; surface it on
+                        # the message so an operator can see why it died.
+                        messages.append(
+                            message.model_copy(
+                                update={
+                                    "failed_reason": str(parsed.get("reason", "")) or None,
+                                }
+                            )
+                        )
                         continue
-                messages.append(QueueMessage.model_validate_json(text))
+                messages.append(
+                    QueueMessage.model_validate_json(text).model_copy(
+                        update={"failed_reason": "dead-lettered"}
+                    )
+                )
         return messages
 
     # --- internals ------------------------------------------------------

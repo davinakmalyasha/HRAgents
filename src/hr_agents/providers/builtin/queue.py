@@ -1,12 +1,22 @@
-"""Built-in queue provider specs."""
+"""Built-in queue provider specs.
 
+Health checks are real reachability probes, not configuration echoes. A queue
+that cannot be reached is a stopped pipeline, and the resolver
+(:mod:`hr_agents.queue`) falls through to the next provider based on the result.
+"""
+
+import asyncio
+import contextlib
 from typing import Any
 
 from pydantic import Field
+from sqlalchemy import text
 
 from hr_agents.config import get_settings
 from hr_agents.providers.base import Capability, ProviderConfig, ProviderHealth, ProviderSpec
 from hr_agents.providers.queue.memory import MemoryQueueBackend
+
+PROBE_TIMEOUT_SECONDS = 3.0
 
 
 class MemoryQueueConfig(ProviderConfig):
@@ -41,7 +51,39 @@ def _build_postgres(config: ProviderConfig) -> Any:
 
 
 def _health_ok(config: ProviderConfig) -> ProviderHealth:
-    return ProviderHealth.ok("configuration valid")
+    return ProviderHealth.ok("process-local queue, nothing to reach")
+
+
+async def _health_redis(config: ProviderConfig) -> ProviderHealth:
+    """Ping Redis so an unreachable broker never looks healthy."""
+    assert isinstance(config, RedisQueueConfig)
+    from redis.asyncio import Redis
+
+    client = Redis.from_url(config.redis_url)
+    try:
+        await asyncio.wait_for(client.ping(), timeout=PROBE_TIMEOUT_SECONDS)
+    except Exception as exc:
+        return ProviderHealth.unavailable(
+            f"redis unreachable at {config.redis_url}: {type(exc).__name__}"
+        )
+    finally:
+        with contextlib.suppress(Exception):  # best-effort cleanup
+            await client.aclose()
+    return ProviderHealth.ok(f"redis reachable at {config.redis_url}")
+
+
+def _health_postgres(config: ProviderConfig) -> ProviderHealth:
+    """Run ``SELECT 1`` against the platform database."""
+    from hr_agents.db import create_sync_engine
+
+    try:
+        engine = create_sync_engine(get_settings())
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        engine.dispose()
+    except Exception as exc:
+        return ProviderHealth.unavailable(f"postgres unreachable: {type(exc).__name__}: {exc}")
+    return ProviderHealth.ok("postgres reachable")
 
 
 QUEUE_SPECS: list[ProviderSpec] = [
@@ -62,7 +104,7 @@ QUEUE_SPECS: list[ProviderSpec] = [
         docs_url="https://redis.io",
         config_model=RedisQueueConfig,
         build=_build_redis,
-        health_check=_health_ok,
+        health_check=_health_redis,
     ),
     ProviderSpec(
         id="queue.postgres",
@@ -71,6 +113,6 @@ QUEUE_SPECS: list[ProviderSpec] = [
         description="Queue inside the platform database — no additional service.",
         config_model=PostgresQueueConfig,
         build=_build_postgres,
-        health_check=_health_ok,
+        health_check=_health_postgres,
     ),
 ]

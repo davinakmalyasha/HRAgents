@@ -9,7 +9,7 @@ FROM node:22-bookworm-slim AS web
 
 WORKDIR /build/web
 COPY web/package.json web/package-lock.json* ./
-RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
@@ -22,11 +22,14 @@ ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH" \
-    HRAGENTS_WEB_DIST=/app/web/dist
+    HRAGENTS_WEB_DIST=/app/web/dist \
+    HRAGENTS_SKILLS_ROOT=/app/skills
 
-# libpq for psycopg, curl for the container healthcheck
+# libpq for psycopg, curl for the container healthcheck, postgresql-client for
+# scripts/backup.py (pg_dump/psql/createdb/dropdb) which the backup runbook
+# invokes from inside this image.
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y curl libpq5 \
+    && apt-get install --no-install-recommends -y curl libpq5 postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.14 /uv /usr/local/bin/uv
@@ -40,6 +43,9 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY src/ ./src/
 COPY migrations/ ./migrations/
 COPY scripts/ ./scripts/
+# The skills library is agent instruction content, not code, but the agents
+# cannot run without it: omitting it served a dashboard whose chat 503'd.
+COPY skills/ ./skills/
 COPY alembic.ini ./
 RUN uv sync --locked --no-dev \
     && chmod +x scripts/*.py \

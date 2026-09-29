@@ -9,6 +9,7 @@ every step writes to the audit chain.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
@@ -42,9 +43,16 @@ from hr_agents.tools.registry import ToolRegistry
 class PipelineConfig:
     """Configuration for one pipeline execution."""
 
-    scoring_runs: int = 1
+    scoring_runs: int = 3
     mutual_slots: int | None = None
     reference_date: date | None = None
+
+    @classmethod
+    def from_settings(cls) -> PipelineConfig:
+        """Build from operator settings, so k is never a silent per-call default."""
+        from hr_agents.config import get_settings
+
+        return cls(scoring_runs=get_settings().scoring_runs)
 
 
 class StoragePort(Protocol):
@@ -122,11 +130,13 @@ class ApplicationPipeline:
         storage: StoragePort,
         audit: AuditChain,
         guard: InjectionGuard | None = None,
+        config: PipelineConfig | None = None,
     ) -> None:
         self._deconstructor = deconstructor
         self._storage = storage
         self._audit = audit
         self._guard = guard or InjectionGuard()
+        self._config = config
 
     async def process(
         self,
@@ -136,7 +146,7 @@ class ApplicationPipeline:
         job: JobSpecification,
         config: PipelineConfig | None = None,
     ) -> PipelineResult:
-        config = config or PipelineConfig()
+        config = config or self._config or PipelineConfig.from_settings()
         reference_date = config.reference_date or date.today()
         actions: list[str] = []
 
@@ -148,16 +158,24 @@ class ApplicationPipeline:
         )
         actions.append("pipeline.started")
 
-        # 1. Extraction: k independent passes for variance measurement
-        profiles: list[CandidateProfile] = []
+        # 1. Extraction: k independent passes for variance measurement. The runs
+        #    are independent by construction, so they run concurrently — k
+        #    sequential LLM calls tripled wall-clock time for no added signal.
         flags: list[EvaluationFlag] = []
         max_severity = 0
         deps = AgentDeps(tools=self._storage.tools, audit=self._audit)
+        run_count = max(2, config.scoring_runs)
 
-        for _run_index in range(max(1, config.scoring_runs)):
-            result = await self._deconstructor.deconstruct(
-                resume_text, deps=deps, source_name=f"application:{application_id}"
+        results = await asyncio.gather(
+            *(
+                self._deconstructor.deconstruct(
+                    resume_text, deps=deps, source_name=f"application:{application_id}"
+                )
+                for _ in range(run_count)
             )
+        )
+        profiles: list[CandidateProfile] = []
+        for result in results:
             profiles.append(result.profile)
             max_severity = max(max_severity, result.guard.risk_severity)
             if result.guard.blocking:

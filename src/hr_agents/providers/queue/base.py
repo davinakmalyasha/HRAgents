@@ -25,6 +25,12 @@ class QueueMessage(StrictModel):
     attempts: int = Field(default=0, ge=0)
     created_at: UtcDateTime = Field(default_factory=utc_now)
     lease_expires_at: UtcDateTime | None = None
+    failed_reason: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Why the message was dead-lettered; populated by dead_letters()",
+    )
+    failed_at: UtcDateTime | None = None
 
 
 class QueueStats(StrictModel):

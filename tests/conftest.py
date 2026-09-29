@@ -23,6 +23,7 @@ LEAKY_ENV_KEYS = frozenset(
     {
         "HRAGENTS_LLM_MODEL",
         "HRAGENTS_MESSAGING_SANDBOX",
+        "HRAGENTS_PROVIDER_QUEUE",
         "HRAGENTS_SMTP_HOST",
         "HRAGENTS_SMTP_PORT",
         "HRAGENTS_SMTP_FROM",
@@ -35,6 +36,12 @@ LEAKY_ENV_KEYS = frozenset(
 FORCED_ENV = {
     "HRAGENTS_LLM_MODEL": "test",
     "HRAGENTS_MESSAGING_SANDBOX": "true",
+    # No redis or postgres in the test environment, so the queue falls through
+    # to the process-local backend. It is requested by name, which is the
+    # supported way to get it: the resolver refuses it when it would only be
+    # chosen implicitly, because the API process could then accept work a
+    # separate worker could never claim.
+    "HRAGENTS_PROVIDER_QUEUE": "queue.memory",
 }
 
 

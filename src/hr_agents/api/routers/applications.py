@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
-from hr_agents.api.deps import get_audit, get_store, require_permission
+from hr_agents.api.deps import get_audit, get_dispatcher, get_store, require_permission
 from hr_agents.api.schemas import (
     ApplicationAccepted,
     ApplicationStatusResponse,
@@ -21,6 +21,7 @@ from hr_agents.api.schemas import (
 )
 from hr_agents.rbac import Permission
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionConflictError
+from hr_agents.services.dispatch import DispatchSkipped, EvaluationDispatcher
 from hr_agents.services.ingestion import ApplicationStatus
 from hr_agents.services.stages import StageTransitionError, StageTransitionService
 
@@ -32,27 +33,47 @@ router = APIRouter(
 
 StoreDep = Annotated[ApplicationStore, Depends(get_store)]
 AuditDep = Annotated[AuditChain, Depends(get_audit)]
+DispatcherDep = Annotated[EvaluationDispatcher, Depends(get_dispatcher)]
 
 
-def _submit_one(
+async def _submit_one(
     submission: ApplicationSubmission,
     store: ApplicationStore,
     audit: AuditChain,
+    dispatcher: EvaluationDispatcher,
     idempotency_key: str | None,
 ) -> ApplicationAccepted:
     record, created = store.submit(submission.to_input(), idempotency_key=idempotency_key)
-    if created:
-        audit.append_system(
-            action="application.received",
-            subject_type="application",
-            subject_id=str(record.id),
-            payload={
-                "job_id": str(record.job_id),
-                "candidate_id": str(record.candidate_id),
-                "source_channel": record.source_channel,
-                "idempotency_key": idempotency_key,
-            },
+    if not created:
+        # Idempotent replay: the work is already queued, publishing again would
+        # evaluate the same application twice.
+        return ApplicationAccepted(
+            application_id=record.id,
+            candidate_id=record.candidate_id,
+            status=record.status.value,
+            queued_at=record.received_at,
         )
+
+    message_id: str | None = None
+    skip_reason: str | None = None
+    try:
+        message_id = await dispatcher.dispatch(record, submission.to_input())
+    except DispatchSkipped as exc:
+        skip_reason = str(exc)
+
+    audit.append_system(
+        action="application.received",
+        subject_type="application",
+        subject_id=str(record.id),
+        payload={
+            "job_id": str(record.job_id),
+            "candidate_id": str(record.candidate_id),
+            "source_channel": record.source_channel,
+            "idempotency_key": idempotency_key,
+            "queued_message_id": message_id,
+            "dispatch_skipped_reason": skip_reason,
+        },
+    )
     return ApplicationAccepted(
         application_id=record.id,
         candidate_id=record.candidate_id,
@@ -68,14 +89,15 @@ def _submit_one(
     summary="Ingest a single application",
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
-def submit_application(
+async def submit_application(
     submission: ApplicationSubmission,
     store: StoreDep,
     audit: AuditDep,
+    dispatcher: DispatcherDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ApplicationAccepted:
     try:
-        return _submit_one(submission, store, audit, idempotency_key)
+        return await _submit_one(submission, store, audit, dispatcher, idempotency_key)
     except SubmissionConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
@@ -87,14 +109,14 @@ def submit_application(
     summary="Ingest up to 500 applications",
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
-def submit_batch(
-    payload: BatchSubmissionRequest, store: StoreDep, audit: AuditDep
+async def submit_batch(
+    payload: BatchSubmissionRequest, store: StoreDep, audit: AuditDep, dispatcher: DispatcherDep
 ) -> BatchAccepted:
     results: list[BatchItemResult] = []
     accepted = 0
     for submission in payload.items:
         try:
-            response = _submit_one(submission, store, audit, idempotency_key=None)
+            response = await _submit_one(submission, store, audit, dispatcher, idempotency_key=None)
         except SubmissionConflictError as exc:
             results.append(BatchItemResult(status="conflict", error=str(exc)))
             continue

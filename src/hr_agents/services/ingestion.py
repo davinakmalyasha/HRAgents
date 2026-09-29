@@ -212,19 +212,3 @@ class ApplicationStore:
     def save(self, record: ApplicationRecord) -> None:
         """Persist mutations made to a previously loaded record."""
         self._persist(record)
-
-
-class JobQueue:
-    """Minimal in-process work queue contract (Redis Streams adapter later)."""
-
-    def __init__(self) -> None:
-        self._items: list[dict[str, Any]] = []
-
-    def enqueue(self, job_type: str, payload: dict[str, Any]) -> None:
-        self._items.append({"type": job_type, "payload": payload})
-
-    def dequeue(self) -> dict[str, Any] | None:
-        return self._items.pop(0) if self._items else None
-
-    def __len__(self) -> int:
-        return len(self._items)

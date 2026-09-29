@@ -49,7 +49,6 @@ from hr_agents.services.ingestion import (
     ApplicationRecord,
     ApplicationStatus,
     ApplicationStore,
-    JobQueue,
     SubmissionConflictError,
     SubmissionInput,
 )
@@ -161,7 +160,6 @@ __all__ = [
     "GrowthStore",
     "HttpGitHubClient",
     "InvarianceViolation",
-    "JobQueue",
     "JobService",
     "LeaveError",
     "LeaveService",

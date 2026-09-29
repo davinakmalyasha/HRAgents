@@ -85,9 +85,12 @@ class MemoryQueueBackend:
 
     async def dead_letters(self, topic: str | None = None) -> list[QueueMessage]:
         async with self._lock:
+            now = datetime.now(UTC)
             return [
-                message
-                for entry_topic, message, _ in self._dead
+                message.model_copy(
+                    update={"failed_reason": reason, "failed_at": now},
+                )
+                for entry_topic, message, reason in self._dead
                 if topic is None or entry_topic == topic
             ]
 

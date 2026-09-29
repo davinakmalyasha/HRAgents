@@ -9,8 +9,10 @@ from typing import Annotated
 from fastapi import Header, HTTPException, Request, status
 
 from hr_agents.config import Settings, get_settings
+from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Permission, Principal, RoleId, has_permission
-from hr_agents.services import ApplicationStore, AuditChain, JobQueue
+from hr_agents.services import ApplicationStore, AuditChain
+from hr_agents.services.dispatch import EvaluationDispatcher
 
 
 def get_store(request: Request) -> ApplicationStore:
@@ -21,8 +23,22 @@ def get_audit(request: Request) -> AuditChain:
     return request.app.state.audit
 
 
-def get_queue(request: Request) -> JobQueue:
-    return request.app.state.job_queue
+def get_queue_backend(request: Request) -> QueueBackend:
+    """The live queue. Absent only when startup could not reach any provider."""
+    backend = getattr(request.app.state, "queue", None)
+    if backend is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "no queue backend is available, so applications cannot be queued for "
+                "evaluation. Check the worker's queue provider configuration."
+            ),
+        )
+    return backend
+
+
+def get_dispatcher(request: Request) -> EvaluationDispatcher:
+    return request.app.state.dispatcher
 
 
 def resolve_principal(api_key: str | None, settings: Settings) -> Principal:

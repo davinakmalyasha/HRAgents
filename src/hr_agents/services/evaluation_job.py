@@ -14,7 +14,7 @@ from uuid import UUID
 from hr_agents.providers.queue import QueueMessage
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
-from hr_agents.services.pipeline import ApplicationPipeline
+from hr_agents.services.pipeline import ApplicationPipeline, PipelineConfig
 from hr_agents.services.recruiting import EvaluationService, JobService
 
 EVALUATION_TOPIC = "evaluation.evaluate"
@@ -47,12 +47,14 @@ class EvaluationJobHandler:
         evaluations: EvaluationService,
         jobs: JobService,
         audit: AuditChain,
+        config: PipelineConfig | None = None,
     ) -> None:
         self._pipeline = pipeline
         self._applications = applications
         self._evaluations = evaluations
         self._jobs = jobs
         self._audit = audit
+        self._config = config
 
     async def __call__(self, message: QueueMessage) -> None:
         application_id = UUID(str(message.payload["application_id"]))
@@ -79,6 +81,7 @@ class EvaluationJobHandler:
                 application_id=str(application_id),
                 resume_text=resume_text,
                 job=job,
+                config=self._config,
             )
         except Exception as exc:
             self._audit.append_system(

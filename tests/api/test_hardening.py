@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import cast
+
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from hr_agents.api.hardening import (
@@ -20,6 +24,18 @@ from hr_agents.main import create_app
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(create_app())
+
+
+@pytest.fixture
+def started_client() -> Iterator[TestClient]:
+    """A client whose application lifespan has run.
+
+    Readiness is only meaningful once startup has resolved the agents, the queue,
+    and the chat — the plain ``client`` fixture deliberately skips the lifespan so
+    the middleware tests stay independent of it.
+    """
+    with TestClient(create_app()) as started:
+        yield started
 
 
 # --- headers -----------------------------------------------------------------
@@ -166,14 +182,45 @@ def test_probes_are_exempt_from_rate_limiting() -> None:
 # --- readiness ----------------------------------------------------------------
 
 
-def test_readiness_reports_each_dependency() -> None:
+def test_readiness_reports_each_dependency(started_client: TestClient) -> None:
+    report = readiness_report(cast(FastAPI, started_client.app))
+
+    # Queue and skills are checked because they decide whether the product
+    # *works*, not whether it starts: without a queue, submissions are accepted
+    # and never evaluated; without skills, every agent runs with no runbook.
+    assert report["status"] == "ok"
+    assert set(report["checks"]) == {
+        "database",
+        "messaging",
+        "audit",
+        "queue",
+        "skills",
+    }
+    assert report["checks"]["database"]["detail"] == "in-memory store"
+
+
+def test_readiness_is_degraded_without_a_queue_backend() -> None:
+    """The exact failure that made the product inert: no worker, no evaluation."""
     app = create_app()
+    app.state.queue = None
 
     report = readiness_report(app)
 
-    assert report["status"] == "ok"
-    assert set(report["checks"]) == {"database", "messaging", "audit"}
-    assert report["checks"]["database"]["detail"] == "in-memory store"
+    assert report["status"] == "degraded"
+    assert report["checks"]["queue"]["status"] == "unavailable"
+    assert "not evaluated" in report["checks"]["queue"]["detail"]
+
+
+def test_readiness_is_degraded_without_the_skills_library() -> None:
+    app = create_app()
+    app.state.agents = None
+    app.state.skills_error = "skills root /app/skills does not exist"
+
+    report = readiness_report(app)
+
+    assert report["status"] == "degraded"
+    assert report["checks"]["skills"]["status"] == "unavailable"
+    assert "/app/skills" in report["checks"]["skills"]["detail"]
 
 
 def test_readiness_is_degraded_when_the_database_is_unreachable() -> None:
@@ -192,8 +239,8 @@ def test_readiness_is_degraded_when_the_database_is_unreachable() -> None:
     assert report["checks"]["database"] == {"status": "unavailable", "detail": "OSError"}
 
 
-def test_readyz_endpoint_reflects_the_report(client: TestClient) -> None:
-    response = client.get("/readyz")
+def test_readyz_endpoint_reflects_the_report(started_client: TestClient) -> None:
+    response = started_client.get("/readyz")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"

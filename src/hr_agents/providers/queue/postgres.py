@@ -219,6 +219,8 @@ class PostgresQueueBackend:
                 attempts=row["attempts"],
                 created_at=_require_utc(row["created_at"], column="created_at"),
                 lease_expires_at=_as_utc(row["lease_expires_at"]),
+                # The dead-letter reason is the whole reason to read the list.
+                failed_reason=row["reason"] or None,
             )
             for row in rows
         ]

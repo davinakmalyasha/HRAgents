@@ -28,6 +28,8 @@ def compose() -> dict:
 def test_compose_declares_the_whole_stack(compose: dict) -> None:
     services = compose["services"]
 
+    # `worker` is what makes the pipeline real: the API accepts an application
+    # and publishes it, and without a worker nothing ever evaluates it.
     assert {
         "postgres",
         "redis",
@@ -35,15 +37,44 @@ def test_compose_declares_the_whole_stack(compose: dict) -> None:
         "mailpit",
         "migrate",
         "api",
+        "worker",
         "scheduler",
         "messaging",
     } <= set(services)
-    for name in ("pgdata", "redisdata", "miniodata"):
+    for name in ("pgdata", "redisdata", "miniodata", "state", "backups"):
         assert name in compose["volumes"]
 
 
+def test_the_worker_drains_the_queue_in_compose(compose: dict) -> None:
+    worker = compose["services"]["worker"]
+
+    assert "scripts/run_worker.py" in " ".join(worker["command"])
+    assert worker["depends_on"]["migrate"]["condition"] == "service_completed_successfully"
+    # The worker resolves the same queue backend the API publishes to, or it can
+    # never claim the API's messages.
+    api_env = compose["services"]["api"]["environment"]
+    assert worker["environment"]["HRAGENTS_PROVIDER_QUEUE"] == api_env["HRAGENTS_PROVIDER_QUEUE"]
+    assert worker["environment"]["HRAGENTS_STORE_BACKEND"] == api_env["HRAGENTS_STORE_BACKEND"]
+
+
+def test_the_loop_containers_have_healthchecks(compose: dict) -> None:
+    """A `while true` loop swallows failures, so it needs an external signal."""
+    for name in ("scheduler", "messaging", "worker"):
+        assert "healthcheck" in compose["services"][name], name
+
+
+def test_compose_demotes_the_postgres_superuser() -> None:
+    """RLS is bypassed entirely by a superuser connection (ADR 0006)."""
+    init = REPO_ROOT / "docker" / "postgres" / "10-non-superuser.sql"
+
+    assert init.is_file(), "the superuser-demoting init script must ship"
+    text = init.read_text(encoding="utf-8")
+    assert "NOSUPERUSER" in text
+    assert "NOBYPASSRLS" in text
+
+
 def test_long_running_services_have_a_restart_policy(compose: dict) -> None:
-    for name in ("api", "scheduler", "messaging", "postgres", "redis", "minio"):
+    for name in ("api", "worker", "scheduler", "messaging", "postgres", "redis", "minio"):
         # The app services inherit the policy through the shared anchor.
         service = {**compose["services"]["api"], **compose["services"][name]}
         assert service["restart"] == "unless-stopped", name
@@ -82,14 +113,23 @@ def test_messaging_runs_in_the_compose_messaging_service(compose: dict) -> None:
 
 def test_compose_never_enables_live_email_by_default(compose: dict) -> None:
     # Mailpit is the local mail server; nothing must leave the machine unless an
-    # operator explicitly points the transport at a real provider.
-    assert compose["services"]["messaging"]["environment"]["HRAGENTS_MESSAGING_SANDBOX"] == "false"
+    # operator explicitly points the transport at a real provider. The sandbox
+    # flag must therefore be true out of the box — an operator who follows the
+    # docs and swaps SMTP_HOST for a real relay should also have to flip this.
+    for name in ("api", "messaging"):
+        assert compose["services"][name]["environment"]["HRAGENTS_MESSAGING_SANDBOX"] == "true", (
+            name
+        )
     assert compose["services"]["messaging"]["environment"]["HRAGENTS_SMTP_HOST"] == "mailpit"
 
 
 def test_every_script_the_image_runs_exists() -> None:
-    for script in ("run_scheduler.py", "run_messaging.py", "verify_audit.py", "backup.py"):
+    for script in ("run_scheduler.py", "run_messaging.py", "run_worker.py", "verify_audit.py"):
         assert (REPO_ROOT / "scripts" / script).is_file(), script
+    # backup.py is documented as run from inside the image, so the client tools
+    # it shells out to must be installed there.
+    assert (REPO_ROOT / "scripts" / "backup.py").is_file()
+    assert "postgresql-client" in DOCKERFILE_PATH.read_text(encoding="utf-8")
 
 
 def test_dockerfile_installs_the_locked_dependencies_and_runs_as_non_root() -> None:
@@ -108,10 +148,15 @@ def test_dockerfile_copies_everything_the_api_imports() -> None:
         "src/",
         "migrations/",
         "scripts/",
+        # The skills library is agent instruction content, not code — and an
+        # image without it serves a dashboard whose chat and every agent 503 or
+        # run with no runbook.
+        "skills/",
         "alembic.ini",
         "pyproject.toml uv.lock README.md",
     ):
         assert f"COPY {path}" in text, path
+    assert "HRAGENTS_SKILLS_ROOT=/app/skills" in text
 
 
 def test_dockerignore_excludes_secrets_and_heavy_directories() -> None:

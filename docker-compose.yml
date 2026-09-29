@@ -1,8 +1,13 @@
 name: hragents
 
-# One-command self-host: the API, the department clock, and the messaging bridge
-# on top of postgres (pgvector), redis, minio, and mailpit. Migrations run once
-# before the API starts; no cloud keys are required.
+# One-command self-host: the API, the evaluation worker, the department clock,
+# and the messaging bridge on top of postgres (pgvector), redis, minio, and
+# mailpit. Migrations run once before anything serves traffic; no cloud keys are
+# required.
+#
+# Messaging is SANDBOXED by default: queued candidate messages are written to the
+# audit trail and shown in the dashboard, but nothing is transmitted until the
+# operator sets HRAGENTS_MESSAGING_SANDBOX=false and points SMTP at a real relay.
 x-app: &app
   build:
     context: .
@@ -23,11 +28,15 @@ x-app: &app
     HRAGENTS_S3_ACCESS_KEY: hragents
     HRAGENTS_S3_SECRET_KEY: hragents123
     HRAGENTS_S3_BUCKET: hragents-documents
-    # Mailpit is the local mail server: nothing leaves the machine.
-    HRAGENTS_MESSAGING_SANDBOX: "false"
+    # Mailpit is the local mail server: nothing leaves the machine. Sending is
+    # opt-in — set this to "false" only once SMTP points at a real relay.
+    HRAGENTS_MESSAGING_SANDBOX: "true"
     HRAGENTS_SMTP_HOST: mailpit
     HRAGENTS_SMTP_PORT: "1025"
     HRAGENTS_SMTP_FROM: hragents@example.com
+    # Shared so the scheduler's report (and the metrics canary that reads it)
+    # lands on a volume rather than a container-local /tmp.
+    HRAGENTS_SCHEDULER_REPORT: /app/state/scheduler-report.json
   restart: unless-stopped
 
 services:
@@ -42,6 +51,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Runs once, on first init. Demotes the superuser so RLS applies.
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U hragents -d hragents"]
       interval: 5s
@@ -63,7 +74,7 @@ services:
       retries: 10
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: hragents-minio
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
@@ -81,7 +92,7 @@ services:
       retries: 10
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.21
     container_name: hragents-mailpit
     ports:
       - "1025:1025"
@@ -111,6 +122,8 @@ services:
       - "8000:8000"
     volumes:
       - documents:/app/data/documents
+      - backups:/app/data/backups
+      - state:/app/state
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/readyz"]
       interval: 15s
@@ -118,12 +131,52 @@ services:
       retries: 6
       start_period: 20s
 
+  # The evaluation worker: this is what makes submitted applications real. The
+  # API accepts a submission and publishes it; this process claims it and runs
+  # the extract -> score -> gate pipeline. Without it every application sits in
+  # "queued" forever — watch hragents_applications_stuck_queued on /metrics.
+  worker:
+    <<: *app
+    container_name: hragents-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command: ["python", "scripts/run_worker.py"]
+    environment:
+      HRAGENTS_STORE_BACKEND: postgres
+      HRAGENTS_DATABASE_URL: postgresql+asyncpg://hragents:hragents@postgres:5432/hragents
+      HRAGENTS_REDIS_URL: redis://redis:6379/0
+      HRAGENTS_PROVIDER_QUEUE: queue.redis
+      HRAGENTS_PROVIDER_QUEUE_CONFIG: '{"redis_url":"redis://redis:6379/0"}'
+      HRAGENTS_SKILLS_ROOT: /app/skills
+      HRAGENTS_SCORING_RUNS: "3"
+    volumes:
+      - state:/app/state
+    # A claim lease longer than the p95 extraction time, or a slow extraction
+    # is redelivered while it is still running.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_worker.py || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
   # The department clock: approvals, retention, expiries, SLA checks. The
   # retention sweep purges on this schedule (see docs/plan/remaining-work.md).
+  # Each tick rewrites the JSON report; the healthcheck fails once it goes stale,
+  # so a silently failing loop is visible in `docker compose ps`.
   scheduler:
     <<: *app
     container_name: hragents-scheduler
     depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     command:
@@ -135,6 +188,18 @@ services:
           python scripts/run_scheduler.py --purge || echo "[scheduler] run failed (see above)";
           sleep 900;
         done
+    volumes:
+      - state:/app/state
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          test -f /app/state/scheduler-report.json &&
+          find /app/state/scheduler-report.json -mmin -30 | grep -q .
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # The messaging bridge: poll the inbox for replies, carry queued messages.
   # Messaging stays sandboxed until HRAGENTS_MESSAGING_SANDBOX=false is set here.
@@ -142,6 +207,10 @@ services:
     <<: *app
     container_name: hragents-messaging
     depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     command:
@@ -153,9 +222,19 @@ services:
           python scripts/run_messaging.py || echo "[messaging] run failed (see above)";
           sleep 300;
         done
+    volumes:
+      - state:/app/state
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f run_messaging.py || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   pgdata:
   redisdata:
   miniodata:
   documents:
+  state:
+  backups:

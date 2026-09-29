@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from hr_agents.api.metrics import record_http_request
 from hr_agents.config import Settings
 
 DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024
@@ -86,6 +87,26 @@ def client_key(request: Request) -> str:
         return f"ip:{forwarded.split(',')[0].strip()}"
     client = request.client
     return f"ip:{client.host if client else 'unknown'}"
+
+
+class RequestMetricsMiddleware(BaseHTTPMiddleware):
+    """Time every request into the metrics counters.
+
+    Registered last so it is the innermost wrapper and measures application
+    time rather than the other middlewares' overhead.
+    """
+
+    async def dispatch(
+        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        started = time.perf_counter()
+        response = await call_next(request)
+        elapsed = time.perf_counter() - started
+        route = request.scope.get("route")
+        route_path = getattr(route, "path", None) or "unmatched"
+        record_http_request(route_path, response.status_code, elapsed)
+        response.headers.setdefault("X-Response-Time-Ms", f"{elapsed * 1000:.1f}")
+        return response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -199,6 +220,7 @@ def install_hardening(
     )
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.api_max_body_bytes)
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.environment == "production")
+    app.add_middleware(RequestMetricsMiddleware)
 
 
 def readiness_report(app: FastAPI) -> dict[str, Any]:
@@ -232,6 +254,28 @@ def readiness_report(app: FastAPI) -> dict[str, Any]:
         "status": "ok",
         "detail": type(audit).__name__ if audit is not None else "missing",
     }
+
+    # The queue and the skills library decide whether the product *works*, not
+    # just whether it starts. A missing queue means submitted applications are
+    # accepted and never evaluated; a missing skills root means every agent runs
+    # without its runbook. Both are degradations an operator must see.
+    queue_backend: Any = getattr(app.state, "queue", None)
+    checks["queue"] = {
+        "status": "ok" if queue_backend is not None else "unavailable",
+        "detail": type(queue_backend).__name__
+        if queue_backend is not None
+        else "no queue backend resolved; applications will be accepted but not evaluated",
+    }
+
+    agents: Any = getattr(app.state, "agents", None)
+    if agents is None:
+        skills_error = getattr(app.state, "skills_error", None) or "skills library not loaded"
+        checks["skills"] = {"status": "unavailable", "detail": skills_error}
+    else:
+        checks["skills"] = {
+            "status": "ok",
+            "detail": f"{len(agents.agent_names)} agents, {len(agents.namespaces)} namespaces",
+        }
 
     return {
         "status": "ok" if all(check["status"] == "ok" for check in checks.values()) else "degraded",
