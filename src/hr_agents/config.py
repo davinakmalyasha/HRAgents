@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # Plain keys are treated as hr_admin; use api_principals for role-bound keys.
     api_keys: list[str] = Field(default_factory=list)
     api_principals: list[ApiPrincipalSettings] = Field(default_factory=list)
+    # Who the local operator is, on the audit chain. An unconfigured install
+    # still writes every entry, and "local-dev" is not a person: set this to a
+    # real name so the record is attributable. Bind a key per person instead
+    # whenever there is more than one.
+    actor_name: str = Field(default="", max_length=200)
 
     # --- Persistence ---
     # Store backend: "memory" (tests, zero-config dev) or "postgres" (durable).

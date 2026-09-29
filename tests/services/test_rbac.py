@@ -1,17 +1,27 @@
-"""RBAC role/permission matrix and principal resolution."""
+"""RBAC role/permission matrix, principal resolution, and approver-role binding.
+
+Negative tests come first per the repo convention: a gate is worthless until
+something proves it refuses.
+"""
 
 import pytest
 from fastapi import HTTPException
 from pydantic import SecretStr
 
+from hr_agents.api.auth import auth_is_configured, lookup_principal
 from hr_agents.api.deps import resolve_principal
 from hr_agents.config import ApiPrincipalSettings, Settings
+from hr_agents.models import ApproverRole
 from hr_agents.rbac import (
     ROLE_PERMISSIONS,
     Permission,
     Principal,
+    RoleConfigurationError,
     RoleId,
+    approver_holders,
     has_permission,
+    may_decide_for,
+    validate_approver_coverage,
 )
 
 
@@ -19,10 +29,12 @@ def make_settings(
     *,
     api_keys: list[str] | None = None,
     api_principals: list[ApiPrincipalSettings] | None = None,
+    actor_name: str = "",
 ) -> Settings:
     return Settings.model_construct(
         api_keys=api_keys or [],
         api_principals=api_principals or [],
+        actor_name=actor_name,
     )
 
 
@@ -60,11 +72,20 @@ def test_auth_disabled_returns_local_admin() -> None:
     principal = resolve_principal(None, make_settings())
     assert principal.role is RoleId.HR_ADMIN
     assert principal.actor_id == "local-dev"
+    assert principal.api_key is False
+
+
+def test_local_operator_can_be_named() -> None:
+    """An unconfigured install still writes an audit entry; 'local-dev' is not a person."""
+    principal = resolve_principal(None, make_settings(actor_name="Rina"))
+    assert principal.actor_id == "Rina"
 
 
 def test_plain_keys_are_admin() -> None:
     settings = make_settings(api_keys=["secret-1"])
-    assert resolve_principal("secret-1", settings).role is RoleId.HR_ADMIN
+    resolved = resolve_principal("secret-1", settings)
+    assert resolved.role is RoleId.HR_ADMIN
+    assert resolved.api_key is True
     with pytest.raises(HTTPException) as excinfo:
         resolve_principal("nope", settings)
     assert excinfo.value.status_code == 401
@@ -99,3 +120,78 @@ def test_plain_keys_ignored_when_principals_configured() -> None:
     with pytest.raises(HTTPException):
         resolve_principal("plain", settings)
     assert resolve_principal("bound", settings).role is RoleId.MANAGER
+
+
+# --- lookup_principal: resolves without raising, so middleware can never 500 ---
+
+
+def test_lookup_returns_none_instead_of_raising() -> None:
+    """A refused key must be a value here, not an exception.
+
+    The middleware runs on every request including /healthz, so raising here
+    would turn a bad key into a 500 on an unauthenticated endpoint.
+    """
+    assert lookup_principal("nope", make_settings(api_keys=["right"])) is None
+    assert lookup_principal(None, make_settings(api_keys=["right"])) is None
+    assert lookup_principal("right", make_settings(api_keys=["right"])) is not None
+
+
+def test_auth_is_configured() -> None:
+    assert not auth_is_configured(make_settings())
+    assert auth_is_configured(make_settings(api_keys=["k"]))
+    assert auth_is_configured(
+        make_settings(api_principals=[ApiPrincipalSettings(key=SecretStr("k"))])
+    )
+
+
+# --- approver roles vs authorization roles ------------------------------------
+
+
+def test_every_approver_role_is_satisfiable() -> None:
+    """Startup validation: an undecidable approval is a stuck queue, not a warning."""
+    validate_approver_coverage(ApproverRole)
+
+
+def test_unsatisfiable_approver_role_fails_fast() -> None:
+    with pytest.raises(RoleConfigurationError) as excinfo:
+        validate_approver_coverage([ApproverRole.HR_ADMIN, "invented_role"])
+    assert "invented_role" in str(excinfo.value)
+
+
+def test_approver_role_with_no_holders_resolves_empty() -> None:
+    assert approver_holders("invented_role") == frozenset()
+
+
+def test_manager_cannot_decide_finance_or_privacy_approvals() -> None:
+    """The negative that matters: role separation is real, not decorative."""
+    manager = Principal(actor_id="mgr", role=RoleId.MANAGER)
+    assert may_decide_for(manager, ApproverRole.MANAGER.value)
+    assert may_decide_for(manager, ApproverRole.ENGINEERING_LEAD.value)
+    assert not may_decide_for(manager, ApproverRole.FINANCE.value)
+    assert not may_decide_for(manager, ApproverRole.DATA_PROTECTION.value)
+    assert not may_decide_for(manager, ApproverRole.HR_ADMIN.value)
+
+
+def test_finance_cannot_decide_a_hiring_approval() -> None:
+    finance = Principal(actor_id="fin", role=RoleId.FINANCE)
+    assert may_decide_for(finance, ApproverRole.FINANCE.value)
+    assert not may_decide_for(finance, ApproverRole.RECRUITER_LEAD.value)
+    assert not may_decide_for(finance, ApproverRole.ENGINEERING_LEAD.value)
+
+
+def test_recruiter_lead_decided_by_recruiter_or_manager() -> None:
+    assert may_decide_for(Principal(actor_id="r", role=RoleId.RECRUITER), "recruiter_lead")
+    assert may_decide_for(Principal(actor_id="m", role=RoleId.MANAGER), "recruiter_lead")
+    assert not may_decide_for(Principal(actor_id="f", role=RoleId.FINANCE), "recruiter_lead")
+
+
+def test_hr_admin_overrides_every_approver_role() -> None:
+    """Deliberate: the single-operator persona *is* the authority."""
+    admin = Principal(actor_id="admin", role=RoleId.HR_ADMIN)
+    for role in ApproverRole:
+        assert may_decide_for(admin, role.value), role
+
+
+def test_data_protection_maps_to_hr_admin_only() -> None:
+    """No DPO role exists yet, and inventing one would be a fiction in the record."""
+    assert approver_holders(ApproverRole.DATA_PROTECTION.value) == frozenset({RoleId.HR_ADMIN})

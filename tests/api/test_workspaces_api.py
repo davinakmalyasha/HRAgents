@@ -3,7 +3,6 @@
 import json
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
@@ -46,9 +45,8 @@ def test_workspace_view_mirrors_the_pack_copy() -> None:
         assert item["summary_id"] == pack.summary_id
 
 
-def test_requires_auth_when_keys_are_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", _settings)
-    app = create_app()
+def test_requires_auth_when_keys_are_configured() -> None:
+    app = create_app(_settings())
 
     with TestClient(app) as client:
         anonymous = client.get("/v1/workspaces")

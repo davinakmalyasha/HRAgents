@@ -2,7 +2,6 @@
 
 from uuid import UUID, uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
@@ -89,18 +88,16 @@ def test_pipeline_summary_carries_stage_and_scores() -> None:
         assert summary["hours_waiting"] >= 0.0
 
 
-def test_pipeline_requires_recruiting_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", _settings)
-    app = create_app()
+def test_pipeline_requires_recruiting_read() -> None:
+    app = create_app(_settings())
 
     with TestClient(app) as client:
         denied = client.get("/v1/applications", headers={"X-API-Key": "fin-key"})
         assert denied.status_code == 403
 
 
-def test_recruiter_can_list_and_submit(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", _settings_with_read)
-    app = create_app()
+def test_recruiter_can_list_and_submit() -> None:
+    app = create_app(_settings_with_read())
 
     with TestClient(app) as client:
         listed = client.get("/v1/applications", headers={"X-API-Key": "rec-key"})

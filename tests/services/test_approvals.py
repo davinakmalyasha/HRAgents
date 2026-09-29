@@ -20,6 +20,17 @@ def engine() -> ApprovalEngine:
     return ApprovalEngine(ApprovalStore(), audit=AuditChain())
 
 
+def reloaded(engine: ApprovalEngine, request: ApprovalRequest) -> ApprovalRequest:
+    """The stored request, asserting it is still there.
+
+    Used to prove a refused operation left no trace: the gate has to fail
+    *before* it writes, not after.
+    """
+    found = engine.find(request.id)
+    assert found is not None, f"approval {request.id} disappeared"
+    return found
+
+
 def create_request(
     engine: ApprovalEngine,
     *,
@@ -175,3 +186,81 @@ def test_counts_by_status(engine: ApprovalEngine) -> None:
     counts = engine.counts_by_status()
     assert counts[ApprovalStatus.PENDING.value] == 1
     assert counts[ApprovalStatus.APPROVED.value] == 1
+
+
+# --- reassignment -------------------------------------------------------------
+#
+# Negative first: the gate must refuse before it moves anything.
+
+
+def test_reassign_refuses_a_non_human_actor(engine: ApprovalEngine) -> None:
+    request = create_request(engine)
+    for actor in ("agent:screening", "system:scheduler", "system", "  "):
+        with pytest.raises(ApprovalError):
+            engine.reassign(
+                request.id, by=actor, to_role=ApproverRole.FINANCE, reason="wrong queue"
+            )
+    assert reloaded(engine, request).assignee_role is ApproverRole.MANAGER
+
+
+def test_reassign_requires_a_reason(engine: ApprovalEngine) -> None:
+    """An unjustified move is indistinguishable from moving it to a friend."""
+    request = create_request(engine)
+    for reason in ("", "   "):
+        with pytest.raises(ApprovalError, match="requires a reason"):
+            engine.reassign(request.id, by="Rina", to_role=ApproverRole.FINANCE, reason=reason)
+    assert reloaded(engine, request).assignee_role is ApproverRole.MANAGER
+
+
+def test_reassign_refuses_a_no_op_route(engine: ApprovalEngine) -> None:
+    request = create_request(engine)
+    with pytest.raises(ApprovalError, match="already assigned"):
+        engine.reassign(request.id, by="Rina", to_role=ApproverRole.MANAGER, reason="same role")
+
+
+def test_reassign_refuses_a_decided_approval(engine: ApprovalEngine) -> None:
+    request = create_request(engine)
+    engine.decide(request.id, decided_by="Budi", approve=True)
+    with pytest.raises(ApprovalError):
+        engine.reassign(request.id, by="Rina", to_role=ApproverRole.FINANCE, reason="too late")
+
+
+def test_reassign_refuses_an_unknown_approval(engine: ApprovalEngine) -> None:
+    with pytest.raises(ApprovalError):
+        engine.reassign(uuid4(), by="Rina", to_role=ApproverRole.FINANCE, reason="wrong id")
+
+
+def test_reassign_moves_the_approval_and_records_why(engine: ApprovalEngine) -> None:
+    request = create_request(engine, assignee_role=ApproverRole.MANAGER)
+
+    moved = engine.reassign(
+        request.id, by="Rina", to_role=ApproverRole.FINANCE, reason="wrong department"
+    )
+
+    assert moved.assignee_role is ApproverRole.FINANCE
+    assert engine.pending_for(ApproverRole.FINANCE) == [moved]
+    assert engine.pending_for(ApproverRole.MANAGER) == []
+
+
+def test_reassign_is_on_the_audit_chain(engine: ApprovalEngine) -> None:
+    request = create_request(engine)
+    engine.reassign(
+        request.id, by="Rina", to_role=ApproverRole.HR_ADMIN, reason="conflict of interest"
+    )
+
+    entry = engine.audit.entries[-1]
+    assert entry.action == "approval.reassigned"
+    assert entry.actor.actor_id == "Rina"
+    assert entry.payload["from_role"] == "manager"
+    assert entry.payload["to_role"] == "hr_admin"
+    assert entry.payload["reason"] == "conflict of interest"
+
+
+def test_reassign_keeps_the_approval_decidable(engine: ApprovalEngine) -> None:
+    """The escape hatch must not produce a request nobody can sign."""
+    request = create_request(engine, assignee_role=ApproverRole.MANAGER)
+    moved = engine.reassign(
+        request.id, by="Rina", to_role=ApproverRole.DATA_PROTECTION, reason="DPO review"
+    )
+    engine.decide(moved.id, decided_by="Rina", approve=True)
+    assert reloaded(engine, moved).status is ApprovalStatus.APPROVED

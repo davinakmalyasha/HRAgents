@@ -30,7 +30,10 @@ records, and which callers are refused before they can act.
 
 from __future__ import annotations
 
-from hr_agents.models import ActorType
+from dataclasses import dataclass
+
+from hr_agents.models import ActorProvenance, ActorType, AuditActor
+from hr_agents.rbac import Principal
 
 AGENT_ACTOR_PREFIX = "agent:"
 SYSTEM_ACTOR_PREFIX = "system:"
@@ -106,3 +109,103 @@ def require_named_human_or_system(
     if classify_actor(cleaned) is ActorType.AGENT:
         raise error(f"agents cannot {action}{detail}")
     return cleaned
+
+
+@dataclass(frozen=True, slots=True)
+class ActorRef:
+    """The actor of one action, together with how that actor was established.
+
+    Services take this instead of a bare ``by: str``. The string could say
+    anything; an ``ActorRef`` cannot be constructed without the caller stating
+    where the identity came from, and the answer is written to the audit chain.
+
+    ``provenance`` is the whole point. "Rina" as a request field is a claim; an
+    ``ActorRef`` built by ``from_principal`` is a verified fact, and the chain
+    records the difference. A scheduled job and an agent tool are honest actors,
+    but they are different claims from a person who logged in, and an auditor
+    should be able to tell them apart without reading the action name.
+    """
+
+    actor_id: str
+    actor_type: ActorType
+    provenance: ActorProvenance
+    role: str | None = None
+
+    @classmethod
+    def from_principal(cls, principal: Principal) -> ActorRef:
+        """An authenticated request. The only provenance that names a role."""
+        return cls(
+            actor_id=principal.actor_id,
+            actor_type=classify_actor(principal.actor_id),
+            provenance=ActorProvenance.AUTHENTICATED,
+            role=principal.role.value,
+        )
+
+    @classmethod
+    def system(cls, job: str) -> ActorRef:
+        """A scheduled job. Never a person, never carries a role."""
+        return cls(
+            actor_id=f"{SYSTEM_ACTOR_PREFIX}{job}",
+            actor_type=ActorType.SYSTEM,
+            provenance=ActorProvenance.SYSTEM_JOB,
+        )
+
+    @classmethod
+    def agent(cls, name: str) -> ActorRef:
+        """An in-process agent tool, e.g. consent capture during a chat turn."""
+        cleaned = name.strip()
+        if not cleaned:
+            raise ActorError("an agent actor needs a name")
+        return cls(
+            actor_id=f"{AGENT_ACTOR_PREFIX}{cleaned.removeprefix(AGENT_ACTOR_PREFIX)}",
+            actor_type=ActorType.AGENT,
+            provenance=ActorProvenance.AGENT_TOOL,
+        )
+
+    @classmethod
+    def legacy(cls, actor: str) -> ActorRef:
+        """A bare string from code with no authenticated principal behind it.
+
+        Legitimate for internal callers during the migration, but the weakest
+        claim, and the chain says so. Prefer a more specific constructor.
+        """
+        return cls(
+            actor_id=actor.strip(),
+            actor_type=classify_actor(actor),
+            provenance=ActorProvenance.LEGACY_STRING,
+        )
+
+    @classmethod
+    def coerce(cls, value: ActorRef | str) -> ActorRef:
+        """Accept either form so call sites migrate one at a time."""
+        if isinstance(value, ActorRef):
+            return value
+        return cls.legacy(value)
+
+    @property
+    def is_human(self) -> bool:
+        return self.actor_type is ActorType.HUMAN
+
+    @property
+    def is_attributable(self) -> bool:
+        """True when the chain can name a person responsible for this action."""
+        return self.is_human
+
+    def audit_actor(self) -> AuditActor:
+        """Build the chain entry's actor, carrying provenance and role."""
+        return AuditActor(
+            actor_type=self.actor_type,
+            actor_id=self.actor_id,
+            provenance=self.provenance,
+            role=self.role,
+        )
+
+    def require_human(
+        self, action: str, error: type[Exception] = ActorError, *, subject: str = ""
+    ) -> ActorRef:
+        """Refuse a non-human actor using the single shared predicate."""
+        require_named_human(self.actor_id, action, error, subject=subject)
+        return self
+
+    def __str__(self) -> str:
+        return self.actor_id

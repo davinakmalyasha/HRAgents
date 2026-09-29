@@ -46,7 +46,9 @@ from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.messaging import candidate_directory, reply_store
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
+from hr_agents.models import ApproverRole
 from hr_agents.queue import QueueUnavailableError, resolve_queue_backend
+from hr_agents.rbac import validate_approver_coverage
 from hr_agents.services import ApplicationStore, AuditChain
 from hr_agents.services.chat import ChatService
 from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
@@ -112,8 +114,9 @@ async def _build_chat(app: FastAPI, agents: AgentSet | None) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan: configure logging, build agents + queue, dispose the DB."""
-    settings: Settings = get_settings()
+    settings: Settings = getattr(app.state, "settings", None) or get_settings()
     configure_logging(settings.log_level)
+    validate_approver_coverage(ApproverRole)
     logger.info(
         "application_startup",
         app=settings.app_name,
@@ -189,9 +192,16 @@ def _mount_web_app(app: FastAPI) -> None:
         return FileResponse(index)
 
 
-def create_app() -> FastAPI:
-    """Application factory."""
-    settings = get_settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    """Application factory.
+
+    ``settings`` is injectable so the app and its middleware provably share one
+    instance. Tests configure a role-bound key set by passing settings here
+    rather than monkeypatching a module global, which is how the pre-middleware
+    code had to be tested and why the auth lookup could drift between the
+    request path and the limiter.
+    """
+    settings = settings or get_settings()
     app = FastAPI(
         title=f"{settings.app_name} API",
         description=(
@@ -220,6 +230,7 @@ def create_app() -> FastAPI:
 
     app.state.store = store
     app.state.audit = audit
+    app.state.settings = settings
     # Filled in by the lifespan: agents, queue, dispatcher. Pre-seeded so that
     # requests served before startup completes, and tests that skip the lifespan,
     # see the same degraded shape instead of an AttributeError.

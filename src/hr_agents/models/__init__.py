@@ -12,7 +12,7 @@ from hr_agents.models.approval import (
     ApproverRole,
     Urgency,
 )
-from hr_agents.models.audit import ActorType, AuditActor, AuditEntry
+from hr_agents.models.audit import ActorProvenance, ActorType, AuditActor, AuditEntry
 from hr_agents.models.candidate import (
     AvailabilityMatrix,
     CandidateProfile,
@@ -210,6 +210,7 @@ __all__ = [
     "TERMINAL_PROPOSAL_STATUSES",
     "TERMINAL_STEP_STATUSES",
     "AccrualMethod",
+    "ActorProvenance",
     "ActorType",
     "AnomalySeverity",
     "ApprovalRequest",

@@ -3,7 +3,6 @@
 from datetime import date
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 
@@ -31,9 +30,8 @@ def _payroll_payload() -> dict:
     }
 
 
-def test_recruiter_can_read_recruiting_but_not_payroll(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", _settings)
-    app = create_app()
+def test_recruiter_can_read_recruiting_but_not_payroll() -> None:
+    app = create_app(_settings())
     with TestClient(app) as client:
         queue = client.get(
             "/v1/queue",
@@ -50,11 +48,8 @@ def test_recruiter_can_read_recruiting_but_not_payroll(monkeypatch: pytest.Monke
         assert payroll.status_code == 403
 
 
-def test_finance_can_create_payroll_but_not_read_recruiting(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", _settings)
-    app = create_app()
+def test_finance_can_create_payroll_but_not_read_recruiting() -> None:
+    app = create_app(_settings())
     with TestClient(app) as client:
         run = client.post(
             "/v1/payroll/runs",
@@ -71,9 +66,8 @@ def test_finance_can_create_payroll_but_not_read_recruiting(
         assert queue.status_code == 403
 
 
-def test_manager_can_decide_approvals_but_not_payroll(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", _settings)
-    app = create_app()
+def test_manager_can_decide_approvals_but_not_payroll() -> None:
+    app = create_app(_settings())
     with TestClient(app) as client:
         payroll = client.post(
             "/v1/payroll/runs",
@@ -86,9 +80,8 @@ def test_manager_can_decide_approvals_but_not_payroll(monkeypatch: pytest.Monkey
         assert approvals.status_code == 403
 
 
-def test_missing_or_wrong_key_is_401(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", _settings)
-    app = create_app()
+def test_missing_or_wrong_key_is_401() -> None:
+    app = create_app(_settings())
     with TestClient(app) as client:
         missing = client.get("/v1/queue", params={"job_id": str(uuid4())})
         assert missing.status_code == 401

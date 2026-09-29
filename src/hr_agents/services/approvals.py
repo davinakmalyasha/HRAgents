@@ -128,8 +128,50 @@ class ApprovalEngine:
         self._record(updated, action="approval.withdrawn", actor_id=by)
         return updated
 
-    # --- time-driven ----------------------------------------------------
+    def reassign(
+        self,
+        request_id: UUID,
+        *,
+        by: str,
+        to_role: ApproverRole,
+        reason: str,
+    ) -> ApprovalRequest:
+        """Route an approval to a different approver role, on the record.
 
+        This is the escape hatch, not a delegation feature. Approvals are routed
+        by ``assignee_role`` and enforced against it; when a request is routed
+        wrongly -- the wrong department, a conflict of interest, a manager on
+        leave -- the alternative was for an operator to hand-edit the store or
+        for the request to sit until it expired. Both are worse than an audited
+        move by a named person.
+
+        A reason is mandatory. A reassignment with no stated justification is
+        indistinguishable, to a later reader of the chain, from quietly moving
+        an approval to someone friendlier.
+        """
+        request = self._require(request_id)
+        if not request.active:
+            raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot reassign")
+        by = require_named_human(by, "a reassignment", ApprovalError)
+        cleaned_reason = reason.strip()
+        if not cleaned_reason:
+            raise ApprovalError("a reassignment requires a reason; it becomes part of the record")
+
+        previous = request.assignee_role
+        if previous is to_role:
+            raise ApprovalError(f"approval {request_id} is already assigned to {previous.value}")
+
+        updated = request.model_copy(update={"assignee_role": to_role, "updated_at": utc_now()})
+        self._store.save(updated)
+        self._record(
+            updated,
+            action="approval.reassigned",
+            actor_id=by,
+            extra={"from_role": previous.value, "to_role": to_role.value, "reason": cleaned_reason},
+        )
+        return updated
+
+    # --- time-driven ----------------------------------------------------
     def escalate_overdue(self, *, now: datetime | None = None) -> list[ApprovalRequest]:
         """Escalate every overdue active request (up to max_escalations).
 
@@ -281,21 +323,29 @@ class ApprovalEngine:
         return expired
 
     def _record(
-        self, request: ApprovalRequest, *, action: str, actor_id: str = "approval-engine"
+        self,
+        request: ApprovalRequest,
+        *,
+        action: str,
+        actor_id: str = "approval-engine",
+        extra: dict[str, Any] | None = None,
     ) -> None:
         actor_type = classify_actor(actor_id)
+        payload: dict[str, Any] = {
+            "subject": request.subject.value,
+            "subject_id": request.subject_id,
+            "assignee_role": request.assignee_role.value,
+            "urgency": request.urgency.value,
+            "status": request.status.value,
+            "escalation_count": request.escalation_count,
+            "requested_by_agent": request.requested_by_agent,
+        }
+        if extra:
+            payload.update(extra)
         self._audit.append(
             actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
             action=action,
             subject_type="approval",
             subject_id=str(request.id),
-            payload={
-                "subject": request.subject.value,
-                "subject_id": request.subject_id,
-                "assignee_role": request.assignee_role.value,
-                "urgency": request.urgency.value,
-                "status": request.status.value,
-                "escalation_count": request.escalation_count,
-                "requested_by_agent": request.requested_by_agent,
-            },
+            payload=payload,
         )

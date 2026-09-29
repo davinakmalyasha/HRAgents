@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
-import secrets as secrets_module
-from collections.abc import Awaitable, Callable
-from typing import Annotated
+from fastapi import HTTPException, Request, status
 
-from fastapi import Header, HTTPException, Request, status
-
-from hr_agents.config import Settings, get_settings
+from hr_agents.api.auth import (
+    current_actor,
+    current_principal,
+    lookup_principal,
+    require_actor,
+    require_permission,
+)
+from hr_agents.config import Settings
 from hr_agents.providers.queue import QueueBackend
-from hr_agents.rbac import Permission, Principal, RoleId, has_permission
+from hr_agents.rbac import Principal
 from hr_agents.services import ApplicationStore, AuditChain
 from hr_agents.services.dispatch import EvaluationDispatcher
 
@@ -46,56 +49,45 @@ def resolve_principal(api_key: str | None, settings: Settings) -> Principal:
 
     Role-bound ``api_principals`` win when configured; plain ``api_keys`` are
     treated as ``hr_admin``. No configuration disables auth (local dev only).
-    """
-    if settings.api_principals:
-        if api_key is not None:
-            for entry in settings.api_principals:
-                if secrets_module.compare_digest(entry.key.get_secret_value(), api_key):
-                    return Principal(actor_id=entry.actor_id, role=entry.role)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="invalid or missing API key",
-        )
 
-    configured = settings.api_keys
-    if not configured:
-        return Principal(actor_id="local-dev", role=RoleId.HR_ADMIN)
-    if api_key is not None:
-        for key in configured:
-            if secrets_module.compare_digest(key, api_key):
-                return Principal(actor_id="api-key", role=RoleId.HR_ADMIN)
+    Thin wrapper over :mod:`hr_agents.api.auth`, kept because callers that
+    resolve a key directly — CLI tooling, tests — have no ``Request`` to read
+    ``request.state`` from.
+    """
+    principal = lookup_principal(api_key, settings)
+    if principal is not None:
+        return principal
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="invalid or missing API key",
     )
 
 
-async def get_principal(
-    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
-) -> Principal:
-    """Authenticate the request and return its principal."""
-    return resolve_principal(x_api_key, get_settings())
+async def get_principal(request: Request) -> Principal:
+    """Authenticate the request and return its principal.
+
+    Reads the principal the middleware already resolved, so the key is not
+    scanned a second time for every guarded endpoint.
+    """
+    return current_principal(request)
 
 
-async def require_api_key(
-    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
-) -> Principal:
+async def require_api_key(request: Request) -> Principal:
     """Backwards-compatible authentication dependency returning the principal."""
-    return resolve_principal(x_api_key, get_settings())
+    return current_principal(request)
 
 
-def require_permission(permission: Permission) -> Callable[..., Awaitable[Principal]]:
-    """Build a dependency enforcing one permission on the authenticated role."""
-
-    async def dependency(
-        x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
-    ) -> Principal:
-        principal = resolve_principal(x_api_key, get_settings())
-        if not has_permission(principal, permission):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"role {principal.role.value} lacks permission {permission.value}",
-            )
-        return principal
-
-    return dependency
+__all__ = [
+    "current_actor",
+    "current_principal",
+    "get_audit",
+    "get_dispatcher",
+    "get_principal",
+    "get_queue_backend",
+    "get_store",
+    "lookup_principal",
+    "require_actor",
+    "require_api_key",
+    "require_permission",
+    "resolve_principal",
+]

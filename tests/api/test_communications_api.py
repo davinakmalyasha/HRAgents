@@ -677,10 +677,9 @@ def test_employee_cannot_read_or_queue_communications(monkeypatch: pytest.Monkey
             ),
         ],
     )
-    monkeypatch.setattr("hr_agents.api.deps.get_settings", lambda: settings)
     candidate_id = uuid4()
 
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(settings)) as client:
         listed = client.get(
             f"/v1/candidates/{candidate_id}/communications",
             headers={"X-API-Key": "emp-key"},

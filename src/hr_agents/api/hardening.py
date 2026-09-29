@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from hr_agents.api.auth import AuthenticationMiddleware
 from hr_agents.api.metrics import record_http_request
 from hr_agents.config import Settings, get_settings
 
@@ -244,6 +245,11 @@ def install_hardening(
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.api_max_body_bytes)
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.environment == "production")
     app.add_middleware(RequestMetricsMiddleware)
+    # Added last, so it is the outermost wrapper: Starlette applies user
+    # middleware in reverse registration order. Authentication must run before
+    # the rate limiter for the limiter's per-principal bucket to work at all --
+    # `client_key` reads `request.state.actor_id`, which nothing else sets.
+    app.add_middleware(AuthenticationMiddleware, settings=settings)
 
 
 def readiness_report(app: FastAPI) -> dict[str, Any]:

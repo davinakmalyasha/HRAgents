@@ -17,10 +17,34 @@ class ActorType(StrEnum):
     HUMAN = "human"
 
 
+class ActorProvenance(StrEnum):
+    """How an actor was established for one audited action.
+
+    Recorded on every entry so a reader can tell an authenticated principal from
+    a scheduled job, an agent tool, or a bare string that arrived from code. The
+    last one is not a failure — internal callers legitimately act without a
+    request — but it is a materially weaker claim and should be visible as one.
+
+    ``legacy_string`` is the default so entries written before provenance existed
+    read as the weakest claim rather than failing to deserialize.
+    """
+
+    AUTHENTICATED = "authenticated"
+    SYSTEM_JOB = "system_job"
+    AGENT_TOOL = "agent_tool"
+    LEGACY_STRING = "legacy_string"
+
+
 class AuditActor(StrictModel):
     actor_type: ActorType
     actor_id: str = Field(min_length=1, max_length=200)
     display_name: str | None = Field(default=None, max_length=200)
+    provenance: ActorProvenance = ActorProvenance.LEGACY_STRING
+    role: str | None = Field(
+        default=None,
+        max_length=60,
+        description="Authorization role, known only when the actor was authenticated",
+    )
 
 
 class AuditEntry(StrictModel):
