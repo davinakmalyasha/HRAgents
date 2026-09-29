@@ -4,18 +4,22 @@ Status snapshot: **2026-09-29**. Everything up to and including Phase 5 (multi-d
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
 cross-workspace handoff) is built and tested. Stage 0 of the core work landed: **the evaluation
 worker now runs**, all five agents are constructed in production, the rate-table API makes payroll
-reachable, erasure stops lying, and `/readyz` + `/metrics` make a stopped pipeline visible.
-**1105 tests (1101 passed, 4 skipped for Postgres) · 92% coverage · ruff + mypy clean**.
+reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A landed after that:
+**one identity module** now owns actor classification and the named-human gate, the ten
+ungated consequential operations are gated, and a single extraction can no longer satisfy the
+`sigma` gate. **1150 tests (1146 passed, 4 skipped for Postgres) · 92% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
 > image shipped without `skills/`, so every agent ran with no runbooks. Payroll could not be
 > completed through the API at all (no way to add rate-table entries). Erasure reported
 > `{"action":"deleted"}` and deleted zero bytes, in both the API response and the audit chain.
-> Those are fixed and regression-tested. The next slice is the **trust boundary** (the named-human
-> gate is still a substring test on a self-declared string) and **scoring generalization** (a
-> qualified accountant is auto-rejected today). The measured defect list is
-> `docs/plan/master-build-plan.md` Appendix C.
+> Three services wrote `agent:` onto the tamper-evident chain as `ActorType.HUMAN`, and every
+> named-human gate accepted `system`, so a caller could decide an approval as `system`. All fixed
+> and regression-tested. The next slice is the remaining half of the trust boundary — the actor
+> still arrives as a self-declared string in the request body rather than the authenticated
+> principal — and **scoring generalization** (a qualified accountant is auto-rejected today). The
+> measured defect list is `docs/plan/master-build-plan.md` Appendix C.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
 plan (`master-build-plan.md`) keeps the high-level status; this file is the working document for
@@ -32,21 +36,23 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 > a string the client typed, and the principal FastAPI already authenticated is discarded by every
 > router. Everything else is subordinate to fixing that.
 
-- [ ] **One actor identity from the trust boundary.** Resolve `Principal` once per request onto
-      `request.state.principal`; every service takes `actor: ActorRef` instead of `by: str`. Keep
-      the body name only where a *different* human is genuinely being named (an override reviewer)
-      and require a reason when it differs from the principal. ~100 schema fields plus the web
-      app — one router at a time, with the web change in the same commit.
-- [ ] **One `classify_actor()` and one `require_named_human()`**; delete the 11 + 8 reimplementations.
-      Fixes `agent:x` recorded as `ActorType.HUMAN` in `employees.py`, `contracts.py`, and
-      `rate_tables.py`, plus the three `_require_human` variants that accept `""`.
-- [ ] **Gate the ten ungated consequential operations**: `EmployeeService.transition`,
-      `mark_document_verified` (the check lives in the router, not the service),
-      `contracts.activate`/`terminate`, `tasks.complete`/`cancel`,
+- [x] **One `classify_actor()` and one `require_named_human()`** (`hr_agents/identity.py`); the 11 + 8
+      private copies are gone. Fixes `agent:x` recorded as `ActorType.HUMAN` in `contracts`,
+      `employees`, and `rate_tables`; the three `_require_human` variants that accepted `""`; and
+      the fact that **every** gate accepted `system`/`system:` — so `by="system"` decided an approval
+      under a check reading "requires a named human actor"
+- [x] **Gate the ten ungated consequential operations**: `EmployeeService.transition`,
+      `mark_document_verified` (the check moved out of the router, where any agent tool or service
+      bypassed it), `contracts.activate`/`terminate`, `tasks.complete`/`cancel`,
       `leave.set_policy`/`adjust_balance`, `payroll.mark_exported`/`cancel_run`, and
-      `offboarding.finalize_employee_exit` (which validates nothing when the plan is complete).
-- [ ] **Bind approval decisions to `assignee_role`** — `decide` checks only that the actor is not
-      `agent:`, so a `MANAGER` can decide a `FINANCE`-assigned payroll sign-off.
+      `offboarding.finalize_employee_exit` (which had no gate at all)
+- [x] `runs: min_length=2` — sigma is 0.0 by definition over one run, so a single extraction
+      satisfied `σ ≤ 0.05` with the least evidence
+- [x] Rate-limiter bucket eviction, and `X-Forwarded-For` honoured only behind an explicit
+      `HRAGENTS_TRUST_PROXY_HEADERS=true` (it was a complete bypass on the unauthenticated path)
+- [ ] **Bind approval decisions to `assignee_role`** — `decide` checks that the actor is a human,
+      but not that they hold the role the approval is assigned to, so a `MANAGER` can decide a
+      `FINANCE`-assigned payroll sign-off
 - [ ] **Fix the 68 write endpoints guarded by a READ permission** and wire the 6 dead permissions
       (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`, `AUDIT_READ`,
       `ADMIN_MANAGE`).

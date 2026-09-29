@@ -577,23 +577,24 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 Found in the Stage 0 audit. Ordered by blast radius. Each is a real code path,
 not a style opinion.
 
-1. **The named-human gate is a substring test on a self-declared string.** ~100 `by: str`
-   request fields; the authenticated `Principal` reaches only two services. Any holder of
-   one `hr_admin` key (or none — empty `api_keys` means `local-dev`/`HR_ADMIN`) can
-   attribute a payroll sign-off, an erasure, or a rejection to any name, and the
-   tamper-evident chain records it as fact. Three of eight `_require_human`
-   implementations also accept `""`, so state can mutate and the audit write then fail.
-2. **Actor classification is implemented 11 times with 3 behaviours.** `employees.py:343`,
-   `contracts.py:233`, and `rate_tables.py:140` record `agent:x` as `ActorType.HUMAN` —
-   the agent-is-not-a-principal promise, falsified on the chain. Fix: one `classify_actor`
-   in a shared module.
-3. **The scoring dimensions are engineering-shaped.** An 8-year ACCA accountant for a
-   Finance Supervisor role scores `S_tech ≈ 0.58` → `REJECT_AUTO` with no human in the
-   loop: `systems_literacy` matches only `{database,devops,cloud,systems,data}` and 15
-   engineering keywords, `publications` is 0.0 for every non-research role, and the
-   seniority tiers are all engineering words. This is a construct-validity failure, and
-   the name-swap fairness harness **cannot** catch it — swapping a name does not change
-   the distribution's shape. Fix: `DimensionTemplate` registry keyed by job family.
+1. ~~**The named-human gate is a substring test on a self-declared string.**~~ **Partly fixed.**
+   `hr_agents/identity.py` now owns one `classify_actor()` and one `require_named_human()`, the 19
+   private copies are deleted, and the ten ungated operations are gated. **Still open:** ~100 `by: str`
+   request fields still carry the identity, and the authenticated `Principal` still reaches only
+   two services — so any holder of one `hr_admin` key can *name a different person*, even though it
+   can no longer impersonate an agent or the system. Fixing that is the trust boundary (Phase 2 of
+   the core work).
+2. ~~**Actor classification is implemented 11 times with 3 behaviours.**~~ **Fixed.** All three
+   sites recording `agent:` as `ActorType.HUMAN` (`contracts`, `employees`, `rate_tables`) now route
+   through the shared classifier, as do the four that matched only the exact string `"system"`.
+   Regression-tested in `tests/test_named_human_gates.py`.
+3. **The scoring dimensions are engineering-shaped.** An 8-year ACCA accountant for a Finance
+   Supervisor role scores `S_tech ≈ 0.58` → `REJECT_AUTO` with no human in the loop:
+   `systems_literacy` matches only `{database,devops,cloud,systems,data}` and 15 engineering
+   keywords, `publications` is 0.0 for every non-research role, and the seniority tiers are all
+   engineering words. This is a construct-validity failure, and the name-swap fairness harness
+   **cannot** catch it — swapping a name does not change the distribution's shape. Fix:
+   `DimensionTemplate` registry keyed by job family.
 4. **68 write endpoints are guarded by a READ permission**, and 6 of 17 permissions are
    dead code (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`,
    `AUDIT_READ`, `ADMIN_MANAGE`). A `manager` can waive offboarding steps and finalize an
@@ -619,3 +620,8 @@ not a style opinion.
 12. **`toLocaleString(undefined)` in `web/src/lib/dates.ts`** means the language switcher
     does not control date formatting, and the app shows `2026-02-01` next to `Feb 1, 2026`
     on one screen.
+13. **An undeclared transitive dependency installs a global import hook.** `beartype` (pulled
+    in by `pydantic-ai`, not declared here) patches `importlib`; on a developer Windows
+    machine it made `import hr_agents.models` take ~35 s and the suite 7-10× slower. A
+    hazard for contributors, a security-review question for a self-hosted product: pin it
+    explicitly or assert it away.
