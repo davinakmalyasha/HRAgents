@@ -9,9 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from hr_agents.models import PurgeAction, RecordEntity, RetentionRecord
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
-from hr_agents.services.compliance import ComplianceService
+from hr_agents.services.compliance import ComplianceService, PurgeHandler
 from hr_agents.services.contracts import ContractService
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.growth import GrowthService
@@ -34,6 +35,28 @@ from hr_agents.services.tasks import TaskEngine
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session, sessionmaker
+
+
+def _consent_purge_handler(store: ComplianceStore) -> PurgeHandler:
+    """Delete or redact the consent grant covering an erased subject.
+
+    A ledger row only ever holds the subject id, so the grant is looked up by
+    subject rather than by a foreign key the ledger does not carry. ``delete``
+    removes the grant outright; ``anonymize`` keeps the fact that consent once
+    existed (which the audit trail may need) while blanking the capture evidence.
+    """
+
+    def handler(record: RetentionRecord, action: PurgeAction) -> str:
+        grants = [item for item in store.list_consents() if item.subject_id == record.subject_id]
+        if not grants:
+            return f"no consent grant on record for subject {record.subject_id}; nothing to remove"
+        if action is PurgeAction.ANONYMIZE:
+            redacted = sum(store.redact_consent(grant.id) is not None for grant in grants)
+            return f"redacted capture evidence on {redacted} consent grant(s)"
+        removed = sum(store.delete_consent(grant.id) for grant in grants)
+        return f"deleted {removed} consent grant(s) for subject {record.subject_id}"
+
+    return handler
 
 
 @dataclass
@@ -116,6 +139,7 @@ class PeopleServices:
             audit=self.audit,
         )
         self.compliance = ComplianceService(compliance_store, approvals=approvals, audit=self.audit)
+        self._register_purge_handlers(compliance_store)
         self.growth = GrowthService(growth_store, tasks=tasks, audit=self.audit)
         self.offboarding = OffboardingService(
             offboarding_store,
@@ -123,4 +147,16 @@ class PeopleServices:
             tasks=tasks,
             payroll=self.payroll,
             audit=self.audit,
+        )
+
+    def _register_purge_handlers(self, compliance_store: ComplianceStore) -> None:
+        """Attach the store-backed purge implementations the compliance engine calls.
+
+        Registered here, at the composition root, because that is the only place
+        both the service and its store exist. An entity without a handler is
+        reported as ``skipped`` / ``not_executed`` rather than purged, so the
+        coverage gap is visible instead of silently reported as a deletion.
+        """
+        self.compliance.register_purge_handler(
+            RecordEntity.CONSENT, _consent_purge_handler(compliance_store)
         )

@@ -24,6 +24,7 @@ from hr_agents.models import (
     OverdueBreachStep,
     PurgeAction,
     PurgeOutcome,
+    PurgeOutcomeStatus,
     PurgeReport,
     RecordEntity,
     RetentionDue,
@@ -227,6 +228,8 @@ class PurgeOutcomeView(StrictModel):
     subject_id: str
     action: PurgeAction
     detail: str
+    status: PurgeOutcomeStatus = PurgeOutcomeStatus.PURGED
+    purged: bool = True
 
     @classmethod
     def from_model(cls, outcome: PurgeOutcome) -> PurgeOutcomeView:
@@ -240,6 +243,13 @@ class PurgeReportView(StrictModel):
     purged: list[PurgeOutcomeView]
     held: list[UUID]
     uncovered: list[UUID]
+    skipped: list[PurgeOutcomeView] = Field(
+        default_factory=list,
+        description=(
+            "Records whose entity has no registered store purge handler. Their data "
+            "is still present; the retention ledger was not marked purged for them."
+        ),
+    )
 
     @classmethod
     def from_model(cls, report: PurgeReport) -> PurgeReportView:
@@ -250,6 +260,7 @@ class PurgeReportView(StrictModel):
             purged=[PurgeOutcomeView.from_model(item) for item in report.purged],
             held=report.held,
             uncovered=report.uncovered,
+            skipped=[PurgeOutcomeView.from_model(item) for item in report.skipped],
         )
 
 

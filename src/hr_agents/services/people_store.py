@@ -191,6 +191,31 @@ class ComplianceStore:
     def list_consents(self) -> list[ConsentGrant]:
         return sorted(self._consents.values(), key=lambda item: item.granted_at)
 
+    def delete_consent(self, consent_id: UUID) -> bool:
+        """Remove a consent grant. Returns False when it was already gone.
+
+        Backs the CONSENT purge handler: when the personal data a consent
+        covered is erased, the evidence of that consent must go with it. Anonymize
+        keeps the id and blanks the evidence fields instead, so the ledger can still
+        show that a grant once existed.
+        """
+        return self._consents.pop(consent_id, None) is not None
+
+    def redact_consent(self, consent_id: UUID) -> ConsentGrant | None:
+        """Blank a consent's capture evidence, keeping the grant on record."""
+        consent = self._consents.get(consent_id)
+        if consent is None:
+            return None
+        redacted = consent.model_copy(
+            update={
+                "note": "redacted on erasure",
+                "capture_method": "redacted",
+                "captured_by": "redacted",
+            }
+        )
+        self._consents[consent_id] = redacted
+        return redacted
+
     # retention policies
     def save_policy(self, policy: RetentionPolicy) -> None:
         self._policies[policy.entity] = policy

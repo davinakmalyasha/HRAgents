@@ -21,6 +21,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from uuid import UUID
 
+from hr_agents.logging import get_logger
 from hr_agents.models import (
     ActorType,
     ApprovalStatus,
@@ -45,6 +46,7 @@ from hr_agents.models import (
     OverdueBreachStep,
     PurgeAction,
     PurgeOutcome,
+    PurgeOutcomeStatus,
     PurgeReport,
     RecordEntity,
     RetentionDue,
@@ -58,6 +60,8 @@ from hr_agents.models import (
 from hr_agents.services.approvals import AGENT_ACTOR_PREFIX, ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ComplianceStore
+
+logger = get_logger(__name__)
 
 PurgeHandler = Callable[[RetentionRecord, PurgeAction], str]
 """Store-specific purge callback. Returns a human-readable detail string."""
@@ -412,10 +416,16 @@ class ComplianceService:
     def register_purge_handler(self, entity: RecordEntity, handler: PurgeHandler) -> None:
         """Attach the store-specific delete/anonymize implementation.
 
-        Until a handler is registered the ledger still records the disposition,
-        but the detail notes that no store was mutated.
+        Without a handler the ledger disposition is *not* recorded as purged:
+        the outcome is reported as ``skipped`` with the reason, and an erasure
+        disposition becomes ``not_executed``. A data-protection endpoint that
+        reports success while deleting nothing is worse than one that refuses.
         """
         self._purge_handlers[entity] = handler
+
+    def purgeable_entities(self) -> tuple[RecordEntity, ...]:
+        """Entities this deployment can actually delete or anonymize."""
+        return tuple(sorted(self._purge_handlers, key=lambda item: item.value))
 
     def execute_purge(
         self, *, by: str, as_of: datetime | None = None, dry_run: bool = False
@@ -430,42 +440,63 @@ class ComplianceService:
         report = self.scan(as_of=moment)
 
         outcomes: list[PurgeOutcome] = []
+        skipped: list[PurgeOutcome] = []
         for item in report.due:
+            detail: str | None
+            purged: bool
             if dry_run:
                 detail = "dry run; no store mutation performed"
+                purged = False
             else:
                 detail = self._apply_purge(item.record, item.action, by)
-                updated = item.record.model_copy(
-                    update={
-                        "purged_at": utc_now(),
-                        "purge_action": item.action,
-                        "purge_detail": detail,
-                    }
-                )
-                self._store.save_record(updated)
-                self._record(
-                    action="compliance.record_purged",
-                    subject_type="retention_record",
-                    subject_id=str(updated.id),
-                    actor_id=by,
-                    payload={
-                        "entity": updated.entity.value,
-                        "subject_id": updated.subject_id,
-                        "action": item.action.value,
-                        "detail": detail,
-                        "source": "retention_job",
-                    },
-                )
-            outcomes.append(
-                PurgeOutcome(
-                    record_id=item.record.id,
-                    entity=item.record.entity,
-                    subject_kind=item.record.subject_kind,
-                    subject_id=item.record.subject_id,
-                    action=item.action,
-                    detail=detail,
-                )
+                purged = detail is not None
+                if purged:
+                    updated = item.record.model_copy(
+                        update={
+                            "purged_at": utc_now(),
+                            "purge_action": item.action,
+                            "purge_detail": detail,
+                        }
+                    )
+                    self._store.save_record(updated)
+                    self._record(
+                        action="compliance.record_purged",
+                        subject_type="retention_record",
+                        subject_id=str(updated.id),
+                        actor_id=by,
+                        payload={
+                            "entity": updated.entity.value,
+                            "subject_id": updated.subject_id,
+                            "action": item.action.value,
+                            "detail": detail,
+                            "source": "retention_job",
+                        },
+                    )
+                else:
+                    self._record(
+                        action="compliance.record_purge_skipped",
+                        subject_type="retention_record",
+                        subject_id=str(item.record.id),
+                        actor_id=by,
+                        payload={
+                            "entity": item.record.entity.value,
+                            "subject_id": item.record.subject_id,
+                            "action": item.action.value,
+                            "detail": detail,
+                            "source": "retention_job",
+                        },
+                    )
+            outcome = PurgeOutcome(
+                record_id=item.record.id,
+                entity=item.record.entity,
+                subject_kind=item.record.subject_kind,
+                subject_id=item.record.subject_id,
+                action=item.action,
+                detail=detail or "",
+                status=PurgeOutcomeStatus.PURGED if purged else PurgeOutcomeStatus.SKIPPED,
+                purged=purged,
             )
+            (outcomes if purged or dry_run else skipped).append(outcome)
 
         if not dry_run and outcomes:
             self._record(
@@ -473,7 +504,12 @@ class ComplianceService:
                 subject_type="retention_ledger",
                 subject_id="all",
                 actor_id=by,
-                payload={"purged": len(outcomes), "held": len(report.held)},
+                payload={
+                    "purged": len(outcomes),
+                    "skipped": len(skipped),
+                    "held": len(report.held),
+                    "skipped_entities": sorted({item.entity.value for item in skipped}),
+                },
             )
 
         return PurgeReport(
@@ -483,6 +519,7 @@ class ComplianceService:
             purged=outcomes,
             held=[record.id for record in report.held],
             uncovered=[record.id for record in report.uncovered],
+            skipped=skipped,
         )
 
     # --- erasure workflow --------------------------------------------------
@@ -658,6 +695,32 @@ class ComplianceService:
             policy = self._store.get_policy(record.entity)
             action = policy.expiry_action if policy else PurgeAction.DELETE
             detail = self._apply_purge(record, action, by)
+            if detail is None:
+                dispositions.append(
+                    ErasureDisposition(
+                        record_id=record.id,
+                        entity=record.entity,
+                        action=DispositionAction.NOT_EXECUTED,
+                        detail=(
+                            f"no store purge handler is registered for "
+                            f"{record.entity.value}; the underlying record is still "
+                            f"present. Register one before claiming this erasure is done."
+                        ),
+                    )
+                )
+                self._record(
+                    action="compliance.record_erasure_skipped",
+                    subject_type="retention_record",
+                    subject_id=str(record.id),
+                    actor_id=by,
+                    payload={
+                        "entity": record.entity.value,
+                        "subject_id": record.subject_id,
+                        "source": "erasure_request",
+                        "request_id": str(request.id),
+                    },
+                )
+                continue
             purged_record = record.model_copy(
                 update={
                     "purged_at": utc_now(),
@@ -953,13 +1016,24 @@ class ComplianceService:
 
     # --- internals ----------------------------------------------------------
 
-    def _apply_purge(self, record: RetentionRecord, action: PurgeAction, by: str) -> str:
+    def _apply_purge(self, record: RetentionRecord, action: PurgeAction, by: str) -> str | None:
+        """Delete or anonymize the underlying record.
+
+        Returns the handler's detail string, or ``None`` when no handler is
+        registered for this entity — the caller must then report the outcome as
+        skipped rather than purged. ``None`` is the only way to say "nothing was
+        removed"; a non-empty string always means the store was mutated.
+        """
         handler = self._purge_handlers.get(record.entity)
         if handler is None:
-            return (
-                f"ledger disposition only ({action.value}); "
-                f"no store handler registered for {record.entity.value} by {by}"
+            logger.error(
+                "purge_handler_missing",
+                entity=record.entity.value,
+                subject_id=record.subject_id,
+                requested_by=by,
+                registered=sorted(item.value for item in self._purge_handlers),
             )
+            return None
         return handler(record, action)
 
     def _require_human(self, actor: str, action: str) -> None:

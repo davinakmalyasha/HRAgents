@@ -29,6 +29,8 @@ from hr_agents.api.people_schemas import (
     OrgUnitCreate,
     OrgUnitView,
     RateTableCreate,
+    RateTableEntriesUpdate,
+    RateTableVerify,
     RateTableView,
     TaskCompleteRequest,
     TaskCreate,
@@ -45,6 +47,7 @@ from hr_agents.services import (
     ApprovalError,
     ContractError,
     EmployeeError,
+    RateTableError,
     TaskError,
 )
 from hr_agents.services.people import PeopleServices
@@ -390,6 +393,11 @@ def complete_task(task_id: UUID, payload: TaskCompleteRequest, people: PeopleDep
 
 
 # --- rate tables -------------------------------------------------------------
+#
+# The verification gate is the hard rule: a table only drives payroll math once a
+# named human has entered values, recorded where they came from, and confirmed
+# them. RATES_VERIFY is a separate permission from PAYROLL_READ so that being
+# able to look at a rate is not the same authority as being able to certify one.
 
 
 @rate_tables_router.post("", status_code=status.HTTP_201_CREATED, response_model=RateTableView)
@@ -406,6 +414,45 @@ def list_rate_tables(people: PeopleDep) -> list[RateTableView]:
 @rate_tables_router.get("/unverified", response_model=list[RateTableView])
 def unverified_rate_tables(people: PeopleDep) -> list[RateTableView]:
     return [RateTableView.from_model(table) for table in people.rate_tables.unverified()]
+
+
+@rate_tables_router.get("/{table_id}", response_model=RateTableView)
+def get_rate_table(table_id: UUID, people: PeopleDep) -> RateTableView:
+    try:
+        table = people.rate_tables.get(table_id)
+    except RateTableError as exc:
+        raise _not_found(str(exc)) from exc
+    return RateTableView.from_model(table)
+
+
+@rate_tables_router.put("/{table_id}/entries", response_model=RateTableView)
+def set_rate_table_entries(
+    table_id: UUID, payload: RateTableEntriesUpdate, people: PeopleDep
+) -> RateTableView:
+    """Replace a table's rows. Editing values always invalidates verification."""
+    try:
+        table = people.rate_tables.set_entries(
+            table_id, entries=payload.entries, updated_by=payload.by
+        )
+    except RateTableError as exc:
+        raise _conflict(exc) from exc
+    return RateTableView.from_model(table)
+
+
+@rate_tables_router.post(
+    "/{table_id}/verify",
+    response_model=RateTableView,
+    dependencies=[Depends(require_permission(Permission.RATES_VERIFY))],
+)
+def verify_rate_table(table_id: UUID, payload: RateTableVerify, people: PeopleDep) -> RateTableView:
+    """Certify a rate table against a recorded source. Unblocks payroll compute."""
+    try:
+        table = people.rate_tables.verify(
+            table_id, verified_by=payload.by, source_note=payload.source_note
+        )
+    except RateTableError as exc:
+        raise _conflict(exc) from exc
+    return RateTableView.from_model(table)
 
 
 # Silence unused-import linters for AuthContext (reserved for RBAC phase).

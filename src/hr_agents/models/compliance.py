@@ -182,6 +182,19 @@ class RetentionScanReport(StrictModel):
     purged_count: int = Field(default=0, ge=0)
 
 
+class PurgeOutcomeStatus(StrEnum):
+    """Whether a purge pass actually touched the underlying store.
+
+    ``SKIPPED`` is a first-class result, not an error: the ledger disposition
+    is still recorded, but nothing was deleted or anonymized. Reporting that as
+    a success would be a data-protection lie in both the API response and the
+    audit chain.
+    """
+
+    PURGED = "purged"
+    SKIPPED = "skipped"
+
+
 class PurgeOutcome(StrictModel):
     """What happened to one record during a purge pass."""
 
@@ -191,6 +204,11 @@ class PurgeOutcome(StrictModel):
     subject_id: str
     action: PurgeAction
     detail: str = Field(default="", max_length=1000)
+    status: PurgeOutcomeStatus = PurgeOutcomeStatus.PURGED
+    purged: bool = Field(
+        default=True,
+        description="False when no store handler was registered, so nothing changed",
+    )
 
 
 class PurgeReport(StrictModel):
@@ -202,6 +220,11 @@ class PurgeReport(StrictModel):
     purged: list[PurgeOutcome] = Field(default_factory=list)
     held: list[UUID] = Field(default_factory=list)
     uncovered: list[UUID] = Field(default_factory=list)
+    skipped: list[PurgeOutcome] = Field(
+        default_factory=list,
+        description="Records whose entity has no registered store purge handler; "
+        "the ledger was updated but no data was removed",
+    )
 
 
 class ErasureStatus(StrEnum):
@@ -216,6 +239,12 @@ class DispositionAction(StrEnum):
     DELETED = "deleted"
     ANONYMIZED = "anonymized"
     RETAINED_LEGAL_HOLD = "retained_legal_hold"
+    NOT_EXECUTED = "not_executed"
+    """The entity has no registered purge handler, so the data is still there.
+
+    Kept distinct from ``DELETED`` so an erasure response can never claim a
+    removal that did not happen.
+    """
 
 
 class ErasureDisposition(StrictModel):

@@ -7,6 +7,7 @@ table is reported so the system can warn before a payroll run.
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from hr_agents.models import (
@@ -100,17 +101,38 @@ class RateTableService:
         """Tables that must not silently drive payroll math."""
         return [table for table in self._store.list_all() if not table.usable]
 
-    def require_usable(self, kind: RateTableKind) -> RateTable:
-        """Fetch the verified table of a kind, or raise — payroll calls this."""
+    def require_usable(self, kind: RateTableKind, *, as_of: date | None = None) -> RateTable:
+        """Fetch the verified table of a kind in force, or raise.
+
+        "In force" means: verified, non-empty, effective on ``as_of`` (default
+        today) or with no window at all, and — among those — the most recently
+        effective. Ordering by name or by list position would silently pick an
+        arbitrary table whenever an operator keeps more than one version.
+        """
+        moment = as_of or date.today()
         candidates = [
-            table for table in self._store.list_all() if table.kind is kind and table.usable
+            table
+            for table in self._store.list_all()
+            if table.kind is kind and table.usable and self._in_force(table, moment)
         ]
         if not candidates:
             raise RateTableError(
-                f"no verified {kind.value} rate table — HR must enter and verify "
-                "current rates before payroll computations run"
+                f"no verified {kind.value} rate table in force on {moment.isoformat()} "
+                "— HR must enter and verify current rates before payroll computations run"
             )
-        return candidates[-1]
+        return max(candidates, key=self._recency)
+
+    @staticmethod
+    def _in_force(table: RateTable, moment: date) -> bool:
+        if table.effective_from is not None and moment < table.effective_from:
+            return False
+        return not (table.effective_to is not None and moment > table.effective_to)
+
+    @staticmethod
+    def _recency(table: RateTable) -> tuple[date, str]:
+        """Later effective_from wins; undated tables fall back to last-updated."""
+        stamp = table.updated_at.isoformat() if table.updated_at else ""
+        return (table.effective_from or date.min, stamp)
 
     # --- internals ------------------------------------------------------
 

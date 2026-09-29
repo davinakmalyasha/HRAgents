@@ -233,6 +233,9 @@ class Scheduler:
     def _run_retention(self, moment: datetime, purge: bool) -> tuple[int, str]:
         report = self._people.compliance.execute_purge(by="system", as_of=moment, dry_run=not purge)
         detail = f"purged {len(report.purged)}, held {len(report.held)}"
+        if report.skipped:
+            entities = ", ".join(sorted({item.entity.value for item in report.skipped}))
+            detail += f", SKIPPED {len(report.skipped)} with no store handler ({entities})"
         if not purge:
             return 0, detail + " (dry run)"
         return len(report.purged), detail

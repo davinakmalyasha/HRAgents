@@ -20,6 +20,7 @@ from hr_agents.models import (
     EmployeeDocument,
     EmployeeStatus,
     OrgUnit,
+    RateEntry,
     RateTable,
     RateTableKind,
     StrictModel,
@@ -339,6 +340,10 @@ class RateTableView(StrictModel):
     usable: bool
     verified_by: str | None
     source_note: str | None
+    entries: list[RateEntry] = Field(default_factory=list)
+    effective_from: date | None = None
+    effective_to: date | None = None
+    updated_at: datetime
 
     @classmethod
     def from_model(cls, table: RateTable) -> RateTableView:
@@ -355,4 +360,26 @@ class RateTableView(StrictModel):
             usable=table.usable,
             verified_by=table.verified_by,
             source_note=table.source_note,
+            entries=list(table.entries),
+            effective_from=table.effective_from,
+            effective_to=table.effective_to,
+            updated_at=table.updated_at,
         )
+
+
+class RateTableEntriesUpdate(StrictModel):
+    """Replace a table's rows. Setting entries always clears verification."""
+
+    entries: list[RateEntry] = Field(min_length=1)
+    by: str = Field(min_length=1, max_length=200)
+
+
+class RateTableVerify(StrictModel):
+    """Certify a rate table against a recorded source. Unblocks payroll compute."""
+
+    by: str = Field(min_length=1, max_length=200)
+    source_note: str = Field(
+        min_length=1,
+        max_length=500,
+        description="Where the numbers came from (regulation, official page, date fetched)",
+    )

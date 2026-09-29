@@ -179,16 +179,18 @@ def test_approvals_escalate_then_expire_across_runs() -> None:
 # --- retention -------------------------------------------------------------------------
 
 
-def track_expired_candidate(people: PeopleServices) -> UUID:
+def track_expired_candidate(
+    people: PeopleServices, *, entity: RecordEntity = RecordEntity.CANDIDATE
+) -> UUID:
     people.compliance.set_policy(
-        entity=RecordEntity.CANDIDATE,
-        name="Candidate records",
+        entity=entity,
+        name=f"{entity.value} records",
         retention_months=12,
         updated_by="hr-admin",
         expiry_action=PurgeAction.DELETE,
     )
     record = people.compliance.track_record(
-        entity=RecordEntity.CANDIDATE,
+        entity=entity,
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         created_by="screening-pipeline",
@@ -213,7 +215,7 @@ def test_retention_dry_run_reports_without_mutating() -> None:
 
 def test_retention_purge_applies_on_request() -> None:
     scheduler, people, _, _ = make_scheduler()
-    record_id = track_expired_candidate(people)
+    record_id = track_expired_candidate(people, entity=RecordEntity.CONSENT)
 
     report = scheduler.run(["retention"], now=NOW, purge=True)
 
@@ -222,6 +224,26 @@ def test_retention_purge_applies_on_request() -> None:
     assert "purged 1" in report.jobs[0].detail
     assert people.compliance.get_record(record_id).purged
     assert people.audit.verify() == -1
+
+
+def test_retention_purge_reports_records_it_cannot_remove() -> None:
+    """A purge that cannot reach the underlying store must say so, not claim success.
+
+    ``consent`` is the only entity with a registered store handler. A candidate
+    record is therefore skipped, counted as unchanged, and named in the detail so
+    an operator reading the scheduler log sees the coverage gap.
+    """
+    scheduler, people, _, _ = make_scheduler()
+    record_id = track_expired_candidate(people)
+
+    report = scheduler.run(["retention"], now=NOW, purge=True)
+
+    assert report.jobs[0].ok is True
+    assert report.jobs[0].changed == 0
+    assert "purged 0" in report.jobs[0].detail
+    assert "SKIPPED 1" in report.jobs[0].detail
+    assert "candidate" in report.jobs[0].detail
+    assert people.compliance.get_record(record_id).purged_at is None
 
 
 # --- breaches ----------------------------------------------------------------------------

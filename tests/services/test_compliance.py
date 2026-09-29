@@ -23,6 +23,7 @@ from hr_agents.services import (
     ApprovalStore,
     ComplianceError,
     ComplianceService,
+    PurgeHandler,
     add_months,
 )
 from hr_agents.services.audit import AuditChain
@@ -42,7 +43,22 @@ def approvals(audit: AuditChain) -> ApprovalEngine:
 
 @pytest.fixture
 def service(approvals: ApprovalEngine, audit: AuditChain) -> ComplianceService:
-    return ComplianceService(approvals=approvals, audit=audit)
+    compliance = ComplianceService(approvals=approvals, audit=audit)
+    # The real deployment registers handlers in PeopleServices.__post_init__. Here
+    # a recording handler stands in for the store adapters so these tests exercise
+    # the purge *mechanics*; test_purge_without_handler_reports_skip_not_purged
+    # covers the honesty path, and the absence of a handler is the default.
+    compliance.register_purge_handler(RecordEntity.CANDIDATE, _recording_handler())
+    compliance.register_purge_handler(RecordEntity.EMPLOYEE, _recording_handler())
+    compliance.register_purge_handler(RecordEntity.CONSENT, _recording_handler())
+    return compliance
+
+
+def _recording_handler() -> PurgeHandler:
+    def handler(record: RetentionRecord, action: PurgeAction) -> str:
+        return f"test handler removed {record.subject_id} via {action.value}"
+
+    return handler
 
 
 def track_candidate(
