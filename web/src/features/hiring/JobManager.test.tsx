@@ -111,7 +111,8 @@ describe('JobManager', () => {
 
     await userEvent.click(screen.getByRole('button', { name: i18n.t('jobs.create') }))
     await userEvent.type(screen.getByLabelText(i18n.t('jobs.fields.title')), 'Backend Engineer')
-    await userEvent.type(screen.getByLabelText(i18n.t('jobs.fields.savedBy')), 'Sinta Prabowo')
+    // No "saved by" field: the server attributes the job to the API key holder.
+    expect(screen.queryByLabelText(i18n.t('jobs.fields.savedBy'))).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(i18n.t('jobs.dimensions.technical_depth')), {
       target: { value: '0.9' },
@@ -129,7 +130,6 @@ describe('JobManager', () => {
     expect(createJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         title: 'Backend Engineer',
-        created_by: 'Sinta Prabowo',
         seniority: 'mid',
         dimension_weights: {
           technical_depth: 0.4,

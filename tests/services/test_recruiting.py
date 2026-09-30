@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     DimensionScore,
     EvaluationFlag,
@@ -113,7 +114,7 @@ def scheduling(evaluations: EvaluationService, audit: AuditChain) -> SchedulingS
 def test_upload_hashes_and_stores_document(services: RecruitingServices) -> None:
     content = b"Budi Santoso - backend engineer"
     document = services.documents.upload(
-        filename="cv.txt", kind="cv", content=content, uploaded_by="hr-admin"
+        filename="cv.txt", kind="cv", content=content, actor=ActorRef.legacy("hr-admin")
     )
 
     import hashlib
@@ -125,23 +126,27 @@ def test_upload_hashes_and_stores_document(services: RecruitingServices) -> None
 
 def test_upload_rejects_unknown_kind(services: RecruitingServices) -> None:
     with pytest.raises(RecruitingError, match="unsupported document kind"):
-        services.documents.upload(filename="x", kind="photo", content=b"x", uploaded_by="hr")
+        services.documents.upload(
+            filename="x", kind="photo", content=b"x", actor=ActorRef.legacy("hr")
+        )
 
 
 def test_upload_rejects_empty_and_oversize(services: RecruitingServices) -> None:
     with pytest.raises(RecruitingError, match="empty"):
-        services.documents.upload(filename="x", kind="cv", content=b"", uploaded_by="hr")
+        services.documents.upload(filename="x", kind="cv", content=b"", actor=ActorRef.legacy("hr"))
     with pytest.raises(DocumentTooLargeError, match="limit"):
         services.documents.upload(
             filename="big.pdf",
             kind="cv",
             content=b"x" * (MAX_DOCUMENT_BYTES + 1),
-            uploaded_by="hr",
+            actor=ActorRef.legacy("hr"),
         )
 
 
 def test_document_upload_is_audited(services: RecruitingServices, audit: AuditChain) -> None:
-    services.documents.upload(filename="cv.txt", kind="cv", content=b"abc", uploaded_by="hr-admin")
+    services.documents.upload(
+        filename="cv.txt", kind="cv", content=b"abc", actor=ActorRef.legacy("hr-admin")
+    )
     actions = [entry.action for entry in audit.entries]
     assert actions == ["document.uploaded"]
 
@@ -150,32 +155,36 @@ def test_document_upload_is_audited(services: RecruitingServices, audit: AuditCh
 
 
 def test_job_create_defaults(jobs: JobService) -> None:
-    job = jobs.create(title="Backend Engineer", created_by="hr-admin")
+    job = jobs.create(title="Backend Engineer", actor=ActorRef.legacy("hr-admin"))
     assert job.status is JobStatus.DRAFT
     assert job.seniority is Seniority.MID
     assert jobs.get(job.id).title == "Backend Engineer"
 
 
 def test_job_lifecycle_guards(jobs: JobService) -> None:
-    job = jobs.create(title="X", created_by="hr-admin")
-    opened = jobs.transition(job.id, target=JobStatus.OPEN, by="hr-admin")
+    job = jobs.create(title="X", actor=ActorRef.legacy("hr-admin"))
+    opened = jobs.transition(job.id, target=JobStatus.OPEN, actor=ActorRef.legacy("hr-admin"))
     assert opened.status is JobStatus.OPEN
 
-    paused = jobs.transition(job.id, target=JobStatus.PAUSED, by="hr-admin")
+    paused = jobs.transition(job.id, target=JobStatus.PAUSED, actor=ActorRef.legacy("hr-admin"))
     assert paused.status is JobStatus.PAUSED
     with pytest.raises(RecruitingError, match="cannot move job"):
-        jobs.transition(job.id, target=JobStatus.DRAFT, by="hr-admin")
+        jobs.transition(job.id, target=JobStatus.DRAFT, actor=ActorRef.legacy("hr-admin"))
 
-    closed = jobs.transition(job.id, target=JobStatus.CLOSED, by="hr-admin")
+    closed = jobs.transition(job.id, target=JobStatus.CLOSED, actor=ActorRef.legacy("hr-admin"))
     assert closed.status is JobStatus.CLOSED
     with pytest.raises(RecruitingError, match="read-only"):
-        jobs.update(job.id, by="hr-admin", title="New title")
+        jobs.update(job.id, actor=ActorRef.legacy("hr-admin"), title="New title")
 
 
 def test_job_update_merges_fields(jobs: JobService) -> None:
-    job = jobs.create(title="X", created_by="hr-admin", must_have_skills=["python"])
+    job = jobs.create(title="X", actor=ActorRef.legacy("hr-admin"), must_have_skills=["python"])
     updated = jobs.update(
-        job.id, by="hr-admin", title="Y", nice_to_have_skills=["go"], min_years_experience=3
+        job.id,
+        actor=ActorRef.legacy("hr-admin"),
+        title="Y",
+        nice_to_have_skills=["go"],
+        min_years_experience=3,
     )
     assert updated.title == "Y"
     assert updated.must_have_skills == ["python"]
@@ -184,9 +193,9 @@ def test_job_update_merges_fields(jobs: JobService) -> None:
 
 
 def test_job_list_filters_by_status(jobs: JobService) -> None:
-    first = jobs.create(title="A", created_by="hr")
-    jobs.create(title="B", created_by="hr")
-    jobs.transition(first.id, target=JobStatus.OPEN, by="hr")
+    first = jobs.create(title="A", actor=ActorRef.legacy("hr"))
+    jobs.create(title="B", actor=ActorRef.legacy("hr"))
+    jobs.transition(first.id, target=JobStatus.OPEN, actor=ActorRef.legacy("hr"))
     assert [job.title for job in jobs.list_all(status=JobStatus.OPEN)] == ["A"]
 
 
@@ -422,7 +431,7 @@ def test_stored_feedback_takes_precedence(evaluations: EvaluationService) -> Non
         process_note="Written by the feedback agent from the evidence.",
         correction_notice="Contact HR for corrections.",
     )
-    evaluations.save_feedback(CANDIDATE_ID, stored, by="agent:feedback_writer")
+    evaluations.save_feedback(CANDIDATE_ID, stored, actor=ActorRef.legacy("agent:feedback_writer"))
     assert evaluations.feedback_for(CANDIDATE_ID).summary == "Agent-authored summary."
 
 
@@ -466,8 +475,8 @@ def test_auto_scheduling_inside_policy_bounds(
         job_title="Engineer",
     )
     first, second = uuid4(), uuid4()
-    scheduling.set_availability(first, slots=make_slots(3), by="hr-admin")
-    scheduling.set_availability(second, slots=make_slots(3), by="hr-admin")
+    scheduling.set_availability(first, slots=make_slots(3), actor=ActorRef.legacy("hr-admin"))
+    scheduling.set_availability(second, slots=make_slots(3), actor=ActorRef.legacy("hr-admin"))
 
     proposal = scheduling.propose(
         candidate_id=CANDIDATE_ID,
@@ -493,8 +502,10 @@ def test_calendar_constraint_routes_to_human(
         job_title="Engineer",
     )
     first, second = uuid4(), uuid4()
-    scheduling.set_availability(first, slots=make_slots(2), by="hr-admin")
-    scheduling.set_availability(second, slots=make_slots(2, offset_hours=10), by="hr-admin")
+    scheduling.set_availability(first, slots=make_slots(2), actor=ActorRef.legacy("hr-admin"))
+    scheduling.set_availability(
+        second, slots=make_slots(2, offset_hours=10), actor=ActorRef.legacy("hr-admin")
+    )
 
     proposal = scheduling.propose(
         candidate_id=CANDIDATE_ID, job_id=uuid4(), interviewer_ids=[first, second]
@@ -517,7 +528,7 @@ def test_flags_block_auto_scheduling(
         job_title="Engineer",
     )
     interviewer = uuid4()
-    scheduling.set_availability(interviewer, slots=make_slots(3), by="hr-admin")
+    scheduling.set_availability(interviewer, slots=make_slots(3), actor=ActorRef.legacy("hr-admin"))
 
     proposal = scheduling.propose(
         candidate_id=CANDIDATE_ID, job_id=uuid4(), interviewer_ids=[interviewer]
@@ -532,8 +543,8 @@ def test_availability_replacement(
     scheduling: SchedulingService,
 ) -> None:
     interviewer = uuid4()
-    scheduling.set_availability(interviewer, slots=make_slots(3), by="hr-admin")
-    scheduling.set_availability(interviewer, slots=make_slots(1), by="hr-admin")
+    scheduling.set_availability(interviewer, slots=make_slots(3), actor=ActorRef.legacy("hr-admin"))
+    scheduling.set_availability(interviewer, slots=make_slots(1), actor=ActorRef.legacy("hr-admin"))
     assert len(scheduling.get_availability(interviewer)) == 1
 
 
@@ -542,8 +553,10 @@ def test_availability_replacement(
 
 def test_recruiting_services_share_one_audit_chain() -> None:
     services = RecruitingServices()
-    services.documents.upload(filename="c.txt", kind="cv", content=b"x", uploaded_by="hr")
-    services.jobs.create(title="X", created_by="hr")
+    services.documents.upload(
+        filename="c.txt", kind="cv", content=b"x", actor=ActorRef.legacy("hr")
+    )
+    services.jobs.create(title="X", actor=ActorRef.legacy("hr"))
     assert [entry.action for entry in services.audit.entries] == [
         "document.uploaded",
         "job.created",

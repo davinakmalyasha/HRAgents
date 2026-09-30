@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import HTTPException, Request, status
+from typing import Annotated
+
+from fastapi import Depends, HTTPException, Request, status
 
 from hr_agents.api.auth import (
     current_actor,
@@ -12,10 +14,20 @@ from hr_agents.api.auth import (
     require_permission,
 )
 from hr_agents.config import Settings
+from hr_agents.identity import ActorRef
 from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Principal
 from hr_agents.services import ApplicationStore, AuditChain
 from hr_agents.services.dispatch import EvaluationDispatcher
+
+ActorDep = Annotated[ActorRef, Depends(current_actor)]
+"""The authenticated actor for a request.
+
+Authorization stays declarative: the route already declares its permission via
+``dependencies=[Depends(require_permission(...))]``, so this only answers *who*.
+Splitting the two keeps the gate visible where a reviewer looks for it, instead
+of hiding it inside the parameter that happens to carry the name.
+"""
 
 
 def get_store(request: Request) -> ApplicationStore:
@@ -78,6 +90,7 @@ async def require_api_key(request: Request) -> Principal:
 
 
 __all__ = [
+    "ActorDep",
     "current_actor",
     "current_principal",
     "get_audit",

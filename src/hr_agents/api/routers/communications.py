@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.recruitment_schemas import (
     CommunicationPreviewView,
     CommunicationSentRequest,
@@ -93,12 +93,15 @@ def list_replies(candidate_id: UUID, replies: RepliesDep) -> list[ReplyView]:
     summary="Queue the rejection message (documented rejection + named human)",
 )
 def queue_rejection(
-    candidate_id: UUID, payload: RejectionQueueRequest, communications: CommunicationsDep
+    candidate_id: UUID,
+    payload: RejectionQueueRequest,
+    communications: CommunicationsDep,
+    actor: ActorDep,
 ) -> CommunicationView:
     try:
         item = communications.queue_rejection(
             candidate_id,
-            by=payload.by,
+            actor=actor,
             channel=payload.channel,
             language=payload.language,
             to_email=payload.to_email,
@@ -121,7 +124,10 @@ def queue_rejection(
     summary="Preview the rejection message and the reasons it cannot be queued",
 )
 def preview_rejection(
-    candidate_id: UUID, payload: RejectionPreviewRequest, communications: CommunicationsDep
+    candidate_id: UUID,
+    payload: RejectionPreviewRequest,
+    communications: CommunicationsDep,
+    actor: ActorDep,
 ) -> CommunicationPreviewView:
     """Render the message a queue would store without storing anything.
 
@@ -131,7 +137,7 @@ def preview_rejection(
     """
     preview = communications.preview_rejection(
         candidate_id,
-        by=payload.by,
+        actor=actor,
         channel=payload.channel,
         language=payload.language,
         to_email=payload.to_email,
@@ -148,12 +154,15 @@ def preview_rejection(
     summary="Queue a human-authored offer message",
 )
 def queue_offer(
-    candidate_id: UUID, payload: OfferQueueRequest, communications: CommunicationsDep
+    candidate_id: UUID,
+    payload: OfferQueueRequest,
+    communications: CommunicationsDep,
+    actor: ActorDep,
 ) -> CommunicationView:
     try:
         item = communications.queue_offer(
             candidate_id,
-            by=payload.by,
+            actor=actor,
             body=payload.body,
             subject=payload.subject,
             channel=payload.channel,
@@ -181,13 +190,14 @@ def compose_dispatch_link(
     communication_id: UUID,
     payload: WhatsappDispatchLinkRequest,
     communications: CommunicationsDep,
+    actor: ActorDep,
 ) -> WhatsappDispatchLinkView:
     try:
         message = communications.get(communication_id)
         transport = ManualWhatsappLinks()
         prepared = communications.prepare_manual_dispatch(
             communication_id,
-            by=payload.by,
+            actor=actor,
             provider=transport.provider_id,
             recipient_phone=payload.to_phone,
         )
@@ -220,9 +230,10 @@ def mark_communication_sent(
     communication_id: UUID,
     payload: CommunicationSentRequest,
     communications: CommunicationsDep,
+    actor: ActorDep,
 ) -> CommunicationView:
     try:
-        item = communications.mark_sent(communication_id, by=payload.by)
+        item = communications.mark_sent(communication_id, actor=actor)
     except RecruitingError as exc:
         message = str(exc)
         if message.startswith("unknown communication"):

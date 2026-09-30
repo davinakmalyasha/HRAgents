@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApprovalStatus,
     ApprovalSubject,
@@ -109,7 +110,7 @@ def build(*, s_tech: float = 0.80, with_engine: bool = True) -> World:
         job_title="Backend Engineer",
     )
     interviewer = uuid4()
-    scheduling.set_availability(interviewer, slots=make_slots(3), by="hr-admin")
+    scheduling.set_availability(interviewer, slots=make_slots(3), actor=ActorRef.legacy("hr-admin"))
     return World(
         audit=audit,
         evaluations=evaluations,
@@ -143,7 +144,9 @@ def test_decisions_require_a_named_human() -> None:
     proposal = propose(world)
 
     with pytest.raises(RecruitingError, match="named human"):
-        world.scheduling.decide(proposal.id, decision="confirm", by="agent:hr_bot")
+        world.scheduling.decide(
+            proposal.id, decision="confirm", actor=ActorRef.legacy("agent:hr_bot")
+        )
 
 
 def test_cancel_and_reschedule_require_a_reason() -> None:
@@ -151,16 +154,18 @@ def test_cancel_and_reschedule_require_a_reason() -> None:
     proposal = propose(world)
 
     with pytest.raises(RecruitingError, match="reason is required"):
-        world.scheduling.decide(proposal.id, decision="cancel", by="hr-admin")
+        world.scheduling.decide(proposal.id, decision="cancel", actor=ActorRef.legacy("hr-admin"))
     with pytest.raises(RecruitingError, match="reason is required"):
-        world.scheduling.decide(proposal.id, decision="reschedule", by="hr-admin")
+        world.scheduling.decide(
+            proposal.id, decision="reschedule", actor=ActorRef.legacy("hr-admin")
+        )
 
 
 def test_unknown_proposal_is_refused() -> None:
     world = build()
 
     with pytest.raises(RecruitingError, match="unknown scheduling proposal"):
-        world.scheduling.decide(uuid4(), decision="confirm", by="hr-admin")
+        world.scheduling.decide(uuid4(), decision="confirm", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_unknown_decision_is_refused() -> None:
@@ -168,21 +173,27 @@ def test_unknown_decision_is_refused() -> None:
     proposal = propose(world)
 
     with pytest.raises(RecruitingError, match="unknown decision"):
-        world.scheduling.decide(proposal.id, decision="maybe", by="hr-admin")
+        world.scheduling.decide(proposal.id, decision="maybe", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_terminal_proposals_cannot_be_decided_again() -> None:
     world = build()
     proposal = propose(world)
     world.scheduling.decide(
-        proposal.id, decision="cancel", by="hr-admin", reason="interviewer unavailable"
+        proposal.id,
+        decision="cancel",
+        actor=ActorRef.legacy("hr-admin"),
+        reason="interviewer unavailable",
     )
 
     with pytest.raises(RecruitingError, match="cannot be decided again"):
-        world.scheduling.decide(proposal.id, decision="confirm", by="hr-admin")
+        world.scheduling.decide(proposal.id, decision="confirm", actor=ActorRef.legacy("hr-admin"))
     with pytest.raises(RecruitingError, match="cannot be decided again"):
         world.scheduling.decide(
-            proposal.id, decision="reschedule", by="hr-admin", reason="another try"
+            proposal.id,
+            decision="reschedule",
+            actor=ActorRef.legacy("hr-admin"),
+            reason="another try",
         )
 
 
@@ -194,17 +205,22 @@ def test_confirm_refuses_when_the_linked_approval_was_rejected() -> None:
     engine_of(world).decide(approval.id, decided_by="lead-1", approve=False, reason="no slots")
 
     with pytest.raises(RecruitingError, match="was rejected"):
-        world.scheduling.decide(proposal.id, decision="confirm", by="hr-admin")
+        world.scheduling.decide(proposal.id, decision="confirm", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_reschedule_without_availability_keeps_the_old_proposal() -> None:
     world = build()
     proposal = propose(world)
-    world.scheduling.set_availability(world.interviewer_id, slots=[], by="hr-admin")
+    world.scheduling.set_availability(
+        world.interviewer_id, slots=[], actor=ActorRef.legacy("hr-admin")
+    )
 
     with pytest.raises(RecruitingError, match="no interviewer availability"):
         world.scheduling.decide(
-            proposal.id, decision="reschedule", by="hr-admin", reason="times changed"
+            proposal.id,
+            decision="reschedule",
+            actor=ActorRef.legacy("hr-admin"),
+            reason="times changed",
         )
 
     assert world.scheduling.get(proposal.id).status is ProposalStatus.PENDING_APPROVAL
@@ -233,7 +249,10 @@ def test_confirm_decides_the_linked_approval_and_schedules() -> None:
     proposal = propose(world)
 
     decided, replacement = world.scheduling.decide(
-        proposal.id, decision="confirm", by="hr-admin", reason="slots work for the panel"
+        proposal.id,
+        decision="confirm",
+        actor=ActorRef.legacy("hr-admin"),
+        reason="slots work for the panel",
     )
 
     assert replacement is None
@@ -263,8 +282,12 @@ def test_auto_proposals_confirm_idempotently_without_an_approval() -> None:
     assert proposal.status is ProposalStatus.AUTO_SCHEDULED
     assert engine_of(world).find_by_subject(ApprovalSubject.SCHEDULING, str(proposal.id)) is None
 
-    confirmed, _ = world.scheduling.decide(proposal.id, decision="confirm", by="hr-admin")
-    again, _ = world.scheduling.decide(proposal.id, decision="confirm", by="hr-admin")
+    confirmed, _ = world.scheduling.decide(
+        proposal.id, decision="confirm", actor=ActorRef.legacy("hr-admin")
+    )
+    again, _ = world.scheduling.decide(
+        proposal.id, decision="confirm", actor=ActorRef.legacy("hr-admin")
+    )
 
     assert confirmed.status is ProposalStatus.CONFIRMED
     assert confirmed.decided_by == "hr-admin"
@@ -276,7 +299,9 @@ def test_confirm_without_an_engine_uses_the_direct_audited_path() -> None:
     world = build(with_engine=False)
     proposal = propose(world)
 
-    decided, _ = world.scheduling.decide(proposal.id, decision="confirm", by="hr-admin")
+    decided, _ = world.scheduling.decide(
+        proposal.id, decision="confirm", actor=ActorRef.legacy("hr-admin")
+    )
 
     assert decided.status is ProposalStatus.CONFIRMED
     payload = next(
@@ -290,7 +315,10 @@ def test_cancel_withdraws_the_linked_approval_and_leaves_the_application() -> No
     proposal = propose(world)
 
     cancelled, replacement = world.scheduling.decide(
-        proposal.id, decision="cancel", by="hr-admin", reason="interviewer went on leave"
+        proposal.id,
+        decision="cancel",
+        actor=ActorRef.legacy("hr-admin"),
+        reason="interviewer went on leave",
     )
 
     assert replacement is None
@@ -308,10 +336,15 @@ def test_cancel_withdraws_the_linked_approval_and_leaves_the_application() -> No
 def test_reschedule_supersedes_and_links_the_replacement() -> None:
     world = build()
     proposal = propose(world)
-    world.scheduling.set_availability(world.interviewer_id, slots=make_slots(2), by="hr-admin")
+    world.scheduling.set_availability(
+        world.interviewer_id, slots=make_slots(2), actor=ActorRef.legacy("hr-admin")
+    )
 
     superseded, replacement = world.scheduling.decide(
-        proposal.id, decision="reschedule", by="hr-admin", reason="candidate asked for later"
+        proposal.id,
+        decision="reschedule",
+        actor=ActorRef.legacy("hr-admin"),
+        reason="candidate asked for later",
     )
 
     assert superseded.status is ProposalStatus.SUPERSEDED
@@ -339,6 +372,8 @@ def test_decided_at_uses_utc_now() -> None:
     world = build()
     proposal = propose(world)
     before = utc_now()
-    decided, _ = world.scheduling.decide(proposal.id, decision="confirm", by="hr-admin")
+    decided, _ = world.scheduling.decide(
+        proposal.id, decision="confirm", actor=ActorRef.legacy("hr-admin")
+    )
     assert decided.decided_at is not None
     assert decided.decided_at >= before

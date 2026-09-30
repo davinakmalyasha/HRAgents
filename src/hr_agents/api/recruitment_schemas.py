@@ -65,7 +65,6 @@ class DocumentUploadResponse(StrictModel):
 
 class JobCreate(StrictModel):
     title: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     seniority: Seniority = Seniority.MID
     description: str = Field(default="", max_length=8000)
     responsibilities: list[str] = Field(default_factory=list)
@@ -78,7 +77,6 @@ class JobCreate(StrictModel):
 
 
 class JobUpdate(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     title: str | None = Field(default=None, min_length=1, max_length=200)
     seniority: Seniority | None = None
     description: str | None = Field(default=None, max_length=8000)
@@ -92,7 +90,6 @@ class JobUpdate(StrictModel):
 
 class JobStatusChange(StrictModel):
     status: JobStatus
-    by: str = Field(min_length=1, max_length=200)
 
 
 class JobView(StrictModel):
@@ -278,7 +275,6 @@ class AvailabilitySet(StrictModel):
 
     interviewer_id: UUID
     slots: list[TimeSlot] = Field(default_factory=list)
-    by: str = Field(min_length=1, max_length=200)
 
 
 class SchedulingProposalRequest(StrictModel):
@@ -287,7 +283,6 @@ class SchedulingProposalRequest(StrictModel):
     interviewer_ids: list[UUID] = Field(min_length=1)
     requested_channels: list[SchedulingChannel] = Field(default_factory=list)
     notes: str | None = Field(default=None, max_length=2000)
-    created_by: str = Field(default="system", max_length=200)
 
 
 class SchedulingProposalView(StrictModel):
@@ -321,7 +316,6 @@ class SchedulingProposalView(StrictModel):
 class ProposalDecisionRequest(StrictModel):
     """Named-human decision on a scheduling proposal."""
 
-    by: str = Field(min_length=1, max_length=200)
     decision: Literal["confirm", "cancel", "reschedule"]
     reason: str = Field(default="", max_length=500)
 
@@ -419,7 +413,6 @@ class ReplyView(StrictModel):
 class RejectionQueueRequest(StrictModel):
     """Queue a rejection message; the server composes it from the feedback report."""
 
-    by: str = Field(min_length=1, max_length=200)
     channel: Channel = Channel.EMAIL
     language: Literal["en", "id"] = "en"
     to_email: EmailStr | None = None
@@ -429,7 +422,6 @@ class RejectionQueueRequest(StrictModel):
 class RejectionPreviewRequest(StrictModel):
     """Ask what queueing this rejection would produce, before queueing it."""
 
-    by: str = Field(min_length=1, max_length=200)
     channel: Channel = Channel.EMAIL
     language: Literal["en", "id"] = "en"
     to_email: EmailStr | None = None
@@ -473,7 +465,6 @@ class CommunicationPreviewView(StrictModel):
 class OfferQueueRequest(StrictModel):
     """Queue a human-authored offer message behind its named approver."""
 
-    by: str = Field(min_length=1, max_length=200)
     body: str = Field(min_length=1, max_length=8000)
     subject: str | None = Field(default=None, max_length=200)
     channel: Channel = Channel.EMAIL
@@ -492,8 +483,6 @@ class OfferQueueRequest(StrictModel):
 class CommunicationSentRequest(StrictModel):
     """Record manual dispatch evidence (a human sent it from their own client)."""
 
-    by: str = Field(min_length=1, max_length=200)
-
 
 class WhatsappDispatchLinkView(StrictModel):
     """A click-to-chat link for a queued WhatsApp message (the human still sends)."""
@@ -508,7 +497,6 @@ class WhatsappDispatchLinkView(StrictModel):
 class WhatsappDispatchLinkRequest(StrictModel):
     """Ask the manual-links transport to compose a wa.me link for a queued message."""
 
-    by: str = Field(min_length=1, max_length=200)
     to_phone: str | None = Field(default=None, max_length=32)
 
 

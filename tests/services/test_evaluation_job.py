@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     CandidateProfile,
     DimensionScore,
@@ -70,7 +71,7 @@ def _setup() -> tuple[
     applications = ApplicationStore()
     jobs = JobService(audit=audit)
     evaluations = EvaluationService(audit=audit, applications=applications)
-    job = jobs.create(title="Backend Engineer", created_by="hr-admin")
+    job = jobs.create(title="Backend Engineer", actor=ActorRef.legacy("hr-admin"))
     record, _ = applications.submit(
         SubmissionInput(
             job_id=job.id,

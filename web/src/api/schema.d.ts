@@ -875,6 +875,9 @@ export interface paths {
         /**
          * Verify Document
          * @description Mark a document verified or rejected; only a named human may judge one.
+         *
+         *     The gate itself lives in ``EmployeeService.mark_document_verified`` so that
+         *     non-HTTP callers cannot bypass it; this wrapper only maps the refusal to 403.
          */
         post: operations["verify_document_v1_documents__document_id__verify_post"];
         delete?: never;
@@ -2414,6 +2417,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/rate-tables/{table_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rate Table */
+        get: operations["get_rate_table_v1_rate_tables__table_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rate-tables/{table_id}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Rate Table Entries
+         * @description Replace a table's rows. Editing values always invalidates verification.
+         */
+        put: operations["set_rate_table_entries_v1_rate_tables__table_id__entries_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rate-tables/{table_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Rate Table
+         * @description Certify a rate table against a recorded source. Unblocks payroll compute.
+         */
+        post: operations["verify_rate_table_v1_rate_tables__table_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/scheduling/availability": {
         parameters: {
             query?: never;
@@ -2982,8 +3042,6 @@ export interface components {
          * @description Ops endpoint payload: register interviewer free slots (calendar feeds later).
          */
         AvailabilitySet: {
-            /** By */
-            by: string;
             /**
              * Interviewer Id
              * Format: uuid
@@ -3056,11 +3114,6 @@ export interface components {
              * @default other
              */
             kind: string;
-            /**
-             * Uploaded By
-             * @default api
-             */
-            uploaded_by: string;
         };
         /** BreachCreate */
         BreachCreate: {
@@ -3265,10 +3318,7 @@ export interface components {
          * CommunicationSentRequest
          * @description Record manual dispatch evidence (a human sent it from their own client).
          */
-        CommunicationSentRequest: {
-            /** By */
-            by: string;
-        };
+        CommunicationSentRequest: Record<string, never>;
         /**
          * CommunicationStatus
          * @enum {string}
@@ -3618,7 +3668,7 @@ export interface components {
          * DispositionAction
          * @enum {string}
          */
-        DispositionAction: "deleted" | "anonymized" | "retained_legal_hold";
+        DispositionAction: "deleted" | "anonymized" | "retained_legal_hold" | "not_executed";
         /** DispositionView */
         DispositionView: {
             action: components["schemas"]["DispositionAction"];
@@ -4238,8 +4288,6 @@ export interface components {
         };
         /** JobCreate */
         JobCreate: {
-            /** Created By */
-            created_by: string;
             /**
              * Description
              * @default
@@ -4276,14 +4324,10 @@ export interface components {
         JobStatus: "draft" | "open" | "paused" | "closed";
         /** JobStatusChange */
         JobStatusChange: {
-            /** By */
-            by: string;
             status: components["schemas"]["JobStatus"];
         };
         /** JobUpdate */
         JobUpdate: {
-            /** By */
-            by: string;
             /** Description */
             description?: string | null;
             /** Dimension Weights */
@@ -4587,8 +4631,6 @@ export interface components {
         OfferQueueRequest: {
             /** Body */
             body: string;
-            /** By */
-            by: string;
             /** @default email */
             channel: components["schemas"]["Channel"];
             /**
@@ -4911,8 +4953,6 @@ export interface components {
          * @description Named-human decision on a scheduling proposal.
          */
         ProposalDecisionRequest: {
-            /** By */
-            by: string;
             /**
              * Decision
              * @enum {string}
@@ -4948,6 +4988,17 @@ export interface components {
          * @enum {string}
          */
         PurgeAction: "delete" | "anonymize";
+        /**
+         * PurgeOutcomeStatus
+         * @description Whether a purge pass actually touched the underlying store.
+         *
+         *     ``SKIPPED`` is a first-class result, not an error: the ledger disposition
+         *     is still recorded, but nothing was deleted or anonymized. Reporting that as
+         *     a success would be a data-protection lie in both the API response and the
+         *     audit chain.
+         * @enum {string}
+         */
+        PurgeOutcomeStatus: "purged" | "skipped";
         /** PurgeOutcomeView */
         PurgeOutcomeView: {
             action: components["schemas"]["PurgeAction"];
@@ -4955,10 +5006,17 @@ export interface components {
             detail: string;
             entity: components["schemas"]["RecordEntity"];
             /**
+             * Purged
+             * @default true
+             */
+            purged: boolean;
+            /**
              * Record Id
              * Format: uuid
              */
             record_id: string;
+            /** @default purged */
+            status: components["schemas"]["PurgeOutcomeStatus"];
             /** Subject Id */
             subject_id: string;
             subject_kind: components["schemas"]["SubjectKind"];
@@ -4978,6 +5036,11 @@ export interface components {
             held: string[];
             /** Purged */
             purged: components["schemas"]["PurgeOutcomeView"][];
+            /**
+             * Skipped
+             * @description Records whose entity has no registered store purge handler. Their data is still present; the retention ledger was not marked purged for them.
+             */
+            skipped?: components["schemas"]["PurgeOutcomeView"][];
             /** Uncovered */
             uncovered: string[];
         };
@@ -5019,6 +5082,30 @@ export interface components {
             /** Items */
             items?: components["schemas"]["QueueEntry"][];
         };
+        /**
+         * RateEntry
+         * @description One row in a rate table (e.g., a bracket, a risk class, a cap).
+         */
+        RateEntry: {
+            /** Employee Share Percent */
+            employee_share_percent?: number | null;
+            /** Employer Share Percent */
+            employer_share_percent?: number | null;
+            /** Flat Amount */
+            flat_amount?: number | null;
+            /** Label */
+            label: string;
+            /** Lower Bound */
+            lower_bound?: number | null;
+            /** Multiplier */
+            multiplier?: number | null;
+            /** Notes */
+            notes?: string | null;
+            /** Upper Bound */
+            upper_bound?: number | null;
+            /** Wage Cap */
+            wage_cap?: number | null;
+        };
         /** RateTableCreate */
         RateTableCreate: {
             /** Created By */
@@ -5033,12 +5120,41 @@ export interface components {
             name: string;
         };
         /**
+         * RateTableEntriesUpdate
+         * @description Replace a table's rows. Setting entries always clears verification.
+         */
+        RateTableEntriesUpdate: {
+            /** By */
+            by: string;
+            /** Entries */
+            entries: components["schemas"]["RateEntry"][];
+        };
+        /**
          * RateTableKind
          * @enum {string}
          */
         RateTableKind: "bpjs_kesehatan" | "bpjs_ketenagakerjaan_jht" | "bpjs_ketenagakerjaan_jp" | "bpjs_jkk" | "bpjs_jkm" | "pph21_ter" | "overtime_premium" | "thr_formula" | "minimum_wage" | "other";
+        /**
+         * RateTableVerify
+         * @description Certify a rate table against a recorded source. Unblocks payroll compute.
+         */
+        RateTableVerify: {
+            /** By */
+            by: string;
+            /**
+             * Source Note
+             * @description Where the numbers came from (regulation, official page, date fetched)
+             */
+            source_note: string;
+        };
         /** RateTableView */
         RateTableView: {
+            /** Effective From */
+            effective_from?: string | null;
+            /** Effective To */
+            effective_to?: string | null;
+            /** Entries */
+            entries?: components["schemas"]["RateEntry"][];
             /** Entry Count */
             entry_count: number;
             /**
@@ -5053,6 +5169,11 @@ export interface components {
             name: string;
             /** Source Note */
             source_note: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
             /** Usable */
             usable: boolean;
             /** Verified */
@@ -5125,8 +5246,6 @@ export interface components {
          * @description Ask what queueing this rejection would produce, before queueing it.
          */
         RejectionPreviewRequest: {
-            /** By */
-            by: string;
             /** @default email */
             channel: components["schemas"]["Channel"];
             /**
@@ -5145,8 +5264,6 @@ export interface components {
          * @description Queue a rejection message; the server composes it from the feedback report.
          */
         RejectionQueueRequest: {
-            /** By */
-            by: string;
             /** @default email */
             channel: components["schemas"]["Channel"];
             /**
@@ -5357,11 +5474,6 @@ export interface components {
              * Format: uuid
              */
             candidate_id: string;
-            /**
-             * Created By
-             * @default system
-             */
-            created_by: string;
             /** Interviewer Ids */
             interviewer_ids: string[];
             /**
@@ -5777,8 +5889,6 @@ export interface components {
          * @description Ask the manual-links transport to compose a wa.me link for a queued message.
          */
         WhatsappDispatchLinkRequest: {
-            /** By */
-            by: string;
             /** To Phone */
             to_phone?: string | null;
         };
@@ -6284,9 +6394,7 @@ export interface operations {
                 status?: components["schemas"]["ApplicationStatus"] | null;
                 limit?: number;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6317,7 +6425,6 @@ export interface operations {
             query?: never;
             header?: {
                 "Idempotency-Key"?: string | null;
-                "X-API-Key"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -6351,9 +6458,7 @@ export interface operations {
     submit_batch_v1_applications_batch_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6386,9 +6491,7 @@ export interface operations {
     get_application_v1_applications__application_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 application_id: string;
             };
@@ -6419,9 +6522,7 @@ export interface operations {
     get_application_evaluation_v1_applications__application_id__evaluation_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 application_id: string;
             };
@@ -6452,9 +6553,7 @@ export interface operations {
     move_stage_v1_applications__application_id__stage_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 application_id: string;
             };
@@ -6492,9 +6591,7 @@ export interface operations {
                 role?: components["schemas"]["ApproverRole"] | null;
                 status?: components["schemas"]["ApprovalStatus"] | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6523,9 +6620,7 @@ export interface operations {
     create_approval_v1_approvals_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6558,9 +6653,7 @@ export interface operations {
     decide_approval_v1_approvals__approval_id__decide_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 approval_id: string;
             };
@@ -6595,9 +6688,7 @@ export interface operations {
     escalate_overdue_v1_approvals__approval_id__escalate_overdue_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6612,23 +6703,12 @@ export interface operations {
                     "application/json": components["schemas"]["ApprovalView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     list_communications_v1_candidates__candidate_id__communications_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 candidate_id: string;
             };
@@ -6659,9 +6739,7 @@ export interface operations {
     queue_offer_v1_candidates__candidate_id__communications_offer_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 candidate_id: string;
             };
@@ -6696,9 +6774,7 @@ export interface operations {
     queue_rejection_v1_candidates__candidate_id__communications_rejection_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 candidate_id: string;
             };
@@ -6733,9 +6809,7 @@ export interface operations {
     preview_rejection_v1_candidates__candidate_id__communications_rejection_preview_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 candidate_id: string;
             };
@@ -6772,9 +6846,7 @@ export interface operations {
             query?: {
                 language?: string;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 candidate_id: string;
             };
@@ -6805,9 +6877,7 @@ export interface operations {
     list_replies_v1_candidates__candidate_id__replies_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 candidate_id: string;
             };
@@ -6838,9 +6908,7 @@ export interface operations {
     ask_hr_v1_chat_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6873,9 +6941,7 @@ export interface operations {
     get_conversation_v1_chat_conversations__conversation_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 conversation_id: string;
             };
@@ -6908,9 +6974,7 @@ export interface operations {
             query?: {
                 workspace?: components["schemas"]["WorkspaceId"] | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6939,9 +7003,7 @@ export interface operations {
     request_handoff_v1_chat_handoffs_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -6978,9 +7040,7 @@ export interface operations {
                 workspace?: components["schemas"]["WorkspaceId"] | null;
                 conversation_id?: string | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7009,9 +7069,7 @@ export interface operations {
     compose_dispatch_link_v1_communications__communication_id__dispatch_link_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 communication_id: string;
             };
@@ -7046,9 +7104,7 @@ export interface operations {
     mark_communication_sent_v1_communications__communication_id__sent_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 communication_id: string;
             };
@@ -7085,9 +7141,7 @@ export interface operations {
             query?: {
                 checked_by?: string;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7116,9 +7170,7 @@ export interface operations {
     list_breaches_v1_compliance_breaches_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7133,23 +7185,12 @@ export interface operations {
                     "application/json": components["schemas"]["BreachView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_breach_v1_compliance_breaches_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7184,9 +7225,7 @@ export interface operations {
             query?: {
                 as_of?: string | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7215,9 +7254,7 @@ export interface operations {
     breach_template_v1_compliance_breaches_template_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7232,23 +7269,12 @@ export interface operations {
                     "application/json": components["schemas"]["BreachTemplateView"];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     get_breach_v1_compliance_breaches__incident_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 incident_id: string;
             };
@@ -7279,9 +7305,7 @@ export interface operations {
     record_breach_notification_v1_compliance_breaches__incident_id__notifications_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 incident_id: string;
             };
@@ -7316,9 +7340,7 @@ export interface operations {
     transition_breach_v1_compliance_breaches__incident_id__status_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 incident_id: string;
             };
@@ -7353,9 +7375,7 @@ export interface operations {
     complete_breach_step_v1_compliance_breaches__incident_id__steps__step_key__complete_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 incident_id: string;
                 step_key: string;
@@ -7394,9 +7414,7 @@ export interface operations {
                 subject_kind?: components["schemas"]["SubjectKind"] | null;
                 subject_id?: string | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7425,9 +7443,7 @@ export interface operations {
     record_consent_v1_compliance_consents_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7463,9 +7479,7 @@ export interface operations {
                 subject_kind: components["schemas"]["SubjectKind"];
                 subject_id: string;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7494,9 +7508,7 @@ export interface operations {
     revoke_consent_v1_compliance_consents__consent_id__revoke_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 consent_id: string;
             };
@@ -7531,9 +7543,7 @@ export interface operations {
     list_erasures_v1_compliance_erasures_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7548,23 +7558,12 @@ export interface operations {
                     "application/json": components["schemas"]["ErasureView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_erasure_v1_compliance_erasures_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7597,9 +7596,7 @@ export interface operations {
     sync_erasure_decision_v1_compliance_erasures_approvals__approval_id__sync_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 approval_id: string;
             };
@@ -7630,9 +7627,7 @@ export interface operations {
     get_erasure_v1_compliance_erasures__request_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -7663,9 +7658,7 @@ export interface operations {
     execute_erasure_v1_compliance_erasures__request_id__execute_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -7700,9 +7693,7 @@ export interface operations {
     submit_erasure_v1_compliance_erasures__request_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -7737,9 +7728,7 @@ export interface operations {
     verify_erasure_identity_v1_compliance_erasures__request_id__verify_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -7774,9 +7763,7 @@ export interface operations {
     list_policies_v1_compliance_retention_policies_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7791,23 +7778,12 @@ export interface operations {
                     "application/json": components["schemas"]["hr_agents__api__compliance_schemas__PolicyView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     set_policy_v1_compliance_retention_policies_put: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7840,9 +7816,7 @@ export interface operations {
     execute_purge_v1_compliance_retention_purge_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7880,9 +7854,7 @@ export interface operations {
                 entity?: components["schemas"]["RecordEntity"] | null;
                 include_purged?: boolean;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7911,9 +7883,7 @@ export interface operations {
     track_record_v1_compliance_retention_records_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -7946,9 +7916,7 @@ export interface operations {
     set_legal_hold_v1_compliance_retention_records__record_id__hold_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 record_id: string;
             };
@@ -7985,9 +7953,7 @@ export interface operations {
             query?: {
                 as_of?: string | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8018,9 +7984,7 @@ export interface operations {
             query?: {
                 expiring_within_days?: number | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8049,9 +8013,7 @@ export interface operations {
     create_contract_v1_contracts_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8084,9 +8046,7 @@ export interface operations {
     get_contract_v1_contracts__contract_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 contract_id: string;
             };
@@ -8117,9 +8077,7 @@ export interface operations {
     activate_contract_v1_contracts__contract_id__activate_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 contract_id: string;
             };
@@ -8154,9 +8112,7 @@ export interface operations {
     terminate_contract_v1_contracts__contract_id__terminate_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 contract_id: string;
             };
@@ -8195,9 +8151,7 @@ export interface operations {
                 expiring_within_days?: number | null;
                 status?: components["schemas"]["VerificationStatus"] | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8226,9 +8180,7 @@ export interface operations {
     upload_document_v1_documents_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8261,9 +8213,7 @@ export interface operations {
     verify_document_v1_documents__document_id__verify_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 document_id: string;
             };
@@ -8300,9 +8250,7 @@ export interface operations {
             query?: {
                 status?: components["schemas"]["EmployeeStatus"] | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8331,9 +8279,7 @@ export interface operations {
     create_employee_v1_employees_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8366,9 +8312,7 @@ export interface operations {
     get_employee_v1_employees__employee_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -8399,9 +8343,7 @@ export interface operations {
     employee_contracts_v1_employees__employee_id__contracts_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -8432,9 +8374,7 @@ export interface operations {
     employee_documents_v1_employees__employee_id__documents_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -8465,9 +8405,7 @@ export interface operations {
     add_document_v1_employees__employee_id__documents_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -8502,9 +8440,7 @@ export interface operations {
     transition_employee_v1_employees__employee_id__transition_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -8539,9 +8475,7 @@ export interface operations {
     get_evaluation_v1_evaluations__evaluation_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 evaluation_id: string;
             };
@@ -8572,9 +8506,7 @@ export interface operations {
     list_overrides_v1_evaluations__evaluation_id__overrides_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 evaluation_id: string;
             };
@@ -8605,9 +8537,7 @@ export interface operations {
     record_override_v1_evaluations__evaluation_id__overrides_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 evaluation_id: string;
             };
@@ -8644,9 +8574,7 @@ export interface operations {
             query: {
                 reviewer_id: string;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8675,9 +8603,7 @@ export interface operations {
     skip_assignment_v1_growth_assignments__assignment_id__skip_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 assignment_id: string;
             };
@@ -8712,9 +8638,7 @@ export interface operations {
     submit_assignment_v1_growth_assignments__assignment_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 assignment_id: string;
             };
@@ -8751,9 +8675,7 @@ export interface operations {
             query?: {
                 cycle_status?: components["schemas"]["ReviewCycleStatus"] | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8782,9 +8704,7 @@ export interface operations {
     create_cycle_v1_growth_cycles_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -8817,9 +8737,7 @@ export interface operations {
     get_cycle_v1_growth_cycles__cycle_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -8850,9 +8768,7 @@ export interface operations {
     activate_cycle_v1_growth_cycles__cycle_id__activate_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -8887,9 +8803,7 @@ export interface operations {
     list_assignments_v1_growth_cycles__cycle_id__assignments_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -8920,9 +8834,7 @@ export interface operations {
     add_assignment_v1_growth_cycles__cycle_id__assignments_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -8957,9 +8869,7 @@ export interface operations {
     cancel_cycle_v1_growth_cycles__cycle_id__cancel_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -8994,9 +8904,7 @@ export interface operations {
     close_cycle_v1_growth_cycles__cycle_id__close_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -9031,9 +8939,7 @@ export interface operations {
     advance_cycle_v1_growth_cycles__cycle_id__reviewing_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -9068,9 +8974,7 @@ export interface operations {
     list_summaries_v1_growth_cycles__cycle_id__summaries_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 cycle_id: string;
             };
@@ -9104,9 +9008,7 @@ export interface operations {
                 employee_id?: string | null;
                 goal_status?: components["schemas"]["GoalStatus"] | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9135,9 +9037,7 @@ export interface operations {
     create_goal_v1_growth_goals_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9170,9 +9070,7 @@ export interface operations {
     overdue_goals_v1_growth_goals_overdue_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9187,23 +9085,12 @@ export interface operations {
                     "application/json": components["schemas"]["GoalView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     get_goal_v1_growth_goals__goal_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 goal_id: string;
             };
@@ -9234,9 +9121,7 @@ export interface operations {
     activate_goal_v1_growth_goals__goal_id__activate_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 goal_id: string;
             };
@@ -9271,9 +9156,7 @@ export interface operations {
     cancel_goal_v1_growth_goals__goal_id__cancel_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 goal_id: string;
             };
@@ -9308,9 +9191,7 @@ export interface operations {
     complete_goal_v1_growth_goals__goal_id__complete_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 goal_id: string;
             };
@@ -9345,9 +9226,7 @@ export interface operations {
     update_goal_progress_v1_growth_goals__goal_id__progress_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 goal_id: string;
             };
@@ -9382,9 +9261,7 @@ export interface operations {
     run_reminders_v1_growth_reminders_run_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9417,9 +9294,7 @@ export interface operations {
     draft_summary_v1_growth_summaries_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9452,9 +9327,7 @@ export interface operations {
     get_summary_v1_growth_summaries__summary_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 summary_id: string;
             };
@@ -9485,9 +9358,7 @@ export interface operations {
     finalize_summary_v1_growth_summaries__summary_id__finalize_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 summary_id: string;
             };
@@ -9524,9 +9395,7 @@ export interface operations {
             query?: {
                 job_status?: components["schemas"]["JobStatus"] | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9555,9 +9424,7 @@ export interface operations {
     create_job_v1_jobs_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9590,9 +9457,7 @@ export interface operations {
     get_job_v1_jobs__job_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 job_id: string;
             };
@@ -9623,9 +9488,7 @@ export interface operations {
     update_job_v1_jobs__job_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 job_id: string;
             };
@@ -9660,9 +9523,7 @@ export interface operations {
     change_job_status_v1_jobs__job_id__status_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 job_id: string;
             };
@@ -9700,9 +9561,7 @@ export interface operations {
                 employee_id?: string | null;
                 pending_only?: boolean;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9731,9 +9590,7 @@ export interface operations {
     submit_request_v1_leave_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9766,9 +9623,7 @@ export interface operations {
     sync_from_approval_v1_leave_approvals__approval_id__sync_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 approval_id: string;
             };
@@ -9801,9 +9656,7 @@ export interface operations {
             query?: {
                 year?: number | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -9836,9 +9689,7 @@ export interface operations {
             query?: {
                 year?: number | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
                 leave_type: components["schemas"]["LeaveType"];
@@ -9870,9 +9721,7 @@ export interface operations {
     adjust_balance_v1_leave_balances__employee_id___leave_type__adjust_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
                 leave_type: components["schemas"]["LeaveType"];
@@ -9910,9 +9759,7 @@ export interface operations {
             query?: {
                 on_date?: string | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9941,9 +9788,7 @@ export interface operations {
     set_holidays_v1_leave_calendar_holidays_put: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9978,9 +9823,7 @@ export interface operations {
     list_policies_v1_leave_policies_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -9995,23 +9838,12 @@ export interface operations {
                     "application/json": components["schemas"]["hr_agents__api__leave_schemas__PolicyView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     set_policy_v1_leave_policies_put: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10044,9 +9876,7 @@ export interface operations {
     get_request_v1_leave_requests__request_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -10077,9 +9907,7 @@ export interface operations {
     cancel_request_v1_leave_requests__request_id__cancel_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 request_id: string;
             };
@@ -10117,9 +9945,7 @@ export interface operations {
                 employee_id?: string | null;
                 plan_id?: string | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10148,9 +9974,7 @@ export interface operations {
     register_asset_v1_offboarding_assets_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10183,9 +10007,7 @@ export interface operations {
     mark_asset_missing_v1_offboarding_assets__asset_id__missing_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 asset_id: string;
             };
@@ -10220,9 +10042,7 @@ export interface operations {
     return_asset_v1_offboarding_assets__asset_id__return_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 asset_id: string;
             };
@@ -10257,9 +10077,7 @@ export interface operations {
     write_off_asset_v1_offboarding_assets__asset_id__write_off_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 asset_id: string;
             };
@@ -10294,9 +10112,7 @@ export interface operations {
     employee_assets_v1_offboarding_employees__employee_id__assets_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -10327,9 +10143,7 @@ export interface operations {
     asset_clearance_v1_offboarding_employees__employee_id__clearance_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -10360,9 +10174,7 @@ export interface operations {
     plans_for_employee_v1_offboarding_employees__employee_id__plans_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 employee_id: string;
             };
@@ -10393,9 +10205,7 @@ export interface operations {
     list_plans_v1_offboarding_plans_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10410,23 +10220,12 @@ export interface operations {
                     "application/json": components["schemas"]["hr_agents__api__offboarding_schemas__PlanView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     start_plan_v1_offboarding_plans_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10459,9 +10258,7 @@ export interface operations {
     get_plan_v1_offboarding_plans__plan_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -10492,9 +10289,7 @@ export interface operations {
     complete_plan_v1_offboarding_plans__plan_id__complete_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -10529,9 +10324,7 @@ export interface operations {
     schedule_exit_interview_v1_offboarding_plans__plan_id__exit_interview_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -10566,9 +10359,7 @@ export interface operations {
     coordinate_final_pay_v1_offboarding_plans__plan_id__final_pay_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -10603,9 +10394,7 @@ export interface operations {
     finalize_employee_v1_offboarding_plans__plan_id__finalize_employee_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -10640,9 +10429,7 @@ export interface operations {
     add_handover_v1_offboarding_plans__plan_id__handover_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -10677,9 +10464,7 @@ export interface operations {
     complete_step_v1_offboarding_plans__plan_id__steps__step_key__complete_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
                 step_key: string;
@@ -10715,9 +10500,7 @@ export interface operations {
     waive_step_v1_offboarding_plans__plan_id__steps__step_key__waive_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
                 step_key: string;
@@ -10753,9 +10536,7 @@ export interface operations {
     list_templates_v1_offboarding_templates_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10770,23 +10551,12 @@ export interface operations {
                     "application/json": components["schemas"]["hr_agents__api__offboarding_schemas__TemplateView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_template_v1_offboarding_templates_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10819,9 +10589,7 @@ export interface operations {
     default_template_v1_offboarding_templates_default_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10836,23 +10604,12 @@ export interface operations {
                     "application/json": components["schemas"]["hr_agents__api__offboarding_schemas__TemplateView"];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     get_template_v1_offboarding_templates__template_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 template_id: string;
             };
@@ -10885,9 +10642,7 @@ export interface operations {
             query?: {
                 application_id?: string | null;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10916,9 +10671,7 @@ export interface operations {
     create_offer_v1_offers_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -10951,9 +10704,7 @@ export interface operations {
     get_offer_v1_offers__offer_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 offer_id: string;
             };
@@ -10984,9 +10735,7 @@ export interface operations {
     revise_offer_v1_offers__offer_id__patch: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 offer_id: string;
             };
@@ -11021,9 +10770,7 @@ export interface operations {
     record_acceptance_v1_offers__offer_id__acceptance_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 offer_id: string;
             };
@@ -11058,9 +10805,7 @@ export interface operations {
     decide_offer_v1_offers__offer_id__decision_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 offer_id: string;
             };
@@ -11095,9 +10840,7 @@ export interface operations {
     queue_offer_message_v1_offers__offer_id__message_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 offer_id: string;
             };
@@ -11132,9 +10875,7 @@ export interface operations {
     submit_offer_v1_offers__offer_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 offer_id: string;
             };
@@ -11171,9 +10912,7 @@ export interface operations {
             query?: {
                 active_only?: boolean;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11202,9 +10941,7 @@ export interface operations {
     start_plan_v1_onboarding_plans_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11237,9 +10974,7 @@ export interface operations {
     get_plan_v1_onboarding_plans__plan_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -11270,9 +11005,7 @@ export interface operations {
     document_status_v1_onboarding_plans__plan_id__document_status_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
             };
@@ -11305,9 +11038,7 @@ export interface operations {
     complete_step_v1_onboarding_plans__plan_id__steps__step_key__complete_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
                 step_key: string;
@@ -11343,9 +11074,7 @@ export interface operations {
     link_document_v1_onboarding_plans__plan_id__steps__step_key__link_document_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
                 step_key: string;
@@ -11381,9 +11110,7 @@ export interface operations {
     waive_step_v1_onboarding_plans__plan_id__steps__step_key__waive_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 plan_id: string;
                 step_key: string;
@@ -11419,9 +11146,7 @@ export interface operations {
     list_templates_v1_onboarding_templates_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11436,23 +11161,12 @@ export interface operations {
                     "application/json": components["schemas"]["hr_agents__api__onboarding_schemas__TemplateView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_template_v1_onboarding_templates_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11485,9 +11199,7 @@ export interface operations {
     default_template_v1_onboarding_templates_default_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11502,23 +11214,12 @@ export interface operations {
                     "application/json": components["schemas"]["TemplateDraftView"];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     list_org_units_v1_org_units_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11533,23 +11234,12 @@ export interface operations {
                     "application/json": components["schemas"]["OrgUnitView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_org_unit_v1_org_units_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11582,9 +11272,7 @@ export interface operations {
     sync_decision_v1_payroll_approvals__approval_id__sync_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 approval_id: string;
             };
@@ -11615,9 +11303,7 @@ export interface operations {
     list_runs_v1_payroll_runs_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11632,23 +11318,12 @@ export interface operations {
                     "application/json": components["schemas"]["RunView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_run_v1_payroll_runs_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11681,9 +11356,7 @@ export interface operations {
     get_run_v1_payroll_runs__run_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -11714,9 +11387,7 @@ export interface operations {
     cancel_run_v1_payroll_runs__run_id__cancel_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -11751,9 +11422,7 @@ export interface operations {
     compute_run_v1_payroll_runs__run_id__compute_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -11788,9 +11457,7 @@ export interface operations {
     export_run_v1_payroll_runs__run_id__export_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -11825,9 +11492,7 @@ export interface operations {
     set_inputs_v1_payroll_runs__run_id__inputs_put: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -11862,9 +11527,7 @@ export interface operations {
     download_packet_v1_payroll_runs__run_id__packet_xlsx_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -11895,9 +11558,7 @@ export interface operations {
     submit_for_signoff_v1_payroll_runs__run_id__submit_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 run_id: string;
             };
@@ -11935,9 +11596,7 @@ export interface operations {
                 job_id: string;
                 limit?: number;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11966,9 +11625,7 @@ export interface operations {
     list_rate_tables_v1_rate_tables_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -11983,23 +11640,12 @@ export interface operations {
                     "application/json": components["schemas"]["RateTableView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_rate_table_v1_rate_tables_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12032,9 +11678,7 @@ export interface operations {
     unverified_rate_tables_v1_rate_tables_unverified_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12047,6 +11691,98 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RateTableView"][];
+                };
+            };
+        };
+    };
+    get_rate_table_v1_rate_tables__table_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateTableView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_rate_table_entries_v1_rate_tables__table_id__entries_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateTableEntriesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateTableView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_rate_table_v1_rate_tables__table_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                table_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateTableVerify"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateTableView"];
                 };
             };
             /** @description Validation Error */
@@ -12063,9 +11799,7 @@ export interface operations {
     set_availability_v1_scheduling_availability_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12098,9 +11832,7 @@ export interface operations {
     list_proposals_v1_scheduling_proposals_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12115,23 +11847,12 @@ export interface operations {
                     "application/json": components["schemas"]["SchedulingProposalView"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     create_proposal_v1_scheduling_proposals_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12164,9 +11885,7 @@ export interface operations {
     get_proposal_v1_scheduling_proposals__proposal_id__get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 proposal_id: string;
             };
@@ -12197,9 +11916,7 @@ export interface operations {
     decide_proposal_v1_scheduling_proposals__proposal_id__decision_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 proposal_id: string;
             };
@@ -12236,9 +11953,7 @@ export interface operations {
             query?: {
                 overdue_only?: boolean;
             };
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12267,9 +11982,7 @@ export interface operations {
     create_task_v1_tasks_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12302,9 +12015,7 @@ export interface operations {
     complete_task_v1_tasks__task_id__complete_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path: {
                 task_id: string;
             };
@@ -12339,9 +12050,7 @@ export interface operations {
     list_workspaces_v1_workspaces_get: {
         parameters: {
             query?: never;
-            header?: {
-                "X-API-Key"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -12354,15 +12063,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceView"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

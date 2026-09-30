@@ -577,13 +577,17 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 Found in the Stage 0 audit. Ordered by blast radius. Each is a real code path,
 not a style opinion.
 
-1. ~~**The named-human gate is a substring test on a self-declared string.**~~ **Partly fixed.**
-   `hr_agents/identity.py` now owns one `classify_actor()` and one `require_named_human()`, the 19
-   private copies are deleted, and the ten ungated operations are gated. **Still open:** ~100 `by: str`
-   request fields still carry the identity, and the authenticated `Principal` still reaches only
-   two services — so any holder of one `hr_admin` key can *name a different person*, even though it
-   can no longer impersonate an agent or the system. Fixing that is the trust boundary (Phase 2 of
-   the core work).
+1. **The named-human gate is a substring test on a self-declared string.** **Partly fixed.**
+   `hr_agents/identity.py` now owns one `classify_actor()`, one `require_named_human()`, and
+   `ActorRef` (which carries the actor *and* how it was established); the 19 private copies are
+   deleted and the ten ungated operations are gated. Authentication moved into middleware, so the
+   key is resolved once per request and 401/403 are distinguishable. **The recruiting group no
+   longer accepts an actor from a request body** — the eleven actor fields are gone, routers pass
+   `ActorRef` from the authenticated principal, and the dashboard's "type your name" inputs were
+   removed rather than left silently ignored. **Still open:** the people, department, payroll,
+   compliance, onboarding, offboarding, leave, growth and offers groups still carry ~70 `by`/
+   `created_by` request fields, so a holder of one `hr_admin` key can still name a different person
+   in those. Fixing that is the rest of Phase 2 of the core work.
 2. ~~**Actor classification is implemented 11 times with 3 behaviours.**~~ **Fixed.** All three
    sites recording `agent:` as `ActorType.HUMAN` (`contracts`, `employees`, `rate_tables`) now route
    through the shared classifier, as do the four that matched only the exact string `"system"`.

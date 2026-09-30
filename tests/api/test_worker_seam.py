@@ -50,7 +50,6 @@ def job(client: TestClient) -> dict:
         "/v1/jobs",
         json={
             "title": "Backend Engineer",
-            "created_by": "hr-admin",
             "must_have_skills": ["Python", "PostgreSQL"],
             "status": "open",
         },

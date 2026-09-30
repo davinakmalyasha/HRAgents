@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import EmailStr
 
-from hr_agents.identity import require_named_human
+from hr_agents.identity import ActorRef, require_named_human
 from hr_agents.models import (
     EXPIRABLE_OFFER_STATUSES,
     ActorType,
@@ -301,14 +301,15 @@ class OfferService:
         self,
         offer_id: UUID,
         *,
-        by: str,
+        by: ActorRef | str,
         body: str | None = None,
         subject: str | None = None,
         language: str = "en",
         to_email: EmailStr | None = None,
     ) -> Offer:
         """Queue the candidate-facing offer message through the outbox."""
-        actor = self._require_human(by)
+        actor = ActorRef.coerce(by)
+        actor.require_human("a candidate offer message", OfferError)
         offer = self.get(offer_id)
         if offer.status is OfferStatus.QUEUED:
             raise OfferError("the offer message is already queued")
@@ -317,7 +318,7 @@ class OfferService:
         message = (body or "").strip() or compose_offer_body(offer.terms, language=language)
         communication = self._communications.queue_offer(
             offer.candidate_id,
-            by=actor,
+            actor=actor,
             body=message,
             subject=subject,
             language=language,
@@ -332,7 +333,7 @@ class OfferService:
         )
         self._persist(updated)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=actor.audit_actor(),
             action="offer.message_queued",
             subject_type="offer",
             subject_id=str(offer.id),

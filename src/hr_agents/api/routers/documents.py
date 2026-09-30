@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.recruitment_schemas import DocumentUploadResponse
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import (
@@ -35,8 +35,8 @@ def get_documents(request: Request) -> DocumentService:
 async def upload_document(
     documents: Annotated[DocumentService, Depends(get_documents)],
     file: Annotated[UploadFile, Form()],
+    actor: ActorDep,
     kind: Annotated[str, Form()] = "other",
-    uploaded_by: Annotated[str, Form()] = "api",
 ) -> DocumentUploadResponse:
     content = await file.read()
     try:
@@ -44,7 +44,7 @@ async def upload_document(
             filename=file.filename,
             kind=kind,
             content=content,
-            uploaded_by=uploaded_by,
+            actor=actor,
         )
     except DocumentTooLargeError as exc:
         raise HTTPException(

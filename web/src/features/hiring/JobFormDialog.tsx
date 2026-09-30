@@ -69,7 +69,6 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
         DIMENSIONS.map((dimension) => [dimension, String(baseWeights[dimension] ?? '')]),
       ) as Record<ScoreDimension, string>,
   )
-  const [by, setBy] = useState('')
   const [phase, setPhase] = useState<Phase>({ name: 'form' })
   const [fieldErrors, setFieldErrors] = useState<string[]>([])
 
@@ -98,9 +97,6 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
     const problems: string[] = []
     if (title.trim() === '') {
       problems.push(t('jobs.errors.titleRequired'))
-    }
-    if (by.trim() === '') {
-      problems.push(t('jobs.errors.byRequired'))
     }
     const years = Number(minYears)
     if (minYears.trim() === '' || !Number.isInteger(years) || years < 0 || years > 60) {
@@ -133,8 +129,8 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
     }
     const result =
       job === null
-        ? await createJob({ ...payload, created_by: by.trim(), status: 'draft' })
-        : await updateJob(job.id, { ...payload, by: by.trim() })
+        ? await createJob({ ...payload, status: 'draft' })
+        : await updateJob(job.id, { ...payload })
 
     if (result.status === 200 || result.status === 201) {
       await queryClient.invalidateQueries({ queryKey: ['jobs'] })
@@ -179,19 +175,6 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
               id="job-title"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              autoComplete="off"
-            />
-          </div>
-
-          <div className={fieldClass}>
-            <label htmlFor="job-by" className={labelClass}>
-              {t('jobs.fields.savedBy')}
-            </label>
-            <Input
-              id="job-by"
-              value={by}
-              onChange={(event) => setBy(event.target.value)}
-              placeholder={t('jobs.fields.savedByPlaceholder')}
               autoComplete="off"
             />
           </div>

@@ -1,5 +1,6 @@
 """Every consequential operation refuses a non-human actor.
 
+
 Each test covers one operation that previously had no gate at all, or a gate that
 a ``system`` actor walked through. This is why the shared identity module exists,
 so it is an explicit list rather than a reflection over the codebase: a new
@@ -262,7 +263,7 @@ def test_finalizing_an_exit_refuses_non_humans() -> None:
 def test_approval_decisions_refuse_system_actors() -> None:
     """The hole this whole module was written for.
 
-    ``decide`` checked only the ``agent:`` prefix, so ``by="system"`` passed a
+    ``decide`` checked only the ``agent:`` prefix, so ``created_by="system"`` passed a
     check reading "decisions require a named human actor" and was then recorded
     on the chain as ``ActorType.SYSTEM`` 180 lines away.
     """

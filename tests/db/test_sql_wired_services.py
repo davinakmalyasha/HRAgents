@@ -1,5 +1,6 @@
 """Wired DB-backed services over the shared session factory.
 
+
 Verifies the composition root: containers built with ``session_factory``
 persist through the adapters and a fresh container reads the same state.
 """
@@ -12,6 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from hr_agents.db import people_tables as pt
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     DimensionScore,
     Recommendation,
@@ -55,7 +57,7 @@ def test_recruiting_services_wire_to_db(factory: sessionmaker[Session]) -> None:
     applications = DbApplicationStore(factory)
     services = RecruitingServices(audit=audit, applications=applications, session_factory=factory)
 
-    job = services.jobs.create(title="Backend Engineer", created_by="hr-admin")
+    job = services.jobs.create(title="Backend Engineer", actor=ActorRef.legacy("hr-admin"))
     record, created = applications.submit(
         SubmissionInput(
             job_id=job.id,

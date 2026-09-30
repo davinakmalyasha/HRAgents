@@ -1,5 +1,6 @@
 """Outbox dispatch and inbound reply ingestion.
 
+
 Negative tests first: a message is only carried when a human queued it, an
 address-less message is never sent, a failing transport leaves the queue intact,
 and mail that matches no candidate is never attributed.
@@ -11,6 +12,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.messaging.base import (
     InboundEmail,
     OutboundEmail,
@@ -145,7 +147,7 @@ def test_dispatch_sends_queued_messages_and_records_evidence(
 ) -> None:
     register(evaluations)
     queued = communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="We would like to offer you the role."
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="We would like to offer you the role."
     )
     directory.add(CANDIDATE_ID, CANDIDATE_EMAIL)
     sender = FakeSender()
@@ -169,7 +171,7 @@ def test_dispatch_uses_the_subject_queued_by_the_human(
     register(evaluations)
     communications.queue_offer(
         CANDIDATE_ID,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         body="Offer body",
         subject="Offer — Backend Engineer",
         to_email=CANDIDATE_EMAIL,
@@ -186,7 +188,7 @@ def test_offer_without_a_subject_gets_a_neutral_default(
 ) -> None:
     register(evaluations)
     communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email=CANDIDATE_EMAIL
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
     )
     sender = FakeSender()
 
@@ -199,7 +201,9 @@ def test_message_without_an_address_is_skipped_not_sent(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
     register(evaluations)
-    queued = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body"
+    )
     sender = FakeSender()
     dispatcher = OutboxDispatcher(communications=communications, sender=sender)
 
@@ -215,7 +219,7 @@ def test_failed_send_keeps_the_message_queued_with_the_error(
 ) -> None:
     register(evaluations)
     queued = communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email=CANDIDATE_EMAIL
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
     )
     dispatcher = OutboxDispatcher(communications=communications, sender=FakeSender(accept=False))
 
@@ -234,12 +238,12 @@ def test_transport_error_is_recorded_and_the_run_continues(
 ) -> None:
     register(evaluations)
     first = communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="First", to_email="first@example.com"
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="First", to_email="first@example.com"
     )
     other = uuid4()
     register(evaluations, candidate_id=other)
     second = communications.queue_offer(
-        other, by="hr-admin", body="Second", to_email="second@example.com"
+        other, actor=ActorRef.legacy("hr-admin"), body="Second", to_email="second@example.com"
     )
 
     class FlakySender(FakeSender):
@@ -263,7 +267,7 @@ def test_only_queued_email_messages_are_considered(
     register(evaluations)
     communications.queue_offer(
         CANDIDATE_ID,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         body="WhatsApp body",
         channel=Channel.WHATSAPP,
         to_email=CANDIDATE_EMAIL,
@@ -283,7 +287,10 @@ def test_dispatch_respects_the_limit(
         candidate = uuid4()
         register(evaluations, candidate_id=candidate)
         communications.queue_offer(
-            candidate, by="hr-admin", body=f"Body {index}", to_email=f"c{index}@example.com"
+            candidate,
+            actor=ActorRef.legacy("hr-admin"),
+            body=f"Body {index}",
+            to_email=f"c{index}@example.com",
         )
     sender = FakeSender()
 
@@ -301,7 +308,7 @@ def test_preview_reports_readiness_without_sending(
     directory: InMemoryCandidateDirectory,
 ) -> None:
     register(evaluations)
-    communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
+    communications.queue_offer(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body")
     sender = FakeSender()
     dispatcher = OutboxDispatcher(communications=communications, sender=sender, directory=directory)
 
@@ -316,7 +323,7 @@ def test_dispatch_audit_payload_keeps_the_approver(
 ) -> None:
     register(evaluations)
     communications.queue_offer(
-        CANDIDATE_ID, by="lead-1", body="Offer body", to_email=CANDIDATE_EMAIL
+        CANDIDATE_ID, actor=ActorRef.legacy("lead-1"), body="Offer body", to_email=CANDIDATE_EMAIL
     )
 
     OutboxDispatcher(communications=communications, sender=FakeSender()).dispatch_pending()
@@ -333,7 +340,7 @@ def test_sandbox_sender_refuses_to_carry_anything(
 
     register(evaluations)
     queued = communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email=CANDIDATE_EMAIL
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
     )
     dispatcher = OutboxDispatcher(communications=communications, sender=DisabledEmailSender())
 
@@ -355,7 +362,9 @@ def test_rejection_approval_still_gates_dispatch(
         job_title="Backend Engineer",
     )
     with pytest.raises(RecruitingError, match="recorded rejection decision"):
-        communications.queue_rejection(CANDIDATE_ID, by="hr-admin", to_email=CANDIDATE_EMAIL)
+        communications.queue_rejection(
+            CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), to_email=CANDIDATE_EMAIL
+        )
     evaluations.record_override(
         record.evaluation.id,
         reviewer_id="lead-1",
@@ -364,7 +373,9 @@ def test_rejection_approval_still_gates_dispatch(
         reason_code="below_bar_after_review",
     )
 
-    queued = communications.queue_rejection(CANDIDATE_ID, by="lead-1", to_email=CANDIDATE_EMAIL)
+    queued = communications.queue_rejection(
+        CANDIDATE_ID, actor=ActorRef.legacy("lead-1"), to_email=CANDIDATE_EMAIL
+    )
     OutboxDispatcher(communications=communications, sender=FakeSender()).dispatch_pending()
 
     assert communications.get(queued.id).approved_by == "lead-1"
@@ -391,7 +402,7 @@ def test_reply_is_attributed_by_the_message_it_answers(
 ) -> None:
     register(evaluations)
     queued = communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email=CANDIDATE_EMAIL
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
     )
     communications.record_dispatch(
         queued.id,

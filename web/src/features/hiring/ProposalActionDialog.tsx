@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
 import { decideProposal } from './schedulingApi'
@@ -39,7 +38,6 @@ export function ProposalActionDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [by, setBy] = useState('')
   const [reason, setReason] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -75,10 +73,6 @@ export function ProposalActionDialog({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (by.trim() === '') {
-      setProblem(t('scheduling.errors.byRequired'))
-      return
-    }
     if (reasonRequired && reason.trim() === '') {
       setProblem(t('scheduling.errors.reasonRequired'))
       return
@@ -87,7 +81,6 @@ export function ProposalActionDialog({
     setBusy(true)
 
     const result = await decideProposal(proposal.id, {
-      by: by.trim(),
       decision: action,
       reason: reason.trim(),
     })
@@ -118,19 +111,6 @@ export function ProposalActionDialog({
               {problem}
             </p>
           ) : null}
-
-          <div className={fieldClass}>
-            <label htmlFor={`proposal-by-${proposal.id}`} className={labelClass}>
-              {t('scheduling.fields.by')}
-            </label>
-            <Input
-              id={`proposal-by-${proposal.id}`}
-              value={by}
-              onChange={(event) => setBy(event.target.value)}
-              placeholder={t('scheduling.fields.byPlaceholder')}
-              autoComplete="off"
-            />
-          </div>
 
           <div className={fieldClass}>
             <label htmlFor={`proposal-reason-${proposal.id}`} className={labelClass}>

@@ -61,39 +61,43 @@ function renderDialog(action: 'confirm' | 'cancel' | 'reschedule') {
 }
 
 describe('ProposalActionDialog', () => {
-  it('requires a named human before deciding', async () => {
+  it('asks for no actor: the API attributes the decision to the API key', async () => {
+    decideMock.mockResolvedValue({ status: 200 })
     renderDialog('confirm')
 
+    expect(screen.queryByLabelText(i18n.t('scheduling.fields.by'))).not.toBeInTheDocument()
+
+    await userEvent.type(screen.getByLabelText(i18n.t('scheduling.fields.reason')), 'panel is free')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('scheduling.actions.confirm') }),
     )
 
-    expect(decideMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('scheduling.errors.byRequired'))).toBeInTheDocument()
+    // No `by` in the payload: the server resolves the actor before the route runs.
+    expect(decideMock).toHaveBeenCalledWith('proposal-1', {
+      decision: 'confirm',
+      reason: 'panel is free',
+    })
   })
 
   it('requires a reason to cancel', async () => {
     renderDialog('cancel')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('scheduling.fields.by')), 'hr-admin')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('scheduling.actions.cancel') }))
 
     expect(decideMock).not.toHaveBeenCalled()
     expect(screen.getByText(i18n.t('scheduling.errors.reasonRequired'))).toBeInTheDocument()
   })
 
-  it('confirms the proposal with the named actor', async () => {
+  it('confirms the proposal', async () => {
     decideMock.mockResolvedValue({ status: 200 })
     const { onOpenChange } = renderDialog('confirm')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('scheduling.fields.by')), 'hr-admin')
     await userEvent.type(screen.getByLabelText(i18n.t('scheduling.fields.reason')), 'panel is free')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('scheduling.actions.confirm') }),
     )
 
     expect(decideMock).toHaveBeenCalledWith('proposal-1', {
-      by: 'hr-admin',
       decision: 'confirm',
       reason: 'panel is free',
     })
@@ -107,7 +111,6 @@ describe('ProposalActionDialog', () => {
     })
     renderDialog('cancel')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('scheduling.fields.by')), 'hr-admin')
     await userEvent.type(screen.getByLabelText(i18n.t('scheduling.fields.reason')), 'try again')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('scheduling.actions.cancel') }))
 

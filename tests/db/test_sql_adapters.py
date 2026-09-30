@@ -1,5 +1,6 @@
 """Adapter tests for durable stores, running on in-memory SQLite.
 
+
 The adapters use plain SQLAlchemy so the same code path is exercised here and
 against PostgreSQL in CI (see the ``postgres`` marker).
 """
@@ -30,6 +31,7 @@ from hr_agents.db.recruiting import (
     DbJobService,
     DbSchedulingService,
 )
+from hr_agents.identity import ActorRef
 from hr_agents.messaging.contacts import InMemoryCandidateDirectory
 from hr_agents.messaging.store import ReplyStore, reply_dedup_key
 from hr_agents.models import (
@@ -85,7 +87,7 @@ def _seed_job(factory: sessionmaker[Session]) -> UUID:
     """Applications carry a job FK that Postgres enforces; create a real job."""
     return (
         DbJobService(session_factory=factory, audit=DbAuditChain(factory))
-        .create(title="Backend Engineer", created_by="hr-admin")
+        .create(title="Backend Engineer", actor=ActorRef.legacy("hr-admin"))
         .id
     )
 
@@ -279,7 +281,7 @@ def _seeded(
     audit = DbAuditChain(factory)
     jobs = DbJobService(session_factory=factory, audit=audit)
     applications = DbApplicationStore(factory)
-    job = jobs.create(title="Backend Engineer", created_by="hr-admin")
+    job = jobs.create(title="Backend Engineer", actor=ActorRef.legacy("hr-admin"))
     record, _ = applications.submit(_submission(job_id=job.id))
     return audit, job, applications, record
 
@@ -295,7 +297,7 @@ def test_document_adapter_round_trip(factory: sessionmaker[Session]) -> None:
     documents = DbDocumentService(session_factory=factory, audit=audit)
     content = b"Budi Santoso - backend engineer"
     document = documents.upload(
-        filename="cv.txt", kind="cv", content=content, uploaded_by="hr-admin"
+        filename="cv.txt", kind="cv", content=content, actor=ActorRef.legacy("hr-admin")
     )
 
     fresh = DbDocumentService(session_factory=factory)
@@ -320,7 +322,7 @@ def test_job_adapter_lifecycle(factory: sessionmaker[Session]) -> None:
     }
     job = jobs.create(
         title="Backend Engineer",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         seniority=Seniority.SENIOR,
         dimension_weights=weights,
     )
@@ -331,16 +333,16 @@ def test_job_adapter_lifecycle(factory: sessionmaker[Session]) -> None:
     assert loaded.dimension_weights == weights
     assert [item.id for item in fresh.list_all(status=JobStatus.DRAFT)] == [job.id]
 
-    fresh.transition(job.id, target=JobStatus.OPEN, by="hr-admin")
-    fresh.update(job.id, by="hr-admin", title="Senior Backend Engineer")
+    fresh.transition(job.id, target=JobStatus.OPEN, actor=ActorRef.legacy("hr-admin"))
+    fresh.update(job.id, actor=ActorRef.legacy("hr-admin"), title="Senior Backend Engineer")
     updated = fresh.get(job.id)
     assert updated.status is JobStatus.OPEN
     assert updated.title == "Senior Backend Engineer"
     assert updated.seniority is Seniority.SENIOR
 
-    fresh.transition(job.id, target=JobStatus.CLOSED, by="hr-admin")
+    fresh.transition(job.id, target=JobStatus.CLOSED, actor=ActorRef.legacy("hr-admin"))
     with pytest.raises(RecruitingError):
-        fresh.update(job.id, by="hr-admin", title="Nope")
+        fresh.update(job.id, actor=ActorRef.legacy("hr-admin"), title="Nope")
     assert audit.verify() == -1
 
 
@@ -397,7 +399,9 @@ def test_feedback_adapter_stores_agent_report(factory: sessionmaker[Session]) ->
         process_note="Generated from evidence.",
         correction_notice="Contact HR for corrections.",
     )
-    evaluations.save_feedback(record.candidate_id, report, by="agent:feedback_writer")
+    evaluations.save_feedback(
+        record.candidate_id, report, actor=ActorRef.legacy("agent:feedback_writer")
+    )
 
     fresh = DbEvaluationService(session_factory=factory, audit=DbAuditChain(factory))
     assert fresh.feedback_for(record.candidate_id).summary == report.summary
@@ -424,7 +428,7 @@ def test_scheduling_adapter_availability_and_proposal(factory: sessionmaker[Sess
     )
     interviewer = uuid4()
     slots = make_slots(2)
-    scheduling.set_availability(interviewer, slots=slots, by="hr-admin")
+    scheduling.set_availability(interviewer, slots=slots, actor=ActorRef.legacy("hr-admin"))
     assert [slot.start_utc for slot in scheduling.get_availability(interviewer)] == [
         slot.start_utc for slot in slots
     ]
@@ -456,9 +460,11 @@ def test_communication_adapter_queue_and_sent(factory: sessionmaker[Session]) ->
         evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
     )
 
-    item = communications.queue_rejection(record.candidate_id, by="hr-admin", language="id")
+    item = communications.queue_rejection(
+        record.candidate_id, actor=ActorRef.legacy("hr-admin"), language="id"
+    )
     assert item.status is CommunicationStatus.QUEUED
-    communications.mark_sent(item.id, by="hr-admin")
+    communications.mark_sent(item.id, actor=ActorRef.legacy("hr-admin"))
 
     fresh = DbCommunicationService(evaluations=evaluations, session_factory=factory)
     loaded = fresh.list_for(record.candidate_id)
@@ -487,7 +493,7 @@ def test_communication_adapter_persists_transport_evidence(
         evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
     )
     item = communications.queue_rejection(
-        record.candidate_id, by="hr-admin", to_email="sari@example.com"
+        record.candidate_id, actor=ActorRef.legacy("hr-admin"), to_email="sari@example.com"
     )
     communications.record_dispatch_failure(item.id, provider="email.smtp", error="mailbox down")
     communications.record_dispatch(
@@ -575,14 +581,14 @@ def test_filtered_communication_reads_query_instead_of_scanning(
     )
     mine = communications.queue_offer(
         record.candidate_id,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         body="Offer body",
         channel=Channel.EMAIL,
         to_email="sari@example.com",
     )
     theirs = communications.queue_offer(
         other_record.candidate_id,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         body="Other body",
         channel=Channel.WHATSAPP,
     )

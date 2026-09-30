@@ -1,5 +1,6 @@
 """Evaluation dispatch: what gets queued, and what is honestly not.
 
+
 The dispatcher owns the message payload the worker expects. These tests pin the
 source-text resolution, the document ordering, the skip path, and the
 undispatchable stand-in used when no queue is reachable.
@@ -13,6 +14,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.providers.queue import MemoryQueueBackend
 from hr_agents.services.dispatch import (
     DispatchSkipped,
@@ -51,7 +53,7 @@ def upload(documents: DocumentService, *, body: bytes, kind: str, filename: str)
         content=body,
         kind=kind,
         filename=filename,
-        uploaded_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     ).id
 
 

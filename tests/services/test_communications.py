@@ -1,5 +1,6 @@
 """Candidate communication queueing rules.
 
+
 Negative tests first: a message cannot be queued without its recorded decision,
 without a named human, or twice while an earlier one is still active.
 """
@@ -8,6 +9,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ActorType,
     CandidateCommunication,
@@ -104,7 +106,7 @@ def test_rejection_requires_a_recorded_decision(
     register(evaluations, s_tech=0.80)  # soft-rejection band, no override recorded
 
     with pytest.raises(RecruitingError, match="recorded rejection decision"):
-        communications.queue_rejection(CANDIDATE_ID, by="lead-1")
+        communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("lead-1"))
 
 
 def test_rejection_after_override_queues_a_grounded_message(
@@ -119,7 +121,9 @@ def test_rejection_after_override_queues_a_grounded_message(
         reason_code="below_bar_after_review",
     )
 
-    item = communications.queue_rejection(CANDIDATE_ID, by="lead-1", language="id")
+    item = communications.queue_rejection(
+        CANDIDATE_ID, actor=ActorRef.legacy("lead-1"), language="id"
+    )
 
     assert item.status is CommunicationStatus.QUEUED
     assert item.kind is CommunicationKind.REJECTION
@@ -137,7 +141,7 @@ def test_documented_auto_rejection_queues_without_an_override(
 ) -> None:
     register(evaluations, s_tech=0.50)
 
-    item = communications.queue_rejection(CANDIDATE_ID, by="hr-admin")
+    item = communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
 
     assert item.language == "en"
     assert "Where to strengthen" in item.body
@@ -149,22 +153,24 @@ def test_rejection_rejects_agent_actors(
     register(evaluations, s_tech=0.50)
 
     with pytest.raises(RecruitingError, match="named human"):
-        communications.queue_rejection(CANDIDATE_ID, by="agent:screening_coordinator")
+        communications.queue_rejection(
+            CANDIDATE_ID, actor=ActorRef.legacy("agent:screening_coordinator")
+        )
 
 
 def test_rejection_requires_an_evaluation(communications: CommunicationService) -> None:
     with pytest.raises(RecruitingError, match="no evaluation"):
-        communications.queue_rejection(uuid4(), by="hr-admin")
+        communications.queue_rejection(uuid4(), actor=ActorRef.legacy("hr-admin"))
 
 
 def test_duplicate_active_rejection_is_blocked(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
     register(evaluations, s_tech=0.50)
-    communications.queue_rejection(CANDIDATE_ID, by="hr-admin")
+    communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(RecruitingError, match="already exists"):
-        communications.queue_rejection(CANDIDATE_ID, by="hr-admin")
+        communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
 
 
 # --- offer queueing --------------------------------------------------------------
@@ -176,9 +182,11 @@ def test_offer_requires_a_named_human_and_a_body(
     register(evaluations)
 
     with pytest.raises(RecruitingError, match="named human"):
-        communications.queue_offer(CANDIDATE_ID, by="agent:policy_assistant", body="Hello")
+        communications.queue_offer(
+            CANDIDATE_ID, actor=ActorRef.legacy("agent:policy_assistant"), body="Hello"
+        )
     with pytest.raises(RecruitingError, match="body is required"):
-        communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="   ")
+        communications.queue_offer(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="   ")
 
 
 def test_offer_queues_with_the_named_approver(
@@ -188,7 +196,7 @@ def test_offer_queues_with_the_named_approver(
 
     item = communications.queue_offer(
         CANDIDATE_ID,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         body="We would like to offer you the role, starting 1 November.",
         subject="Offer — Backend Engineer",
     )
@@ -203,10 +211,10 @@ def test_only_one_active_offer_per_candidate(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
     register(evaluations)
-    communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="First")
+    communications.queue_offer(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="First")
 
     with pytest.raises(RecruitingError, match="already exists"):
-        communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Second")
+        communications.queue_offer(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Second")
 
 
 # --- dispatch evidence -----------------------------------------------------------
@@ -216,9 +224,11 @@ def test_mark_sent_records_manual_dispatch_once(
     evaluations: EvaluationService, communications: CommunicationService, audit: AuditChain
 ) -> None:
     register(evaluations)
-    item = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
+    item = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body"
+    )
 
-    sent = communications.mark_sent(item.id, by="hr-admin")
+    sent = communications.mark_sent(item.id, actor=ActorRef.legacy("hr-admin"))
 
     assert sent.status is CommunicationStatus.SENT
     assert sent.sent_by == "hr-admin"
@@ -226,17 +236,19 @@ def test_mark_sent_records_manual_dispatch_once(
     assert any(entry.action == "communication.sent" for entry in audit.entries)
 
     with pytest.raises(RecruitingError, match="only a queued message"):
-        communications.mark_sent(item.id, by="hr-admin")
+        communications.mark_sent(item.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_mark_sent_requires_a_named_human(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
     register(evaluations)
-    item = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
+    item = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body"
+    )
 
     with pytest.raises(RecruitingError, match="named human"):
-        communications.mark_sent(item.id, by="agent:screening_coordinator")
+        communications.mark_sent(item.id, actor=ActorRef.legacy("agent:screening_coordinator"))
 
 
 def test_list_for_filters_by_candidate(
@@ -245,8 +257,8 @@ def test_list_for_filters_by_candidate(
     other = uuid4()
     register(evaluations, s_tech=0.50)
     register(evaluations, candidate_id=other, s_tech=0.50)
-    mine = communications.queue_rejection(CANDIDATE_ID, by="hr-admin")
-    communications.queue_rejection(other, by="hr-admin")
+    mine = communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
+    communications.queue_rejection(other, actor=ActorRef.legacy("hr-admin"))
 
     items = communications.list_for(CANDIDATE_ID)
 
@@ -262,7 +274,10 @@ def test_dispatch_records_provider_evidence(
 ) -> None:
     register(evaluations)
     item = communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email="budi@example.com"
+        CANDIDATE_ID,
+        actor=ActorRef.legacy("hr-admin"),
+        body="Offer body",
+        to_email="budi@example.com",
     )
 
     sent = communications.record_dispatch(
@@ -288,7 +303,9 @@ def test_dispatch_failure_keeps_the_message_queued(
     evaluations: EvaluationService, communications: CommunicationService, audit: AuditChain
 ) -> None:
     register(evaluations)
-    item = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
+    item = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body"
+    )
 
     after = communications.record_dispatch_failure(
         item.id, provider="email.smtp", error="mailbox unavailable"
@@ -304,8 +321,10 @@ def test_a_sent_message_is_never_dispatched_again(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
     register(evaluations)
-    item = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="Offer body")
-    communications.mark_sent(item.id, by="hr-admin")
+    item = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body"
+    )
+    communications.mark_sent(item.id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(RecruitingError, match="only a queued message"):
         communications.record_dispatch(item.id, provider="email.smtp", recipient="budi@example.com")
@@ -315,11 +334,13 @@ def test_list_queued_excludes_sent_messages(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
     register(evaluations)
-    first = communications.queue_offer(CANDIDATE_ID, by="hr-admin", body="First")
+    first = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="First"
+    )
     other = uuid4()
     register(evaluations, candidate_id=other)
-    second = communications.queue_offer(other, by="hr-admin", body="Second")
-    communications.mark_sent(first.id, by="hr-admin")
+    second = communications.queue_offer(other, actor=ActorRef.legacy("hr-admin"), body="Second")
+    communications.mark_sent(first.id, actor=ActorRef.legacy("hr-admin"))
 
     queued = communications.list_queued()
 
@@ -332,7 +353,10 @@ def test_reply_threading_finds_the_message_by_provider_id(
 ) -> None:
     register(evaluations)
     item = communications.queue_offer(
-        CANDIDATE_ID, by="hr-admin", body="Offer body", to_email="budi@example.com"
+        CANDIDATE_ID,
+        actor=ActorRef.legacy("hr-admin"),
+        body="Offer body",
+        to_email="budi@example.com",
     )
     communications.record_dispatch(
         item.id,

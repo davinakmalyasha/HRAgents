@@ -1,5 +1,6 @@
 """Scheduled job runner: every engine on an explicit clock, nothing else.
 
+
 Failure-first behavior is pinned first — unknown names are refused, a
 failing job never stops the run, destructive work only runs on request —
 then per-engine tests pin the counts, the reports, and the rerun safety.
@@ -10,6 +11,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.messaging.store import ReplyStore
 from hr_agents.models import (
     ApprovalStatus,
@@ -412,7 +414,10 @@ def dispatch_offer(
         job_title="Backend Engineer",
     )
     message = recruiting.communications.queue_offer(
-        record.candidate_id, by="hr-admin", body="Offer body", to_email=recipient
+        record.candidate_id,
+        actor=ActorRef.legacy("hr-admin"),
+        body="Offer body",
+        to_email=recipient,
     )
     recruiting.communications.record_dispatch(
         message.id,

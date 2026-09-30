@@ -1,5 +1,6 @@
 """Offer records: terms revisions, approval gate, acceptance tracking.
 
+
 Negative tests first — no offer without a named human, no approval without the
 queue, no acceptance before approval, and terminal offers stay terminal.
 """

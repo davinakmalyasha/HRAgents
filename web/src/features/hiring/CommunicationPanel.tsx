@@ -79,7 +79,6 @@ function CommunicationDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [by, setBy] = useState('')
   const [language, setLanguage] = useState<'en' | 'id'>('en')
   const [channel, setChannel] = useState<Channel>('email')
   const [subject, setSubject] = useState('')
@@ -127,10 +126,6 @@ function CommunicationDialog({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (by.trim() === '') {
-      setProblem(t('communication.errors.byRequired'))
-      return
-    }
     if (mode === 'offer' && body.trim() === '') {
       setProblem(t('communication.errors.bodyRequired'))
       return
@@ -139,7 +134,7 @@ function CommunicationDialog({
     setBusy(true)
 
     if (mode === 'link') {
-      const result = await composeDispatchLink(communicationId ?? '', by.trim(), phone ?? undefined)
+      const result = await composeDispatchLink(communicationId ?? '', phone ?? undefined)
       setBusy(false)
       if (result.status === 200 && result.link !== undefined) {
         setLink(result.link)
@@ -164,7 +159,6 @@ function CommunicationDialog({
     const result =
       mode === 'rejection'
         ? await queueRejectionMessage(candidateId, {
-            by: by.trim(),
             language,
             channel,
             to_email: recipient,
@@ -172,7 +166,6 @@ function CommunicationDialog({
           })
         : mode === 'offer'
           ? await queueOfferMessage(candidateId, {
-              by: by.trim(),
               body,
               subject: subject.trim() === '' ? null : subject.trim(),
               language,
@@ -180,7 +173,7 @@ function CommunicationDialog({
               to_email: recipient,
               to_phone: phone,
             })
-          : await markCommunicationSent(communicationId ?? '', by.trim())
+          : await markCommunicationSent(communicationId ?? '')
 
     setBusy(false)
     if (result.status === 200 || result.status === 201) {
@@ -205,7 +198,6 @@ function CommunicationDialog({
   async function runPreview() {
     setBusy(true)
     const result = await previewRejectionMessage(candidateId, {
-      by: by.trim(),
       language,
       channel,
       to_email: recipient,
@@ -223,7 +215,7 @@ function CommunicationDialog({
 
   async function recordAfterLink() {
     setBusy(true)
-    const result = await markCommunicationSent(communicationId ?? '', by.trim())
+    const result = await markCommunicationSent(communicationId ?? '')
     setBusy(false)
     if (result.status === 200) {
       await queryClient.invalidateQueries({ queryKey: ['communications', candidateId] })
@@ -265,22 +257,6 @@ function CommunicationDialog({
               {problem}
             </p>
           ) : null}
-
-          <div className={fieldClass}>
-            <label htmlFor={`communication-by-${mode}`} className={labelClass}>
-              {t('communication.fields.by')}
-            </label>
-            <Input
-              id={`communication-by-${mode}`}
-              value={by}
-              onChange={(event) => {
-                setBy(event.target.value)
-                invalidatePreview()
-              }}
-              placeholder={t('communication.fields.byPlaceholder')}
-              autoComplete="off"
-            />
-          </div>
 
           {mode === 'sent' ? null : (
             <>

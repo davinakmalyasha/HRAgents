@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.recruitment_schemas import (
     JobCreate,
     JobStatusChange,
@@ -51,9 +51,9 @@ def list_jobs(jobs: JobsDep, job_status: JobStatus | None = None) -> list[JobVie
     response_model=JobView,
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
-def create_job(payload: JobCreate, jobs: JobsDep) -> JobView:
+def create_job(payload: JobCreate, jobs: JobsDep, actor: ActorDep) -> JobView:
     try:
-        job = jobs.create(**payload.model_dump())
+        job = jobs.create(actor=actor, **payload.model_dump())
     except (RecruitingError, ValueError) as exc:
         raise _conflict(exc) from exc
     return JobView.from_model(job)
@@ -72,9 +72,9 @@ def get_job(job_id: UUID, jobs: JobsDep) -> JobView:
     response_model=JobView,
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
-def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep) -> JobView:
+def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep, actor: ActorDep) -> JobView:
     try:
-        job = jobs.update(job_id, **payload.model_dump())
+        job = jobs.update(job_id, actor=actor, **payload.model_dump())
     except (RecruitingError, ValueError) as exc:
         raise _conflict(exc) from exc
     return JobView.from_model(job)
@@ -85,9 +85,11 @@ def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep) -> JobView:
     response_model=JobView,
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
-def change_job_status(job_id: UUID, payload: JobStatusChange, jobs: JobsDep) -> JobView:
+def change_job_status(
+    job_id: UUID, payload: JobStatusChange, jobs: JobsDep, actor: ActorDep
+) -> JobView:
     try:
-        job = jobs.transition(job_id, target=payload.status, by=payload.by)
+        job = jobs.transition(job_id, target=payload.status, actor=actor)
     except RecruitingError as exc:
         raise _conflict(exc) from exc
     return JobView.from_model(job)

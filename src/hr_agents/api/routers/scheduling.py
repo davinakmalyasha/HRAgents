@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.recruitment_schemas import (
     AvailabilitySet,
     ProposalDecisionRequest,
@@ -46,8 +46,10 @@ def _not_found(detail: str) -> HTTPException:
     response_model=list[TimeSlot],
     summary="Ops: register interviewer free slots (calendar provider feeds this later)",
 )
-def set_availability(payload: AvailabilitySet, scheduling: SchedulingDep) -> list[TimeSlot]:
-    return scheduling.set_availability(payload.interviewer_id, slots=payload.slots, by=payload.by)
+def set_availability(
+    payload: AvailabilitySet, scheduling: SchedulingDep, actor: ActorDep
+) -> list[TimeSlot]:
+    return scheduling.set_availability(payload.interviewer_id, slots=payload.slots, actor=actor)
 
 
 @router.post(
@@ -57,14 +59,14 @@ def set_availability(payload: AvailabilitySet, scheduling: SchedulingDep) -> lis
     summary="Propose interview slots (auto or HITL-gated)",
 )
 def create_proposal(
-    payload: SchedulingProposalRequest, scheduling: SchedulingDep
+    payload: SchedulingProposalRequest, scheduling: SchedulingDep, actor: ActorDep
 ) -> SchedulingProposalView:
     try:
         proposal = scheduling.propose(
             candidate_id=payload.candidate_id,
             job_id=payload.job_id,
             interviewer_ids=payload.interviewer_ids,
-            created_by=payload.created_by,
+            actor=actor,
             requested_channels=payload.requested_channels,
             notes=payload.notes,
         )
@@ -92,7 +94,10 @@ def get_proposal(proposal_id: UUID, scheduling: SchedulingDep) -> SchedulingProp
     summary="Confirm, cancel, or reschedule a proposal (named human)",
 )
 def decide_proposal(
-    proposal_id: UUID, payload: ProposalDecisionRequest, scheduling: SchedulingDep
+    proposal_id: UUID,
+    payload: ProposalDecisionRequest,
+    scheduling: SchedulingDep,
+    actor: ActorDep,
 ) -> ProposalDecisionResponse:
     """The single writer for proposal outcomes; confirmations decide the
     linked scheduling approval through the shared approval engine."""
@@ -100,7 +105,7 @@ def decide_proposal(
         proposal, replacement = scheduling.decide(
             proposal_id,
             decision=payload.decision,
-            by=payload.by,
+            actor=actor,
             reason=payload.reason,
         )
     except RecruitingError as exc:

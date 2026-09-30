@@ -14,6 +14,7 @@ from pydantic_ai.models.test import TestModel
 
 from hr_agents.agents import AgentRuntime
 from hr_agents.agents.resume_deconstructor import ResumeDeconstructor
+from hr_agents.identity import ActorRef
 from hr_agents.knowledge import KnowledgeRetriever
 from hr_agents.main import create_app
 from hr_agents.providers.queue.memory import MemoryQueueBackend
@@ -75,7 +76,7 @@ async def test_submit_then_evaluate_seam() -> None:
     with TestClient(app) as client:
         job = app.state.recruiting.jobs.create(
             title="Backend Engineer",
-            created_by="hr-admin",
+            actor=ActorRef.legacy("hr-admin"),
             must_have_skills=["Python", "PostgreSQL"],
             stack=["FastAPI"],
         )

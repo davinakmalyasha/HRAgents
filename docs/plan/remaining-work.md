@@ -7,7 +7,10 @@ worker now runs**, all five agents are constructed in production, the rate-table
 reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A landed after that:
 **one identity module** now owns actor classification and the named-human gate, the ten
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
-`sigma` gate. **1150 tests (1146 passed, 4 skipped for Postgres) · 92% coverage · ruff + mypy clean**.
+`sigma` gate. Block B has begun: **authentication happens once per request**, `ActorRef` carries
+the actor together with its provenance, and the recruiting group no longer accepts an actor from
+a request body.
+**1182 tests (1178 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -16,9 +19,10 @@ ungated consequential operations are gated, and a single extraction can no longe
 > `{"action":"deleted"}` and deleted zero bytes, in both the API response and the audit chain.
 > Three services wrote `agent:` onto the tamper-evident chain as `ActorType.HUMAN`, and every
 > named-human gate accepted `system`, so a caller could decide an approval as `system`. All fixed
-> and regression-tested. The next slice is the remaining half of the trust boundary — the actor
-> still arrives as a self-declared string in the request body rather than the authenticated
-> principal — and **scoring generalization** (a qualified accountant is auto-rejected today). The
+> and regression-tested. Block B continues the same line: an API key's holder is now the only actor
+> the recruiting endpoints will record, and the dashboard's "type your name here" fields are gone
+> rather than quietly ignored. The remaining half is the people, department, payroll and compliance
+> groups, and **scoring generalization** (a qualified accountant is auto-rejected today). The
 > measured defect list is `docs/plan/master-build-plan.md` Appendix C.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
@@ -50,9 +54,35 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       satisfied `σ ≤ 0.05` with the least evidence
 - [x] Rate-limiter bucket eviction, and `X-Forwarded-For` honoured only behind an explicit
       `HRAGENTS_TRUST_PROXY_HEADERS=true` (it was a complete bypass on the unauthenticated path)
+- [x] **Authentication middleware** (`hr_agents/api/auth.py`): the key is resolved once per request
+      instead of once per guard, `client_key()`'s per-principal branch is live (it was unreachable
+      dead code, because a dependency runs after all middleware), and **401 vs 403 are now
+      distinguishable** — refused credentials are 401, a valid key whose role lacks a permission
+      is 403. `create_app(settings)` makes the app and its middleware share one `Settings`.
+- [x] **`ActorRef`** carries the actor *and* its provenance (`authenticated` / `system_job` /
+      `agent_tool` / `legacy_string`), and `AuditEntry` records that plus the role.
+      `HRAGENTS_ACTOR_NAME` names the local operator instead of writing `local-dev` on the chain.
+- [x] **The recruiting group takes its actor from the principal, not the body** — 11 actor fields
+      removed from `JobCreate`/`JobUpdate`/`JobStatusChange`/`AvailabilitySet`/
+      `SchedulingProposalRequest`/`ProposalDecisionRequest` and the five communication requests;
+      `services/recruiting.py` takes `actor: ActorRef`; the dashboard's three "type your name"
+      inputs are deleted rather than left silently ignored. `preview_rejection` and
+      `SchedulingService.decide` had hand-rolled `startswith("agent:")` checks that accepted the
+      empty string; both now use the one shared gate.
+- [x] **Approver-role table** (`APPROVER_ROLE_HOLDERS` + `validate_approver_coverage`): three
+      approver roles (`engineering_lead`, `recruiter_lead`, `data_protection`) had no corresponding
+      `RoleId`, so no configured principal could hold them. Enforcing `assignee_role` without this
+      table would have made erasure approvals and engineering-lead sign-offs undecidable except by
+      an admin. An undecidable approver role is now a startup error, not a stuck queue.
+- [x] `ApprovalEngine.reassign()` — the audited escape hatch for a mis-routed approval. A reason is
+      mandatory: a reassignment with no stated justification is indistinguishable, to a later reader
+      of the chain, from moving an approval to someone friendlier.
+- [ ] **Migrate the remaining groups to `ActorRef`**: people, departments, payroll, compliance,
+      onboarding, offboarding, leave, growth and offers still carry ~70 `by`/`created_by` request
+      fields, so a holder of one `hr_admin` key can still name a different person there.
 - [ ] **Bind approval decisions to `assignee_role`** — `decide` checks that the actor is a human,
       but not that they hold the role the approval is assigned to, so a `MANAGER` can decide a
-      `FINANCE`-assigned payroll sign-off
+      `FINANCE`-assigned payroll sign-off. The table exists (see above); enforcement does not.
 - [ ] **Fix the 68 write endpoints guarded by a READ permission** and wire the 6 dead permissions
       (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`, `AUDIT_READ`,
       `ADMIN_MANAGE`).

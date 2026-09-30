@@ -149,7 +149,9 @@ describe('SchedulingView', () => {
     )
 
     expect(screen.getByText(i18n.t('scheduling.dialog.confirmTitle'))).toBeInTheDocument()
-    expect(screen.getByLabelText(i18n.t('scheduling.fields.by'))).toBeInTheDocument()
+    // The dialog asks for a reason only; the actor comes from the API key.
+    expect(screen.queryByLabelText(i18n.t('scheduling.fields.by'))).not.toBeInTheDocument()
+    expect(screen.getByLabelText(i18n.t('scheduling.fields.reason'))).toBeInTheDocument()
   })
 
   it('shows terminal states without actions, with the deciding human', () => {

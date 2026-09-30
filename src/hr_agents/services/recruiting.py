@@ -32,7 +32,7 @@ from uuid import UUID, uuid4
 
 from pydantic import EmailStr, Field
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     TERMINAL_PROPOSAL_STATUSES,
     ActorType,
@@ -161,7 +161,7 @@ class DocumentService:
         filename: str | None,
         kind: str,
         content: bytes,
-        uploaded_by: str,
+        actor: ActorRef,
     ) -> StoredDocument:
         if kind not in DOCUMENT_KINDS:
             raise RecruitingError(
@@ -182,11 +182,11 @@ class DocumentService:
             sha256=hashlib.sha256(content).hexdigest(),
             size_bytes=len(content),
             content=content,
-            uploaded_by=uploaded_by,
+            uploaded_by=actor.actor_id,
         )
         self._store_document(document)
         self._audit.append(
-            actor=self._actor(uploaded_by),
+            actor=self._actor(actor),
             action="document.uploaded",
             subject_type="document",
             subject_id=str(document.id),
@@ -204,8 +204,14 @@ class DocumentService:
         return sorted(self._iter_documents(), key=lambda item: item.uploaded_at)
 
     @staticmethod
-    def _actor(actor_id: str) -> AuditActor:
-        return AuditActor(actor_type=classify_actor(actor_id), actor_id=actor_id)
+    def _actor(actor: ActorRef | str) -> AuditActor:
+        """Build the chain entry's actor, carrying provenance through to the record.
+
+        An ``ActorRef`` arrives from the authenticated request; a bare string is
+        still accepted for internal and agent callers, and is recorded as the
+        weaker ``legacy_string`` claim rather than being silently upgraded.
+        """
+        return ActorRef.coerce(actor).audit_actor()
 
 
 # --- jobs ----------------------------------------------------------------------
@@ -236,7 +242,7 @@ class JobService:
         self,
         *,
         title: str,
-        created_by: str,
+        actor: ActorRef,
         seniority: Seniority | None = None,
         description: str = "",
         responsibilities: list[str] | None = None,
@@ -258,11 +264,11 @@ class JobService:
             min_years_experience=min_years_experience,
             dimension_weights=dimension_weights,
             status=status,
-            created_by=created_by,
+            created_by=actor.actor_id,
         )
         self._persist_job(job)
         self._audit.append(
-            actor=self._actor(created_by),
+            actor=self._actor(actor),
             action="job.created",
             subject_type="job",
             subject_id=str(job.id),
@@ -286,7 +292,7 @@ class JobService:
         self,
         job_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         title: str | None = None,
         seniority: Seniority | None = None,
         description: str | None = None,
@@ -319,7 +325,7 @@ class JobService:
         updated = job.model_copy(update=updates)
         self._persist_job(updated)
         self._audit.append(
-            actor=self._actor(by),
+            actor=self._actor(actor),
             action="job.updated",
             subject_type="job",
             subject_id=str(updated.id),
@@ -327,14 +333,14 @@ class JobService:
         )
         return updated
 
-    def transition(self, job_id: UUID, *, target: JobStatus, by: str) -> JobSpecification:
+    def transition(self, job_id: UUID, *, target: JobStatus, actor: ActorRef) -> JobSpecification:
         job = self.get(job_id)
         if target not in JOB_TRANSITIONS[job.status]:
             raise RecruitingError(f"cannot move job from {job.status.value} to {target.value}")
         updated = job.model_copy(update={"status": target, "updated_at": utc_now()})
         self._persist_job(updated)
         self._audit.append(
-            actor=self._actor(by),
+            actor=self._actor(actor),
             action="job.status_changed",
             subject_type="job",
             subject_id=str(updated.id),
@@ -343,8 +349,8 @@ class JobService:
         return updated
 
     @staticmethod
-    def _actor(actor_id: str) -> AuditActor:
-        return DocumentService._actor(actor_id)
+    def _actor(actor: ActorRef | str) -> AuditActor:
+        return DocumentService._actor(actor)
 
 
 # --- evaluations & overrides ----------------------------------------------------
@@ -410,7 +416,9 @@ class EvaluationService:
     def _load_feedback(self, candidate_id: UUID) -> FeedbackReport | None:
         return self._feedback.get(candidate_id)
 
-    def _persist_feedback(self, candidate_id: UUID, report: FeedbackReport, *, by: str) -> None:
+    def _persist_feedback(
+        self, candidate_id: UUID, report: FeedbackReport, *, actor: ActorRef
+    ) -> None:
         self._feedback[candidate_id] = report
 
     # registration
@@ -538,11 +546,11 @@ class EvaluationService:
 
     # feedback
 
-    def save_feedback(self, candidate_id: UUID, report: FeedbackReport, *, by: str) -> None:
+    def save_feedback(self, candidate_id: UUID, report: FeedbackReport, *, actor: ActorRef) -> None:
         """Store an agent-authored report; it takes precedence over synthesis."""
-        self._persist_feedback(candidate_id, report, by=by)
+        self._persist_feedback(candidate_id, report, actor=actor)
         self._audit.append(
-            actor=DocumentService._actor(by),
+            actor=DocumentService._actor(actor),
             action="feedback.saved",
             subject_type="candidate",
             subject_id=str(candidate_id),
@@ -787,7 +795,7 @@ class CommunicationService:
         self,
         candidate_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         language: str = "en",
         to_email: EmailStr | None = None,
         to_phone: str | None = None,
@@ -800,7 +808,7 @@ class CommunicationService:
         endpoint will apply, because both read the same blockers. The actor
         still has to be a named human at queue time.
         """
-        del by  # the named-human gate belongs to queueing, not to a preview
+        del actor  # the named-human gate belongs to queueing, not to a preview
         try:
             record: EvaluationRecord | None = self._evaluations.get_by_candidate(candidate_id)
         except RecruitingError:
@@ -842,14 +850,14 @@ class CommunicationService:
         self,
         candidate_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         channel: Channel = Channel.EMAIL,
         language: str = "en",
         to_email: EmailStr | None = None,
         to_phone: str | None = None,
     ) -> CandidateCommunication:
         """Queue the rejection message; only for a documented rejection."""
-        self._require_human(by)
+        actor.require_human("a candidate communication", RecruitingError)
         record = self._evaluations.get_by_candidate(candidate_id)
         self._require_rejection_proof(record)
         self._require_no_active(candidate_id, CommunicationKind.REJECTION)
@@ -868,17 +876,17 @@ class CommunicationService:
             language=report.language,
             subject=_REJECTION_SUBJECTS[report.language].format(job_title=record.job_title),
             body=compose_rejection_body(report),
-            approved_by=by.strip(),
+            approved_by=actor.actor_id,
             recipient=to_email,
             recipient_phone=to_phone,
         )
-        return self._queue(item, actor=by)
+        return self._queue(item, actor=actor)
 
     def queue_offer(
         self,
         candidate_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         body: str,
         subject: str | None = None,
         channel: Channel = Channel.EMAIL,
@@ -887,7 +895,7 @@ class CommunicationService:
         to_phone: str | None = None,
     ) -> CandidateCommunication:
         """Queue a human-authored offer; the named human is the gate."""
-        self._require_human(by)
+        actor.require_human("a candidate communication", RecruitingError)
         if not body.strip():
             raise RecruitingError("an offer message body is required")
         record = self._evaluations.get_by_candidate(candidate_id)
@@ -901,15 +909,15 @@ class CommunicationService:
             language=language,  # type: ignore[arg-type]
             subject=subject,
             body=body,
-            approved_by=by.strip(),
+            approved_by=actor.actor_id,
             recipient=to_email,
             recipient_phone=to_phone,
         )
-        return self._queue(item, actor=by)
+        return self._queue(item, actor=actor)
 
-    def mark_sent(self, communication_id: UUID, *, by: str) -> CandidateCommunication:
+    def mark_sent(self, communication_id: UUID, *, actor: ActorRef) -> CandidateCommunication:
         """Record human dispatch evidence for a queued message."""
-        self._require_human(by)
+        actor.require_human("a candidate communication", RecruitingError)
         item = self.get(communication_id)
         if item.status is not CommunicationStatus.QUEUED:
             raise RecruitingError(
@@ -918,13 +926,13 @@ class CommunicationService:
         updated = item.model_copy(
             update={
                 "status": CommunicationStatus.SENT,
-                "sent_by": by.strip(),
+                "sent_by": actor.actor_id,
                 "sent_at": utc_now(),
             }
         )
         self._persist(updated)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=by.strip()),
+            actor=DocumentService._actor(actor),
             action="communication.sent",
             subject_type="candidate_communication",
             subject_id=str(updated.id),
@@ -1023,7 +1031,7 @@ class CommunicationService:
         self,
         communication_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         provider: str,
         recipient_phone: str | None = None,
     ) -> CandidateCommunication:
@@ -1032,8 +1040,7 @@ class CommunicationService:
         The system can only hand the recruiter a link; the send itself still
         happens in their own app and is recorded with ``mark_sent``.
         """
-        self._require_human(by)
-        actor = by.strip()
+        actor.require_human("a candidate communication", RecruitingError)
         item = self._require_queued(communication_id)
         if item.channel is not Channel.WHATSAPP:
             raise RecruitingError(
@@ -1045,7 +1052,7 @@ class CommunicationService:
         updated = item.model_copy(update={"recipient_phone": phone[:32]})
         self._persist(updated)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=DocumentService._actor(actor),
             action="communication.dispatch_link_issued",
             subject_type="candidate_communication",
             subject_id=str(updated.id),
@@ -1121,7 +1128,7 @@ class CommunicationService:
 
     # internals
 
-    def _queue(self, item: CandidateCommunication, *, actor: str) -> CandidateCommunication:
+    def _queue(self, item: CandidateCommunication, *, actor: ActorRef) -> CandidateCommunication:
         self._persist(item)
         self._audit.append(
             actor=DocumentService._actor(actor),
@@ -1169,10 +1176,6 @@ class CommunicationService:
                 f"communication is {item.status.value}; only a queued message can be dispatched"
             )
         return item
-
-    @staticmethod
-    def _require_human(actor: str) -> str:
-        return require_named_human(actor, "a candidate communication", RecruitingError)
 
 
 # --- scheduling -----------------------------------------------------------------
@@ -1224,7 +1227,7 @@ class SchedulingService:
         return list(self._availability.get(interviewer_id, []))
 
     def _persist_availability(
-        self, interviewer_id: UUID, slots: list[TimeSlot], *, by: str
+        self, interviewer_id: UUID, slots: list[TimeSlot], *, actor: ActorRef
     ) -> None:
         self._availability[interviewer_id] = list(slots)
 
@@ -1238,13 +1241,13 @@ class SchedulingService:
         self._proposals[proposal.id] = proposal
 
     def set_availability(
-        self, interviewer_id: UUID, *, slots: list[TimeSlot], by: str
+        self, interviewer_id: UUID, *, slots: list[TimeSlot], actor: ActorRef
     ) -> list[TimeSlot]:
         """Replace an interviewer's free slots (calendar provider feeds this later)."""
         ordered = sorted(slots, key=lambda slot: slot.start_utc)
-        self._persist_availability(interviewer_id, ordered, by=by)
+        self._persist_availability(interviewer_id, ordered, actor=actor)
         self._audit.append(
-            actor=DocumentService._actor(by),
+            actor=DocumentService._actor(actor),
             action="scheduling.availability_set",
             subject_type="interviewer",
             subject_id=str(interviewer_id),
@@ -1261,13 +1264,17 @@ class SchedulingService:
         candidate_id: UUID,
         job_id: UUID,
         interviewer_ids: list[UUID],
-        created_by: str = "system",
+        actor: ActorRef | None = None,
         requested_channels: list[SchedulingChannel] | None = None,
         notes: str | None = None,
     ) -> SchedulingProposalRecord:
         """Build a proposal; auto-scheduling only when policy permits."""
         if not interviewer_ids:
             raise RecruitingError("at least one interviewer is required")
+        # An automatic policy pass has no person behind it. Record that honestly
+        # rather than attributing the proposal to a system that then reads like
+        # a human on the chain.
+        actor = actor or ActorRef.system("scheduler")
         record = self._evaluations.get_by_candidate(candidate_id)
 
         common = self._common_slots(interviewer_ids)
@@ -1305,7 +1312,7 @@ class SchedulingService:
             requires_human_approval=not auto,
             needs_human_reconciliation=needs_reconciliation,
             status=ProposalStatus.AUTO_SCHEDULED if auto else ProposalStatus.PENDING_APPROVAL,
-            created_by=created_by,
+            created_by=actor.actor_id,
         )
         self._persist_proposal(proposal)
 
@@ -1319,7 +1326,7 @@ class SchedulingService:
                     f"{policy.decision.value} requires a named human confirmation."
                 ),
                 assignee_role=ApproverRole.RECRUITER_LEAD,
-                requested_by=created_by,
+                requested_by=actor.actor_id,
                 payload={
                     "proposal_id": str(proposal.id),
                     "candidate_id": str(candidate_id),
@@ -1336,7 +1343,7 @@ class SchedulingService:
                 self._applications.save(application)
 
         self._audit.append(
-            actor=DocumentService._actor(created_by),
+            actor=DocumentService._actor(actor),
             action="scheduling.proposal_created",
             subject_type="scheduling_proposal",
             subject_id=str(proposal.id),
@@ -1367,7 +1374,7 @@ class SchedulingService:
         proposal_id: UUID,
         *,
         decision: str,
-        by: str,
+        actor: ActorRef,
         reason: str = "",
     ) -> tuple[SchedulingProposalRecord, SchedulingProposalRecord | None]:
         """Confirm, cancel, or supersede a proposal as a named human.
@@ -1378,9 +1385,9 @@ class SchedulingService:
         """
         if decision not in {"confirm", "cancel", "reschedule"}:
             raise RecruitingError(f"unknown decision {decision!r}")
-        actor = by.strip()
-        if not actor or actor.startswith(AGENT_ACTOR_PREFIX):
-            raise RecruitingError("scheduling decisions require a named human actor")
+        # The agent check below used to be a hand-rolled `startswith("agent:")`
+        # test, which was why it accepted the empty string. One shared gate now.
+        actor.require_human("a scheduling decision", RecruitingError)
 
         proposal = self.get(proposal_id)
         if proposal.status in TERMINAL_PROPOSAL_STATUSES:
@@ -1396,8 +1403,8 @@ class SchedulingService:
         approval = self._find_linked_approval(proposal.id)
 
         if decision == "confirm":
-            self._decide_linked_approval(approval, by=actor, reason=reason)
-            updated = self._mark(proposal, ProposalStatus.CONFIRMED, by=actor)
+            self._decide_linked_approval(approval, actor=actor, reason=reason)
+            updated = self._mark(proposal, ProposalStatus.CONFIRMED, actor=actor)
             self._sync_application_scheduled(proposal)
             self._audit.append(
                 actor=DocumentService._actor(actor),
@@ -1414,8 +1421,8 @@ class SchedulingService:
             return updated, None
 
         if decision == "cancel":
-            self._withdraw_linked_approval(approval, by=actor, reason=reason)
-            updated = self._mark(proposal, ProposalStatus.CANCELLED, by=actor)
+            self._withdraw_linked_approval(approval, actor=actor, reason=reason)
+            updated = self._mark(proposal, ProposalStatus.CANCELLED, actor=actor)
             self._audit.append(
                 actor=DocumentService._actor(actor),
                 action="scheduling.proposal_cancelled",
@@ -1433,12 +1440,12 @@ class SchedulingService:
             candidate_id=proposal.payload.candidate_id,
             job_id=proposal.payload.job_id,
             interviewer_ids=proposal.payload.interviewer_ids,
-            created_by=actor,
+            actor=actor,
             requested_channels=[proposal.payload.channel],
             notes=proposal.payload.notes,
         )
-        self._withdraw_linked_approval(approval, by=actor, reason=reason)
-        superseded = self._mark(proposal, ProposalStatus.SUPERSEDED, by=actor)
+        self._withdraw_linked_approval(approval, actor=actor, reason=reason)
+        superseded = self._mark(proposal, ProposalStatus.SUPERSEDED, actor=actor)
         replacement = replacement.model_copy(update={"supersedes_id": proposal.id})
         self._persist_proposal(replacement)
         self._audit.append(
@@ -1457,10 +1464,14 @@ class SchedulingService:
     # internals
 
     def _mark(
-        self, proposal: SchedulingProposalRecord, status: ProposalStatus, *, by: str
+        self, proposal: SchedulingProposalRecord, status: ProposalStatus, *, actor: ActorRef
     ) -> SchedulingProposalRecord:
         updated = proposal.model_copy(
-            update={"status": status, "decided_by": by, "decided_at": datetime.now(UTC)}
+            update={
+                "status": status,
+                "decided_by": actor.actor_id,
+                "decided_at": datetime.now(UTC),
+            }
         )
         self._persist_proposal(updated)
         return updated
@@ -1471,7 +1482,7 @@ class SchedulingService:
         return self._approvals.find_by_subject(ApprovalSubject.SCHEDULING, str(proposal_id))
 
     def _decide_linked_approval(
-        self, approval: ApprovalRequest | None, *, by: str, reason: str
+        self, approval: ApprovalRequest | None, *, actor: ActorRef, reason: str
     ) -> None:
         """Approve the pending scheduling request, or refuse a rejected one."""
         if approval is None or self._approvals is None:
@@ -1485,7 +1496,7 @@ class SchedulingService:
         try:
             self._approvals.decide(
                 approval.id,
-                decided_by=by,
+                decided_by=actor.actor_id,
                 approve=True,
                 reason=reason.strip() or "interview slots confirmed",
             )
@@ -1493,12 +1504,12 @@ class SchedulingService:
             raise RecruitingError(str(exc)) from exc
 
     def _withdraw_linked_approval(
-        self, approval: ApprovalRequest | None, *, by: str, reason: str
+        self, approval: ApprovalRequest | None, *, actor: ActorRef, reason: str
     ) -> None:
         if approval is None or self._approvals is None or not approval.active:
             return
         try:
-            self._approvals.withdraw(approval.id, by=by, reason=reason.strip() or None)
+            self._approvals.withdraw(approval.id, by=actor.actor_id, reason=reason.strip() or None)
         except ApprovalError as exc:
             raise RecruitingError(str(exc)) from exc
 

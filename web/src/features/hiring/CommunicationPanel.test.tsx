@@ -160,7 +160,7 @@ describe('CommunicationPanel', () => {
     ).toBeInTheDocument()
   })
 
-  it('records dispatch evidence with a named actor', async () => {
+  it('records dispatch evidence without asking for an actor', async () => {
     state.communications = [communication()]
     markSentMock.mockResolvedValue({
       status: 200,
@@ -168,16 +168,14 @@ describe('CommunicationPanel', () => {
     })
     renderPanel()
 
+    // There is no name field: the API attributes the record to the key holder,
+    // so a person cannot misattribute a dispatch by typing someone else's name.
+    expect(screen.queryByLabelText(i18n.t('communication.fields.by'))).not.toBeInTheDocument()
+
     await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.markSent') }))
     await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.confirmSent') }))
 
-    expect(markSentMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('communication.errors.byRequired'))).toBeInTheDocument()
-
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'Sinta Prabowo')
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.confirmSent') }))
-
-    expect(markSentMock).toHaveBeenCalledWith('comm-1', 'Sinta Prabowo')
+    expect(markSentMock).toHaveBeenCalledWith('comm-1')
   })
 
   it('locks rejection queueing until a decision is recorded', () => {
@@ -198,14 +196,12 @@ describe('CommunicationPanel', () => {
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
     )
 
     // The preview rendered the body; the queue endpoint has not been touched.
     expect(previewMock).toHaveBeenCalledWith('cand-1', {
-      by: 'lead-1',
       language: 'en',
       channel: 'email',
       to_email: null,
@@ -222,7 +218,6 @@ describe('CommunicationPanel', () => {
     )
 
     expect(queueRejectionMock).toHaveBeenCalledWith('cand-1', {
-      by: 'lead-1',
       language: 'en',
       channel: 'email',
       to_email: null,
@@ -240,7 +235,6 @@ describe('CommunicationPanel', () => {
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
     )
@@ -262,7 +256,6 @@ describe('CommunicationPanel', () => {
       screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
     )
     expect(previewMock).toHaveBeenLastCalledWith('cand-1', {
-      by: 'lead-1',
       language: 'en',
       channel: 'email',
       to_email: 'budi@example.com',
@@ -286,7 +279,6 @@ describe('CommunicationPanel', () => {
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
     )
@@ -321,7 +313,6 @@ describe('CommunicationPanel', () => {
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
     )
@@ -351,7 +342,6 @@ describe('CommunicationPanel', () => {
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.composeOffer') }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'hr-admin')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.confirm') }))
 
     expect(queueOfferMock).not.toHaveBeenCalled()
@@ -366,7 +356,6 @@ describe('CommunicationPanel', () => {
     expect(queueOfferMock).toHaveBeenCalledWith(
       'cand-1',
       expect.objectContaining({
-        by: 'hr-admin',
         body: 'We would like to offer you the role.',
         subject: null,
         language: 'en',
@@ -387,7 +376,6 @@ describe('CommunicationPanel', () => {
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'lead-1')
     await userEvent.type(
       screen.getByLabelText(i18n.t('communication.fields.toEmail')),
       'budi@example.com',
@@ -400,7 +388,6 @@ describe('CommunicationPanel', () => {
     )
 
     expect(queueRejectionMock).toHaveBeenCalledWith('cand-1', {
-      by: 'lead-1',
       language: 'en',
       channel: 'email',
       to_email: 'budi@example.com',
@@ -490,16 +477,15 @@ describe('CommunicationPanel', () => {
     markSentMock.mockResolvedValue({ status: 200, communication: communication() })
     renderPanel()
 
+    // The row action opens the link dialog; its submit button shares the label.
     await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.composeLink') }))
     await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.composeLink') }))
 
-    expect(composeLinkMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('communication.errors.byRequired'))).toBeInTheDocument()
-
-    await userEvent.type(screen.getByLabelText(i18n.t('communication.fields.by')), 'Sinta Prabowo')
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('communication.composeLink') }))
-
-    expect(composeLinkMock).toHaveBeenCalledWith('comm-1', 'Sinta Prabowo', undefined)
+    // Two arguments: the message and an optional phone. No actor is sent --
+    // the server attributes the dispatch to the API key holder.
+    expect(composeLinkMock).toHaveBeenCalledTimes(1)
+    expect(composeLinkMock.mock.calls[0]?.[0]).toBe('comm-1')
+    expect(composeLinkMock.mock.calls[0] ?? []).not.toContain('Sinta Prabowo')
     expect(
       await screen.findByRole('link', { name: i18n.t('communication.openWhatsapp') }),
     ).toHaveAttribute('href', 'https://wa.me/6281234567890?text=Offer')
@@ -508,7 +494,7 @@ describe('CommunicationPanel', () => {
       screen.getByRole('button', { name: i18n.t('communication.recordAfterLink') }),
     )
 
-    expect(markSentMock).toHaveBeenCalledWith('comm-1', 'Sinta Prabowo')
+    expect(markSentMock).toHaveBeenCalledWith('comm-1')
   })
 
   it('offers a WhatsApp link action only on WhatsApp messages', () => {

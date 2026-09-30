@@ -66,13 +66,10 @@ export async function queueOfferMessage(
   return { status: response.status, communication: data }
 }
 
-export async function markCommunicationSent(
-  communicationId: string,
-  by: string,
-): Promise<CommunicationResult> {
+export async function markCommunicationSent(communicationId: string): Promise<CommunicationResult> {
   const { data, response } = await api.POST('/v1/communications/{communication_id}/sent', {
     params: { path: { communication_id: communicationId } },
-    body: { by },
+    body: {},
   })
   return { status: response.status, communication: data }
 }
@@ -86,12 +83,11 @@ export async function listReplies(candidateId: string): Promise<ReplyView[]> {
 
 export async function composeDispatchLink(
   communicationId: string,
-  by: string,
   toPhone?: string,
 ): Promise<DispatchLinkResult> {
   const { data, response } = await api.POST('/v1/communications/{communication_id}/dispatch-link', {
     params: { path: { communication_id: communicationId } },
-    body: { by, to_phone: toPhone ?? null },
+    body: { to_phone: toPhone ?? null },
   })
   return { status: response.status, link: data }
 }

@@ -40,7 +40,6 @@ def create_job(client: TestClient) -> dict:
         "/v1/jobs",
         json={
             "title": "Backend Engineer",
-            "created_by": "hr-admin",
             "must_have_skills": ["python"],
         },
     )
@@ -161,21 +160,19 @@ def test_job_crud_flow() -> None:
 
         updated = client.patch(
             f"/v1/jobs/{job_id}",
-            json={"by": "hr-admin", "description": "Own the API.", "min_years_experience": 3},
+            json={"description": "Own the API.", "min_years_experience": 3},
         )
         assert updated.status_code == 200
         assert updated.json()["description"] == "Own the API."
 
-        opened = client.post(f"/v1/jobs/{job_id}/status", json={"status": "open", "by": "hr-admin"})
+        opened = client.post(f"/v1/jobs/{job_id}/status", json={"status": "open"})
         assert opened.status_code == 200
         assert opened.json()["status"] == "open"
 
-        closed = client.post(
-            f"/v1/jobs/{job_id}/status", json={"status": "closed", "by": "hr-admin"}
-        )
+        closed = client.post(f"/v1/jobs/{job_id}/status", json={"status": "closed"})
         assert closed.json()["status"] == "closed"
 
-        reopen = client.post(f"/v1/jobs/{job_id}/status", json={"status": "open", "by": "hr-admin"})
+        reopen = client.post(f"/v1/jobs/{job_id}/status", json={"status": "open"})
         assert reopen.status_code == 409
 
 
@@ -185,7 +182,6 @@ def test_job_weight_validation() -> None:
             "/v1/jobs",
             json={
                 "title": "X",
-                "created_by": "hr-admin",
                 "dimension_weights": {"technical_depth": 0.9},
             },
         )
@@ -382,11 +378,11 @@ def test_scheduling_auto_and_gated_paths() -> None:
         ]
         client.post(
             "/v1/scheduling/availability",
-            json={"interviewer_id": first, "by": "hr-admin", "slots": slots},
+            json={"interviewer_id": first, "slots": slots},
         )
         client.post(
             "/v1/scheduling/availability",
-            json={"interviewer_id": second, "by": "hr-admin", "slots": slots[:2]},
+            json={"interviewer_id": second, "slots": slots[:2]},
         )
 
         proposal_response = client.post(
@@ -427,7 +423,7 @@ def test_scheduling_requires_evaluation() -> None:
         ]
         client.post(
             "/v1/scheduling/availability",
-            json={"interviewer_id": interviewer, "by": "hr-admin", "slots": slots},
+            json={"interviewer_id": interviewer, "slots": slots},
         )
         response = client.post(
             "/v1/scheduling/proposals",
@@ -464,7 +460,7 @@ def test_scheduling_flags_force_human_review() -> None:
         ]
         client.post(
             "/v1/scheduling/availability",
-            json={"interviewer_id": interviewer, "by": "hr-admin", "slots": slots},
+            json={"interviewer_id": interviewer, "slots": slots},
         )
         response = client.post(
             "/v1/scheduling/proposals",
@@ -511,7 +507,7 @@ def pending_proposal(client: TestClient, job: dict, application: dict) -> dict:
     ]
     client.post(
         "/v1/scheduling/availability",
-        json={"interviewer_id": interviewer, "by": "hr-admin", "slots": slots},
+        json={"interviewer_id": interviewer, "slots": slots},
     )
     response = client.post(
         "/v1/scheduling/proposals",
@@ -532,7 +528,7 @@ def test_scheduling_confirm_decides_the_approval_and_schedules() -> None:
         pending = client.get("/v1/approvals")
         decision = client.post(
             f"/v1/scheduling/proposals/{proposal['id']}/decision",
-            json={"by": "hr-admin", "decision": "confirm", "reason": "the panel is free"},
+            json={"decision": "confirm", "reason": "the panel is free"},
         )
         application_after = client.get(f"/v1/applications/{application['application_id']}")
         approvals_after = client.get("/v1/approvals")
@@ -545,7 +541,10 @@ def test_scheduling_confirm_decides_the_approval_and_schedules() -> None:
     assert decision.status_code == 200, decision.text
     body = decision.json()
     assert body["proposal"]["status"] == "confirmed"
-    assert body["proposal"]["decided_by"] == "hr-admin"
+    # The decision is attributed to the authenticated principal, not to anything
+    # the request body claimed. An unconfigured install authenticates as the
+    # local operator; bind a key per person to get a real name here.
+    assert body["proposal"]["decided_by"] == "local-dev"
     assert body["proposal"]["decided_at"] is not None
     assert body["replacement"] is None
 
@@ -559,15 +558,15 @@ def test_scheduling_cancel_and_terminal_guards() -> None:
         proposal = pending_proposal(client, job, application)
         without_reason = client.post(
             f"/v1/scheduling/proposals/{proposal['id']}/decision",
-            json={"by": "hr-admin", "decision": "cancel"},
+            json={"decision": "cancel"},
         )
         cancelled = client.post(
             f"/v1/scheduling/proposals/{proposal['id']}/decision",
-            json={"by": "hr-admin", "decision": "cancel", "reason": "interviewer on leave"},
+            json={"decision": "cancel", "reason": "interviewer on leave"},
         )
         again = client.post(
             f"/v1/scheduling/proposals/{proposal['id']}/decision",
-            json={"by": "hr-admin", "decision": "confirm"},
+            json={"decision": "confirm"},
         )
 
     assert without_reason.status_code == 409
@@ -585,7 +584,6 @@ def test_scheduling_reschedule_creates_a_linked_replacement() -> None:
         rescheduled = client.post(
             f"/v1/scheduling/proposals/{proposal['id']}/decision",
             json={
-                "by": "hr-admin",
                 "decision": "reschedule",
                 "reason": "candidate asked for a later slot",
             },
@@ -602,24 +600,42 @@ def test_scheduling_reschedule_creates_a_linked_replacement() -> None:
     assert original.json()["status"] == "superseded"
 
 
-def test_scheduling_decision_requires_a_named_human() -> None:
+def test_scheduling_decision_is_attributed_to_the_authenticated_actor() -> None:
+    """The decision names the caller, and a body cannot overrule it.
+
+    This used to assert 403 when ``by`` was omitted, which was the API's way of
+    saying "tell me who you are". The actor is now resolved from the API key
+    before the route runs, so a request with no actor field is an ordinary
+    request from the local operator rather than a failure. The named-human gate
+    is still enforced -- an agent cannot decide a proposal -- but that is now
+    provable only where an agent actor can exist: the service.
+    """
     with make_client() as client:
         job, application = gated_application(client)
         proposal = pending_proposal(client, job, application)
-        response = client.post(
+
+        claimed = client.post(
             f"/v1/scheduling/proposals/{proposal['id']}/decision",
-            json={"by": "agent:hr_bot", "decision": "confirm"},
+            json={"decision": "confirm", "by": "someone-else"},
+        )
+        unnamed = client.post(
+            f"/v1/scheduling/proposals/{proposal['id']}/decision",
+            json={"decision": "confirm"},
         )
 
-    assert response.status_code == 403
-    assert "named human" in response.json()["title"]
+    # A caller that tries to name the actor is refused, not obeyed.
+    assert claimed.status_code == 422
+    assert any(error["loc"][-1] == "by" for error in claimed.json()["detail"])
+    # And the decision that does go through is attributed to the key's holder.
+    assert unnamed.status_code == 200, unnamed.text
+    assert unnamed.json()["proposal"]["decided_by"] == "local-dev"
 
 
 def test_scheduling_decision_unknown_proposal_404() -> None:
     with make_client() as client:
         response = client.post(
             f"/v1/scheduling/proposals/{uuid4()}/decision",
-            json={"by": "hr-admin", "decision": "confirm"},
+            json={"decision": "confirm"},
         )
 
     assert response.status_code == 404

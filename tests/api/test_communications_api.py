@@ -25,7 +25,7 @@ def make_client() -> TestClient:
 def create_job(client: TestClient) -> dict:
     response = client.post(
         "/v1/jobs",
-        json={"title": "Backend Engineer", "created_by": "hr-admin"},
+        json={"title": "Backend Engineer"},
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -85,8 +85,17 @@ def register_evaluation(
     return evaluation
 
 
-def rejection_payload(by: str = "hr-admin", **extra: object) -> dict:
-    return {"by": by, **extra}
+def rejection_payload(by: str | None = None, **extra: object) -> dict:
+    """A rejection request body.
+
+    ``by`` is included only when explicitly supplied, because the endpoint no
+    longer accepts it: a caller cannot nominate its own actor. Tests that pass
+    it are asserting the request is refused.
+    """
+    payload: dict = {**extra}
+    if by is not None:
+        payload["by"] = by
+    return payload
 
 
 # --- rejection -------------------------------------------------------------------
@@ -111,14 +120,15 @@ def test_rejection_flow_queues_and_records_dispatch() -> None:
         history = client.get(f"/v1/candidates/{application['candidate_id']}/communications")
         sent = client.post(
             f"/v1/communications/{queued.json()['id']}/sent",
-            json={"by": "hr-admin"},
+            json={},
         )
 
     assert queued.status_code == 201, queued.text
     body = queued.json()
     assert body["kind"] == "rejection"
     assert body["status"] == "queued"
-    assert body["approved_by"] == "hr-admin"
+    # Attributed to the authenticated operator, not to any body field.
+    assert body["approved_by"] == "local-dev"
     assert "Where to strengthen" in body["body"]
     assert body["application_id"] == application["application_id"]
 
@@ -127,7 +137,7 @@ def test_rejection_flow_queues_and_records_dispatch() -> None:
 
     assert sent.status_code == 200
     assert sent.json()["status"] == "sent"
-    assert sent.json()["sent_by"] == "hr-admin"
+    assert sent.json()["sent_by"] == "local-dev"
 
 
 def test_gated_rejection_needs_a_recorded_decision() -> None:
@@ -144,7 +154,7 @@ def test_gated_rejection_needs_a_recorded_decision() -> None:
 
         blocked = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/rejection",
-            json=rejection_payload(by="lead-1"),
+            json=rejection_payload(),
         )
         override = client.post(
             f"/v1/evaluations/{evaluation.id}/overrides",
@@ -157,7 +167,7 @@ def test_gated_rejection_needs_a_recorded_decision() -> None:
         )
         allowed = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/rejection",
-            json=rejection_payload(by="lead-1", language="id"),
+            json=rejection_payload(language="id"),
         )
 
     assert blocked.status_code == 409
@@ -167,7 +177,16 @@ def test_gated_rejection_needs_a_recorded_decision() -> None:
     assert "Yang menonjol" in allowed.json()["body"]
 
 
-def test_rejection_rejects_agent_actors() -> None:
+def test_rejection_refuses_a_caller_supplied_actor() -> None:
+    """A client can no longer nominate its own actor, agent or otherwise.
+
+    This used to post ``by="agent:screening_coordinator"`` and assert 403,
+    which proved the named-human gate held. The gate is still there, but it is
+    no longer reachable from a request body: the actor is the authenticated
+    principal, resolved before the route runs. What this asserts now is the
+    stronger property -- the field is not merely ignored, it is refused, so a
+    caller cannot believe they have overridden the attribution.
+    """
     with make_client() as client:
         job = create_job(client)
         application = submit_application(client, job["id"])
@@ -184,7 +203,8 @@ def test_rejection_rejects_agent_actors() -> None:
             json=rejection_payload(by="agent:screening_coordinator"),
         )
 
-    assert response.status_code == 403
+    assert response.status_code == 422
+    assert any(error["loc"][-1] == "by" for error in response.json()["detail"])
 
 
 def test_rejection_preview_renders_the_message_without_queueing_anything() -> None:
@@ -266,11 +286,11 @@ def test_rejection_preview_reports_the_gates_that_block_queueing() -> None:
         )
         client.post(
             f"/v1/candidates/{candidate_id}/communications/rejection",
-            json=rejection_payload(by="lead-1", language="id"),
+            json=rejection_payload(language="id"),
         )
         duplicate = client.post(
             f"/v1/candidates/{candidate_id}/communications/rejection/preview",
-            json=rejection_payload(by="lead-1", language="id"),
+            json=rejection_payload(language="id"),
         )
         queued = client.get(f"/v1/candidates/{candidate_id}/communications")
 
@@ -313,22 +333,18 @@ def test_rejection_preview_unknown_candidate_and_agent_actor() -> None:
             job_id=job["id"],
             s_tech=0.50,
         )
-        agent = client.post(
+        claimed = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/rejection/preview",
             json=rejection_payload(by="agent:screening_coordinator"),
         )
-        blank = client.post(
-            f"/v1/candidates/{application['candidate_id']}/communications/rejection/preview",
-            json=rejection_payload(by="   "),
-        )
         history = client.get(f"/v1/candidates/{application['candidate_id']}/communications")
 
-    # A preview is readable for anyone who may queue, including an agent: it is
-    # only the queue that needs a named human.
+    # A preview is a read: it stores nothing, and it no longer judges an actor,
+    # because the body cannot supply one. The named-human gate applies to the
+    # queue, which is asserted separately.
     assert unknown.json()["can_queue"] is False
-    assert agent.status_code == 200
-    assert agent.json()["can_queue"] is True
-    assert blank.status_code == 422
+    assert claimed.status_code == 422
+    assert history.json() == []
     assert history.json() == []
 
 
@@ -383,12 +399,11 @@ def test_offer_queues_human_authored_message_and_blocks_blank() -> None:
 
         blank = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/offer",
-            json={"by": "hr-admin", "body": "   "},
+            json={"body": "   "},
         )
         queued = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/offer",
             json={
-                "by": "hr-admin",
                 "body": "We would like to offer you the role.",
                 "subject": "Offer — Backend Engineer",
             },
@@ -399,7 +414,8 @@ def test_offer_queues_human_authored_message_and_blocks_blank() -> None:
     body = queued.json()
     assert body["kind"] == "offer"
     assert body["subject"] == "Offer — Backend Engineer"
-    assert body["approved_by"] == "hr-admin"
+    # Attributed to the authenticated operator, not to any body field.
+    assert body["approved_by"] == "local-dev"
 
 
 def test_mark_sent_rules() -> None:
@@ -414,19 +430,21 @@ def test_mark_sent_rules() -> None:
         )
         queued = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/offer",
-            json={"by": "hr-admin", "body": "Offer body"},
+            json={"body": "Offer body"},
         ).json()
 
-        missing = client.post(f"/v1/communications/{uuid4()}/sent", json={"by": "hr-admin"})
-        agent = client.post(
+        missing = client.post(f"/v1/communications/{uuid4()}/sent", json={})
+        claimed = client.post(
             f"/v1/communications/{queued['id']}/sent",
-            json={"by": "agent:policy_assistant"},
+            json={"by": "agent:screening_coordinator"},
         )
-        first = client.post(f"/v1/communications/{queued['id']}/sent", json={"by": "hr-admin"})
-        again = client.post(f"/v1/communications/{queued['id']}/sent", json={"by": "hr-admin"})
+        first = client.post(f"/v1/communications/{queued['id']}/sent", json={})
+        again = client.post(f"/v1/communications/{queued['id']}/sent", json={})
 
     assert missing.status_code == 404
-    assert agent.status_code == 403
+    # The named-human gate now lives below the API: a request cannot name an
+    # actor at all, so `by` is refused outright rather than checked.
+    assert claimed.status_code == 422
     assert first.status_code == 200
     assert again.status_code == 409
 
@@ -446,7 +464,7 @@ def test_transport_dispatch_evidence_is_visible_on_the_message() -> None:
         )
         queued = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/offer",
-            json={"by": "hr-admin", "body": "Offer body", "to_email": "budi@example.com"},
+            json={"body": "Offer body", "to_email": "budi@example.com"},
         ).json()
         client.app.state.recruiting.communications.record_dispatch_failure(  # type: ignore[attr-defined]
             UUID(queued["id"]), provider="email.smtp", error="mailbox unavailable"
@@ -481,7 +499,7 @@ def test_invalid_recipient_is_rejected() -> None:
 
         response = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/offer",
-            json={"by": "hr-admin", "body": "Offer body", "to_email": "not-an-address"},
+            json={"body": "Offer body", "to_email": "not-an-address"},
         )
 
     assert response.status_code == 422
@@ -552,7 +570,6 @@ def whatsapp_message(client: TestClient, **extra: object) -> dict:
     response = client.post(
         f"/v1/candidates/{application['candidate_id']}/communications/offer",
         json={
-            "by": "hr-admin",
             "body": "We would like to offer you the role.",
             "channel": "whatsapp",
             **extra,
@@ -574,7 +591,6 @@ def email_message(client: TestClient) -> dict:
     response = client.post(
         f"/v1/candidates/{application['candidate_id']}/communications/offer",
         json={
-            "by": "hr-admin",
             "body": "We would like to offer you the role.",
             "to_email": "sari@example.com",
         },
@@ -588,7 +604,7 @@ def test_manual_link_is_composed_and_never_marks_the_message_sent() -> None:
         message = whatsapp_message(client, to_phone="0812-3456-7890")
         link = client.post(
             f"/v1/communications/{message['id']}/dispatch-link",
-            json={"by": "Sinta Prabowo"},
+            json={},
         )
         history = client.get(f"/v1/candidates/{message['candidate_id']}/communications")
 
@@ -608,11 +624,11 @@ def test_manual_link_needs_a_number() -> None:
         message = whatsapp_message(client)
         missing = client.post(
             f"/v1/communications/{message['id']}/dispatch-link",
-            json={"by": "Sinta Prabowo"},
+            json={},
         )
         supplied = client.post(
             f"/v1/communications/{message['id']}/dispatch-link",
-            json={"by": "Sinta Prabowo", "to_phone": "+62 812 111 222 333"},
+            json={"to_phone": "+62 812 111 222 333"},
         )
 
     assert missing.status_code == 409
@@ -627,32 +643,39 @@ def test_manual_link_refuses_an_unusable_number() -> None:
 
         response = client.post(
             f"/v1/communications/{message['id']}/dispatch-link",
-            json={"by": "Sinta Prabowo"},
+            json={},
         )
 
     assert response.status_code == 400
     assert "not a usable WhatsApp number" in response.json()["title"]
 
 
-def test_manual_link_requires_a_named_human_and_a_queued_message() -> None:
+def test_manual_link_requires_a_queued_whatsapp_message() -> None:
     with make_client() as client:
         message = whatsapp_message(client, to_phone="0812-3456-7890")
-        agent = client.post(
+        claimed = client.post(
             f"/v1/communications/{message['id']}/dispatch-link",
             json={"by": "agent:screening_coordinator"},
         )
-        sent = client.post(f"/v1/communications/{message['id']}/sent", json={"by": "hr-admin"})
+        first = client.post(
+            f"/v1/communications/{message['id']}/dispatch-link",
+            json={},
+        )
+        sent = client.post(f"/v1/communications/{message['id']}/sent", json={})
         again = client.post(
             f"/v1/communications/{message['id']}/dispatch-link",
-            json={"by": "Sinta Prabowo"},
+            json={},
         )
         other = email_message(client)
         wrong_channel = client.post(
             f"/v1/communications/{other['id']}/dispatch-link",
-            json={"by": "Sinta Prabowo"},
+            json={},
         )
 
-    assert agent.status_code == 403
+    # The named-human requirement is enforced below the API now that a request
+    # cannot name an actor; `by` is refused rather than checked.
+    assert claimed.status_code == 422
+    assert first.status_code == 200
     assert sent.status_code == 200
     assert again.status_code == 409
     assert wrong_channel.status_code == 409

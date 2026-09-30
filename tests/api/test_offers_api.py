@@ -34,9 +34,7 @@ def terms_payload(**overrides: object) -> dict:
 
 def seeded_application(client: TestClient) -> dict:
     """A job + application with a registered evaluation (offers need one)."""
-    job = client.post(
-        "/v1/jobs", json={"title": "Backend Engineer", "created_by": "hr-admin"}
-    ).json()
+    job = client.post("/v1/jobs", json={"title": "Backend Engineer"}).json()
     application = client.post(
         "/v1/applications",
         json={

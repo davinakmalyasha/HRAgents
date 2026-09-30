@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import tables as t
 from hr_agents.db.session import sync_session_scope
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     CandidateCommunication,
     Channel,
@@ -243,7 +244,9 @@ class DbEvaluationService(EvaluationService):
             row = session.get(t.FeedbackReportRecord, candidate_id)
             return None if row is None else FeedbackReport.model_validate(row.report)
 
-    def _persist_feedback(self, candidate_id: UUID, report: FeedbackReport, *, by: str) -> None:
+    def _persist_feedback(
+        self, candidate_id: UUID, report: FeedbackReport, *, actor: ActorRef
+    ) -> None:
         with sync_session_scope(self._session_factory) as session:
             row = session.get(t.FeedbackReportRecord, candidate_id)
             if row is None:
@@ -252,13 +255,13 @@ class DbEvaluationService(EvaluationService):
                         candidate_id=candidate_id,
                         language=report.language,
                         report=report.model_dump(mode="json"),
-                        saved_by=by,
+                        saved_by=actor.actor_id,
                     )
                 )
             else:
                 row.language = report.language
                 row.report = report.model_dump(mode="json")
-                row.saved_by = by
+                row.saved_by = actor.actor_id
             session.flush()
 
     # mapping
@@ -330,7 +333,7 @@ class DbSchedulingService(SchedulingService):
             return [TimeSlot.model_validate(slot) for slot in row.slots]
 
     def _persist_availability(
-        self, interviewer_id: UUID, slots: list[TimeSlot], *, by: str
+        self, interviewer_id: UUID, slots: list[TimeSlot], *, actor: ActorRef
     ) -> None:
         payload = [slot.model_dump(mode="json") for slot in slots]
         with sync_session_scope(self._session_factory) as session:
@@ -340,12 +343,12 @@ class DbSchedulingService(SchedulingService):
                     t.SchedulingAvailabilityRecord(
                         interviewer_id=interviewer_id,
                         slots=payload,
-                        updated_by=by,
+                        updated_by=actor.actor_id,
                     )
                 )
             else:
                 row.slots = payload
-                row.updated_by = by
+                row.updated_by = actor.actor_id
             session.flush()
 
     def _load_proposal(self, proposal_id: UUID) -> SchedulingProposalRecord | None:
