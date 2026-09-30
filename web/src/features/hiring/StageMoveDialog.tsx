@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
 import { OverrideDialog } from './OverrideDialog'
@@ -33,7 +32,8 @@ const labelClass = 'text-xs font-medium text-ink-strong'
 /**
  * One dialog for every board drop the server allows a human to request:
  *
- * - `move` — a gated/status move needs a named human and a reason.
+ * - `move` — a gated/status move needs a reason; the actor is the
+ *   authenticated principal, so the user is never asked to spell their name.
  * - `choice` — closing is two different acts: withdraw (reason) or record the
  *   rejection sign-off through the existing override flow — the stage endpoint
  *   never writes `rejected` itself.
@@ -59,7 +59,6 @@ export function StageMoveDialog({
   const queryClient = useQueryClient()
   const [phase, setPhase] = useState<Phase>(mode)
   const [overrideOpen, setOverrideOpen] = useState(false)
-  const [by, setBy] = useState('')
   const [reason, setReason] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -103,9 +102,6 @@ export function StageMoveDialog({
 
   function validate(): boolean {
     const problems: string[] = []
-    if (by.trim() === '') {
-      problems.push(t('board.errors.byRequired'))
-    }
     if (reason.trim() === '') {
       problems.push(t('board.errors.reasonRequired'))
     }
@@ -124,7 +120,6 @@ export function StageMoveDialog({
     setBusy(true)
     const result = await moveStage(application.application_id, {
       target: nextTarget,
-      by: by.trim(),
       reason: reason.trim(),
     })
     setBusy(false)
@@ -225,19 +220,6 @@ export function StageMoveDialog({
               {problem}
             </p>
           ) : null}
-
-          <div className={fieldClass}>
-            <label htmlFor={`stage-by-${application.application_id}`} className={labelClass}>
-              {t('board.by')}
-            </label>
-            <Input
-              id={`stage-by-${application.application_id}`}
-              value={by}
-              onChange={(event) => setBy(event.target.value)}
-              placeholder={t('board.byPlaceholder')}
-              autoComplete="off"
-            />
-          </div>
 
           <div className={fieldClass}>
             <label htmlFor={`stage-reason-${application.application_id}`} className={labelClass}>

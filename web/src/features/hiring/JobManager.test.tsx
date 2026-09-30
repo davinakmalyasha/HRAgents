@@ -84,25 +84,16 @@ describe('JobManager', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('requires a named human before a status change', async () => {
-    renderManager()
-
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('jobs.actions.open') }))
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('jobs.transitionConfirm') }))
-
-    expect(changeJobStatusMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('jobs.errors.byRequired'))).toBeInTheDocument()
-  })
-
-  it('records the status change with the named actor', async () => {
+  it('records the status change without asking the user to name themselves', async () => {
     changeJobStatusMock.mockResolvedValue({ status: 200, job: job({ status: 'open' }) })
     renderManager()
 
     await userEvent.click(screen.getByRole('button', { name: i18n.t('jobs.actions.open') }))
-    await userEvent.type(screen.getByLabelText(i18n.t('jobs.transitionBy')), 'Sinta Prabowo')
+    // No "changed by" field: the server attributes the transition to the key holder.
+    expect(screen.queryByLabelText(i18n.t('jobs.transitionBy'))).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: i18n.t('jobs.transitionConfirm') }))
 
-    expect(changeJobStatusMock).toHaveBeenCalledWith('job-1', 'open', 'Sinta Prabowo')
+    expect(changeJobStatusMock).toHaveBeenCalledWith('job-1', 'open')
   })
 
   it('blocks weights that do not sum to one and submits a valid specification', async () => {

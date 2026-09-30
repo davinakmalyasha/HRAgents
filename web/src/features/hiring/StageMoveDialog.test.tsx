@@ -68,32 +68,34 @@ function renderDialog(
 }
 
 describe('StageMoveDialog', () => {
-  it('requires a named human and a reason before moving', async () => {
+  it('requires a reason before moving, and never asks for a name', async () => {
     renderDialog()
 
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirm') }))
-
-    expect(moveStageMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('board.errors.byRequired'))).toBeInTheDocument()
-
-    await userEvent.type(screen.getByLabelText(i18n.t('board.by')), 'hr-admin')
+    // No "moved by" field: the server attributes the move to the key holder.
+    expect(screen.queryByLabelText(i18n.t('board.by'))).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirm') }))
 
     expect(moveStageMock).not.toHaveBeenCalled()
     expect(screen.getByText(i18n.t('board.errors.reasonRequired'))).toBeInTheDocument()
-  })
 
-  it('submits the gated move with actor and reason', async () => {
-    moveStageMock.mockResolvedValue({ status: 200 })
-    const { onOpenChange } = renderDialog()
-
-    await userEvent.type(screen.getByLabelText(i18n.t('board.by')), 'hr-admin')
     await userEvent.type(screen.getByLabelText(i18n.t('board.reason')), 'pulled for review')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirm') }))
 
     expect(moveStageMock).toHaveBeenCalledWith('app-1', {
       target: 'gated',
-      by: 'hr-admin',
+      reason: 'pulled for review',
+    })
+  })
+
+  it('submits the gated move with a reason', async () => {
+    moveStageMock.mockResolvedValue({ status: 200 })
+    const { onOpenChange } = renderDialog()
+
+    await userEvent.type(screen.getByLabelText(i18n.t('board.reason')), 'pulled for review')
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirm') }))
+
+    expect(moveStageMock).toHaveBeenCalledWith('app-1', {
+      target: 'gated',
       reason: 'pulled for review',
     })
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -106,25 +108,22 @@ describe('StageMoveDialog', () => {
     })
     renderDialog({ target: 'scheduled', targetStage: 'interview' })
 
-    await userEvent.type(screen.getByLabelText(i18n.t('board.by')), 'hr-admin')
     await userEvent.type(screen.getByLabelText(i18n.t('board.reason')), 'want to book it')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirm') }))
 
     expect(screen.getByText(i18n.t('board.errors.needScheduling'))).toBeInTheDocument()
   })
 
-  it('withdraws the candidate from the close choice with actor and reason', async () => {
+  it('withdraws the candidate from the close choice with a reason', async () => {
     moveStageMock.mockResolvedValue({ status: 200 })
     renderDialog({ mode: 'choice', target: null, targetStage: 'closed' })
 
     await userEvent.click(screen.getByRole('button', { name: i18n.t('board.withdrawAction') }))
-    await userEvent.type(screen.getByLabelText(i18n.t('board.by')), 'hr-admin')
     await userEvent.type(screen.getByLabelText(i18n.t('board.reason')), 'candidate left')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirmWithdraw') }))
 
     expect(moveStageMock).toHaveBeenCalledWith('app-1', {
       target: 'withdrawn',
-      by: 'hr-admin',
       reason: 'candidate left',
     })
   })

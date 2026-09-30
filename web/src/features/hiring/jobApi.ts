@@ -24,14 +24,10 @@ export async function updateJob(jobId: string, body: JobUpdate): Promise<JobResu
   return { status: response.status, job: data }
 }
 
-export async function changeJobStatus(
-  jobId: string,
-  status: JobStatus,
-  by: string,
-): Promise<JobResult> {
+export async function changeJobStatus(jobId: string, status: JobStatus): Promise<JobResult> {
   const { data, response } = await api.POST('/v1/jobs/{job_id}/status', {
     params: { path: { job_id: jobId } },
-    body: { status, by },
+    body: { status },
   })
   return { status: response.status, job: data }
 }

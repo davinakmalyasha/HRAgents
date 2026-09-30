@@ -30,7 +30,6 @@ export async function moveStage(
   applicationId: string,
   body: {
     target: components['schemas']['ApplicationStatus']
-    by: string
     reason: string
   },
 ): Promise<StageMoveResult> {

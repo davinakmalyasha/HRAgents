@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -39,25 +38,19 @@ interface StatusChangeDialogProps {
 function StatusChangeDialog({ job, target, open, onOpenChange }: StatusChangeDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [by, setBy] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   function close(next: boolean) {
     if (!next) {
-      setBy('')
       setError(null)
     }
     onOpenChange(next)
   }
 
   async function confirm() {
-    if (by.trim() === '') {
-      setError(t('jobs.errors.byRequired'))
-      return
-    }
     setBusy(true)
-    const result = await changeJobStatus(job.id, target, by.trim())
+    const result = await changeJobStatus(job.id, target)
     setBusy(false)
     if (result.status === 200) {
       await queryClient.invalidateQueries({ queryKey: ['jobs'] })
@@ -87,19 +80,6 @@ function StatusChangeDialog({ job, target, open, onOpenChange }: StatusChangeDia
           </p>
         ) : null}
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="job-transition-by" className="text-ink-strong text-xs font-medium">
-            {t('jobs.transitionBy')}
-          </label>
-          <Input
-            id="job-transition-by"
-            value={by}
-            onChange={(event) => setBy(event.target.value)}
-            placeholder={t('jobs.fields.savedByPlaceholder')}
-            autoComplete="off"
-          />
-        </div>
-
         <DialogFooter>
           <Button size="sm" disabled={busy} onClick={() => void confirm()}>
             {t('jobs.transitionConfirm')}
@@ -113,8 +93,8 @@ function StatusChangeDialog({ job, target, open, onOpenChange }: StatusChangeDia
 /**
  * Job specifications: create, edit, and drive the guarded status lifecycle.
  *
- * Every transition carries a named human (`by`) and is audited server-side;
- * closed jobs are read-only, matching the service rule.
+ * Every transition is attributed to the authenticated principal server-side and
+ * audited there; closed jobs are read-only, matching the service rule.
  */
 export function JobManager() {
   const { t, i18n } = useTranslation()

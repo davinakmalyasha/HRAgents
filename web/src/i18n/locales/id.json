@@ -154,8 +154,7 @@
       "actions": "Tindakan",
       "weights": "Bobot dimensi",
       "weightsHelp": "Non-negatif dan berjumlah 1,0; tercatat per lowongan untuk skor yang dapat direproduksi.",
-      "savedBy": "Disimpan oleh",
-      "savedByPlaceholder": "mis. Sinta Prabowo"
+      "savedBy": "Disimpan oleh"
     },
     "weightsTotal": "Total: {{total}}",
     "status": {
@@ -172,7 +171,6 @@
     },
     "transitionTitle": "Ubah status lowongan",
     "transitionBody": "{{action}} \"{{title}}\"?",
-    "transitionBy": "Diubah oleh",
     "transitionConfirm": "Konfirmasi",
     "seniority": {
       "intern": "Magang",
@@ -190,7 +188,6 @@
     },
     "errors": {
       "titleRequired": "Judul lowongan wajib diisi.",
-      "byRequired": "Nama orang wajib diisi.",
       "yearsInvalid": "Minimal tahun harus bilangan bulat 0–60.",
       "weightsNumber": "Setiap bobot harus angka non-negatif.",
       "weightsSum": "Bobot harus berjumlah 1,0.",
@@ -500,16 +497,13 @@
     "rejectAction": "Catat persetujuan penolakan",
     "withdrawAction": "Tarik kandidat",
     "withdrawTitle": "Tarik {{candidate}}",
-    "withdrawHint": "Penarikan bukan penolakan — butuh nama Anda dan alasan, dan kandidat keluar dari proses.",
-    "by": "Dipindahkan oleh",
-    "byPlaceholder": "mis. Sinta Prabowo",
+    "withdrawHint": "Penarikan bukan penolakan — butuh alasan, dan kandidat keluar dari proses.",
     "reason": "Alasan",
     "reasonPlaceholder": "Mengapa pemindahan ini benar (tercatat di log audit)",
     "confirm": "Terapkan pemindahan",
     "confirmWithdraw": "Tarik",
     "systemOwned": "Tahap ekstraksi dan penilaian diatur oleh sistem — seretan tidak bisa mengubahnya.",
     "errors": {
-      "byRequired": "Nama orang wajib diisi.",
       "reasonRequired": "Alasan wajib diisi.",
       "needSignoff": "Catat persetujuan penolakan di antrean tinjauan dulu; papan mengikuti.",
       "needScheduling": "Penjadwalan butuh usulan atau persetujuan yang disetujui dulu.",

@@ -154,8 +154,7 @@
       "actions": "Actions",
       "weights": "Dimension weights",
       "weightsHelp": "Non-negative, summing to 1.0; recorded per job for reproducible scoring.",
-      "savedBy": "Saved by",
-      "savedByPlaceholder": "e.g. Sinta Prabowo"
+      "savedBy": "Saved by"
     },
     "weightsTotal": "Total: {{total}}",
     "status": {
@@ -172,7 +171,6 @@
     },
     "transitionTitle": "Change job status",
     "transitionBody": "{{action}} \"{{title}}\"?",
-    "transitionBy": "Changed by",
     "transitionConfirm": "Confirm",
     "seniority": {
       "intern": "Intern",
@@ -190,7 +188,6 @@
     },
     "errors": {
       "titleRequired": "A job title is required.",
-      "byRequired": "A named person is required.",
       "yearsInvalid": "Minimum years must be a whole number between 0 and 60.",
       "weightsNumber": "Each weight must be a non-negative number.",
       "weightsSum": "Weights must sum to 1.0.",
@@ -500,16 +497,13 @@
     "rejectAction": "Record rejection sign-off",
     "withdrawAction": "Withdraw candidate",
     "withdrawTitle": "Withdraw {{candidate}}",
-    "withdrawHint": "Withdrawal is not a rejection — it needs your name and a reason, and the candidate simply leaves the process.",
-    "by": "Moved by",
-    "byPlaceholder": "e.g. Sinta Prabowo",
+    "withdrawHint": "Withdrawal is not a rejection — it needs a reason, and the candidate simply leaves the process.",
     "reason": "Reason",
     "reasonPlaceholder": "Why this move is right (recorded in the audit log)",
     "confirm": "Apply move",
     "confirmWithdraw": "Withdraw",
     "systemOwned": "Extraction and scoring stages are set by the system — dragging cannot change them.",
     "errors": {
-      "byRequired": "A named person is required.",
       "reasonRequired": "A reason is required.",
       "needSignoff": "Record the rejection sign-off in the review queue first; the board follows.",
       "needScheduling": "Scheduling needs a proposal or an approved override first.",
