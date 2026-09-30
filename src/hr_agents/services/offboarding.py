@@ -13,7 +13,7 @@ import hashlib
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef, classify_actor, require_named_human
 from hr_agents.models import (
     ApproverRole,
     AssetStatus,
@@ -181,7 +181,9 @@ class OffboardingService:
 
         if employee.can_transition_to(EmployeeStatus.NOTICE_PERIOD):
             self._employees.transition(
-                employee.id, target=EmployeeStatus.NOTICE_PERIOD, by=created_by
+                employee.id,
+                target=EmployeeStatus.NOTICE_PERIOD,
+                actor=ActorRef.legacy(created_by),
             )
 
         self._record(
@@ -487,11 +489,14 @@ class OffboardingService:
 
         year, month = current_period()
         run = self._payroll.create_run(
-            period_year=year, period_month=month, created_by=by, kind=PayrollRunKind.FINAL
+            period_year=year,
+            period_month=month,
+            created_by=by,
+            kind=PayrollRunKind.FINAL,
         )
         task = self._tasks.create(
             title="[Payroll] Prepare final settlement inputs",
-            created_by="system",
+            actor=ActorRef.system("scheduler"),
             description=(
                 f"Final pay run {run.id} opened for offboarding plan {plan.id}. "
                 "Enter inputs, compute, and route for Finance sign-off."
@@ -567,7 +572,9 @@ class OffboardingService:
         if plan.completed_at is None:
             plan = self.complete_plan(plan_id, by=by)
         employee = self._employees.transition(
-            plan.employee_id, target=EmployeeStatus.OFFBOARDED, by=by
+            plan.employee_id,
+            target=EmployeeStatus.OFFBOARDED,
+            actor=ActorRef.legacy(by),
         )
         self._record(
             action="offboarding.employee_offboarded",

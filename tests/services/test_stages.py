@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 
+from hr_agents.identity import ActorError, ActorRef
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionInput
 from hr_agents.services.ingestion import ApplicationStatus
 from hr_agents.services.stages import (
@@ -15,6 +16,8 @@ from hr_agents.services.stages import (
     StageTransitionError,
     StageTransitionService,
 )
+
+DEFAULT_ACTOR = ActorRef.legacy("hr-admin")
 
 
 @pytest.fixture
@@ -38,13 +41,13 @@ def move(
     application_id: object,
     *,
     target: ApplicationStatus,
-    by: str = "hr-admin",
+    actor: ActorRef = DEFAULT_ACTOR,
     reason: str = "reviewed with the panel",
 ) -> None:
     StageTransitionService(store=store, audit=audit).move(
         application_id,  # type: ignore[arg-type]
         target=target,
-        by=by,
+        actor=actor,
         reason=reason,
     )
 
@@ -81,13 +84,32 @@ def test_system_owned_targets_are_refused(audit: AuditChain) -> None:
 def test_agents_cannot_move_cards(audit: AuditChain) -> None:
     store, application_id = store_at(ApplicationStatus.GATED)
     with pytest.raises(StageTransitionError, match="named human"):
-        move(store, audit, application_id, target=ApplicationStatus.WITHDRAWN, by="agent:hr_bot")
+        move(
+            store,
+            audit,
+            application_id,
+            target=ApplicationStatus.WITHDRAWN,
+            actor=ActorRef.legacy("agent:hr_bot"),
+        )
 
 
-def test_blank_actor_is_refused(audit: AuditChain) -> None:
+def test_a_blank_actor_cannot_reach_the_service(audit: AuditChain) -> None:
+    """A blank actor now fails at construction, not at the gate.
+
+    This is the stronger property: the old test proved a gate rejected ``"   "``,
+    which still let the caller get that far. ``ActorRef`` refuses to exist without
+    an id, so there is nothing left for the gate to catch -- and, importantly,
+    nothing that could produce a state change followed by a failed audit append.
+    """
     store, application_id = store_at(ApplicationStatus.GATED)
-    with pytest.raises(StageTransitionError, match="named human"):
-        move(store, audit, application_id, target=ApplicationStatus.WITHDRAWN, by="   ")
+    with pytest.raises(ActorError, match="actor id is required"):
+        move(
+            store,
+            audit,
+            application_id,
+            target=ApplicationStatus.WITHDRAWN,
+            actor=ActorRef.legacy("   "),  # raises before the service is reached
+        )
 
 
 def test_blank_reason_is_refused(audit: AuditChain) -> None:
@@ -132,7 +154,7 @@ def test_evaluated_to_gated_moves_and_audits(audit: AuditChain) -> None:
     record = StageTransitionService(store=store, audit=audit).move(
         application_id,  # type: ignore[arg-type]
         target=ApplicationStatus.GATED,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         reason="pulled out of auto-schedule for a human look",
     )
 
@@ -151,7 +173,7 @@ def test_reopen_a_rejection_back_to_review(audit: AuditChain) -> None:
     record = StageTransitionService(store=store, audit=audit).move(
         application_id,  # type: ignore[arg-type]
         target=ApplicationStatus.GATED,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         reason="candidate appealed; reopening for review",
     )
 
@@ -164,7 +186,7 @@ def test_withdraw_after_scheduling(audit: AuditChain) -> None:
     record = StageTransitionService(store=store, audit=audit).move(
         application_id,  # type: ignore[arg-type]
         target=ApplicationStatus.WITHDRAWN,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         reason="candidate withdrew by phone",
     )
 

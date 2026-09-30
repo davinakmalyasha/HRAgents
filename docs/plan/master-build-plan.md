@@ -584,10 +584,13 @@ not a style opinion.
    key is resolved once per request and 401/403 are distinguishable. **The recruiting group no
    longer accepts an actor from a request body** — the eleven actor fields are gone, routers pass
    `ActorRef` from the authenticated principal, and the dashboard's "type your name" inputs were
-   removed rather than left silently ignored. **Still open:** the people, department, payroll,
-   compliance, onboarding, offboarding, leave, growth and offers groups still carry ~70 `by`/
-   `created_by` request fields, so a holder of one `hr_admin` key can still name a different person
-   in those. Fixing that is the rest of Phase 2 of the core work.
+   removed rather than left silently ignored, and the same is now true of the **people workspace** —
+   `EmployeeService` (create, transition, employee documents, document verification, org units),
+   `ContractService`, `TaskEngine` and `StageTransitionService` all take `ActorRef`, and a blank
+   actor can no longer be constructed at all. **Still open:** offers, onboarding, offboarding, leave,
+   growth, payroll, rate tables and compliance still carry ~55 `by`/`created_by` request fields, so
+   a holder of one `hr_admin` key can still name a different person in those. Fixing that is the
+   rest of Phase 2 of the core work.
 2. ~~**Actor classification is implemented 11 times with 3 behaviours.**~~ **Fixed.** All three
    sites recording `agent:` as `ActorType.HUMAN` (`contracts`, `employees`, `rate_tables`) now route
    through the shared classifier, as do the four that matched only the exact string `"system"`.

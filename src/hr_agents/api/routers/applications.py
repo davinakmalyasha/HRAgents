@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
-from hr_agents.api.deps import get_audit, get_dispatcher, get_store, require_permission
+from hr_agents.api.deps import ActorDep, get_audit, get_dispatcher, get_store, require_permission
 from hr_agents.api.schemas import (
     ApplicationAccepted,
     ApplicationStatusResponse,
@@ -173,6 +173,7 @@ def move_stage(
     payload: StageChangeRequest,
     store: StoreDep,
     audit: AuditDep,
+    actor: ActorDep,
 ) -> ApplicationStatusResponse:
     """Drag-equivalent move. Refuses gates the board must never bypass."""
     service = StageTransitionService(store=store, audit=audit)
@@ -180,7 +181,7 @@ def move_stage(
         record = service.move(
             application_id,
             target=payload.target,
-            by=payload.by,
+            actor=actor,
             reason=payload.reason,
         )
     except StageTransitionError as exc:

@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     AnomalySeverity,
     ApproverRole,
@@ -123,7 +124,7 @@ def seed_verified_tables(rate_tables: RateTableService) -> None:
 def make_employee(employees: EmployeeService, name: str = "Sari Dewi") -> Employee:
     return employees.create(
         full_name=name,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         hire_date=TODAY,
         job_title="Finance Staff",
     )

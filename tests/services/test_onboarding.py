@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ContractType,
     DocumentKind,
@@ -56,7 +57,7 @@ def make_employee(
 ) -> Employee:
     return employee_service.create(
         full_name="Budi Santoso",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         hire_date=TODAY,
         job_title=job_title,
     )
@@ -313,7 +314,7 @@ def test_link_document_then_auto_complete(
         kind=DocumentKind.KTP,
         storage_key="ktp.pdf",
         sha256="a" * 64,
-        uploaded_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     linked = service.link_document(plan.id, "collect_ktp", document=document, linked_by="hr-admin")
     assert linked.steps[0].status is StepStatus.IN_PROGRESS
@@ -326,7 +327,7 @@ def test_link_document_then_auto_complete(
         )
 
     verified = employee_service.mark_document_verified(
-        document.id, verified_by="hr-admin", verified=True
+        document.id, actor=ActorRef.legacy("hr-admin"), verified=True
     )
     completed = service.auto_complete_document_step(
         plan.id, "collect_ktp", document=verified, agent_name="onboarding_coordinator"
@@ -346,9 +347,11 @@ def test_auto_complete_rejects_non_document_step(
         kind=DocumentKind.KTP,
         storage_key="ktp.pdf",
         sha256="a" * 64,
-        uploaded_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
-    verified = employee_service.mark_document_verified(document.id, verified_by="hr", verified=True)
+    verified = employee_service.mark_document_verified(
+        document.id, actor=ActorRef.legacy("hr"), verified=True
+    )
     with pytest.raises(OnboardingError, match="not a document step"):
         service.auto_complete_document_step(
             plan.id, "orientation", document=verified, agent_name="agent"
@@ -378,9 +381,11 @@ def test_auto_complete_rejects_signoff_step(
         kind=DocumentKind.KTP,
         storage_key="ktp.pdf",
         sha256="a" * 64,
-        uploaded_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
-    verified = employee_service.mark_document_verified(document.id, verified_by="hr", verified=True)
+    verified = employee_service.mark_document_verified(
+        document.id, actor=ActorRef.legacy("hr"), verified=True
+    )
     service.link_document(plan.id, "doc", document=verified, linked_by="hr")
 
     with pytest.raises(OnboardingError, match="human sign-off"):
@@ -400,7 +405,7 @@ def test_link_document_kind_mismatch(
         kind=DocumentKind.NPWP,
         storage_key="npwp.pdf",
         sha256="b" * 64,
-        uploaded_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
     with pytest.raises(OnboardingError, match="expects ktp"):
         service.link_document(plan.id, "collect_ktp", document=wrong, linked_by="hr")
@@ -420,7 +425,7 @@ def test_document_status_report(
         kind=DocumentKind.KTP,
         storage_key="ktp.pdf",
         sha256="a" * 64,
-        uploaded_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
     service.link_document(plan.id, "collect_ktp", document=document, linked_by="hr")
     status = service.document_step_status(plan.id)

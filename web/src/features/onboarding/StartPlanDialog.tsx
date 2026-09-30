@@ -127,7 +127,7 @@ export function StartPlanDialog({
       const created = await createEmployee({
         full_name: fullName.trim(),
         hire_date: hireDate,
-        created_by: createdBy.trim(),
+        // No actor: the API attributes the employee to the API key holder.
         email: email.trim() === '' ? null : email.trim(),
         job_title: jobTitle.trim() === '' ? null : jobTitle.trim(),
         phone: null,

@@ -11,10 +11,9 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
-    AuditActor,
     TaskItem,
     TaskPriority,
     TaskSource,
@@ -48,7 +47,7 @@ class TaskEngine:
         self,
         *,
         title: str,
-        created_by: str,
+        actor: ActorRef,
         description: str = "",
         assignee_role: ApproverRole | None = None,
         assignee_id: str | None = None,
@@ -68,10 +67,10 @@ class TaskEngine:
             source=source,
             related_subject=related_subject,
             related_id=related_id,
-            created_by=created_by,
+            created_by=actor.actor_id,
         )
         self._store.add(task)
-        self._record(task, action="task.created", actor_id=created_by)
+        self._record(task, action="task.created", actor=actor.actor_id)
         return task
 
     def create_agent_task(
@@ -90,7 +89,7 @@ class TaskEngine:
         return self.create(
             title=title,
             description=description,
-            created_by=f"agent:{agent_name}",
+            actor=ActorRef.agent(agent_name),
             assignee_role=assignee_role,
             due_on=due_on,
             priority=priority,
@@ -101,50 +100,50 @@ class TaskEngine:
 
     # --- lifecycle ------------------------------------------------------
 
-    def start(self, task_id: UUID, *, by: str) -> TaskItem:
+    def start(self, task_id: UUID, *, actor: ActorRef) -> TaskItem:
         return self._transition(
-            task_id, target=TaskStatus.IN_PROGRESS, by=by, action="task.started"
+            task_id, target=TaskStatus.IN_PROGRESS, actor=actor, action="task.started"
         )
 
-    def block(self, task_id: UUID, *, by: str, reason: str = "") -> TaskItem:
+    def block(self, task_id: UUID, *, actor: ActorRef, reason: str = "") -> TaskItem:
         return self._transition(
-            task_id, target=TaskStatus.BLOCKED, by=by, action="task.blocked", note=reason
+            task_id, target=TaskStatus.BLOCKED, actor=actor, action="task.blocked", note=reason
         )
 
-    def complete(self, task_id: UUID, *, by: str) -> TaskItem:
+    def complete(self, task_id: UUID, *, actor: ActorRef) -> TaskItem:
         """Close a task. A task is a human work item, so an agent cannot close one."""
-        by = require_named_human(by, "completing a task", TaskError)
+        actor.require_human("completing a task", TaskError)
         task = self._require(task_id)
         if not task.is_open:
             raise TaskError(f"task {task_id} is {task.status.value}; cannot complete")
         updated = task.model_copy(
             update={
                 "status": TaskStatus.DONE,
-                "completed_by": by,
+                "completed_by": actor.actor_id,
                 "completed_at": utc_now(),
                 "updated_at": utc_now(),
             }
         )
         self._store.save(updated)
-        self._record(updated, action="task.completed", actor_id=by)
+        self._record(updated, action="task.completed", actor=actor)
         return updated
 
-    def cancel(self, task_id: UUID, *, by: str, reason: str = "") -> TaskItem:
-        by = require_named_human(by, "cancelling a task", TaskError)
+    def cancel(self, task_id: UUID, *, actor: ActorRef, reason: str = "") -> TaskItem:
+        actor.require_human("cancelling a task", TaskError)
         task = self._require(task_id)
         if not task.is_open:
             raise TaskError(f"task {task_id} is {task.status.value}; cannot cancel")
         updated = task.model_copy(
             update={
                 "status": TaskStatus.CANCELLED,
-                "completed_by": by,
+                "completed_by": actor.actor_id,
                 "completed_at": utc_now(),
                 "description": (task.description + f"\nCancelled: {reason}").strip(),
                 "updated_at": utc_now(),
             }
         )
         self._store.save(updated)
-        self._record(updated, action="task.cancelled", actor_id=by)
+        self._record(updated, action="task.cancelled", actor=actor)
         return updated
 
     # --- queries --------------------------------------------------------
@@ -182,7 +181,7 @@ class TaskEngine:
         task_id: UUID,
         *,
         target: TaskStatus,
-        by: str,
+        actor: ActorRef,
         action: str,
         note: str = "",
     ) -> TaskItem:
@@ -196,7 +195,7 @@ class TaskEngine:
             update={"status": target, "description": description, "updated_at": utc_now()}
         )
         self._store.save(updated)
-        self._record(updated, action=action, actor_id=by)
+        self._record(updated, action=action, actor=actor)
         return updated
 
     def _require(self, task_id: UUID) -> TaskItem:
@@ -205,10 +204,9 @@ class TaskEngine:
             raise TaskError(f"unknown task {task_id}")
         return task
 
-    def _record(self, task: TaskItem, *, action: str, actor_id: str) -> None:
-        actor_type = classify_actor(actor_id)
+    def _record(self, task: TaskItem, *, action: str, actor: ActorRef | str) -> None:
         self._audit.append(
-            actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
+            actor=ActorRef.coerce(actor).audit_actor(),
             action=action,
             subject_type="task",
             subject_id=str(task.id),

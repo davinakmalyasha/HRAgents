@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
     StrictModel,
@@ -97,7 +98,7 @@ def document_expiry_tasks(
         created.append(
             tasks.create(
                 title=f"Document expiring in {days} days — {document.kind.value.upper()}",
-                created_by="system",
+                actor=ActorRef.system("scheduler"),
                 description=(
                     "Collect a fresh copy before "
                     f"{document.expires_on.isoformat()} and verify it in the vault."
@@ -148,7 +149,7 @@ def reply_sla_tasks(
         created.append(
             tasks.create(
                 title=f"No reply to the {message.kind.value} message in {within_hours}h",
-                created_by="system",
+                actor=ActorRef.system("scheduler"),
                 description=(
                     f"Sent to {message.recipient or message.recipient_phone or 'the candidate'} "
                     f"on {message.sent_at.isoformat()} with no answer since. Follow up, or "

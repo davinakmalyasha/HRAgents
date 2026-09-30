@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 import pytest
 from pydantic import ValidationError
 
+from hr_agents.identity import ActorError, ActorRef
 from hr_agents.models import (
     ApprovalSubject,
     ApproverRole,
@@ -60,27 +61,58 @@ from hr_agents.services.tasks import TaskEngine
 
 NOW = datetime(2026, 3, 10, 9, 0, tzinfo=UTC)
 HIRE_DATE = date(2024, 1, 15)
+DEFAULT_ACTOR = ActorRef.legacy("hr-admin")
 
-NON_HUMANS = ["agent:screening", "agent:", "system", "system:retention", "scheduler", ""]
+# The actors every named-human gate must refuse. `ActorRef.legacy` is deliberate:
+# these are bare strings with no provenance, which is exactly the shape of the
+# input a gate has to reject.
+#
+# A blank actor is absent from this list on purpose: it cannot be constructed.
+# See `test_a_blank_actor_cannot_be_constructed` below, which is the stronger
+# property -- a gate that has to reject "" is a weaker design than one that
+# cannot accept it. Services that still take a bare `by: str` keep their own
+# blank-string tests, because a request body can still supply one.
+NON_HUMANS = [
+    ActorRef.legacy("agent:screening"),
+    ActorRef.legacy("agent:"),
+    ActorRef.legacy("system"),
+    ActorRef.legacy("system:retention"),
+    ActorRef.legacy("scheduler"),
+]
 
 
 def _employee(service: EmployeeService) -> Employee:
-    return service.create(full_name="Rina", hire_date=HIRE_DATE, created_by="hr-admin")
+    return service.create(full_name="Rina", hire_date=HIRE_DATE, actor=ActorRef.legacy("hr-admin"))
 
 
 def _contract(
-    service: ContractService, employee_id: UUID, *, created_by: str = "hr-admin"
+    service: ContractService,
+    employee_id: UUID,
+    *,
+    actor: ActorRef = DEFAULT_ACTOR,
 ) -> Contract:
     return service.create(
+        actor=actor,
         employee_id=employee_id,
         contract_type=ContractType.PKWTT,
         start_date=HIRE_DATE,
         end_date=date(2027, 1, 14),
-        created_by=created_by,
     )
 
 
 # --- employees ----------------------------------------------------------------
+
+
+def test_a_blank_actor_cannot_be_constructed() -> None:
+    """A gate that rejects "" is a weaker design than one that cannot accept it.
+
+    `AuditActor.actor_id` has `min_length=1`, so a blank actor could never be
+    written to the chain anyway -- the failure mode was a state change followed by
+    a failed audit append. Building the ref is where that now stops.
+    """
+    for blank in ("", "   ", "\t\n"):
+        with pytest.raises(ActorError, match="actor id is required"):
+            ActorRef.legacy(blank)
 
 
 def test_document_verification_refuses_every_non_human() -> None:
@@ -92,15 +124,17 @@ def test_document_verification_refuses_every_non_human() -> None:
         kind=DocumentKind.KTP,
         storage_key="documents/ktp.pdf",
         sha256="0" * 64,
-        uploaded_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         filename="ktp.pdf",
     )
 
     for actor in NON_HUMANS:
         with pytest.raises(EmployeeError, match="named human"):
-            employees.mark_document_verified(document.id, verified_by=actor, verified=True)
+            employees.mark_document_verified(document.id, actor=actor, verified=True)
 
-    assert employees.mark_document_verified(document.id, verified_by="Rina", verified=True)
+    assert employees.mark_document_verified(
+        document.id, actor=ActorRef.legacy("Rina"), verified=True
+    )
 
 
 def test_employee_transition_refuses_every_non_human() -> None:
@@ -110,9 +144,11 @@ def test_employee_transition_refuses_every_non_human() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(EmployeeError, match="named human"):
-            employees.transition(employee.id, target=EmployeeStatus.ACTIVE, by=actor)
+            employees.transition(employee.id, target=EmployeeStatus.ACTIVE, actor=actor)
 
-    assert employees.transition(employee.id, target=EmployeeStatus.ACTIVE, by="Rina")
+    assert employees.transition(
+        employee.id, target=EmployeeStatus.ACTIVE, actor=ActorRef.legacy("Rina")
+    )
 
 
 def test_the_transition_gate_sits_above_the_idempotent_shortcut() -> None:
@@ -124,10 +160,12 @@ def test_the_transition_gate_sits_above_the_idempotent_shortcut() -> None:
     """
     employees = EmployeeService(EmployeeStore(), audit=AuditChain())
     employee = _employee(employees)
-    employees.transition(employee.id, target=EmployeeStatus.ACTIVE, by="Rina")
+    employees.transition(employee.id, target=EmployeeStatus.ACTIVE, actor=ActorRef.legacy("Rina"))
 
     with pytest.raises(EmployeeError, match="named human"):
-        employees.transition(employee.id, target=EmployeeStatus.ACTIVE, by="system")
+        employees.transition(
+            employee.id, target=EmployeeStatus.ACTIVE, actor=ActorRef.legacy("system")
+        )
 
 
 # --- contracts ----------------------------------------------------------------
@@ -140,14 +178,14 @@ def test_contract_activation_and_termination_refuse_non_humans() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(ContractError, match="named human"):
-            contracts.activate(contract.id, by=actor)
+            contracts.activate(contract.id, actor=actor)
 
-    contracts.activate(contract.id, by="Rina")
+    contracts.activate(contract.id, actor=ActorRef.legacy("Rina"))
     for actor in NON_HUMANS:
         with pytest.raises(ContractError, match="named human"):
-            contracts.terminate(contract.id, by=actor, reason="resigned")
+            contracts.terminate(contract.id, actor=actor, reason="resigned")
 
-    assert contracts.terminate(contract.id, by="Rina", reason="resigned")
+    assert contracts.terminate(contract.id, actor=ActorRef.legacy("Rina"), reason="resigned")
 
 
 # --- tasks --------------------------------------------------------------------
@@ -156,17 +194,17 @@ def test_contract_activation_and_termination_refuse_non_humans() -> None:
 def test_task_completion_and_cancellation_refuse_non_humans() -> None:
     """A task is a human work item by definition; agents may only create them."""
     tasks = TaskEngine(TaskStore(), audit=AuditChain())
-    first = tasks.create(title="Collect KTP", created_by="hr-admin")
-    second = tasks.create(title="Collect NPWP", created_by="hr-admin")
+    first = tasks.create(title="Collect KTP", actor=ActorRef.legacy("hr-admin"))
+    second = tasks.create(title="Collect NPWP", actor=ActorRef.legacy("hr-admin"))
 
     for actor in NON_HUMANS:
         with pytest.raises(TaskError, match="named human"):
-            tasks.complete(first.id, by=actor)
+            tasks.complete(first.id, actor=actor)
         with pytest.raises(TaskError, match="named human"):
-            tasks.cancel(second.id, by=actor)
+            tasks.cancel(second.id, actor=actor)
 
-    assert tasks.complete(first.id, by="Rina").status.value == "done"
-    assert tasks.cancel(second.id, by="Rina").status.value == "cancelled"
+    assert tasks.complete(first.id, actor=ActorRef.legacy("Rina")).status.value == "done"
+    assert tasks.cancel(second.id, actor=ActorRef.legacy("Rina")).status.value == "cancelled"
 
 
 # --- leave --------------------------------------------------------------------
@@ -180,12 +218,12 @@ def test_leave_policy_and_balance_adjustment_refuse_non_humans() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(LeaveError, match="named human"):
-            leave.set_policy(policy, by=actor)
+            leave.set_policy(policy, by=actor.actor_id)
     leave.set_policy(policy, by="Rina")
 
     for actor in NON_HUMANS:
         with pytest.raises(LeaveError, match="named human"):
-            leave.adjust_balance(employee.id, LeaveType.ANNUAL, days=2, by=actor)
+            leave.adjust_balance(employee.id, LeaveType.ANNUAL, days=2, by=actor.actor_id)
 
     assert leave.adjust_balance(employee.id, LeaveType.ANNUAL, days=2, by="Rina").adjustment == 2
 
@@ -203,9 +241,9 @@ def test_payroll_export_and_cancellation_refuse_non_humans() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(PayrollError, match="named human"):
-            payroll.mark_exported(uuid4(), by=actor)
+            payroll.mark_exported(uuid4(), by=actor.actor_id)
         with pytest.raises(PayrollError, match="named human"):
-            payroll.cancel_run(uuid4(), by=actor, reason="mistake")
+            payroll.cancel_run(uuid4(), by=actor.actor_id, reason="mistake")
 
 
 def test_the_payroll_gate_runs_before_the_lookup() -> None:
@@ -250,7 +288,7 @@ def test_finalizing_an_exit_refuses_non_humans() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(OffboardingError, match="named human"):
-            service.finalize_employee_exit(missing, by=actor)
+            service.finalize_employee_exit(missing, by=actor.actor_id)
 
     # The gate is not merely present, it runs first: a human gets the real error.
     with pytest.raises(OffboardingError, match="unknown"):
@@ -280,7 +318,7 @@ def test_approval_decisions_refuse_system_actors() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(Exception, match="named human"):
-            approvals.decide(request.id, decided_by=actor, approve=True, reason="ok")
+            approvals.decide(request.id, decided_by=actor.actor_id, approve=True, reason="ok")
 
     decision = approvals.decide(request.id, decided_by="dpo-nadia", approve=True, reason="ok")
     assert decision.action == "approved"
@@ -295,15 +333,21 @@ def test_an_agent_actor_reaches_the_chain_as_an_agent_everywhere() -> None:
     recorded ``agent:x`` as ``ActorType.HUMAN`` on the tamper-evident chain."""
     audit = AuditChain()
     employees = EmployeeService(EmployeeStore(), audit=audit)
-    employee = employees.create(full_name="Rina", hire_date=HIRE_DATE, created_by="agent:x")
+    employee = employees.create(
+        full_name="Rina", hire_date=HIRE_DATE, actor=ActorRef.legacy("agent:x")
+    )
     assert audit.entries[-1].actor.actor_type.value == "agent"
 
     contracts = ContractService(ContractStore(), audit=audit, tasks=TaskEngine(TaskStore()))
-    _contract(contracts, employee.id, created_by="agent:x")
+    _contract(contracts, employee.id, actor=ActorRef.legacy("agent:x"))
     assert audit.entries[-1].actor.actor_type.value == "agent"
 
     rates = RateTableService(RateTableStore(), audit=audit)
-    rates.create(kind=RateTableKind.BPJS_KESEHATAN, name="BPJS", created_by="agent:x")
+    rates.create(
+        kind=RateTableKind.BPJS_KESEHATAN,
+        name="BPJS",
+        created_by="agent:x",
+    )
     assert audit.entries[-1].actor.actor_type.value == "agent"
 
 
@@ -312,15 +356,17 @@ def test_a_system_prefixed_actor_is_system_everywhere() -> None:
     identifying itself as ``system:something`` was recorded as a human."""
     audit = AuditChain()
     employees = EmployeeService(EmployeeStore(), audit=audit)
-    employee = employees.create(full_name="Rina", hire_date=HIRE_DATE, created_by="system:seed")
+    employee = employees.create(
+        full_name="Rina", hire_date=HIRE_DATE, actor=ActorRef.legacy("system:seed")
+    )
     assert audit.entries[-1].actor.actor_type.value == "system"
 
     contracts = ContractService(ContractStore(), audit=audit, tasks=TaskEngine(TaskStore()))
-    _contract(contracts, employee.id, created_by="system:seed")
+    _contract(contracts, employee.id, actor=ActorRef.legacy("system:seed"))
     assert audit.entries[-1].actor.actor_type.value == "system"
 
     tasks = TaskEngine(TaskStore(), audit=audit)
-    tasks.create(title="Collect KTP", created_by="system:scheduler")
+    tasks.create(title="Collect KTP", actor=ActorRef.legacy("system:scheduler"))
     assert audit.entries[-1].actor.actor_type.value == "system"
 
 

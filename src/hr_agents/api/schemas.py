@@ -84,7 +84,6 @@ class StageChangeRequest(StrictModel):
     """Manual board move; validated against the designed transition table."""
 
     target: ApplicationStatus
-    by: str = Field(min_length=1, max_length=200)
     reason: str = Field(min_length=1, max_length=500)
 
 

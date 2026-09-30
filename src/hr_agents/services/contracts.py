@@ -11,10 +11,9 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
-    AuditActor,
     Contract,
     ContractStatus,
     ContractType,
@@ -58,7 +57,7 @@ class ContractService:
         employee_id: UUID,
         contract_type: ContractType,
         start_date: date,
-        created_by: str,
+        actor: ActorRef,
         end_date: date | None = None,
         probation_end_date: date | None = None,
         notes: str | None = None,
@@ -73,11 +72,13 @@ class ContractService:
             status=ContractStatus.DRAFT,
         )
         self._store.add(contract)
-        self._record(contract, action="contract.created", actor_id=created_by)
+        self._record(contract, action="contract.created", actor=actor.actor_id)
         return contract
 
-    def activate(self, contract_id: UUID, *, by: str, signed_on: date | None = None) -> Contract:
-        by = require_named_human(by, "activating a contract", ContractError)
+    def activate(
+        self, contract_id: UUID, *, actor: ActorRef, signed_on: date | None = None
+    ) -> Contract:
+        actor.require_human("activating a contract", ContractError)
         contract = self._require(contract_id)
         if contract.status is not ContractStatus.DRAFT:
             raise ContractError(
@@ -91,7 +92,7 @@ class ContractService:
             }
         )
         self._store.save(updated)
-        self._record(updated, action="contract.activated", actor_id=by)
+        self._record(updated, action="contract.activated", actor=actor)
         return updated
 
     # --- status maintenance ---------------------------------------------
@@ -136,7 +137,12 @@ class ContractService:
         updates["updated_at"] = utc_now()
         updated = contract.model_copy(update=updates)
         self._store.save(updated)
-        self._record(updated, action=f"contract.status.{updated.status.value}", actor_id="system")
+        # A scheduled status sweep, not a person: say so on the chain.
+        self._record(
+            updated,
+            action=f"contract.status.{updated.status.value}",
+            actor=ActorRef.system("scheduler"),
+        )
         return updated
 
     def refresh_all(self, *, as_of: date | None = None) -> list[Contract]:
@@ -144,8 +150,8 @@ class ContractService:
             self.refresh_status(contract.id, as_of=as_of) for contract in self._store.list_all()
         ]
 
-    def terminate(self, contract_id: UUID, *, by: str, reason: str) -> Contract:
-        by = require_named_human(by, "terminating a contract", ContractError)
+    def terminate(self, contract_id: UUID, *, actor: ActorRef, reason: str) -> Contract:
+        actor.require_human("terminating a contract", ContractError)
         contract = self._require(contract_id)
         updated = contract.model_copy(
             update={
@@ -155,7 +161,7 @@ class ContractService:
             }
         )
         self._store.save(updated)
-        self._record(updated, action="contract.terminated", actor_id=by)
+        self._record(updated, action="contract.terminated", actor=actor)
         return updated
 
     # --- reminders ------------------------------------------------------
@@ -229,12 +235,9 @@ class ContractService:
             raise ContractError(f"unknown contract {contract_id}")
         return contract
 
-    def _record(self, contract: Contract, *, action: str, actor_id: str) -> None:
+    def _record(self, contract: Contract, *, action: str, actor: ActorRef | str) -> None:
         self._audit.append(
-            actor=AuditActor(
-                actor_type=classify_actor(actor_id),
-                actor_id=actor_id,
-            ),
+            actor=ActorRef.coerce(actor).audit_actor(),
             action=action,
             subject_type="contract",
             subject_id=str(contract.id),

@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import Contract, ContractStatus, ContractType, TaskSource
 from hr_agents.services import (
     ContractError,
@@ -36,7 +37,7 @@ def create_pkwt(
         employee_id=employee_id if employee_id is not None else uuid4(),
         contract_type=ContractType.PKWT,
         start_date=TODAY - timedelta(days=365),
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         end_date=TODAY + timedelta(days=days_until_end),
     )
 
@@ -85,16 +86,16 @@ def test_activate_flow(service: ContractService) -> None:
     contract = create_pkwt(service, days_until_end=200)
     assert contract.status is ContractStatus.DRAFT
 
-    activated = service.activate(contract.id, by="hr-admin")
+    activated = service.activate(contract.id, actor=ActorRef.legacy("hr-admin"))
     assert activated.status is ContractStatus.ACTIVE
     assert activated.signed_on == TODAY
 
 
 def test_activate_twice_rejected(service: ContractService) -> None:
     contract = create_pkwt(service, days_until_end=200)
-    service.activate(contract.id, by="hr-admin")
+    service.activate(contract.id, actor=ActorRef.legacy("hr-admin"))
     with pytest.raises(ContractError, match="cannot activate"):
-        service.activate(contract.id, by="hr-admin")
+        service.activate(contract.id, actor=ActorRef.legacy("hr-admin"))
 
 
 # --- status maintenance ------------------------------------------------------
@@ -102,7 +103,7 @@ def test_activate_twice_rejected(service: ContractService) -> None:
 
 def test_refresh_marks_expiring_within_window(service: ContractService) -> None:
     contract = create_pkwt(service, days_until_end=30)
-    service.activate(contract.id, by="hr-admin")
+    service.activate(contract.id, actor=ActorRef.legacy("hr-admin"))
 
     refreshed = service.refresh_status(contract.id)
     assert refreshed.status is ContractStatus.EXPIRING
@@ -110,7 +111,7 @@ def test_refresh_marks_expiring_within_window(service: ContractService) -> None:
 
 def test_refresh_marks_expired_past_end(service: ContractService) -> None:
     contract = create_pkwt(service, days_until_end=1)
-    service.activate(contract.id, by="hr-admin")
+    service.activate(contract.id, actor=ActorRef.legacy("hr-admin"))
 
     refreshed = service.refresh_status(contract.id, as_of=TODAY + timedelta(days=5))
     assert refreshed.status is ContractStatus.EXPIRED
@@ -118,7 +119,7 @@ def test_refresh_marks_expired_past_end(service: ContractService) -> None:
 
 def test_refresh_returns_to_active_when_extended(service: ContractService) -> None:
     contract = create_pkwt(service, days_until_end=30)
-    service.activate(contract.id, by="hr-admin")
+    service.activate(contract.id, actor=ActorRef.legacy("hr-admin"))
     service.refresh_status(contract.id)
 
     extended = service._store.get(contract.id)
@@ -130,7 +131,7 @@ def test_refresh_returns_to_active_when_extended(service: ContractService) -> No
 
 def test_compensation_flag_set_near_pkwt_completion(service: ContractService) -> None:
     contract = create_pkwt(service, days_until_end=20)
-    service.activate(contract.id, by="hr-admin")
+    service.activate(contract.id, actor=ActorRef.legacy("hr-admin"))
 
     refreshed = service.refresh_status(contract.id)
     assert refreshed.compensation_due is True
@@ -157,7 +158,9 @@ def test_refresh_all(service: ContractService) -> None:
 
 def test_terminate_records_reason(service: ContractService) -> None:
     contract = create_pkwt(service, days_until_end=200)
-    terminated = service.terminate(contract.id, by="hr-admin", reason="resignation")
+    terminated = service.terminate(
+        contract.id, actor=ActorRef.legacy("hr-admin"), reason="resignation"
+    )
     assert terminated.status is ContractStatus.TERMINATED
     assert "resignation" in (terminated.notes or "")
 
@@ -217,11 +220,11 @@ def test_expiry_tasks_need_task_engine() -> None:
 def test_active_for_employee(service: ContractService) -> None:
     employee_id = uuid4()
     old = create_pkwt(service, days_until_end=300, employee_id=employee_id)
-    service.activate(old.id, by="hr")
-    service.terminate(old.id, by="hr", reason="replaced")
+    service.activate(old.id, actor=ActorRef.legacy("hr"))
+    service.terminate(old.id, actor=ActorRef.legacy("hr"), reason="replaced")
 
     new = create_pkwt(service, days_until_end=300, employee_id=employee_id)
-    service.activate(new.id, by="hr")
+    service.activate(new.id, actor=ActorRef.legacy("hr"))
 
     active = service.active_for_employee(employee_id)
     assert active is not None

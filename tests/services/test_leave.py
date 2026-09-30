@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     AccrualMethod,
     ApprovalStatus,
@@ -53,7 +54,7 @@ def service(
 def make_employee(employee_service: EmployeeService, *, days_employed: int = 400) -> Employee:
     return employee_service.create(
         full_name="Sari Dewi",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         hire_date=TODAY - timedelta(days=days_employed),
         job_title="Finance Staff",
     )

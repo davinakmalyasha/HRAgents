@@ -19,7 +19,6 @@ def create_employee(client: TestClient, *, job_title: str = "Backend Engineer") 
         json={
             "full_name": "Budi Santoso",
             "hire_date": TODAY.isoformat(),
-            "created_by": "hr-admin",
             "job_title": job_title,
         },
     )
@@ -160,7 +159,6 @@ def test_document_link_and_status_via_api() -> None:
                 "kind": "ktp",
                 "storage_key": "employees/ktp.pdf",
                 "sha256": "a" * 64,
-                "uploaded_by": "hr-admin",
             },
         ).json()
 

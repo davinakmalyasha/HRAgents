@@ -13,8 +13,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from hr_agents.identity import require_named_human
-from hr_agents.models import ActorType, AuditActor
+from hr_agents.identity import ActorRef
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import (
     ApplicationRecord,
@@ -55,14 +54,14 @@ class StageTransitionService:
         application_id: UUID,
         *,
         target: ApplicationStatus,
-        by: str,
+        actor: ActorRef,
         reason: str,
     ) -> ApplicationRecord:
         record = self._store.get(application_id)
         if record is None:
             raise StageTransitionError(f"application {application_id} not found")
 
-        actor = require_named_human(by, "a stage move", StageTransitionError)
+        actor.require_human("a stage move", StageTransitionError)
         if not reason.strip():
             raise StageTransitionError("a reason is required for a stage move")
 
@@ -94,7 +93,7 @@ class StageTransitionService:
         record.note(f"application.stage.{target.value}")
         self._store.save(record)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=actor.audit_actor(),
             action="application.stage_changed",
             subject_type="application",
             subject_id=str(application_id),

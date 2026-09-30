@@ -18,7 +18,6 @@ def create_employee(client: TestClient, **overrides: object) -> dict:
     payload: dict = {
         "full_name": "Sari Dewi",
         "hire_date": (TODAY - timedelta(days=200)).isoformat(),
-        "created_by": "hr-admin",
         "job_title": "Finance Staff",
     }
     payload.update(overrides)
@@ -57,11 +56,11 @@ def test_employee_lifecycle_transition() -> None:
         employee = create_employee(client)
         response = client.post(
             f"/v1/employees/{employee['id']}/transition",
-            json={"target": "notice_period", "by": "hr-admin"},
+            json={"target": "notice_period"},
         )
         invalid = client.post(
             f"/v1/employees/{employee['id']}/transition",
-            json={"target": "probation", "by": "hr-admin"},
+            json={"target": "probation"},
         )
 
     assert response.status_code == 200
@@ -78,7 +77,6 @@ def test_add_document_and_list_contracts() -> None:
                 "kind": "ktp",
                 "storage_key": f"employees/{employee['id']}/ktp.pdf",
                 "sha256": "a" * 64,
-                "uploaded_by": "hr-admin",
             },
         )
         contracts = client.get(f"/v1/employees/{employee['id']}/contracts")
@@ -100,7 +98,6 @@ def test_employee_documents_are_listed_per_employee() -> None:
                     "kind": kind,
                     "storage_key": f"employees/{employee['id']}/{kind}.pdf",
                     "sha256": "a" * 64,
-                    "uploaded_by": "hr-admin",
                 },
             )
             assert created.status_code == 201, created.text
@@ -110,7 +107,6 @@ def test_employee_documents_are_listed_per_employee() -> None:
                 "kind": "ktp",
                 "storage_key": f"employees/{other['id']}/ktp.pdf",
                 "sha256": "b" * 64,
-                "uploaded_by": "hr-admin",
             },
         )
 
@@ -133,7 +129,6 @@ def test_document_vault_filters_and_expiry_windows() -> None:
                 "kind": "ktp",
                 "storage_key": "employees/ktp.pdf",
                 "sha256": "a" * 64,
-                "uploaded_by": "hr-admin",
                 "expires_on": (TODAY + timedelta(days=10)).isoformat(),
             },
         ).json()
@@ -143,7 +138,6 @@ def test_document_vault_filters_and_expiry_windows() -> None:
                 "kind": "npwp",
                 "storage_key": "employees/npwp.pdf",
                 "sha256": "b" * 64,
-                "uploaded_by": "hr-admin",
                 "expires_on": (TODAY + timedelta(days=200)).isoformat(),
             },
         )
@@ -153,7 +147,6 @@ def test_document_vault_filters_and_expiry_windows() -> None:
                 "kind": "bank_account",
                 "storage_key": "employees/bank.pdf",
                 "sha256": "c" * 64,
-                "uploaded_by": "hr-admin",
             },
         )
 
@@ -171,7 +164,15 @@ def test_document_vault_filters_and_expiry_windows() -> None:
     assert other.json() == []
 
 
-def test_document_verification_requires_a_named_human() -> None:
+def test_document_verification_refuses_a_caller_supplied_actor() -> None:
+    """Verifying a legal document cannot be attributed to a chosen name.
+
+    The actor is the authenticated principal, so ``verified_by`` is not merely
+    ignored -- it is refused, and a caller who believed they had overridden the
+    attribution finds out. The named-human gate that used to answer 403 here now
+    lives in the service, where an agent actor can exist; it is covered in
+    tests/test_named_human_gates.py.
+    """
     with make_client() as client:
         employee = create_employee(client)
         document = client.post(
@@ -180,7 +181,6 @@ def test_document_verification_requires_a_named_human() -> None:
                 "kind": "ktp",
                 "storage_key": "employees/ktp.pdf",
                 "sha256": "a" * 64,
-                "uploaded_by": "hr-admin",
             },
         ).json()
 
@@ -188,28 +188,23 @@ def test_document_verification_requires_a_named_human() -> None:
             f"/v1/documents/{document['id']}/verify",
             json={"verified_by": "agent:onboarding_coordinator"},
         )
-        blank = client.post(
-            f"/v1/documents/{document['id']}/verify",
-            json={"verified_by": "  "},
-        )
         verified = client.post(
             f"/v1/documents/{document['id']}/verify",
-            json={"verified_by": "Sinta Prabowo"},
+            json={"verified": True},
         )
         rejected = client.post(
             f"/v1/documents/{document['id']}/verify",
-            json={"verified_by": "Sinta Prabowo", "verified": False},
+            json={"verified": False},
         )
         unknown = client.post(
             f"/v1/documents/{uuid4()}/verify",
-            json={"verified_by": "Sinta Prabowo"},
+            json={"verified": True},
         )
         filtered = client.get("/v1/documents", params={"status": "failed"})
 
     assert document["status"] == "claimed"
-    assert agent.status_code == 403
-    # A blank actor never reaches the service: the schema rejects it first.
-    assert blank.status_code == 422
+    assert agent.status_code == 422
+    assert any(error["loc"][-1] == "verified_by" for error in agent.json()["detail"])
     assert verified.status_code == 200
     assert verified.json()["status"] == "verified"
     assert rejected.status_code == 200
@@ -220,14 +215,11 @@ def test_document_verification_requires_a_named_human() -> None:
 
 def test_org_units_report_headcount_and_reject_unknown_parents() -> None:
     with make_client() as client:
-        root = client.post(
-            "/v1/org-units", json={"name": "Engineering", "created_by": "hr-admin"}
-        ).json()
+        root = client.post("/v1/org-units", json={"name": "Engineering"}).json()
         child = client.post(
             "/v1/org-units",
             json={
                 "name": "Platform",
-                "created_by": "hr-admin",
                 "parent_id": root["id"],
                 "cost_center": "CC-1",
             },
@@ -236,7 +228,7 @@ def test_org_units_report_headcount_and_reject_unknown_parents() -> None:
         listed = client.get("/v1/org-units")
         orphan = client.post(
             "/v1/org-units",
-            json={"name": "Ghost", "created_by": "hr-admin", "parent_id": str(uuid4())},
+            json={"name": "Ghost", "parent_id": str(uuid4())},
         )
 
     assert child["parent_id"] == root["id"]
@@ -256,13 +248,12 @@ def test_contract_lifecycle_via_api() -> None:
                 "contract_type": "pkwt",
                 "start_date": (TODAY - timedelta(days=330)).isoformat(),
                 "end_date": (TODAY + timedelta(days=30)).isoformat(),
-                "created_by": "hr-admin",
             },
         )
         assert created.status_code == 201, created.text
         contract_id = created.json()["id"]
 
-        activated = client.post(f"/v1/contracts/{contract_id}/activate", json={"by": "hr-admin"})
+        activated = client.post(f"/v1/contracts/{contract_id}/activate", json={})
         expiring = client.get("/v1/contracts", params={"expiring_within_days": 60})
 
     assert activated.status_code == 200
@@ -280,7 +271,6 @@ def test_pkwt_without_end_date_rejected() -> None:
                 "employee_id": employee["id"],
                 "contract_type": "pkwt",
                 "start_date": TODAY.isoformat(),
-                "created_by": "hr-admin",
             },
         )
     assert response.status_code == 409  # model validation surfaced as conflict
@@ -344,7 +334,6 @@ def test_tasks_flow_via_api() -> None:
             "/v1/tasks",
             json={
                 "title": "Chase missing NPWP",
-                "created_by": "hr-admin",
                 "assignee_role": "hr_admin",
                 "due_on": (TODAY - timedelta(days=1)).isoformat(),
                 "priority": "high",
@@ -354,7 +343,7 @@ def test_tasks_flow_via_api() -> None:
         task_id = created.json()["id"]
 
         overdue = client.get("/v1/tasks", params={"overdue_only": True})
-        completed = client.post(f"/v1/tasks/{task_id}/complete", json={"by": "hr-admin"})
+        completed = client.post(f"/v1/tasks/{task_id}/complete", json={})
         after = client.get("/v1/tasks")
 
     assert any(item["id"] == task_id for item in overdue.json())

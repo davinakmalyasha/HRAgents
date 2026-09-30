@@ -96,7 +96,7 @@ def test_people_services_wire_to_db(factory: sessionmaker[Session]) -> None:
     people = PeopleServices(audit=audit, session_factory=factory)
     employee = people.employees.create(
         full_name="Sari Dewi",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         job_title="Finance Staff",
         hire_date=date.today(),
     )

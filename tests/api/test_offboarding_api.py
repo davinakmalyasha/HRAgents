@@ -20,7 +20,6 @@ def create_employee(client: TestClient) -> dict:
         json={
             "full_name": "Rudi Hartono",
             "hire_date": (TODAY - timedelta(days=400)).isoformat(),
-            "created_by": "hr-admin",
             "job_title": "Engineering Lead",
         },
     )

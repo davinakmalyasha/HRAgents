@@ -11,10 +11,8 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
-    ActorType,
-    AuditActor,
     DocumentKind,
     Employee,
     EmployeeDocument,
@@ -52,7 +50,7 @@ class EmployeeService:
         self,
         *,
         full_name: str,
-        created_by: str,
+        actor: ActorRef,
         email: str | None = None,
         phone: str | None = None,
         job_title: str | None = None,
@@ -86,14 +84,14 @@ class EmployeeService:
             status=status,
         )
         self._store.add_employee(employee)
-        self._record(employee, action="employee.created", actor_id=created_by)
+        self._record(employee, action="employee.created", actor=actor.actor_id)
         return employee
 
     def update_contact(
         self,
         employee_id: UUID,
         *,
-        updated_by: str,
+        actor: ActorRef,
         email: str | None = None,
         phone: str | None = None,
         work_location: str | None = None,
@@ -110,7 +108,7 @@ class EmployeeService:
             }
         )
         self._store.save_employee(updated)
-        self._record(updated, action="employee.contact_updated", actor_id=updated_by)
+        self._record(updated, action="employee.contact_updated", actor=actor.actor_id)
         return updated
 
     # --- lifecycle ------------------------------------------------------
@@ -120,7 +118,7 @@ class EmployeeService:
         employee_id: UUID,
         *,
         target: EmployeeStatus,
-        by: str,
+        actor: ActorRef,
         force: bool = False,
         reason: str | None = None,
     ) -> Employee:
@@ -132,8 +130,7 @@ class EmployeeService:
         it, and above the idempotent early return below, so a repeat call by a
         system actor is refused rather than quietly succeeding.
         """
-        by = require_named_human(
-            by,
+        actor.require_human(
             "changing an employee status",
             EmployeeError,
             subject=f"employee {employee_id} -> {target.value}",
@@ -163,7 +160,7 @@ class EmployeeService:
         self._record(
             updated,
             action=f"employee.transition.{target.value}",
-            actor_id=by,
+            actor=actor,
             extra={"forced": force, "reason": reason},
         )
         return updated
@@ -177,7 +174,7 @@ class EmployeeService:
         kind: DocumentKind,
         storage_key: str,
         sha256: str,
-        uploaded_by: str,
+        actor: ActorRef,
         filename: str | None = None,
         issued_on: date | None = None,
         expires_on: date | None = None,
@@ -197,7 +194,7 @@ class EmployeeService:
         self._record(
             employee,
             action="employee.document_added",
-            actor_id=uploaded_by,
+            actor=actor.actor_id,
             extra={"kind": kind.value, "document_id": str(document.id)},
         )
         return document
@@ -206,7 +203,7 @@ class EmployeeService:
         self,
         document_id: UUID,
         *,
-        verified_by: str,
+        actor: ActorRef,
         verified: bool,
     ) -> EmployeeDocument:
         """Judge a document verified or failed — a named human only.
@@ -215,8 +212,8 @@ class EmployeeService:
         worker, a future service) would otherwise be able to verify a legal
         document without passing it.
         """
-        actor = require_named_human(
-            verified_by, "verifying a document", EmployeeError, subject=f"document {document_id}"
+        actor.require_human(
+            "verifying a document", EmployeeError, subject=f"document {document_id}"
         )
         document = self.get_document(document_id)
         if document is None:
@@ -231,7 +228,7 @@ class EmployeeService:
         self._record(
             employee,
             action="employee.document_verified" if verified else "employee.document_failed",
-            actor_id=actor,
+            actor=actor,
             extra={"document_id": str(updated.id), "kind": updated.kind.value},
         )
         return updated
@@ -301,7 +298,7 @@ class EmployeeService:
         self,
         *,
         name: str,
-        created_by: str,
+        actor: ActorRef,
         parent_id: UUID | None = None,
         cost_center: str | None = None,
     ) -> OrgUnit:
@@ -309,7 +306,7 @@ class EmployeeService:
             raise EmployeeError(f"unknown parent org unit {parent_id}")
         unit = OrgUnit(name=name, parent_id=parent_id, cost_center=cost_center)
         self._store.add_org_unit(unit)
-        self._record_org(unit, action="org_unit.created", actor_id=created_by)
+        self._record_org(unit, action="org_unit.created", actor=actor.actor_id)
         return unit
 
     # --- queries --------------------------------------------------------
@@ -353,7 +350,7 @@ class EmployeeService:
         employee: Employee,
         *,
         action: str,
-        actor_id: str,
+        actor: ActorRef | str,
         extra: dict[str, object] | None = None,
     ) -> None:
         payload: dict[str, object] = {
@@ -363,19 +360,16 @@ class EmployeeService:
         if extra:
             payload.update(extra)
         self._audit.append(
-            actor=AuditActor(
-                actor_type=classify_actor(actor_id),
-                actor_id=actor_id,
-            ),
+            actor=ActorRef.coerce(actor).audit_actor(),
             action=action,
             subject_type="employee",
             subject_id=str(employee.id),
             payload=payload,
         )
 
-    def _record_org(self, unit: OrgUnit, *, action: str, actor_id: str) -> None:
+    def _record_org(self, unit: OrgUnit, *, action: str, actor: ActorRef | str) -> None:
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor_id),
+            actor=ActorRef.coerce(actor).audit_actor(),
             action=action,
             subject_type="org_unit",
             subject_id=str(unit.id),

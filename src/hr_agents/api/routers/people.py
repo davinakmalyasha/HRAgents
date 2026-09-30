@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.people_schemas import (
     ApprovalCreate,
     ApprovalDecisionRequest,
@@ -108,9 +108,9 @@ def _conflict(exc: Exception) -> HTTPException:
 
 
 @employees_router.post("", status_code=status.HTTP_201_CREATED, response_model=EmployeeView)
-def create_employee(payload: EmployeeCreate, people: PeopleDep) -> EmployeeView:
+def create_employee(payload: EmployeeCreate, people: PeopleDep, actor: ActorDep) -> EmployeeView:
     try:
-        employee = people.employees.create(**payload.model_dump())
+        employee = people.employees.create(actor=actor, **payload.model_dump())
     except EmployeeError as exc:
         raise _conflict(exc) from exc
     return EmployeeView.from_model(employee)
@@ -137,13 +137,13 @@ def get_employee(employee_id: UUID, people: PeopleDep) -> EmployeeView:
 
 @employees_router.post("/{employee_id}/transition", response_model=EmployeeView)
 def transition_employee(
-    employee_id: UUID, payload: EmployeeTransitionRequest, people: PeopleDep
+    employee_id: UUID, payload: EmployeeTransitionRequest, people: PeopleDep, actor: ActorDep
 ) -> EmployeeView:
     try:
         employee = people.employees.transition(
             employee_id,
             target=payload.target,
-            by=payload.by,
+            actor=actor,
             force=payload.force,
             reason=payload.reason,
         )
@@ -157,9 +157,11 @@ def transition_employee(
     status_code=status.HTTP_201_CREATED,
     response_model=DocumentView,
 )
-def add_document(employee_id: UUID, payload: DocumentCreate, people: PeopleDep) -> DocumentView:
+def add_document(
+    employee_id: UUID, payload: DocumentCreate, people: PeopleDep, actor: ActorDep
+) -> DocumentView:
     try:
-        document = people.employees.add_document(employee_id, **payload.model_dump())
+        document = people.employees.add_document(employee_id, actor=actor, **payload.model_dump())
     except EmployeeError as exc:
         raise _not_found(str(exc)) from exc
     return DocumentView.from_model(document)
@@ -205,6 +207,7 @@ def verify_document(
     document_id: UUID,
     payload: DocumentVerifyRequest,
     people: PeopleDep,
+    actor: ActorDep,
 ) -> DocumentView:
     """Mark a document verified or rejected; only a named human may judge one.
 
@@ -214,7 +217,7 @@ def verify_document(
     try:
         document = people.employees.mark_document_verified(
             document_id,
-            verified_by=payload.verified_by,
+            actor=actor,
             verified=payload.verified,
         )
     except EmployeeError as exc:
@@ -239,11 +242,11 @@ def list_org_units(people: PeopleDep) -> list[OrgUnitView]:
 
 
 @org_units_router.post("", status_code=status.HTTP_201_CREATED, response_model=OrgUnitView)
-def create_org_unit(payload: OrgUnitCreate, people: PeopleDep) -> OrgUnitView:
+def create_org_unit(payload: OrgUnitCreate, people: PeopleDep, actor: ActorDep) -> OrgUnitView:
     try:
         unit = people.employees.create_org_unit(
+            actor=actor,
             name=payload.name,
-            created_by=payload.created_by,
             parent_id=payload.parent_id,
             cost_center=payload.cost_center,
         )
@@ -256,9 +259,9 @@ def create_org_unit(payload: OrgUnitCreate, people: PeopleDep) -> OrgUnitView:
 
 
 @contracts_router.post("", status_code=status.HTTP_201_CREATED, response_model=ContractView)
-def create_contract(payload: ContractCreate, people: PeopleDep) -> ContractView:
+def create_contract(payload: ContractCreate, people: PeopleDep, actor: ActorDep) -> ContractView:
     try:
-        contract = people.contracts.create(**payload.model_dump())
+        contract = people.contracts.create(actor=actor, **payload.model_dump())
     except (ContractError, ValueError) as exc:
         raise _conflict(exc) from exc
     return ContractView.from_model(contract)
@@ -287,10 +290,10 @@ def get_contract(contract_id: UUID, people: PeopleDep) -> ContractView:
 
 @contracts_router.post("/{contract_id}/activate", response_model=ContractView)
 def activate_contract(
-    contract_id: UUID, payload: ContractActionRequest, people: PeopleDep
+    contract_id: UUID, payload: ContractActionRequest, people: PeopleDep, actor: ActorDep
 ) -> ContractView:
     try:
-        contract = people.contracts.activate(contract_id, by=payload.by)
+        contract = people.contracts.activate(contract_id, actor=actor)
     except ContractError as exc:
         raise _conflict(exc) from exc
     return ContractView.from_model(contract)
@@ -298,7 +301,7 @@ def activate_contract(
 
 @contracts_router.post("/{contract_id}/terminate", response_model=ContractView)
 def terminate_contract(
-    contract_id: UUID, payload: ContractActionRequest, people: PeopleDep
+    contract_id: UUID, payload: ContractActionRequest, people: PeopleDep, actor: ActorDep
 ) -> ContractView:
     if not payload.reason:
         raise HTTPException(
@@ -306,7 +309,7 @@ def terminate_contract(
             detail="termination requires a reason",
         )
     try:
-        contract = people.contracts.terminate(contract_id, by=payload.by, reason=payload.reason)
+        contract = people.contracts.terminate(contract_id, actor=actor, reason=payload.reason)
     except ContractError as exc:
         raise _conflict(exc) from exc
     return ContractView.from_model(contract)
@@ -373,8 +376,8 @@ def escalate_overdue(people: PeopleDep) -> list[ApprovalView]:
 
 
 @tasks_router.post("", status_code=status.HTTP_201_CREATED, response_model=TaskView)
-def create_task(payload: TaskCreate, people: PeopleDep) -> TaskView:
-    task = people.tasks.create(**payload.model_dump())
+def create_task(payload: TaskCreate, people: PeopleDep, actor: ActorDep) -> TaskView:
+    task = people.tasks.create(actor=actor, **payload.model_dump())
     return TaskView.from_model(task)
 
 
@@ -388,9 +391,11 @@ def list_tasks(
 
 
 @tasks_router.post("/{task_id}/complete", response_model=TaskView)
-def complete_task(task_id: UUID, payload: TaskCompleteRequest, people: PeopleDep) -> TaskView:
+def complete_task(
+    task_id: UUID, payload: TaskCompleteRequest, people: PeopleDep, actor: ActorDep
+) -> TaskView:
     try:
-        task = people.tasks.complete(task_id, by=payload.by)
+        task = people.tasks.complete(task_id, actor=actor)
     except TaskError as exc:
         raise _conflict(exc) from exc
     return TaskView.from_model(task)

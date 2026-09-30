@@ -2442,12 +2442,6 @@
       "ContractActionRequest": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "anyOf": [
               {
@@ -2461,9 +2455,6 @@
             "title": "Reason"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "ContractActionRequest",
         "type": "object"
       },
@@ -2472,12 +2463,6 @@
         "properties": {
           "contract_type": {
             "$ref": "#/components/schemas/ContractType"
-          },
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
           },
           "employee_id": {
             "format": "uuid",
@@ -2529,8 +2514,7 @@
         "required": [
           "employee_id",
           "contract_type",
-          "start_date",
-          "created_by"
+          "start_date"
         ],
         "title": "ContractCreate",
         "type": "object"
@@ -2992,19 +2976,12 @@
             "minLength": 1,
             "title": "Storage Key",
             "type": "string"
-          },
-          "uploaded_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Uploaded By",
-            "type": "string"
           }
         },
         "required": [
           "kind",
           "storage_key",
-          "sha256",
-          "uploaded_by"
+          "sha256"
         ],
         "title": "DocumentCreate",
         "type": "object"
@@ -3084,17 +3061,8 @@
             "default": true,
             "title": "Verified",
             "type": "boolean"
-          },
-          "verified_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Verified By",
-            "type": "string"
           }
         },
-        "required": [
-          "verified_by"
-        ],
         "title": "DocumentVerifyRequest",
         "type": "object"
       },
@@ -3214,12 +3182,6 @@
       "EmployeeCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "email": {
             "anyOf": [
               {
@@ -3330,8 +3292,7 @@
         },
         "required": [
           "full_name",
-          "hire_date",
-          "created_by"
+          "hire_date"
         ],
         "title": "EmployeeCreate",
         "type": "object"
@@ -3351,12 +3312,6 @@
       "EmployeeTransitionRequest": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "force": {
             "default": false,
             "title": "Force",
@@ -3379,8 +3334,7 @@
           }
         },
         "required": [
-          "target",
-          "by"
+          "target"
         ],
         "title": "EmployeeTransitionRequest",
         "type": "object"
@@ -6043,12 +5997,6 @@
             ],
             "title": "Cost Center"
           },
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -6069,8 +6017,7 @@
           }
         },
         "required": [
-          "name",
-          "created_by"
+          "name"
         ],
         "title": "OrgUnitCreate",
         "type": "object"
@@ -8040,12 +7987,6 @@
         "additionalProperties": false,
         "description": "Manual board move; validated against the designed transition table.",
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "maxLength": 500,
             "minLength": 1,
@@ -8058,7 +7999,6 @@
         },
         "required": [
           "target",
-          "by",
           "reason"
         ],
         "title": "StageChangeRequest",
@@ -8417,17 +8357,8 @@
       },
       "TaskCompleteRequest": {
         "additionalProperties": false,
-        "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          }
-        },
-        "required": [
-          "by"
-        ],
+        "description": "Completing a task needs no body: the actor is the authenticated principal\nand the completion is a bare state change.\n\nAn empty strict model still rejects a body that carries anything, so a client\ncannot smuggle an actor in and be quietly ignored.",
+        "properties": {},
         "title": "TaskCompleteRequest",
         "type": "object"
       },
@@ -8455,12 +8386,6 @@
                 "type": "null"
               }
             ]
-          },
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
           },
           "description": {
             "default": "",
@@ -8516,8 +8441,7 @@
           }
         },
         "required": [
-          "title",
-          "created_by"
+          "title"
         ],
         "title": "TaskCreate",
         "type": "object"

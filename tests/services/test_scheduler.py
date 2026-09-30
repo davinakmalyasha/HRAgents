@@ -309,7 +309,7 @@ def test_growth_reminders_create_tasks_once() -> None:
 def seed_expiring_employee(people: PeopleServices) -> None:
     employee = people.employees.create(
         full_name="Sari Dewi",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         hire_date=NOW.date() - timedelta(days=200),
         job_title="Finance Staff",
     )
@@ -317,7 +317,7 @@ def seed_expiring_employee(people: PeopleServices) -> None:
         employee_id=employee.id,
         contract_type=ContractType.PKWT,
         start_date=NOW.date() - timedelta(days=365),
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         end_date=NOW.date() + timedelta(days=20),
     )
     people.employees.add_document(
@@ -325,7 +325,7 @@ def seed_expiring_employee(people: PeopleServices) -> None:
         kind=DocumentKind.KTP,
         storage_key="employees/ktp-1.pdf",
         sha256="a" * 64,
-        uploaded_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expires_on=NOW.date() + timedelta(days=20),
     )
 

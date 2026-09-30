@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     AssetStatus,
     DocumentKind,
@@ -79,7 +80,7 @@ def service(
 def make_employee(employees: EmployeeService, *, name: str = "Rudi Hartono") -> Employee:
     return employees.create(
         full_name=name,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         hire_date=TODAY - timedelta(days=400),
         job_title="Engineering Lead",
     )
@@ -218,7 +219,11 @@ def test_start_plan_rejects_already_offboarded(
 ) -> None:
     employee = make_employee(employees)
     employees.transition(
-        employee.id, target=EmployeeStatus.OFFBOARDED, by="hr-admin", force=True, reason="test"
+        employee.id,
+        target=EmployeeStatus.OFFBOARDED,
+        actor=ActorRef.legacy("hr-admin"),
+        force=True,
+        reason="test",
     )
     make_template(service)
 

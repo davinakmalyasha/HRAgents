@@ -8,9 +8,9 @@ reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A l
 **one identity module** now owns actor classification and the named-human gate, the ten
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 `sigma` gate. Block B has begun: **authentication happens once per request**, `ActorRef` carries
-the actor together with its provenance, and the recruiting group no longer accepts an actor from
-a request body.
-**1182 tests (1178 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
+the actor together with its provenance, and the recruiting and people workspaces no longer accept
+an actor from a request body.
+**1183 tests (1179 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -20,9 +20,9 @@ a request body.
 > Three services wrote `agent:` onto the tamper-evident chain as `ActorType.HUMAN`, and every
 > named-human gate accepted `system`, so a caller could decide an approval as `system`. All fixed
 > and regression-tested. Block B continues the same line: an API key's holder is now the only actor
-> the recruiting endpoints will record, and the dashboard's "type your name here" fields are gone
-> rather than quietly ignored. The remaining half is the people, department, payroll and compliance
-> groups, and **scoring generalization** (a qualified accountant is auto-rejected today). The
+> the recruiting and people endpoints will record, and the dashboard's "type your name here" fields
+> are gone rather than quietly ignored. The remaining groups are offers, onboarding, offboarding,
+> leave, growth, payroll, rate tables and compliance. and **scoring generalization** (a qualified accountant is auto-rejected today). The
 > measured defect list is `docs/plan/master-build-plan.md` Appendix C.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
@@ -77,9 +77,22 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [x] `ApprovalEngine.reassign()` — the audited escape hatch for a mis-routed approval. A reason is
       mandatory: a reassignment with no stated justification is indistinguishable, to a later reader
       of the chain, from moving an approval to someone friendlier.
-- [ ] **Migrate the remaining groups to `ActorRef`**: people, departments, payroll, compliance,
-      onboarding, offboarding, leave, growth and offers still carry ~70 `by`/`created_by` request
-      fields, so a holder of one `hr_admin` key can still name a different person there.
+- [x] **The people workspace takes its actor from the principal, not the body** — `EmployeeService`
+      (create, contact update, status transition, employee documents, document verification,
+      org-unit creation), `ContractService`, `TaskEngine` and `StageTransitionService` all take
+      `actor: ActorRef`; the `people` and `applications` routers pass `ActorDep`. Ten actor fields
+      removed from the request schemas. The dashboard's document-verifier input is deleted, so a
+      person can no longer sign off a legal document under someone else's name.
+- [x] **A blank actor can no longer be constructed.** `ActorRef.legacy("")` raises, because
+      `AuditActor.actor_id` has `min_length=1` and a blank actor could never have been written to
+      the chain anyway — the old failure mode was a state change followed by a failed audit append.
+      Two tests that used to assert "the gate rejects `\"   \"`" now assert the stronger property.
+- [x] **Two scheduled sweeps stop claiming to be people.** `ContractService.refresh_status` and the
+      task/approval fan-out in `scheduler` recorded the bare string `"system"`, which read on the
+      chain as an unclassified legacy value. They now record `ActorRef.system("scheduler")`.
+- [ ] **Migrate the remaining groups to `ActorRef`**: offers, onboarding, offboarding, leave, growth,
+      payroll, rate tables and compliance still carry ~55 `by`/`created_by` request fields, so a
+      holder of one `hr_admin` key can still name a different person there.
 - [ ] **Bind approval decisions to `assignee_role`** — `decide` checks that the actor is a human,
       but not that they hold the role the approval is assigned to, so a `MANAGER` can decide a
       `FINANCE`-assigned payroll sign-off. The table exists (see above); enforcement does not.

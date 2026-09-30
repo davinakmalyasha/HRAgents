@@ -3478,16 +3478,12 @@ export interface components {
         };
         /** ContractActionRequest */
         ContractActionRequest: {
-            /** By */
-            by: string;
             /** Reason */
             reason?: string | null;
         };
         /** ContractCreate */
         ContractCreate: {
             contract_type: components["schemas"]["ContractType"];
-            /** Created By */
-            created_by: string;
             /**
              * Employee Id
              * Format: uuid
@@ -3694,8 +3690,6 @@ export interface components {
             sha256: string;
             /** Storage Key */
             storage_key: string;
-            /** Uploaded By */
-            uploaded_by: string;
         };
         /**
          * DocumentKind
@@ -3739,8 +3733,6 @@ export interface components {
              * @default true
              */
             verified: boolean;
-            /** Verified By */
-            verified_by: string;
         };
         /** DocumentView */
         DocumentView: {
@@ -3782,8 +3774,6 @@ export interface components {
         };
         /** EmployeeCreate */
         EmployeeCreate: {
-            /** Created By */
-            created_by: string;
             /** Email */
             email?: string | null;
             /** Employee Number */
@@ -3816,8 +3806,6 @@ export interface components {
         EmployeeStatus: "onboarding" | "probation" | "active" | "notice_period" | "offboarded";
         /** EmployeeTransitionRequest */
         EmployeeTransitionRequest: {
-            /** By */
-            by: string;
             /**
              * Force
              * @default false
@@ -4778,8 +4766,6 @@ export interface components {
         OrgUnitCreate: {
             /** Cost Center */
             cost_center?: string | null;
-            /** Created By */
-            created_by: string;
             /** Name */
             name: string;
             /** Parent Id */
@@ -5549,8 +5535,6 @@ export interface components {
          * @description Manual board move; validated against the designed transition table.
          */
         StageChangeRequest: {
-            /** By */
-            by: string;
             /** Reason */
             reason: string;
             target: components["schemas"]["ApplicationStatus"];
@@ -5682,18 +5666,20 @@ export interface components {
              */
             updated_at: string;
         };
-        /** TaskCompleteRequest */
-        TaskCompleteRequest: {
-            /** By */
-            by: string;
-        };
+        /**
+         * TaskCompleteRequest
+         * @description Completing a task needs no body: the actor is the authenticated principal
+         *     and the completion is a bare state change.
+         *
+         *     An empty strict model still rejects a body that carries anything, so a client
+         *     cannot smuggle an actor in and be quietly ignored.
+         */
+        TaskCompleteRequest: Record<string, never>;
         /** TaskCreate */
         TaskCreate: {
             /** Assignee Id */
             assignee_id?: string | null;
             assignee_role?: components["schemas"]["ApproverRole"] | null;
-            /** Created By */
-            created_by: string;
             /**
              * Description
              * @default

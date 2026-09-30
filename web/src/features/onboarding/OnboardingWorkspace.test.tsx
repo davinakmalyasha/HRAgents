@@ -185,9 +185,10 @@ describe('OnboardingBoard', () => {
     expect(createEmployeeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         full_name: 'Budi Santoso',
-        created_by: 'Sinta Prabowo',
       }),
     )
+    // The employee is attributed to the API key holder, not to the name typed
+    // into the dialog. `startPlan` and the template still take one.
     expect(startPlanMock).toHaveBeenCalledWith({
       employee_id: 'emp-9',
       created_by: 'Sinta Prabowo',

@@ -209,18 +209,15 @@ export interface DocumentVaultProps {
 export function DocumentVault({ documents, isLoading }: DocumentVaultProps) {
   const { t } = useTranslation()
   const verify = useVerifyDocument()
-  const [verifier, setVerifier] = useState('')
   const [error, setError] = useState<string | null>(null)
   const bucket = bucketByExpiry(documents)
 
   function decide(documentId: string, approved: boolean) {
-    if (verifier.trim() === '') {
-      setError(t('records.errors.byRequired'))
-      return
-    }
     setError(null)
+    // No actor is sent: verifying a legal document is attributed to whoever
+    // holds the API key, so a person cannot sign it off under another name.
     void verify.mutate(
-      { documentId, body: { verified_by: verifier.trim(), verified: approved } },
+      { documentId, body: { verified: approved } },
       {
         onError: () => setError(t('records.errors.failed')),
         onSuccess: (result) => {
@@ -259,16 +256,6 @@ export function DocumentVault({ documents, isLoading }: DocumentVaultProps) {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label className="text-2xs text-ink-muted flex flex-col gap-1" htmlFor="records-verifier">
-          {t('records.verifier')}
-          <input
-            id="records-verifier"
-            className="border-line bg-surface text-ink-strong rounded-md border px-2 py-1 text-sm"
-            value={verifier}
-            placeholder={t('records.verifierPlaceholder')}
-            onChange={(event) => setVerifier(event.target.value)}
-          />
-        </label>
         {error !== null ? (
           <p role="alert" className="text-2xs text-error">
             {error}

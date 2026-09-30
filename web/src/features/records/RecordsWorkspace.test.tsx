@@ -157,18 +157,7 @@ describe('Records workspace', () => {
     expect(screen.getByText(/0 expired · 1 within 60 days/)).toBeInTheDocument()
   })
 
-  it('refuses to judge a document without a named human', async () => {
-    const user = userEvent.setup()
-    state.documents = [document({ days_to_expiry: 10 })]
-    renderWith(<RecordsQueue />)
-
-    await user.click(screen.getByRole('button', { name: 'Verify' }))
-
-    expect(verifyMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('alert')).toHaveTextContent('A named person is required')
-  })
-
-  it('verifies and rejects a document under the named verifier', async () => {
+  it('asks for no verifier: the API attributes the judgement to the API key', async () => {
     const user = userEvent.setup()
     state.documents = [
       document({ id: 'doc-1', days_to_expiry: 30 }),
@@ -176,19 +165,22 @@ describe('Records workspace', () => {
     ]
     renderWith(<RecordsQueue />)
 
+    // The input is gone: a person could otherwise type anyone else's name and
+    // believe the record was signed off by them.
+    expect(screen.queryByLabelText('Verified by')).not.toBeInTheDocument()
+
     const [expiredRow, ktpRow] = screen.getAllByRole('listitem')
-    await user.type(screen.getByLabelText('Verified by'), 'Sinta Prabowo')
     await user.click(within(ktpRow).getByRole('button', { name: 'Verify' }))
     await user.click(within(expiredRow).getByRole('button', { name: 'Reject' }))
 
     expect(verifyMock).toHaveBeenNthCalledWith(
       1,
-      { documentId: 'doc-1', body: { verified_by: 'Sinta Prabowo', verified: true } },
+      { documentId: 'doc-1', body: { verified: true } },
       expect.anything(),
     )
     expect(verifyMock).toHaveBeenNthCalledWith(
       2,
-      { documentId: 'doc-2', body: { verified_by: 'Sinta Prabowo', verified: false } },
+      { documentId: 'doc-2', body: { verified: false } },
       expect.anything(),
     )
   })
@@ -201,7 +193,6 @@ describe('Records workspace', () => {
     })
     renderWith(<RecordsQueue />)
 
-    await user.type(screen.getByLabelText('Verified by'), 'agent:records_bot')
     await user.click(screen.getByRole('button', { name: 'Verify' }))
 
     expect(screen.getByRole('alert')).toHaveTextContent('Your role cannot verify documents')
@@ -215,7 +206,6 @@ describe('Records workspace', () => {
     })
     renderWith(<RecordsQueue />)
 
-    await user.type(screen.getByLabelText('Verified by'), 'Sinta')
     await user.click(screen.getByRole('button', { name: 'Verify' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Could not save')
 

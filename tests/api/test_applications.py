@@ -164,7 +164,6 @@ def test_stage_move_moves_and_records_the_timeline() -> None:
             f"/v1/applications/{application_id}/stage",
             json={
                 "target": "gated",
-                "by": "hr-admin",
                 "reason": "pulled out of auto-schedule for a human look",
             },
         )
@@ -186,15 +185,15 @@ def test_stage_move_refuses_gate_bypasses() -> None:
 
         worker = client.post(
             f"/v1/applications/{queued}/stage",
-            json={"target": "gated", "by": "hr-admin", "reason": "skip the queue"},
+            json={"target": "gated", "reason": "skip the queue"},
         )
         rejection = client.post(
             f"/v1/applications/{gated}/stage",
-            json={"target": "rejected", "by": "hr-admin", "reason": "no thanks"},
+            json={"target": "rejected", "reason": "no thanks"},
         )
         schedule = client.post(
             f"/v1/applications/{gated}/stage",
-            json={"target": "scheduled", "by": "hr-admin", "reason": "looks good"},
+            json={"target": "scheduled", "reason": "looks good"},
         )
 
     assert worker.status_code == 409
@@ -205,17 +204,31 @@ def test_stage_move_refuses_gate_bypasses() -> None:
     assert "scheduling is gated" in schedule.json()["title"]
 
 
-def test_stage_move_requires_a_named_human() -> None:
+def test_stage_move_refuses_a_caller_supplied_actor() -> None:
+    """A client cannot nominate its own actor for a stage move.
+
+    This used to omit ``by`` and assert 403, which was the API's way of asking
+    who the caller was. The actor is now the authenticated principal, resolved
+    before the route runs, so a body actor is refused rather than obeyed. The
+    named-human gate still exists, but it is only reachable where an agent actor
+    can exist -- the service, covered in tests/services/test_stages.py.
+    """
     app = create_app()
     with TestClient(app) as client:
         application_id = app_at(client, ApplicationStatus.EVALUATED)
-        response = client.post(
+        claimed = client.post(
             f"/v1/applications/{application_id}/stage",
-            json={"target": "gated", "by": "agent:hr_bot", "reason": "automating"},
+            json={"target": "gated", "reason": "automating", "by": "agent:hr_bot"},
+        )
+        accepted = client.post(
+            f"/v1/applications/{application_id}/stage",
+            json={"target": "gated", "reason": "automating"},
         )
 
-    assert response.status_code == 403
-    assert "named human" in response.json()["title"]
+    assert claimed.status_code == 422
+    assert any(error["loc"][-1] == "by" for error in claimed.json()["detail"])
+    # The move that does not try to name an actor succeeds as the local operator.
+    assert accepted.status_code == 200, accepted.text
 
 
 def test_stage_move_requires_a_reason() -> None:
@@ -224,7 +237,7 @@ def test_stage_move_requires_a_reason() -> None:
         application_id = app_at(client, ApplicationStatus.EVALUATED)
         response = client.post(
             f"/v1/applications/{application_id}/stage",
-            json={"target": "gated", "by": "hr-admin", "reason": ""},
+            json={"target": "gated", "reason": ""},
         )
 
     assert response.status_code == 422
@@ -235,7 +248,7 @@ def test_stage_move_unknown_application_404() -> None:
     with TestClient(app) as client:
         response = client.post(
             f"/v1/applications/{uuid4()}/stage",
-            json={"target": "gated", "by": "hr-admin", "reason": "test"},
+            json={"target": "gated", "reason": "test"},
         )
 
     assert response.status_code == 404

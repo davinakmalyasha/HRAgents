@@ -37,7 +37,6 @@ from hr_agents.models import (
 class EmployeeCreate(StrictModel):
     full_name: str = Field(min_length=1, max_length=200)
     hire_date: date
-    created_by: str = Field(min_length=1, max_length=200)
     email: EmailStr | None = None
     phone: str | None = Field(default=None, max_length=32)
     job_title: str | None = Field(default=None, max_length=120)
@@ -78,7 +77,6 @@ class EmployeeView(StrictModel):
 
 class EmployeeTransitionRequest(StrictModel):
     target: EmployeeStatus
-    by: str = Field(min_length=1, max_length=200)
     force: bool = False
     reason: str | None = Field(default=None, max_length=1000)
 
@@ -87,7 +85,6 @@ class DocumentCreate(StrictModel):
     kind: DocumentKind
     storage_key: str = Field(min_length=1)
     sha256: str = Field(min_length=64, max_length=64)
-    uploaded_by: str = Field(min_length=1, max_length=200)
     filename: str | None = None
     issued_on: date | None = None
     expires_on: date | None = None
@@ -132,13 +129,11 @@ class DocumentView(StrictModel):
 class DocumentVerifyRequest(StrictModel):
     """Verification is a human judgement about a document, never an agent's."""
 
-    verified_by: str = Field(min_length=1, max_length=200)
     verified: bool = True
 
 
 class OrgUnitCreate(StrictModel):
     name: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     parent_id: UUID | None = None
     cost_center: str | None = Field(default=None, max_length=100)
 
@@ -169,7 +164,6 @@ class ContractCreate(StrictModel):
     employee_id: UUID
     contract_type: ContractType
     start_date: date
-    created_by: str = Field(min_length=1, max_length=200)
     end_date: date | None = None
     probation_end_date: date | None = None
     notes: str | None = Field(default=None, max_length=2000)
@@ -204,7 +198,6 @@ class ContractView(StrictModel):
 
 
 class ContractActionRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str | None = Field(default=None, max_length=1000)
 
 
@@ -274,7 +267,6 @@ class ApprovalDecisionResponse(StrictModel):
 
 class TaskCreate(StrictModel):
     title: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=2000)
     assignee_role: ApproverRole | None = None
     assignee_id: str | None = Field(default=None, max_length=200)
@@ -285,7 +277,12 @@ class TaskCreate(StrictModel):
 
 
 class TaskCompleteRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
+    """Completing a task needs no body: the actor is the authenticated principal
+    and the completion is a bare state change.
+
+    An empty strict model still rejects a body that carries anything, so a client
+    cannot smuggle an actor in and be quietly ignored.
+    """
 
 
 class TaskView(StrictModel):

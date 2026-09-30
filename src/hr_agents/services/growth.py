@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef, classify_actor, require_named_human
 from hr_agents.models import (
     CYCLE_TRANSITIONS,
     ApproverRole,
@@ -442,7 +442,7 @@ class GrowthService:
                     continue
                 task = self._tasks.create(
                     title=f"[Review] Submit form for {cycle.name}",
-                    created_by="system",
+                    actor=ActorRef.system("scheduler"),
                     description=(
                         f"Reviewer {assignment.reviewer_id} has a pending form. "
                         f"Due {assignment.due_on.isoformat()}."
@@ -474,7 +474,7 @@ class GrowthService:
                     continue
                 task = self._tasks.create(
                     title=f"[Review] Finalize summary for {cycle.name}",
-                    created_by="system",
+                    actor=ActorRef.system("scheduler"),
                     description=(
                         "An agent draft awaits human editing and finalization before the "
                         "cycle can close."

@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApprovalSubject,
     ApproverRole,
@@ -48,7 +49,7 @@ def create_employee(
 ) -> Employee:
     return service.create(
         full_name=full_name,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         hire_date=hire_date if hire_date is not None else TODAY - timedelta(days=200),
         probation_end_date=probation_end_date,
         job_title=job_title,
@@ -60,7 +61,7 @@ def create_employee(
 
 def test_create_requires_hire_date(service: EmployeeService) -> None:
     with pytest.raises(EmployeeError, match="hire_date"):
-        service.create(full_name="X", created_by="hr")
+        service.create(full_name="X", actor=ActorRef.legacy("hr"))
 
 
 def test_create_sets_active_for_past_hire(service: EmployeeService) -> None:
@@ -89,19 +90,25 @@ def test_create_audits(service: EmployeeService, audit: AuditChain) -> None:
 
 def test_legal_transition_active_to_notice(service: EmployeeService) -> None:
     employee = create_employee(service)
-    updated = service.transition(employee.id, target=EmployeeStatus.NOTICE_PERIOD, by="hr-admin")
+    updated = service.transition(
+        employee.id, target=EmployeeStatus.NOTICE_PERIOD, actor=ActorRef.legacy("hr-admin")
+    )
     assert updated.status is EmployeeStatus.NOTICE_PERIOD
 
 
 def test_illegal_transition_rejected(service: EmployeeService) -> None:
     employee = create_employee(service)
     with pytest.raises(EmployeeError, match="illegal transition"):
-        service.transition(employee.id, target=EmployeeStatus.PROBATION, by="hr-admin")
+        service.transition(
+            employee.id, target=EmployeeStatus.PROBATION, actor=ActorRef.legacy("hr-admin")
+        )
 
 
 def test_offboarding_sets_date(service: EmployeeService) -> None:
     employee = create_employee(service)
-    offboarded = service.transition(employee.id, target=EmployeeStatus.OFFBOARDED, by="hr-admin")
+    offboarded = service.transition(
+        employee.id, target=EmployeeStatus.OFFBOARDED, actor=ActorRef.legacy("hr-admin")
+    )
     assert offboarded.offboarded_on == TODAY
 
 
@@ -117,7 +124,9 @@ def test_offboarding_blocked_by_open_approval(
         requested_by="hr-staff",
     )
     with pytest.raises(EmployeeError, match="blocked by open items"):
-        service.transition(employee.id, target=EmployeeStatus.OFFBOARDED, by="hr-admin")
+        service.transition(
+            employee.id, target=EmployeeStatus.OFFBOARDED, actor=ActorRef.legacy("hr-admin")
+        )
 
 
 def test_forced_offboarding_requires_reason(
@@ -132,7 +141,12 @@ def test_forced_offboarding_requires_reason(
         requested_by="hr-staff",
     )
     with pytest.raises(EmployeeError, match="requires a reason"):
-        service.transition(employee.id, target=EmployeeStatus.OFFBOARDED, by="hr-admin", force=True)
+        service.transition(
+            employee.id,
+            target=EmployeeStatus.OFFBOARDED,
+            actor=ActorRef.legacy("hr-admin"),
+            force=True,
+        )
 
 
 def test_forced_offboarding_with_reason_succeeds(
@@ -149,7 +163,7 @@ def test_forced_offboarding_with_reason_succeeds(
     offboarded = service.transition(
         employee.id,
         target=EmployeeStatus.OFFBOARDED,
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         force=True,
         reason="employee resigned; approval superseded",
     )
@@ -170,7 +184,7 @@ def test_add_document_records_and_lists(service: EmployeeService) -> None:
         kind=DocumentKind.KTP,
         storage_key="employees/ktp-1.pdf",
         sha256="a" * 64,
-        uploaded_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expires_on=TODAY + timedelta(days=30),
     )
     assert document.status is VerificationStatus.CLAIMED
@@ -185,14 +199,14 @@ def test_documents_for_is_scoped_to_one_employee(service: EmployeeService) -> No
         kind=DocumentKind.KTP,
         storage_key="k1",
         sha256="a" * 64,
-        uploaded_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     service.add_document(
         other.id,
         kind=DocumentKind.KTP,
         storage_key="k2",
         sha256="b" * 64,
-        uploaded_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
 
     assert [item.id for item in service.documents_for(employee.id)] == [mine.id]
@@ -208,7 +222,7 @@ def test_expiring_documents_window(service: EmployeeService) -> None:
         kind=DocumentKind.KTP,
         storage_key="k1",
         sha256="a" * 64,
-        uploaded_by="hr",
+        actor=ActorRef.legacy("hr"),
         expires_on=TODAY + timedelta(days=20),
     )
     service.add_document(
@@ -216,7 +230,7 @@ def test_expiring_documents_window(service: EmployeeService) -> None:
         kind=DocumentKind.NPWP,
         storage_key="k2",
         sha256="b" * 64,
-        uploaded_by="hr",
+        actor=ActorRef.legacy("hr"),
         expires_on=TODAY + timedelta(days=200),
     )
     expiring = service.expiring_documents(within_days=30)
@@ -230,12 +244,16 @@ def test_mark_document_verified(service: EmployeeService) -> None:
         kind=DocumentKind.KTP,
         storage_key="k1",
         sha256="a" * 64,
-        uploaded_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
-    verified = service.mark_document_verified(document.id, verified_by="hr-admin", verified=True)
+    verified = service.mark_document_verified(
+        document.id, actor=ActorRef.legacy("hr-admin"), verified=True
+    )
     assert verified.status is VerificationStatus.VERIFIED
 
-    failed = service.mark_document_verified(document.id, verified_by="hr-admin", verified=False)
+    failed = service.mark_document_verified(
+        document.id, actor=ActorRef.legacy("hr-admin"), verified=False
+    )
     assert failed.status is VerificationStatus.FAILED
 
 
@@ -243,14 +261,16 @@ def test_mark_document_verified(service: EmployeeService) -> None:
 
 
 def test_org_unit_hierarchy(service: EmployeeService) -> None:
-    parent = service.create_org_unit(name="Operations", created_by="hr")
-    child = service.create_org_unit(name="Finance", created_by="hr", parent_id=parent.id)
+    parent = service.create_org_unit(name="Operations", actor=ActorRef.legacy("hr"))
+    child = service.create_org_unit(
+        name="Finance", actor=ActorRef.legacy("hr"), parent_id=parent.id
+    )
     assert child.parent_id == parent.id
 
 
 def test_org_unit_unknown_parent_rejected(service: EmployeeService) -> None:
     with pytest.raises(EmployeeError, match="unknown parent"):
-        service.create_org_unit(name="X", created_by="hr", parent_id=uuid4())
+        service.create_org_unit(name="X", actor=ActorRef.legacy("hr"), parent_id=uuid4())
 
 
 def test_on_probation_filter(service: EmployeeService) -> None:
