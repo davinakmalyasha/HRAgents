@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
+from hr_agents.identity import ActorRef
 from hr_agents.main import create_app
 
 TODAY = date.today()
@@ -40,7 +41,7 @@ def seed_tables(client: TestClient) -> None:
     for kind, employer, employee, cap in specs:
         created = client.post(
             "/v1/rate-tables",
-            json={"kind": kind, "name": kind, "created_by": "hr-admin"},
+            json={"kind": kind, "name": kind},
         )
         assert created.status_code == 201, created.text
         table_id = UUID(created.json()["id"])
@@ -58,29 +59,31 @@ def seed_tables(client: TestClient) -> None:
                     wage_cap=cap,
                 )
             ],
-            updated_by="hr-admin",
+            actor=ActorRef.legacy("hr-admin"),
         )
         app_state.verify(
             table_id,
-            verified_by="hr-admin",
+            actor=ActorRef.legacy("hr-admin"),
             source_note="test fixture",
         )
 
     overtime = client.post(
         "/v1/rate-tables",
-        json={"kind": "overtime_premium", "name": "OT", "created_by": "hr-admin"},
+        json={"kind": "overtime_premium", "name": "OT"},
     ).json()["id"]
     app_state = client.app.state.people.rate_tables  # type: ignore[attr-defined]
     from hr_agents.models import RateEntry
 
     app_state.set_entries(
-        UUID(overtime), entries=[RateEntry(label="first", multiplier=1.5)], updated_by="hr"
+        UUID(overtime),
+        entries=[RateEntry(label="first", multiplier=1.5)],
+        actor=ActorRef.legacy("hr"),
     )
-    app_state.verify(UUID(overtime), verified_by="hr", source_note="fixture")
+    app_state.verify(UUID(overtime), actor=ActorRef.legacy("hr"), source_note="fixture")
 
     pph = client.post(
         "/v1/rate-tables",
-        json={"kind": "pph21_ter", "name": "TER", "created_by": "hr-admin"},
+        json={"kind": "pph21_ter", "name": "TER"},
     ).json()["id"]
     app_state.set_entries(
         UUID(pph),
@@ -89,9 +92,9 @@ def seed_tables(client: TestClient) -> None:
                 label="low", lower_bound=0, upper_bound=15_000_000, employee_share_percent=2.0
             )
         ],
-        updated_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
-    app_state.verify(UUID(pph), verified_by="hr", source_note="fixture")
+    app_state.verify(UUID(pph), actor=ActorRef.legacy("hr"), source_note="fixture")
 
 
 def test_payroll_full_flow_without_tables_blocks() -> None:
@@ -99,17 +102,16 @@ def test_payroll_full_flow_without_tables_blocks() -> None:
         employee = create_employee(client)
         run = client.post(
             "/v1/payroll/runs",
-            json={"period_year": YEAR, "period_month": 6, "created_by": "hr-admin"},
+            json={"period_year": YEAR, "period_month": 6},
         ).json()
         inputs = client.put(
             f"/v1/payroll/runs/{run['id']}/inputs",
             json={
-                "by": "hr-admin",
                 "inputs": [{"employee_id": employee["id"], "base_salary": 5_000_000}],
             },
         )
         assert inputs.status_code == 200
-        computed = client.post(f"/v1/payroll/runs/{run['id']}/compute", json={"by": "hr-admin"})
+        computed = client.post(f"/v1/payroll/runs/{run['id']}/compute", json={})
 
     assert computed.status_code == 200
     body = computed.json()
@@ -122,17 +124,16 @@ def test_signoff_blocked_when_anomalies_present() -> None:
         employee = create_employee(client)
         run = client.post(
             "/v1/payroll/runs",
-            json={"period_year": YEAR, "period_month": 6, "created_by": "hr-admin"},
+            json={"period_year": YEAR, "period_month": 6},
         ).json()
         client.put(
             f"/v1/payroll/runs/{run['id']}/inputs",
             json={
-                "by": "hr-admin",
                 "inputs": [{"employee_id": employee["id"], "base_salary": 5_000_000}],
             },
         )
-        client.post(f"/v1/payroll/runs/{run['id']}/compute", json={"by": "hr-admin"})
-        submitted = client.post(f"/v1/payroll/runs/{run['id']}/submit", json={"by": "hr-admin"})
+        client.post(f"/v1/payroll/runs/{run['id']}/compute", json={})
+        submitted = client.post(f"/v1/payroll/runs/{run['id']}/submit", json={})
 
     assert submitted.status_code == 409
     assert "blocking anomalies" in submitted.json()["title"]
@@ -146,12 +147,11 @@ def test_payroll_full_flow_with_tables() -> None:
 
         run = client.post(
             "/v1/payroll/runs",
-            json={"period_year": YEAR, "period_month": 6, "created_by": "hr-admin"},
+            json={"period_year": YEAR, "period_month": 6},
         ).json()
         client.put(
             f"/v1/payroll/runs/{run['id']}/inputs",
             json={
-                "by": "hr-admin",
                 "inputs": [
                     {
                         "employee_id": employee["id"],
@@ -162,69 +162,80 @@ def test_payroll_full_flow_with_tables() -> None:
                 ],
             },
         )
-        computed = client.post(
-            f"/v1/payroll/runs/{run['id']}/compute", json={"by": "hr-admin"}
-        ).json()
+        computed = client.post(f"/v1/payroll/runs/{run['id']}/compute", json={}).json()
 
         assert computed["blocking_count"] == 0
         line = computed["lines"][0]
         assert line["employee_name"] == "Sari Dewi"
         assert line["net"] < line["gross"]
 
-        submitted = client.post(
-            f"/v1/payroll/runs/{run['id']}/submit", json={"by": "hr-admin"}
-        ).json()
+        submitted = client.post(f"/v1/payroll/runs/{run['id']}/submit", json={}).json()
         approval_id = submitted["approval_id"]
         assert approval_id
 
         decided = client.post(
             f"/v1/approvals/{approval_id}/decide",
-            json={"decided_by": "finance-lead", "approve": True},
+            json={"approve": True},
         )
         assert decided.status_code == 200
 
-        synced = client.post(f"/v1/payroll/approvals/{approval_id}/sync")
+        synced = client.post(f"/v1/payroll/approvals/{approval_id}/sync", json={})
         assert synced.status_code == 200
         assert synced.json()["status"] == "approved"
-        assert synced.json()["signed_off_by"] == "finance-lead"
+        assert synced.json()["signed_off_by"] == "local-dev"
 
         packet = client.get(f"/v1/payroll/runs/{run['id']}/packet.xlsx")
         assert packet.status_code == 200
         assert packet.headers["content-type"].startswith("application/vnd.openxmlformats")
         assert "no payments executed" in packet.headers["x-hragents-notice"]
 
-        exported = client.post(f"/v1/payroll/runs/{run['id']}/export", json={"by": "finance-lead"})
+        exported = client.post(f"/v1/payroll/runs/{run['id']}/export", json={})
         assert exported.json()["status"] == "exported"
 
 
-def test_agent_cannot_decide_payroll() -> None:
+def test_approval_decision_refuses_a_caller_supplied_actor() -> None:
+    """A decision cannot be attributed by naming someone in the body.
+
+    The old assertion was a 409 with "named human" in it, which is what the
+    service returned when a body said ``decided_by="agent:payroll_bot"``. No
+    request can name an actor now, so the attempt is refused at the boundary --
+    the stronger property. The gate itself lives in ``ApprovalEngine.decide`` and
+    is covered in ``tests/test_named_human_gates.py``, where an agent actor can
+    actually be constructed.
+    """
     app = create_app()
     with TestClient(app) as client:
         employee = create_employee(client)
         seed_tables(client)
         run = client.post(
             "/v1/payroll/runs",
-            json={"period_year": YEAR, "period_month": 6, "created_by": "hr-admin"},
+            json={"period_year": YEAR, "period_month": 6},
         ).json()
         client.put(
             f"/v1/payroll/runs/{run['id']}/inputs",
             json={
-                "by": "hr-admin",
                 "inputs": [{"employee_id": employee["id"], "base_salary": 9_000_000}],
             },
         )
-        client.post(f"/v1/payroll/runs/{run['id']}/compute", json={"by": "hr-admin"})
-        submitted = client.post(
-            f"/v1/payroll/runs/{run['id']}/submit", json={"by": "hr-admin"}
-        ).json()
+        client.post(f"/v1/payroll/runs/{run['id']}/compute", json={})
+        submitted = client.post(f"/v1/payroll/runs/{run['id']}/submit", json={}).json()
 
-        response = client.post(
+        refused = client.post(
             f"/v1/approvals/{submitted['approval_id']}/decide",
-            json={"decided_by": "agent:payroll_bot", "approve": True},
+            json={"approve": True, "decided_by": "agent:payroll_bot"},
         )
+        approved = client.post(
+            f"/v1/approvals/{submitted['approval_id']}/decide",
+            json={"approve": True},
+        )
+        synced = client.post(f"/v1/payroll/approvals/{submitted['approval_id']}/sync", json={})
 
-    assert response.status_code == 409
-    assert "named human" in response.json()["title"]
+    assert refused.status_code == 422
+    assert any(error["loc"][-1] == "decided_by" for error in refused.json()["detail"])
+    assert approved.status_code == 200
+    assert approved.json()["action"] == "approved"
+    # and the run names the key's holder as the approver, not a typed-in name
+    assert synced.json()["signed_off_by"] == "local-dev"
 
 
 def test_edit_after_submission_rejected() -> None:
@@ -234,22 +245,20 @@ def test_edit_after_submission_rejected() -> None:
         seed_tables(client)
         run = client.post(
             "/v1/payroll/runs",
-            json={"period_year": YEAR, "period_month": 6, "created_by": "hr-admin"},
+            json={"period_year": YEAR, "period_month": 6},
         ).json()
         client.put(
             f"/v1/payroll/runs/{run['id']}/inputs",
             json={
-                "by": "hr-admin",
                 "inputs": [{"employee_id": employee["id"], "base_salary": 9_000_000}],
             },
         )
-        client.post(f"/v1/payroll/runs/{run['id']}/compute", json={"by": "hr-admin"})
-        client.post(f"/v1/payroll/runs/{run['id']}/submit", json={"by": "hr-admin"})
+        client.post(f"/v1/payroll/runs/{run['id']}/compute", json={})
+        client.post(f"/v1/payroll/runs/{run['id']}/submit", json={})
 
         response = client.put(
             f"/v1/payroll/runs/{run['id']}/inputs",
             json={
-                "by": "hr-admin",
                 "inputs": [{"employee_id": employee["id"], "base_salary": 1_000_000}],
             },
         )

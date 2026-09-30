@@ -22,7 +22,6 @@ from hr_agents.models import (
 class RunCreate(StrictModel):
     period_year: int = Field(ge=2000, le=2100)
     period_month: int = Field(ge=1, le=12)
-    created_by: str = Field(min_length=1, max_length=200)
     kind: PayrollRunKind = PayrollRunKind.MONTHLY
 
 
@@ -44,11 +43,9 @@ class InputLine(StrictModel):
 
 class InputsSet(StrictModel):
     inputs: list[InputLine] = Field(min_length=1)
-    by: str = Field(min_length=1, max_length=200)
 
 
 class RunAction(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str | None = Field(default=None, max_length=1000)
 
 

@@ -33,7 +33,7 @@ from hr_agents.api.compliance_schemas import (
     ScanView,
     StepComplete,
 )
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.models import RecordEntity, SubjectKind, UtcDateTime
 from hr_agents.rbac import Permission
 from hr_agents.services.compliance import (
@@ -75,12 +75,14 @@ def _raise(exc: Exception) -> HTTPException:
 
 
 @router.post("/consents", status_code=status.HTTP_201_CREATED, response_model=ConsentView)
-def record_consent(payload: ConsentCreate, compliance: ComplianceDep) -> ConsentView:
+def record_consent(
+    payload: ConsentCreate, compliance: ComplianceDep, actor: ActorDep
+) -> ConsentView:
     record = compliance.record_consent(
         subject_kind=payload.subject_kind,
         subject_id=payload.subject_id,
         purpose=payload.purpose,
-        captured_by=payload.captured_by,
+        actor=actor,
         granted=payload.granted,
         lawful_basis=payload.lawful_basis,
         capture_method=payload.capture_method,
@@ -118,10 +120,13 @@ def consent_status(
 
 @router.post("/consents/{consent_id}/revoke", response_model=ConsentView)
 def revoke_consent(
-    consent_id: UUID, payload: ConsentRevoke, compliance: ComplianceDep
+    consent_id: UUID,
+    payload: ConsentRevoke,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> ConsentView:
     try:
-        record = compliance.revoke_consent(consent_id, by=payload.by, reason=payload.reason)
+        record = compliance.revoke_consent(consent_id, actor=actor, reason=payload.reason)
     except ComplianceError as exc:
         raise _raise(exc) from exc
     return ConsentView.from_model(record)
@@ -131,13 +136,13 @@ def revoke_consent(
 
 
 @router.put("/retention/policies", response_model=PolicyView)
-def set_policy(payload: PolicySet, compliance: ComplianceDep) -> PolicyView:
+def set_policy(payload: PolicySet, compliance: ComplianceDep, actor: ActorDep) -> PolicyView:
     try:
         policy = compliance.set_policy(
             entity=payload.entity,
             name=payload.name,
             retention_months=payload.retention_months,
-            updated_by=payload.updated_by,
+            actor=actor,
             expiry_action=payload.expiry_action,
             jurisdiction=payload.jurisdiction,
             active=payload.active,
@@ -154,12 +159,12 @@ def list_policies(compliance: ComplianceDep) -> list[PolicyView]:
 
 
 @router.post("/retention/records", status_code=status.HTTP_201_CREATED, response_model=RecordView)
-def track_record(payload: RecordTrack, compliance: ComplianceDep) -> RecordView:
+def track_record(payload: RecordTrack, compliance: ComplianceDep, actor: ActorDep) -> RecordView:
     record = compliance.track_record(
         entity=payload.entity,
         subject_kind=payload.subject_kind,
         subject_id=payload.subject_id,
-        created_by=payload.created_by,
+        actor=actor,
         label=payload.label,
         anchor_at=payload.anchor_at,
         retention_months_override=payload.retention_months_override,
@@ -186,11 +191,14 @@ def list_records(
 
 @router.post("/retention/records/{record_id}/hold", response_model=RecordView)
 def set_legal_hold(
-    record_id: UUID, payload: LegalHoldRequest, compliance: ComplianceDep
+    record_id: UUID,
+    payload: LegalHoldRequest,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> RecordView:
     try:
         record = compliance.set_legal_hold(
-            record_id, held=payload.held, by=payload.by, reason=payload.reason
+            record_id, held=payload.held, actor=actor, reason=payload.reason
         )
     except ComplianceError as exc:
         raise _raise(exc) from exc
@@ -207,11 +215,11 @@ def scan_retention(compliance: ComplianceDep, as_of: UtcDateTime | None = None) 
     response_model=PurgeReportView,
     dependencies=[Depends(require_permission(Permission.COMPLIANCE_EXECUTE))],
 )
-def execute_purge(payload: PurgeRequest, compliance: ComplianceDep) -> PurgeReportView:
+def execute_purge(
+    payload: PurgeRequest, compliance: ComplianceDep, actor: ActorDep
+) -> PurgeReportView:
     try:
-        report = compliance.execute_purge(
-            by=payload.by, as_of=payload.as_of, dry_run=payload.dry_run
-        )
+        report = compliance.execute_purge(actor=actor, as_of=payload.as_of, dry_run=payload.dry_run)
     except ComplianceError as exc:
         raise _raise(exc) from exc
     return PurgeReportView.from_model(report)
@@ -221,12 +229,14 @@ def execute_purge(payload: PurgeRequest, compliance: ComplianceDep) -> PurgeRepo
 
 
 @router.post("/erasures", status_code=status.HTTP_201_CREATED, response_model=ErasureView)
-def create_erasure(payload: ErasureCreate, compliance: ComplianceDep) -> ErasureView:
+def create_erasure(
+    payload: ErasureCreate, compliance: ComplianceDep, actor: ActorDep
+) -> ErasureView:
     request = compliance.create_erasure_request(
         subject_kind=payload.subject_kind,
         subject_id=payload.subject_id,
         reason=payload.reason,
-        requested_by=payload.requested_by,
+        actor=actor,
         channel=payload.channel,
     )
     return ErasureView.from_model(request)
@@ -247,10 +257,13 @@ def get_erasure(request_id: UUID, compliance: ComplianceDep) -> ErasureView:
 
 @router.post("/erasures/{request_id}/verify", response_model=ErasureView)
 def verify_erasure_identity(
-    request_id: UUID, payload: ErasureVerify, compliance: ComplianceDep
+    request_id: UUID,
+    payload: ErasureVerify,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> ErasureView:
     try:
-        request = compliance.verify_identity(request_id, by=payload.by, method=payload.method)
+        request = compliance.verify_identity(request_id, actor=actor, method=payload.method)
     except ComplianceError as exc:
         raise _raise(exc) from exc
     return ErasureView.from_model(request)
@@ -258,10 +271,13 @@ def verify_erasure_identity(
 
 @router.post("/erasures/{request_id}/submit", response_model=ErasureView)
 def submit_erasure(
-    request_id: UUID, payload: ErasureAction, compliance: ComplianceDep
+    request_id: UUID,
+    payload: ErasureAction,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> ErasureView:
     try:
-        request = compliance.submit_for_decision(request_id, by=payload.by)
+        request = compliance.submit_for_decision(request_id, actor=actor)
     except ComplianceError as exc:
         raise _raise(exc) from exc
     return ErasureView.from_model(request)
@@ -282,10 +298,13 @@ def sync_erasure_decision(approval_id: UUID, compliance: ComplianceDep) -> Erasu
     dependencies=[Depends(require_permission(Permission.COMPLIANCE_EXECUTE))],
 )
 def execute_erasure(
-    request_id: UUID, payload: ErasureAction, compliance: ComplianceDep
+    request_id: UUID,
+    payload: ErasureAction,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> ErasureView:
     try:
-        request = compliance.execute_erasure(request_id, by=payload.by)
+        request = compliance.execute_erasure(request_id, actor=actor)
     except ComplianceError as exc:
         raise _raise(exc) from exc
     return ErasureView.from_model(request)
@@ -300,13 +319,12 @@ def breach_template() -> BreachTemplateView:
 
 
 @router.post("/breaches", status_code=status.HTTP_201_CREATED, response_model=BreachView)
-def create_breach(payload: BreachCreate, compliance: ComplianceDep) -> BreachView:
+def create_breach(payload: BreachCreate, compliance: ComplianceDep, actor: ActorDep) -> BreachView:
     incident = compliance.create_incident(
         title=payload.title,
         description=payload.description,
         impact=payload.impact,
-        discovered_by=payload.discovered_by,
-        created_by=payload.created_by,
+        actor=actor,
         discovered_at=payload.discovered_at,
     )
     return BreachView.from_model(incident)
@@ -334,11 +352,15 @@ def get_breach(incident_id: UUID, compliance: ComplianceDep) -> BreachView:
 
 @router.post("/breaches/{incident_id}/steps/{step_key}/complete", response_model=BreachView)
 def complete_breach_step(
-    incident_id: UUID, step_key: str, payload: StepComplete, compliance: ComplianceDep
+    incident_id: UUID,
+    step_key: str,
+    payload: StepComplete,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> BreachView:
     try:
         incident = compliance.complete_step(
-            incident_id, step_key=step_key, by=payload.by, note=payload.note
+            incident_id, step_key=step_key, actor=actor, note=payload.note
         )
     except ComplianceError as exc:
         raise _raise(exc) from exc
@@ -347,14 +369,17 @@ def complete_breach_step(
 
 @router.post("/breaches/{incident_id}/notifications", response_model=BreachView)
 def record_breach_notification(
-    incident_id: UUID, payload: NotificationCreate, compliance: ComplianceDep
+    incident_id: UUID,
+    payload: NotificationCreate,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> BreachView:
     try:
         incident = compliance.record_notification(
             incident_id,
             recipient_kind=payload.recipient_kind,
             recipient=payload.recipient,
-            sent_by=payload.sent_by,
+            actor=actor,
             reference=payload.reference,
             note=payload.note,
         )
@@ -365,11 +390,14 @@ def record_breach_notification(
 
 @router.post("/breaches/{incident_id}/status", response_model=BreachView)
 def transition_breach(
-    incident_id: UUID, payload: BreachTransition, compliance: ComplianceDep
+    incident_id: UUID,
+    payload: BreachTransition,
+    compliance: ComplianceDep,
+    actor: ActorDep,
 ) -> BreachView:
     try:
         incident = compliance.transition(
-            incident_id, status=payload.status, by=payload.by, note=payload.note
+            incident_id, status=payload.status, actor=actor, note=payload.note
         )
     except ComplianceError as exc:
         raise _raise(exc) from exc
@@ -380,5 +408,11 @@ def transition_breach(
 
 
 @router.get("/audit/verify", response_model=AuditVerifyView)
-def verify_audit(compliance: ComplianceDep, checked_by: str = "system") -> AuditVerifyView:
-    return AuditVerifyView.from_model(compliance.verify_audit_chain(checked_by=checked_by))
+def verify_audit(compliance: ComplianceDep, actor: ActorDep) -> AuditVerifyView:
+    """Verify the tamper-evident chain and say who checked it.
+
+    The verifier used to be a query parameter, so the report named whoever the
+    caller typed in the URL -- the one place in the compliance surface where a
+    self-declared actor could still reach the response unchallenged.
+    """
+    return AuditVerifyView.from_model(compliance.verify_audit_chain(actor=actor))

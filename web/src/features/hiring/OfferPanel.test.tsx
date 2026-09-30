@@ -90,7 +90,9 @@ describe('OfferPanel', () => {
     expect(
       screen.getByRole('heading', { name: i18n.t('offer.form.createTitle') }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText(i18n.t('offer.form.by'))).toBeInTheDocument()
+    // The create form has no actor field: the server attributes the offer to
+    // the API key holder, so a name box would collect a value nothing reads.
+    expect(screen.queryByLabelText(i18n.t('offer.form.by'))).not.toBeInTheDocument()
   })
 
   it('offers revise and submit for a draft, prefilled for revision', async () => {

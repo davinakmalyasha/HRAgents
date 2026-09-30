@@ -162,7 +162,7 @@ def test_approvals_escalate_then_expire_across_runs() -> None:
         subject_id="leave-1",
         title="Annual leave 3 days",
         assignee_role=ApproverRole.MANAGER,
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
         urgency=Urgency.NORMAL,
         max_escalations=1,
     )
@@ -191,14 +191,14 @@ def track_expired_candidate(
         entity=entity,
         name=f"{entity.value} records",
         retention_months=12,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expiry_action=PurgeAction.DELETE,
     )
     record = people.compliance.track_record(
         entity=entity,
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
-        created_by="screening-pipeline",
+        actor=ActorRef.legacy("screening-pipeline"),
         label="Budi Santoso",
         anchor_at=NOW - timedelta(days=400),
     )
@@ -260,8 +260,7 @@ def test_breach_overdue_is_reported_read_only() -> None:
         title="Laptop with HR export lost",
         description="Device encryption status unknown",
         impact=BreachImpact.HIGH,
-        discovered_by="it-ops",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("it-ops"),
         discovered_at=NOW,
     )
 
@@ -281,14 +280,14 @@ def seed_due_review(people: PeopleServices) -> None:
         name="2026 H1 Review",
         period_start=NOW.date() - timedelta(days=180),
         period_end=NOW.date(),
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         kind=ReviewCycleKind.MID_YEAR,
         submission_due_on=NOW.date() + timedelta(days=1),
     )
     people.growth.add_assignment(
-        cycle.id, employee_id=uuid4(), reviewer_id="lead-1", created_by="hr-admin"
+        cycle.id, employee_id=uuid4(), reviewer_id="lead-1", actor=ActorRef.legacy("hr-admin")
     )
-    people.growth.activate_cycle(cycle.id, by="hr-admin")
+    people.growth.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_growth_reminders_create_tasks_once() -> None:
@@ -370,9 +369,9 @@ def test_offer_expiry_applies_and_leaves_live_offers() -> None:
             salary_currency="IDR",
             expires_at=NOW - timedelta(hours=1),
         ),
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    recruiting.offers.submit(stale.id, by="hr-admin")
+    recruiting.offers.submit(stale.id, actor=ActorRef.legacy("hr-admin"))
 
     report = scheduler.run(["offer-expiry"], now=NOW)
 

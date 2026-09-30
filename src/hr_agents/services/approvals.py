@@ -13,20 +13,17 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApprovalRequest,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
-    AuditActor,
     Urgency,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ApprovalStore
-
-AGENT_ACTOR_PREFIX = "agent:"
 
 
 class ApprovalError(RuntimeError):
@@ -55,32 +52,34 @@ class ApprovalEngine:
         subject_id: str,
         title: str,
         assignee_role: ApproverRole,
-        requested_by: str,
+        actor: ActorRef,
         summary: str = "",
         payload: dict[str, Any] | None = None,
         urgency: Urgency = Urgency.NORMAL,
-        requested_by_agent: bool = False,
         max_escalations: int = 2,
     ) -> ApprovalRequest:
-        """Create a pending approval with its SLA deadline already computed."""
-        if requested_by_agent and not requested_by.startswith(AGENT_ACTOR_PREFIX):
-            requested_by = f"{AGENT_ACTOR_PREFIX}{requested_by}"
+        """Create a pending approval with its SLA deadline already computed.
 
+        ``requested_by_agent`` is derived from the actor rather than supplied.
+        It used to be a separate boolean that a caller could set inconsistently
+        with the name it passed, which is how an agent tool ended up recorded on
+        the chain as a person.
+        """
         request = ApprovalRequest(
             subject=subject,
             subject_id=subject_id,
             title=title,
             summary=summary,
             payload=payload or {},
-            requested_by=requested_by,
-            requested_by_agent=requested_by_agent or requested_by.startswith(AGENT_ACTOR_PREFIX),
+            requested_by=actor.actor_id,
+            requested_by_agent=not actor.is_human,
             assignee_role=assignee_role,
             urgency=urgency,
             max_escalations=max_escalations,
         )
         request = request.model_copy(update={"sla_deadline": request.default_deadline()})
         self._store.add(request)
-        self._record(request, action="approval.created")
+        self._record(request, action="approval.created", actor=actor)
         return request
 
     # --- decisions ------------------------------------------------------
@@ -89,7 +88,7 @@ class ApprovalEngine:
         self,
         request_id: UUID,
         *,
-        decided_by: str,
+        actor: ActorRef,
         approve: bool,
         reason: str | None = None,
     ) -> ApprovalDecision:
@@ -97,23 +96,25 @@ class ApprovalEngine:
         request = self._require(request_id)
         if not request.active:
             raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot decide")
-        decided_by = require_named_human(decided_by, "a decision", ApprovalError)
+        actor.require_human("a decision", ApprovalError)
 
         action = "approved" if approve else "rejected"
         decided = request.model_copy(
             update={
                 "status": ApprovalStatus.APPROVED if approve else ApprovalStatus.REJECTED,
-                "decided_by": decided_by,
+                "decided_by": actor.actor_id,
                 "decided_at": utc_now(),
                 "decision_reason": reason,
                 "updated_at": utc_now(),
             }
         )
         self._store.save(decided)
-        self._record(decided, action=f"approval.{action}", actor_id=decided_by)
+        self._record(decided, action=f"approval.{action}", actor=actor)
         return ApprovalDecision(request=decided, action=action)
 
-    def withdraw(self, request_id: UUID, *, by: str, reason: str | None = None) -> ApprovalRequest:
+    def withdraw(
+        self, request_id: UUID, *, actor: ActorRef, reason: str | None = None
+    ) -> ApprovalRequest:
         request = self._require(request_id)
         if not request.active:
             raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot withdraw")
@@ -125,14 +126,14 @@ class ApprovalEngine:
             }
         )
         self._store.save(updated)
-        self._record(updated, action="approval.withdrawn", actor_id=by)
+        self._record(updated, action="approval.withdrawn", actor=actor)
         return updated
 
     def reassign(
         self,
         request_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         to_role: ApproverRole,
         reason: str,
     ) -> ApprovalRequest:
@@ -151,8 +152,8 @@ class ApprovalEngine:
         """
         request = self._require(request_id)
         if not request.active:
-            raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot reassign")
-        by = require_named_human(by, "a reassignment", ApprovalError)
+            raise ApprovalError(f"approval {request_id} is not active; cannot reassign")
+        actor.require_human("a reassignment", ApprovalError)
         cleaned_reason = reason.strip()
         if not cleaned_reason:
             raise ApprovalError("a reassignment requires a reason; it becomes part of the record")
@@ -166,7 +167,7 @@ class ApprovalEngine:
         self._record(
             updated,
             action="approval.reassigned",
-            actor_id=by,
+            actor=actor,
             extra={"from_role": previous.value, "to_role": to_role.value, "reason": cleaned_reason},
         )
         return updated
@@ -275,11 +276,13 @@ class ApprovalEngine:
     def audit(self) -> AuditChain:
         return self._audit
 
-    def mark_executed(self, request_id: UUID, *, by: str) -> ApprovalRequest:
+    def mark_executed(self, request_id: UUID, *, actor: ActorRef) -> ApprovalRequest:
         """Consume an approved request, so the same grant cannot fire twice.
 
         Only an approved, not-yet-executed request can be consumed, and the
-        execution is audited with the request id.
+        execution is audited with the request id. The actor is usually an agent
+        tool acting on a human's approval, which is why this one is not gated on
+        a person.
         """
         request = self._require(request_id)
         if request.status is not ApprovalStatus.APPROVED:
@@ -294,13 +297,13 @@ class ApprovalEngine:
                 "payload": {
                     **request.payload,
                     "executed_at": utc_now().isoformat(),
-                    "executed_by": by,
+                    "executed_by": actor.actor_id,
                 },
                 "updated_at": utc_now(),
             }
         )
         self._store.save(consumed)
-        self._record(consumed, action="approval.executed")
+        self._record(consumed, action="approval.executed", actor=actor)
         return consumed
 
     # --- internals ------------------------------------------------------
@@ -327,10 +330,9 @@ class ApprovalEngine:
         request: ApprovalRequest,
         *,
         action: str,
-        actor_id: str = "approval-engine",
+        actor: ActorRef | None = None,
         extra: dict[str, Any] | None = None,
     ) -> None:
-        actor_type = classify_actor(actor_id)
         payload: dict[str, Any] = {
             "subject": request.subject.value,
             "subject_id": request.subject_id,
@@ -342,8 +344,10 @@ class ApprovalEngine:
         }
         if extra:
             payload.update(extra)
+        # The SLA sweep and the expiry pass have no caller to name: they are the
+        # engine's own clock, so they say so rather than looking like a person.
         self._audit.append(
-            actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
+            actor=(actor or ActorRef.system("approval-engine")).audit_actor(),
             action=action,
             subject_type="approval",
             subject_id=str(request.id),

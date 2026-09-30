@@ -43,7 +43,6 @@ class ConsentCreate(StrictModel):
     subject_kind: SubjectKind
     subject_id: str = Field(min_length=1, max_length=200)
     purpose: str = Field(min_length=1, max_length=120)
-    captured_by: str = Field(min_length=1, max_length=200)
     granted: bool = True
     lawful_basis: LawfulBasis = LawfulBasis.CONSENT
     capture_method: str = Field(default="manual", max_length=60)
@@ -53,7 +52,6 @@ class ConsentCreate(StrictModel):
 
 
 class ConsentRevoke(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str = Field(min_length=1, max_length=500)
 
 
@@ -109,7 +107,6 @@ class PolicySet(StrictModel):
     entity: RecordEntity
     name: str = Field(min_length=1, max_length=160)
     retention_months: int = Field(ge=1, le=600)
-    updated_by: str = Field(min_length=1, max_length=200)
     expiry_action: PurgeAction = PurgeAction.ANONYMIZE
     jurisdiction: str = Field(default="ID", max_length=2)
     active: bool = True
@@ -137,7 +134,6 @@ class RecordTrack(StrictModel):
     entity: RecordEntity
     subject_kind: SubjectKind
     subject_id: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     label: str = Field(default="", max_length=200)
     anchor_at: UtcDateTime | None = None
     retention_months_override: int | None = Field(default=None, ge=1, le=600)
@@ -177,7 +173,6 @@ class RecordView(StrictModel):
 
 class LegalHoldRequest(StrictModel):
     held: bool
-    by: str = Field(min_length=1, max_length=200)
     reason: str = Field(min_length=1, max_length=500)
 
 
@@ -216,7 +211,6 @@ class ScanView(StrictModel):
 
 
 class PurgeRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     as_of: UtcDateTime | None = None
     dry_run: bool = False
 
@@ -271,17 +265,20 @@ class ErasureCreate(StrictModel):
     subject_kind: SubjectKind
     subject_id: str = Field(min_length=1, max_length=200)
     reason: str = Field(min_length=1, max_length=2000)
-    requested_by: str = Field(min_length=1, max_length=200)
     channel: str = Field(default="manual", max_length=60)
 
 
 class ErasureVerify(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     method: str = Field(min_length=1, max_length=120)
 
 
 class ErasureAction(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
+    """Submitting or executing an erasure needs no body.
+
+    Both moves are gated on the principal and on the shared approval queue, and
+    neither takes anything else. Empty and strict, so a body is refused rather
+    than ignored.
+    """
 
 
 class DispositionView(StrictModel):
@@ -369,27 +366,22 @@ class BreachCreate(StrictModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=4000)
     impact: BreachImpact = BreachImpact.MEDIUM
-    discovered_by: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     discovered_at: UtcDateTime | None = None
 
 
 class StepComplete(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
 
 
 class NotificationCreate(StrictModel):
     recipient_kind: NotificationRecipient
     recipient: str = Field(min_length=1, max_length=200)
-    sent_by: str = Field(min_length=1, max_length=200)
     reference: str | None = Field(default=None, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
 
 
 class BreachTransition(StrictModel):
     status: BreachStatus
-    by: str = Field(min_length=1, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
 
 
@@ -487,10 +479,6 @@ class OverdueStepView(StrictModel):
 
 
 # --- audit -------------------------------------------------------------------
-
-
-class AuditVerifyRequest(StrictModel):
-    checked_by: str = Field(default="system", max_length=200)
 
 
 class AuditVerifyView(StrictModel):

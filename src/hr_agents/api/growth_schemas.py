@@ -31,7 +31,6 @@ class CycleCreate(StrictModel):
     name: str = Field(min_length=1, max_length=200)
     period_start: date
     period_end: date
-    created_by: str = Field(min_length=1, max_length=200)
     kind: ReviewCycleKind = ReviewCycleKind.ANNUAL
     rating_scale_min: float = 1.0
     rating_scale_max: float = 5.0
@@ -40,7 +39,6 @@ class CycleCreate(StrictModel):
 
 
 class CycleAction(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str | None = Field(default=None, max_length=500)
 
 
@@ -70,19 +68,16 @@ class CycleView(StrictModel):
 class AssignmentCreate(StrictModel):
     employee_id: UUID
     reviewer_id: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     reviewer_role: ApproverRole | None = None
     due_on: date | None = None
 
 
 class AssignmentSubmit(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     ratings: dict[str, float] = Field(min_length=1)
     comments: str = Field(default="", max_length=4000)
 
 
 class AssignmentSkip(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str = Field(min_length=1, max_length=500)
 
 
@@ -116,11 +111,9 @@ class SummaryDraft(StrictModel):
     cycle_id: UUID
     employee_id: UUID
     draft_text: str = Field(min_length=1, max_length=10000)
-    drafted_by: str = Field(min_length=1, max_length=200)
 
 
 class SummaryFinalize(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     final_text: str = Field(min_length=1, max_length=10000)
 
 
@@ -149,7 +142,6 @@ class SummaryView(StrictModel):
 class GoalCreate(StrictModel):
     employee_id: UUID
     title: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=2000)
     metric: str | None = Field(default=None, max_length=200)
     cycle_id: UUID | None = None
@@ -159,12 +151,10 @@ class GoalCreate(StrictModel):
 
 class GoalProgress(StrictModel):
     percent: float = Field(ge=0.0, le=100.0)
-    by: str = Field(min_length=1, max_length=200)
     note: str = Field(default="", max_length=1000)
 
 
 class GoalAction(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     note: str = Field(default="", max_length=1000)
     reason: str | None = Field(default=None, max_length=500)
 
@@ -220,7 +210,13 @@ class GoalView(StrictModel):
 
 
 class ByActor(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
+    """Activating a goal needs no body: the actor is the principal.
+
+    Kept as an empty strict model rather than dropping the body parameter, so a
+    client that still sends ``by`` is refused with a 422 instead of having it
+    silently ignored. An ignored field is how a caller comes to believe they
+    overrode something.
+    """
 
 
 class ReminderView(StrictModel):

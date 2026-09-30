@@ -1326,7 +1326,7 @@ class SchedulingService:
                     f"{policy.decision.value} requires a named human confirmation."
                 ),
                 assignee_role=ApproverRole.RECRUITER_LEAD,
-                requested_by=actor.actor_id,
+                actor=actor,
                 payload={
                     "proposal_id": str(proposal.id),
                     "candidate_id": str(candidate_id),
@@ -1496,7 +1496,7 @@ class SchedulingService:
         try:
             self._approvals.decide(
                 approval.id,
-                decided_by=actor.actor_id,
+                actor=actor,
                 approve=True,
                 reason=reason.strip() or "interview slots confirmed",
             )
@@ -1509,7 +1509,7 @@ class SchedulingService:
         if approval is None or self._approvals is None or not approval.active:
             return
         try:
-            self._approvals.withdraw(approval.id, by=actor.actor_id, reason=reason.strip() or None)
+            self._approvals.withdraw(approval.id, actor=actor, reason=reason.strip() or None)
         except ApprovalError as exc:
             raise RecruitingError(str(exc)) from exc
 

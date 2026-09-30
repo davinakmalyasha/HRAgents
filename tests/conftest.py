@@ -30,6 +30,11 @@ LEAKY_ENV_KEYS = frozenset(
         "HRAGENTS_STORE_BACKEND",
         "HRAGENTS_API_KEYS",
         "HRAGENTS_API_PRINCIPALS",
+        # Names the local operator, and therefore the actor on every audit entry
+        # an unconfigured test install records. A developer who set it in their
+        # .env would see every `== "local-dev"` assertion fail for a reason that
+        # has nothing to do with the code under test.
+        "HRAGENTS_ACTOR_NAME",
     }
 )
 

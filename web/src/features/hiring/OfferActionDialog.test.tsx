@@ -72,34 +72,30 @@ function renderDialog(action: 'approve' | 'withdraw' | 'message' | 'accept' | 'd
 }
 
 describe('OfferActionDialog', () => {
-  it('requires a named human before approving', async () => {
+  it('never asks the user to name themselves', async () => {
     renderDialog('approve')
 
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('offer.approve') }))
-
-    expect(decideMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('offer.errors.byRequired'))).toBeInTheDocument()
+    // The server takes the actor from the API key. A name field here would be
+    // the worst outcome: the user would believe the record was theirs.
+    expect(screen.queryByLabelText(i18n.t('offer.fields.by'))).not.toBeInTheDocument()
   })
 
   it('requires a reason to withdraw', async () => {
     renderDialog('withdraw')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('offer.fields.by')), 'hr-admin')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('offer.withdraw') }))
 
     expect(decideMock).not.toHaveBeenCalled()
     expect(screen.getByText(i18n.t('offer.errors.reasonRequired'))).toBeInTheDocument()
   })
 
-  it('approves with the named actor and optional reason', async () => {
+  it('approves with an optional reason and no actor field', async () => {
     decideMock.mockResolvedValue({ status: 200 })
     const { onOpenChange } = renderDialog('approve')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('offer.fields.by')), 'hr-admin')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('offer.approve') }))
 
     expect(decideMock).toHaveBeenCalledWith('offer-1', {
-      by: 'hr-admin',
       decision: 'approve',
       reason: '',
     })
@@ -110,11 +106,9 @@ describe('OfferActionDialog', () => {
     messageMock.mockResolvedValue({ status: 200 })
     renderDialog('message')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('offer.fields.by')), 'hr-admin')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('offer.message') }))
 
     expect(messageMock).toHaveBeenCalledWith('offer-1', {
-      by: 'hr-admin',
       body: null,
       subject: null,
       language: 'en',
@@ -125,11 +119,9 @@ describe('OfferActionDialog', () => {
     acceptMock.mockResolvedValue({ status: 200 })
     renderDialog('accept')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('offer.fields.by')), 'hr-admin')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('offer.accept') }))
 
     expect(acceptMock).toHaveBeenCalledWith('offer-1', {
-      by: 'hr-admin',
       accepted: true,
       reason: '',
     })
@@ -142,7 +134,6 @@ describe('OfferActionDialog', () => {
     })
     renderDialog('approve')
 
-    await userEvent.type(screen.getByLabelText(i18n.t('offer.fields.by')), 'hr-admin')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('offer.approve') }))
 
     expect(screen.getByText(i18n.t('offer.errors.approvalRejected'))).toBeInTheDocument()

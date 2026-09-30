@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ActorType,
     ApprovalStatus,
@@ -92,6 +93,9 @@ class DestructiveToolGate:
                 f"tool {definition.name!r} is not destructive and needs no approval"
             )
         normalized = agent_name.strip().lower()
+        # An agent asked. The approval is raised on its behalf, and the record
+        # says an agent raised it rather than a person.
+        actor = ActorRef.agent(normalized)
         payload_arguments = dict(arguments or {})
         digest = payload_digest(payload_arguments)
         preview = self._preview(definition, payload_arguments)
@@ -106,8 +110,7 @@ class DestructiveToolGate:
             title=f"Run destructive tool: {definition.name}",
             summary=definition.description,
             assignee_role=definition.approver_role,
-            requested_by=normalized,
-            requested_by_agent=True,
+            actor=actor,
             urgency=self._urgency,
             payload={
                 "tool": definition.name,
@@ -146,6 +149,9 @@ class DestructiveToolGate:
                 f"tool {definition.name!r} is not destructive and needs no approval"
             )
         normalized = agent_name.strip().lower()
+        # An agent asked. The approval is raised on its behalf, and the record
+        # says an agent raised it rather than a person.
+        actor = ActorRef.agent(normalized)
         payload_arguments = dict(arguments or {})
         digest = payload_digest(payload_arguments)
 
@@ -188,7 +194,7 @@ class DestructiveToolGate:
                 f"tool {definition.name!r} is async and must be gated from an async caller",
                 request_id=request.id,
             )
-        self._approvals.mark_executed(request.id, by=normalized)
+        self._approvals.mark_executed(request.id, actor=actor)
         self._record(
             action="tool.destructive_executed",
             request_id=request.id,

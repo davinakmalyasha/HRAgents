@@ -207,5 +207,35 @@ class ActorRef:
         require_named_human(self.actor_id, action, error, subject=subject)
         return self
 
+    def require_human_or_system(
+        self, action: str, error: type[Exception] = ActorError, *, subject: str = ""
+    ) -> ActorRef:
+        """Refuse agents only, for the scheduled jobs that may act as the system.
+
+        Deliberately narrower than :meth:`require_human`. The retention sweep
+        legitimately runs unattended, and a gate that demanded a person would
+        leave expired records in place because nobody was watching. Every other
+        consequential action must name a human.
+        """
+        require_named_human_or_system(self.actor_id, action, error, subject=subject)
+        return self
+
     def __str__(self) -> str:
         return self.actor_id
+
+
+def deciding_actor(decided_by: str | None) -> ActorRef:
+    """The actor of an already-decided approval, for the services that sync it.
+
+    A payroll run, a leave request and an erasure request all follow an approval
+    to its outcome, and all read the approver's name back off the stored record
+    rather than being handed a live principal. That is exactly why the provenance
+    is ``legacy_string`` and not ``authenticated``: the person was verified when
+    they decided, but nothing at this point can prove it a second time. Stamping
+    ``authenticated`` on a value loaded from storage would assert something the
+    caller never checked, and the chain would say so to the next reader.
+
+    Persisting the deciding actor's provenance on the request closes the gap, and
+    belongs with the rest of the provenance work.
+    """
+    return ActorRef.legacy(decided_by or "approval-engine")

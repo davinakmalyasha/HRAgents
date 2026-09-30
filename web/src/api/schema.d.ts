@@ -401,7 +401,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Verify Audit */
+        /**
+         * Verify Audit
+         * @description Verify the tamper-evident chain and say who checked it.
+         *
+         *     The verifier used to be a query parameter, so the report named whoever the
+         *     caller typed in the URL -- the one place in the compliance surface where a
+         *     self-declared actor could still reach the response unchallenged.
+         */
         get: operations["verify_audit_v1_compliance_audit_verify_get"];
         put?: never;
         post?: never;
@@ -2742,13 +2749,6 @@ export interface components {
         /** ApprovalCreate */
         ApprovalCreate: {
             assignee_role: components["schemas"]["ApproverRole"];
-            /** Requested By */
-            requested_by: string;
-            /**
-             * Requested By Agent
-             * @default false
-             */
-            requested_by_agent: boolean;
             subject: components["schemas"]["ApprovalSubject"];
             /** Subject Id */
             subject_id: string;
@@ -2766,8 +2766,6 @@ export interface components {
         ApprovalDecisionRequest: {
             /** Approve */
             approve: boolean;
-            /** Decided By */
-            decided_by: string;
             /** Reason */
             reason?: string | null;
         };
@@ -2837,8 +2835,6 @@ export interface components {
              * @default
              */
             category: string;
-            /** Created By */
-            created_by: string;
             /**
              * Employee Id
              * Format: uuid
@@ -2851,15 +2847,11 @@ export interface components {
         };
         /** AssetMissing */
         AssetMissing: {
-            /** By */
-            by: string;
             /** Note */
             note: string;
         };
         /** AssetReturn */
         AssetReturn: {
-            /** By */
-            by: string;
             /** Note */
             note?: string | null;
             /** Returned On */
@@ -2904,15 +2896,11 @@ export interface components {
         };
         /** AssetWriteOff */
         AssetWriteOff: {
-            /** By */
-            by: string;
             /** Reason */
             reason: string;
         };
         /** AssignmentCreate */
         AssignmentCreate: {
-            /** Created By */
-            created_by: string;
             /** Due On */
             due_on?: string | null;
             /**
@@ -2926,8 +2914,6 @@ export interface components {
         };
         /** AssignmentSkip */
         AssignmentSkip: {
-            /** By */
-            by: string;
             /** Reason */
             reason: string;
         };
@@ -2938,8 +2924,6 @@ export interface components {
         AssignmentStatus: "pending" | "submitted" | "skipped";
         /** AssignmentSubmit */
         AssignmentSubmit: {
-            /** By */
-            by: string;
             /**
              * Comments
              * @default
@@ -3052,8 +3036,6 @@ export interface components {
         };
         /** BalanceAdjust */
         BalanceAdjust: {
-            /** By */
-            by: string;
             /** Days */
             days: number;
             /** Reason */
@@ -3117,8 +3099,6 @@ export interface components {
         };
         /** BreachCreate */
         BreachCreate: {
-            /** Created By */
-            created_by: string;
             /**
              * Description
              * @default
@@ -3126,8 +3106,6 @@ export interface components {
             description: string;
             /** Discovered At */
             discovered_at?: string | null;
-            /** Discovered By */
-            discovered_by: string;
             /** @default medium */
             impact: components["schemas"]["BreachImpact"];
             /** Title */
@@ -3165,8 +3143,6 @@ export interface components {
         };
         /** BreachTransition */
         BreachTransition: {
-            /** By */
-            by: string;
             /** Note */
             note?: string | null;
             status: components["schemas"]["BreachStatus"];
@@ -3208,11 +3184,16 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** ByActor */
-        ByActor: {
-            /** By */
-            by: string;
-        };
+        /**
+         * ByActor
+         * @description Activating a goal needs no body: the actor is the principal.
+         *
+         *     Kept as an empty strict model rather than dropping the body parameter, so a
+         *     client that still sends ``by`` is refused with a 422 instead of having it
+         *     silently ignored. An ignored field is how a caller comes to believe they
+         *     overrode something.
+         */
+        ByActor: Record<string, never>;
         /** CandidateInput */
         CandidateInput: {
             /** Emails */
@@ -3388,8 +3369,6 @@ export interface components {
              * @default manual
              */
             capture_method: string;
-            /** Captured By */
-            captured_by: string;
             /** Expires At */
             expires_at?: string | null;
             /**
@@ -3424,8 +3403,6 @@ export interface components {
         };
         /** ConsentRevoke */
         ConsentRevoke: {
-            /** By */
-            by: string;
             /** Reason */
             reason: string;
         };
@@ -3565,15 +3542,11 @@ export interface components {
         };
         /** CycleAction */
         CycleAction: {
-            /** By */
-            by: string;
             /** Reason */
             reason?: string | null;
         };
         /** CycleCreate */
         CycleCreate: {
-            /** Created By */
-            created_by: string;
             /**
              * Description
              * @default
@@ -3840,11 +3813,15 @@ export interface components {
             probation_end_date: string | null;
             status: components["schemas"]["EmployeeStatus"];
         };
-        /** ErasureAction */
-        ErasureAction: {
-            /** By */
-            by: string;
-        };
+        /**
+         * ErasureAction
+         * @description Submitting or executing an erasure needs no body.
+         *
+         *     Both moves are gated on the principal and on the shared approval queue, and
+         *     neither takes anything else. Empty and strict, so a body is refused rather
+         *     than ignored.
+         */
+        ErasureAction: Record<string, never>;
         /** ErasureCreate */
         ErasureCreate: {
             /**
@@ -3854,8 +3831,6 @@ export interface components {
             channel: string;
             /** Reason */
             reason: string;
-            /** Requested By */
-            requested_by: string;
             /** Subject Id */
             subject_id: string;
             subject_kind: components["schemas"]["SubjectKind"];
@@ -3867,8 +3842,6 @@ export interface components {
         ErasureStatus: "received" | "pending_approval" | "denied" | "approved" | "executed";
         /** ErasureVerify */
         ErasureVerify: {
-            /** By */
-            by: string;
             /** Method */
             method: string;
         };
@@ -3990,8 +3963,6 @@ export interface components {
         };
         /** ExitInterviewSchedule */
         ExitInterviewSchedule: {
-            /** By */
-            by: string;
             /**
              * Scheduled For
              * Format: date-time
@@ -4041,8 +4012,6 @@ export interface components {
         };
         /** GoalAction */
         GoalAction: {
-            /** By */
-            by: string;
             /**
              * Note
              * @default
@@ -4053,8 +4022,6 @@ export interface components {
         };
         /** GoalCreate */
         GoalCreate: {
-            /** Created By */
-            created_by: string;
             /** Cycle Id */
             cycle_id?: string | null;
             /**
@@ -4078,8 +4045,6 @@ export interface components {
         };
         /** GoalProgress */
         GoalProgress: {
-            /** By */
-            by: string;
             /**
              * Note
              * @default
@@ -4191,8 +4156,6 @@ export interface components {
         };
         /** HandoverCreate */
         HandoverCreate: {
-            /** Authored By */
-            authored_by: string;
             /** Content */
             content: string;
         };
@@ -4215,8 +4178,6 @@ export interface components {
         };
         /** HolidaySet */
         HolidaySet: {
-            /** By */
-            by: string;
             /** Holidays */
             holidays: string[];
         };
@@ -4269,8 +4230,6 @@ export interface components {
         };
         /** InputsSet */
         InputsSet: {
-            /** By */
-            by: string;
             /** Inputs */
             inputs: components["schemas"]["InputLine"][];
         };
@@ -4400,8 +4359,6 @@ export interface components {
             leave_type: components["schemas"]["LeaveType"];
             /** Reason */
             reason?: string | null;
-            /** Requested By */
-            requested_by: string;
             /**
              * Start Date
              * Format: date
@@ -4446,8 +4403,6 @@ export interface components {
         LeaveType: "annual" | "sick" | "personal" | "maternity" | "paternity" | "bereavement" | "marriage" | "unpaid" | "other";
         /** LegalHoldRequest */
         LegalHoldRequest: {
-            /** By */
-            by: string;
             /** Held */
             held: boolean;
             /** Reason */
@@ -4517,8 +4472,6 @@ export interface components {
             recipient_kind: components["schemas"]["NotificationRecipient"];
             /** Reference */
             reference?: string | null;
-            /** Sent By */
-            sent_by: string;
         };
         /**
          * NotificationRecipient
@@ -4556,8 +4509,6 @@ export interface components {
         OfferAcceptanceRequest: {
             /** Accepted */
             accepted: boolean;
-            /** By */
-            by: string;
             /**
              * Reason
              * @default
@@ -4571,8 +4522,6 @@ export interface components {
              * Format: uuid
              */
             application_id: string;
-            /** By */
-            by: string;
             /**
              * Note
              * @default
@@ -4582,8 +4531,6 @@ export interface components {
         };
         /** OfferDecisionRequest */
         OfferDecisionRequest: {
-            /** By */
-            by: string;
             /**
              * Decision
              * @enum {string}
@@ -4599,8 +4546,6 @@ export interface components {
         OfferMessageRequest: {
             /** Body */
             body?: string | null;
-            /** By */
-            by: string;
             /**
              * Language
              * @default en
@@ -4636,8 +4581,6 @@ export interface components {
         };
         /** OfferReviseRequest */
         OfferReviseRequest: {
-            /** By */
-            by: string;
             /**
              * Note
              * @default
@@ -4676,11 +4619,16 @@ export interface components {
          * @enum {string}
          */
         OfferStatus: "draft" | "pending_approval" | "approved" | "queued" | "accepted" | "declined" | "expired" | "withdrawn";
-        /** OfferSubmitRequest */
-        OfferSubmitRequest: {
-            /** By */
-            by: string;
-        };
+        /**
+         * OfferSubmitRequest
+         * @description Submitting a draft offer needs no body.
+         *
+         *     The actor is the authenticated principal and the offer's terms are already
+         *     on the record, so there is nothing left for the client to say. An empty
+         *     strict model still refuses a body carrying anything, so a client that sends
+         *     an actor gets a 422 naming the field instead of believing it was obeyed.
+         */
+        OfferSubmitRequest: Record<string, never>;
         /**
          * OfferTerms
          * @description The offer on the table: position, dates, compensation, validity.
@@ -4852,15 +4800,11 @@ export interface components {
         PayrollRunStatus: "draft" | "assembling" | "ready_for_review" | "pending_signoff" | "approved" | "rejected" | "exported" | "cancelled";
         /** PlanAction */
         PlanAction: {
-            /** By */
-            by: string;
             /** Note */
             note?: string | null;
         };
         /** PlanCreate */
         PlanCreate: {
-            /** Created By */
-            created_by: string;
             /**
              * Employee Id
              * Format: uuid
@@ -4877,8 +4821,6 @@ export interface components {
         };
         /** PlanStartRequest */
         PlanStartRequest: {
-            /** Created By */
-            created_by: string;
             /**
              * Employee Id
              * Format: uuid
@@ -5034,8 +4976,6 @@ export interface components {
         PurgeRequest: {
             /** As Of */
             as_of?: string | null;
-            /** By */
-            by: string;
             /**
              * Dry Run
              * @default false
@@ -5094,8 +5034,6 @@ export interface components {
         };
         /** RateTableCreate */
         RateTableCreate: {
-            /** Created By */
-            created_by: string;
             /**
              * Jurisdiction
              * @default ID
@@ -5110,8 +5048,6 @@ export interface components {
          * @description Replace a table's rows. Setting entries always clears verification.
          */
         RateTableEntriesUpdate: {
-            /** By */
-            by: string;
             /** Entries */
             entries: components["schemas"]["RateEntry"][];
         };
@@ -5125,8 +5061,6 @@ export interface components {
          * @description Certify a rate table against a recorded source. Unblocks payroll compute.
          */
         RateTableVerify: {
-            /** By */
-            by: string;
             /**
              * Source Note
              * @description Where the numbers came from (regulation, official page, date fetched)
@@ -5183,8 +5117,6 @@ export interface components {
         RecordTrack: {
             /** Anchor At */
             anchor_at?: string | null;
-            /** Created By */
-            created_by: string;
             entity: components["schemas"]["RecordEntity"];
             /**
              * Label
@@ -5331,8 +5263,6 @@ export interface components {
         };
         /** RequestAction */
         RequestAction: {
-            /** By */
-            by: string;
             /** Reason */
             reason?: string | null;
         };
@@ -5353,15 +5283,11 @@ export interface components {
         RouteReason: "explicit" | "keyword" | "fallback";
         /** RunAction */
         RunAction: {
-            /** By */
-            by: string;
             /** Reason */
             reason?: string | null;
         };
         /** RunCreate */
         RunCreate: {
-            /** Created By */
-            created_by: string;
             /** @default monthly */
             kind: components["schemas"]["PayrollRunKind"];
             /** Period Month */
@@ -5541,8 +5467,6 @@ export interface components {
         };
         /** StepAction */
         StepAction: {
-            /** By */
-            by: string;
             /** Note */
             note?: string | null;
             /** Reason */
@@ -5550,15 +5474,11 @@ export interface components {
         };
         /** StepActionRequest */
         StepActionRequest: {
-            /** By */
-            by: string;
             /** Note */
             note?: string | null;
         };
         /** StepComplete */
         StepComplete: {
-            /** By */
-            by: string;
             /** Note */
             note?: string | null;
         };
@@ -5575,8 +5495,6 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
-            /** Linked By */
-            linked_by: string;
         };
         /**
          * StepStatus
@@ -5585,8 +5503,6 @@ export interface components {
         StepStatus: "pending" | "in_progress" | "blocked" | "done" | "waived";
         /** StepWaiveRequest */
         StepWaiveRequest: {
-            /** By */
-            by: string;
             /** Reason */
             reason: string;
         };
@@ -5605,8 +5521,6 @@ export interface components {
             cycle_id: string;
             /** Draft Text */
             draft_text: string;
-            /** Drafted By */
-            drafted_by: string;
             /**
              * Employee Id
              * Format: uuid
@@ -5615,8 +5529,6 @@ export interface components {
         };
         /** SummaryFinalize */
         SummaryFinalize: {
-            /** By */
-            by: string;
             /** Final Text */
             final_text: string;
         };
@@ -5938,8 +5850,6 @@ export interface components {
             note?: string | null;
             /** Retention Months */
             retention_months: number;
-            /** Updated By */
-            updated_by: string;
         };
         /** PolicyView */
         hr_agents__api__compliance_schemas__PolicyView: {
@@ -5998,8 +5908,6 @@ export interface components {
             accrual_method: components["schemas"]["AccrualMethod"];
             /** @default manager */
             approver_role: components["schemas"]["ApproverRole"];
-            /** By */
-            by: string;
             /**
              * Carryover Allowed
              * @default false
@@ -6146,8 +6054,6 @@ export interface components {
             applies_to_reasons?: components["schemas"]["OffboardingReason"][];
             /** Applies To Roles */
             applies_to_roles?: string[];
-            /** Created By */
-            created_by: string;
             /**
              * Description
              * @default
@@ -6262,8 +6168,6 @@ export interface components {
             applies_to_contract_types?: components["schemas"]["ContractType"][];
             /** Applies To Roles */
             applies_to_roles?: string[];
-            /** Created By */
-            created_by: string;
             /**
              * Description
              * @default
@@ -7124,9 +7028,7 @@ export interface operations {
     };
     verify_audit_v1_compliance_audit_verify_get: {
         parameters: {
-            query?: {
-                checked_by?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -7140,15 +7042,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditVerifyView"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

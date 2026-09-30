@@ -13,11 +13,10 @@ import hashlib
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from hr_agents.identity import ActorRef, classify_actor, require_named_human
+from hr_agents.identity import ActorRef, require_named_human
 from hr_agents.models import (
     ApproverRole,
     AssetStatus,
-    AuditActor,
     Employee,
     EmployeeStatus,
     HandoverNote,
@@ -76,7 +75,7 @@ class OffboardingService:
         *,
         name: str,
         steps: list[OffboardingTemplateStep],
-        created_by: str,
+        actor: ActorRef,
         description: str = "",
         applies_to_reasons: list[OffboardingReason] | None = None,
         applies_to_roles: list[str] | None = None,
@@ -91,7 +90,7 @@ class OffboardingService:
         self._store.add_template(template)
         self._record(
             action="offboarding.template_created",
-            actor_id=created_by,
+            actor=actor,
             subject_type="offboarding_template",
             subject_id=str(template.id),
             payload={"name": name, "step_count": len(steps)},
@@ -126,10 +125,10 @@ class OffboardingService:
         employee_id: UUID,
         reason: OffboardingReason,
         last_working_day: date,
-        created_by: str,
+        actor: ActorRef,
         template_id: UUID | None = None,
     ) -> OffboardingPlan:
-        self._require_human(created_by, "start an offboarding plan")
+        actor.require_human("start an offboarding plan", OffboardingError)
         employee = self._require_employee(employee_id)
         if employee.status is EmployeeStatus.OFFBOARDED:
             raise OffboardingError("employee is already offboarded")
@@ -183,12 +182,12 @@ class OffboardingService:
             self._employees.transition(
                 employee.id,
                 target=EmployeeStatus.NOTICE_PERIOD,
-                actor=ActorRef.legacy(created_by),
+                actor=actor,
             )
 
         self._record(
             action="offboarding.plan_started",
-            actor_id=created_by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={
@@ -231,9 +230,9 @@ class OffboardingService:
     # --- steps ------------------------------------------------------------
 
     def complete_step(
-        self, plan_id: UUID, step_key: str, *, by: str, note: str | None = None
+        self, plan_id: UUID, step_key: str, *, actor: ActorRef, note: str | None = None
     ) -> OffboardingPlan:
-        self._require_human(by, "complete an offboarding step")
+        actor.require_human("complete an offboarding step", OffboardingError)
         plan = self.get_plan(plan_id)
         if plan.completed_at is not None:
             raise OffboardingError("plan is already complete")
@@ -244,7 +243,7 @@ class OffboardingService:
         updated_step = step.model_copy(
             update={
                 "status": StepStatus.DONE,
-                "completed_by": by,
+                "completed_by": actor.actor_id,
                 "completed_at": utc_now(),
                 "note": note or step.note,
             }
@@ -253,15 +252,17 @@ class OffboardingService:
         self._store.save_plan(plan)
         self._record(
             action="offboarding.step_completed",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={"step_key": step_key, "progress": plan.progress},
         )
         return plan
 
-    def waive_step(self, plan_id: UUID, step_key: str, *, by: str, reason: str) -> OffboardingPlan:
-        self._require_human(by, "waive an offboarding step")
+    def waive_step(
+        self, plan_id: UUID, step_key: str, *, actor: ActorRef, reason: str
+    ) -> OffboardingPlan:
+        actor.require_human("waive an offboarding step", OffboardingError)
         if not reason.strip():
             raise OffboardingError("waiving a step requires a reason")
         plan = self.get_plan(plan_id)
@@ -274,7 +275,7 @@ class OffboardingService:
         updated_step = step.model_copy(
             update={
                 "status": StepStatus.WAIVED,
-                "completed_by": by,
+                "completed_by": actor.actor_id,
                 "completed_at": utc_now(),
                 "note": reason,
             }
@@ -283,7 +284,7 @@ class OffboardingService:
         self._store.save_plan(plan)
         self._record(
             action="offboarding.step_waived",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={"step_key": step_key, "reason": reason},
@@ -291,10 +292,10 @@ class OffboardingService:
         return plan
 
     def schedule_exit_interview(
-        self, plan_id: UUID, *, scheduled_for: datetime, by: str
+        self, plan_id: UUID, *, scheduled_for: datetime, actor: ActorRef
     ) -> OffboardingPlan:
         """Schedule the exit interview step. Humans only (a meeting with a person)."""
-        self._require_human(by, "schedule the exit interview")
+        actor.require_human("schedule the exit interview", OffboardingError)
         if scheduled_for.tzinfo is None:
             raise OffboardingError("scheduled_for must be timezone-aware")
         scheduled_for = scheduled_for.astimezone(UTC)
@@ -317,24 +318,22 @@ class OffboardingService:
         self._store.save_plan(plan)
         self._record(
             action="offboarding.exit_interview_scheduled",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={"step_key": step.key, "scheduled_for": str(scheduled_for)},
         )
         return plan
 
-    def add_handover_note(
-        self, plan_id: UUID, *, content: str, authored_by: str
-    ) -> OffboardingPlan:
+    def add_handover_note(self, plan_id: UUID, *, content: str, actor: ActorRef) -> OffboardingPlan:
         """Attach a knowledge handover note (agents may draft, humans may too)."""
         plan = self.get_plan(plan_id)
-        note = HandoverNote(content=content, authored_by=authored_by)
+        note = HandoverNote(content=content, authored_by=actor.actor_id)
         plan = plan.model_copy(update={"handover_notes": [*plan.handover_notes, note]})
         self._store.save_plan(plan)
         self._record(
             action="offboarding.handover_note_added",
-            actor_id=authored_by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={"note_id": str(note.id), "length": len(content)},
@@ -348,13 +347,13 @@ class OffboardingService:
         *,
         employee_id: UUID,
         name: str,
-        created_by: str,
+        actor: ActorRef,
         plan_id: UUID | None = None,
         asset_code: str | None = None,
         category: str = "",
         assigned_on: date | None = None,
     ) -> OffboardingAsset:
-        self._require_human(created_by, "register an asset")
+        actor.require_human("register an asset", OffboardingError)
         self._require_employee(employee_id)
         if plan_id is not None:
             self.get_plan(plan_id)
@@ -369,7 +368,7 @@ class OffboardingService:
         self._store.add_asset(asset)
         self._record(
             action="offboarding.asset_registered",
-            actor_id=created_by,
+            actor=actor,
             subject_type="offboarding_asset",
             subject_id=str(asset.id),
             payload={"employee_id": str(employee_id), "name": name},
@@ -396,11 +395,11 @@ class OffboardingService:
         self,
         asset_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         note: str | None = None,
         returned_on: date | None = None,
     ) -> OffboardingAsset:
-        self._require_human(by, "mark an asset returned")
+        actor.require_human("mark an asset returned", OffboardingError)
         asset = self.get_asset(asset_id)
         if asset.status is AssetStatus.RETURNED:
             raise OffboardingError("asset is already returned")
@@ -410,7 +409,7 @@ class OffboardingService:
             update={
                 "status": AssetStatus.RETURNED,
                 "returned_on": returned_on or date.today(),
-                "returned_by": by,
+                "returned_by": actor.actor_id,
                 "note": note or asset.note,
                 "updated_at": utc_now(),
             }
@@ -418,15 +417,15 @@ class OffboardingService:
         self._store.save_asset(updated)
         self._record(
             action="offboarding.asset_returned",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_asset",
             subject_id=str(updated.id),
             payload={"employee_id": str(updated.employee_id)},
         )
         return updated
 
-    def mark_asset_missing(self, asset_id: UUID, *, by: str, note: str) -> OffboardingAsset:
-        self._require_human(by, "mark an asset missing")
+    def mark_asset_missing(self, asset_id: UUID, *, actor: ActorRef, note: str) -> OffboardingAsset:
+        actor.require_human("mark an asset missing", OffboardingError)
         if not note.strip():
             raise OffboardingError("marking an asset missing requires a note")
         asset = self.get_asset(asset_id)
@@ -438,16 +437,16 @@ class OffboardingService:
         self._store.save_asset(updated)
         self._record(
             action="offboarding.asset_missing",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_asset",
             subject_id=str(updated.id),
             payload={"note": note},
         )
         return updated
 
-    def write_off_asset(self, asset_id: UUID, *, by: str, reason: str) -> OffboardingAsset:
+    def write_off_asset(self, asset_id: UUID, *, actor: ActorRef, reason: str) -> OffboardingAsset:
         """Close out an unreturned asset (lost/stolen/waived). Human + reason."""
-        self._require_human(by, "write off an asset")
+        actor.require_human("write off an asset", OffboardingError)
         if not reason.strip():
             raise OffboardingError("writing off an asset requires a reason")
         asset = self.get_asset(asset_id)
@@ -459,7 +458,7 @@ class OffboardingService:
         self._store.save_asset(updated)
         self._record(
             action="offboarding.asset_written_off",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_asset",
             subject_id=str(updated.id),
             payload={"reason": reason},
@@ -474,13 +473,13 @@ class OffboardingService:
 
     # --- final pay ---------------------------------------------------------
 
-    def coordinate_final_pay(self, plan_id: UUID, *, by: str) -> OffboardingPlan:
+    def coordinate_final_pay(self, plan_id: UUID, *, actor: ActorRef) -> OffboardingPlan:
         """Create and link a FINAL payroll run (prepare/verify only).
 
         The run itself still needs inputs, computation, anomaly clearance, and
         Finance sign-off; this method only opens the coordination.
         """
-        self._require_human(by, "coordinate final pay")
+        actor.require_human("coordinate final pay", OffboardingError)
         plan = self.get_plan(plan_id)
         if plan.completed_at is not None:
             raise OffboardingError("plan is already complete")
@@ -491,7 +490,7 @@ class OffboardingService:
         run = self._payroll.create_run(
             period_year=year,
             period_month=month,
-            created_by=by,
+            actor=actor,
             kind=PayrollRunKind.FINAL,
         )
         task = self._tasks.create(
@@ -511,7 +510,7 @@ class OffboardingService:
         self._store.save_plan(plan)
         self._record(
             action="offboarding.final_pay_coordinated",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={
@@ -524,13 +523,13 @@ class OffboardingService:
 
     # --- completion ---------------------------------------------------------
 
-    def complete_plan(self, plan_id: UUID, *, by: str) -> OffboardingPlan:
+    def complete_plan(self, plan_id: UUID, *, actor: ActorRef) -> OffboardingPlan:
         """Finish the plan: all required steps + asset clearance required.
 
         Does **not** transition the employee record; HR does that explicitly
         through the employee lifecycle endpoint (which applies its own guards).
         """
-        self._require_human(by, "complete an offboarding plan")
+        actor.require_human("complete an offboarding plan", OffboardingError)
         plan = self.get_plan(plan_id)
         if plan.completed_at is not None:
             raise OffboardingError("plan is already complete")
@@ -551,14 +550,14 @@ class OffboardingService:
         self._store.save_plan(plan)
         self._record(
             action="offboarding.plan_completed",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={"progress": plan.progress, "steps": len(plan.steps)},
         )
         return plan
 
-    def finalize_employee_exit(self, plan_id: UUID, *, by: str) -> Employee:
+    def finalize_employee_exit(self, plan_id: UUID, *, actor: ActorRef) -> Employee:
         """Complete the plan (if needed), then transition the employee to OFFBOARDED.
 
         The employee transition keeps its own guards (open approvals block it
@@ -567,18 +566,18 @@ class OffboardingService:
         already-completed plan was a one-call path to firing someone that
         validated nothing at all.
         """
-        by = require_named_human(by, "finalizing an employee exit", OffboardingError)
+        actor.require_human("finalizing an employee exit", OffboardingError)
         plan = self.get_plan(plan_id)
         if plan.completed_at is None:
-            plan = self.complete_plan(plan_id, by=by)
+            plan = self.complete_plan(plan_id, actor=actor)
         employee = self._employees.transition(
             plan.employee_id,
             target=EmployeeStatus.OFFBOARDED,
-            actor=ActorRef.legacy(by),
+            actor=actor,
         )
         self._record(
             action="offboarding.employee_offboarded",
-            actor_id=by,
+            actor=actor,
             subject_type="offboarding_plan",
             subject_id=str(plan.id),
             payload={"employee_id": str(employee.id)},
@@ -611,14 +610,13 @@ class OffboardingService:
         self,
         *,
         action: str,
-        actor_id: str,
+        actor: ActorRef,
         subject_type: str,
         subject_id: str,
         payload: dict[str, object],
     ) -> None:
-        actor_type = classify_actor(actor_id)
         self._audit.append(
-            actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
+            actor=actor.audit_actor(),
             action=action,
             subject_type=subject_type,
             subject_id=subject_id,

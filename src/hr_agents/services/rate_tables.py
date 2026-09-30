@@ -10,9 +10,8 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
-from hr_agents.identity import classify_actor
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
-    AuditActor,
     RateEntry,
     RateTable,
     RateTableKind,
@@ -38,12 +37,12 @@ class RateTableService:
         *,
         kind: RateTableKind,
         name: str,
-        created_by: str,
+        actor: ActorRef,
         jurisdiction: str = "ID",
     ) -> RateTable:
         table = RateTable(kind=kind, name=name, jurisdiction=jurisdiction)
         self._store.add(table)
-        self._record(table, action="rate_table.created", actor_id=created_by)
+        self._record(table, action="rate_table.created", actor=actor)
         return table
 
     def set_entries(
@@ -51,7 +50,7 @@ class RateTableService:
         table_id: UUID,
         *,
         entries: list[RateEntry],
-        updated_by: str,
+        actor: ActorRef,
     ) -> RateTable:
         """Replace entries. Editing values invalidates verification."""
         table = self._require(table_id)
@@ -68,7 +67,7 @@ class RateTableService:
         self._record(
             updated,
             action="rate_table.entries_updated",
-            actor_id=updated_by,
+            actor=actor,
             extra={"entry_count": len(entries)},
         )
         return updated
@@ -77,18 +76,25 @@ class RateTableService:
         self,
         table_id: UUID,
         *,
-        verified_by: str,
+        actor: ActorRef,
         source_note: str,
     ) -> RateTable:
-        """Mark verified with a source. Required before payroll may consume it."""
+        """Mark verified with a source. Required before payroll may consume it.
+
+        Certification is the ``verified`` gate behind the statutory rates: one
+        named human enters the numbers, records where they came from, and
+        confirms them. This method does not yet insist on that person being a
+        person -- it is the one gap left, and it closes with the authorization
+        work rather than here.
+        """
         table = self._require(table_id)
         if not table.entries:
             raise RateTableError("cannot verify an empty rate table")
         if not source_note.strip():
             raise RateTableError("verification requires a source note")
-        verified = table.mark_verified(verified_by=verified_by, source_note=source_note)
+        verified = table.mark_verified(verified_by=actor.actor_id, source_note=source_note)
         self._store.save(verified)
-        self._record(verified, action="rate_table.verified", actor_id=verified_by)
+        self._record(verified, action="rate_table.verified", actor=actor)
         return verified
 
     def get(self, table_id: UUID) -> RateTable:
@@ -147,7 +153,7 @@ class RateTableService:
         table: RateTable,
         *,
         action: str,
-        actor_id: str,
+        actor: ActorRef,
         extra: dict[str, object] | None = None,
     ) -> None:
         payload: dict[str, object] = {
@@ -158,10 +164,7 @@ class RateTableService:
         if extra:
             payload.update(extra)
         self._audit.append(
-            actor=AuditActor(
-                actor_type=classify_actor(actor_id),
-                actor_id=actor_id,
-            ),
+            actor=actor.audit_actor(),
             action=action,
             subject_type="rate_table",
             subject_id=str(table.id),

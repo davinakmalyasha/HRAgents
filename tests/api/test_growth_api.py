@@ -31,7 +31,6 @@ def create_cycle(client: TestClient, **overrides: object) -> dict:
         "name": "2026 H1 Review",
         "period_start": (TODAY - timedelta(days=180)).isoformat(),
         "period_end": TODAY.isoformat(),
-        "created_by": "hr-admin",
         "submission_due_on": (TODAY + timedelta(days=2)).isoformat(),
     }
     payload.update(overrides)
@@ -53,28 +52,24 @@ def test_full_review_cycle_flow() -> None:
             json={
                 "employee_id": employee["id"],
                 "reviewer_id": "lead-1",
-                "created_by": "hr-admin",
             },
         )
         assert assignment.status_code == 201, assignment.text
         assignment_id = assignment.json()["id"]
 
-        activated = client.post(
-            f"/v1/growth/cycles/{cycle['id']}/activate", json={"by": "hr-admin"}
-        )
+        activated = client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={})
         assert activated.status_code == 200
         assert activated.json()["status"] == "active"
 
         bad_rating = client.post(
             f"/v1/growth/assignments/{assignment_id}/submit",
-            json={"by": "lead-1", "ratings": {"delivery": 9.0}},
+            json={"ratings": {"delivery": 9.0}},
         )
         assert bad_rating.status_code == 409
 
         submitted = client.post(
             f"/v1/growth/assignments/{assignment_id}/submit",
             json={
-                "by": "lead-1",
                 "ratings": {"delivery": 4.5, "collaboration": 4.0},
                 "comments": "Consistently solid.",
             },
@@ -82,9 +77,7 @@ def test_full_review_cycle_flow() -> None:
         assert submitted.status_code == 200
         assert submitted.json()["status"] == "submitted"
 
-        reviewing = client.post(
-            f"/v1/growth/cycles/{cycle['id']}/reviewing", json={"by": "hr-admin"}
-        )
+        reviewing = client.post(f"/v1/growth/cycles/{cycle['id']}/reviewing", json={})
         assert reviewing.status_code == 200
         assert reviewing.json()["status"] == "reviewing"
 
@@ -94,7 +87,6 @@ def test_full_review_cycle_flow() -> None:
                 "cycle_id": cycle["id"],
                 "employee_id": employee["id"],
                 "draft_text": "Strong delivery and collaboration.",
-                "drafted_by": "agent:feedback_writer",
             },
         )
         assert draft.status_code == 201, draft.text
@@ -103,18 +95,19 @@ def test_full_review_cycle_flow() -> None:
 
         agent_finalize = client.post(
             f"/v1/growth/summaries/{summary_id}/finalize",
-            json={"by": "agent:feedback_writer", "final_text": "x"},
+            json={"final_text": "x", "by": "agent:feedback_writer"},
         )
-        assert agent_finalize.status_code == 409
+        assert agent_finalize.status_code == 422
+        assert any(error["loc"][-1] == "by" for error in agent_finalize.json()["detail"])
 
         finalized = client.post(
             f"/v1/growth/summaries/{summary_id}/finalize",
-            json={"by": "hr-admin", "final_text": "Final human-edited review text."},
+            json={"final_text": "Final human-edited review text."},
         )
         assert finalized.status_code == 200
         assert finalized.json()["status"] == "finalized"
 
-        closed = client.post(f"/v1/growth/cycles/{cycle['id']}/close", json={"by": "hr-admin"})
+        closed = client.post(f"/v1/growth/cycles/{cycle['id']}/close", json={})
         assert closed.status_code == 200
         assert closed.json()["status"] == "completed"
 
@@ -137,26 +130,24 @@ def test_close_cycle_blocked_until_summary_finalized() -> None:
             json={
                 "employee_id": employee["id"],
                 "reviewer_id": "lead-1",
-                "created_by": "hr-admin",
             },
         ).json()
-        client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={"by": "hr-admin"})
+        client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={})
         client.post(
             f"/v1/growth/assignments/{assignment['id']}/submit",
-            json={"by": "lead-1", "ratings": {"delivery": 4.0}},
+            json={"ratings": {"delivery": 4.0}},
         )
-        client.post(f"/v1/growth/cycles/{cycle['id']}/reviewing", json={"by": "hr-admin"})
+        client.post(f"/v1/growth/cycles/{cycle['id']}/reviewing", json={})
         client.post(
             "/v1/growth/summaries",
             json={
                 "cycle_id": cycle["id"],
                 "employee_id": employee["id"],
                 "draft_text": "Draft",
-                "drafted_by": "agent:feedback_writer",
             },
         )
 
-        blocked = client.post(f"/v1/growth/cycles/{cycle['id']}/close", json={"by": "hr-admin"})
+        blocked = client.post(f"/v1/growth/cycles/{cycle['id']}/close", json={})
 
     assert blocked.status_code == 409
     assert "await human finalization" in blocked.json()["title"]
@@ -165,7 +156,7 @@ def test_close_cycle_blocked_until_summary_finalized() -> None:
 def test_cancel_cycle_requires_reason() -> None:
     with make_client() as client:
         cycle = create_cycle(client)
-        response = client.post(f"/v1/growth/cycles/{cycle['id']}/cancel", json={"by": "hr-admin"})
+        response = client.post(f"/v1/growth/cycles/{cycle['id']}/cancel", json={})
 
     assert response.status_code == 422
 
@@ -189,10 +180,9 @@ def test_reminders_run_is_deduplicated() -> None:
             json={
                 "employee_id": employee["id"],
                 "reviewer_id": "lead-1",
-                "created_by": "hr-admin",
             },
         )
-        client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={"by": "hr-admin"})
+        client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={})
 
         first = client.post("/v1/growth/reminders/run", json={"as_of": TODAY.isoformat()})
         second = client.post("/v1/growth/reminders/run", json={"as_of": TODAY.isoformat()})
@@ -215,7 +205,6 @@ def test_goal_lifecycle_api() -> None:
             json={
                 "employee_id": employee["id"],
                 "title": "Ship onboarding v2",
-                "created_by": "hr-admin",
                 "due_on": (TODAY + timedelta(days=60)).isoformat(),
             },
         )
@@ -226,22 +215,21 @@ def test_goal_lifecycle_api() -> None:
         agent_activate = client.post(
             f"/v1/growth/goals/{goal_id}/activate", json={"by": "agent:planner"}
         )
-        assert agent_activate.status_code == 409
+        assert agent_activate.status_code == 422
+        assert any(error["loc"][-1] == "by" for error in agent_activate.json()["detail"])
 
-        activated = client.post(f"/v1/growth/goals/{goal_id}/activate", json={"by": "hr-admin"})
+        activated = client.post(f"/v1/growth/goals/{goal_id}/activate", json={})
         assert activated.json()["status"] == "active"
 
         progress = client.post(
             f"/v1/growth/goals/{goal_id}/progress",
-            json={"percent": 40.0, "by": "hr-admin", "note": "beta done"},
+            json={"percent": 40.0, "note": "beta done"},
         )
         assert progress.status_code == 200
         assert progress.json()["progress_percent"] == 40.0
         assert len(progress.json()["updates"]) == 1
 
-        completed = client.post(
-            f"/v1/growth/goals/{goal_id}/complete", json={"by": "hr-admin", "note": "shipped"}
-        )
+        completed = client.post(f"/v1/growth/goals/{goal_id}/complete", json={"note": "shipped"})
         assert completed.json()["status"] == "completed"
         assert completed.json()["progress_percent"] == 100.0
 
@@ -259,10 +247,9 @@ def test_goal_cancel_requires_reason() -> None:
             json={
                 "employee_id": employee["id"],
                 "title": "X",
-                "created_by": "hr-admin",
             },
         ).json()
-        response = client.post(f"/v1/growth/goals/{goal['id']}/cancel", json={"by": "hr-admin"})
+        response = client.post(f"/v1/growth/goals/{goal['id']}/cancel", json={})
 
     assert response.status_code == 422
 
@@ -275,7 +262,6 @@ def test_overdue_goals_endpoint() -> None:
             json={
                 "employee_id": employee["id"],
                 "title": "Late",
-                "created_by": "hr-admin",
                 "due_on": (TODAY - timedelta(days=5)).isoformat(),
             },
         )

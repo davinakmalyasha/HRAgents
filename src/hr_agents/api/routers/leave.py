@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.leave_schemas import (
     BalanceAdjust,
     BalanceView,
@@ -49,9 +49,9 @@ def _not_found(detail: str) -> HTTPException:
 
 
 @router.put("/policies", response_model=PolicyView)
-def set_policy(payload: PolicySet, leave: LeaveDep) -> PolicyView:
+def set_policy(payload: PolicySet, leave: LeaveDep, actor: ActorDep) -> PolicyView:
     try:
-        policy = leave.set_policy(payload.to_policy(), by=payload.by)
+        policy = leave.set_policy(payload.to_policy(), actor=actor)
     except (ValueError, LeaveError) as exc:
         raise _conflict(exc) from exc
     return PolicyView.from_model(policy)
@@ -63,8 +63,8 @@ def list_policies(leave: LeaveDep) -> list[PolicyView]:
 
 
 @router.put("/calendar/holidays", response_model=dict)
-def set_holidays(payload: HolidaySet, leave: LeaveDep) -> dict[str, int]:
-    count = leave.set_holidays(payload.holidays, by=payload.by)
+def set_holidays(payload: HolidaySet, leave: LeaveDep, actor: ActorDep) -> dict[str, int]:
+    count = leave.set_holidays(payload.holidays, actor=actor)
     return {"holidays_set": count}
 
 
@@ -104,6 +104,7 @@ def adjust_balance(
     leave_type: LeaveType,
     payload: BalanceAdjust,
     leave: LeaveDep,
+    actor: ActorDep,
 ) -> BalanceView:
     try:
         balance = leave.adjust_balance(
@@ -111,7 +112,7 @@ def adjust_balance(
             leave_type,
             days=payload.days,
             year=payload.year,
-            by=payload.by,
+            actor=actor,
             reason=payload.reason,
         )
     except LeaveError as exc:
@@ -123,9 +124,11 @@ def adjust_balance(
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=LeaveRequestView)
-def submit_request(payload: LeaveRequestCreate, leave: LeaveDep) -> LeaveRequestView:
+def submit_request(
+    payload: LeaveRequestCreate, leave: LeaveDep, actor: ActorDep
+) -> LeaveRequestView:
     try:
-        request = leave.request(**payload.model_dump())
+        request = leave.request(actor=actor, **payload.model_dump())
     except LeaveError as exc:
         raise _conflict(exc) from exc
     return LeaveRequestView.from_model(request)
@@ -163,9 +166,11 @@ def get_request(request_id: UUID, leave: LeaveDep) -> LeaveRequestView:
 
 
 @router.post("/requests/{request_id}/cancel", response_model=LeaveRequestView)
-def cancel_request(request_id: UUID, payload: RequestAction, leave: LeaveDep) -> LeaveRequestView:
+def cancel_request(
+    request_id: UUID, payload: RequestAction, leave: LeaveDep, actor: ActorDep
+) -> LeaveRequestView:
     try:
-        request = leave.cancel(request_id, by=payload.by)
+        request = leave.cancel(request_id, actor=actor)
     except LeaveError as exc:
         raise _conflict(exc) from exc
     return LeaveRequestView.from_model(request)

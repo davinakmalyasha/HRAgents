@@ -285,17 +285,6 @@
           "assignee_role": {
             "$ref": "#/components/schemas/ApproverRole"
           },
-          "requested_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Requested By",
-            "type": "string"
-          },
-          "requested_by_agent": {
-            "default": false,
-            "title": "Requested By Agent",
-            "type": "boolean"
-          },
           "subject": {
             "$ref": "#/components/schemas/ApprovalSubject"
           },
@@ -326,8 +315,7 @@
           "subject",
           "subject_id",
           "title",
-          "assignee_role",
-          "requested_by"
+          "assignee_role"
         ],
         "title": "ApprovalCreate",
         "type": "object"
@@ -338,12 +326,6 @@
           "approve": {
             "title": "Approve",
             "type": "boolean"
-          },
-          "decided_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Decided By",
-            "type": "string"
           },
           "reason": {
             "anyOf": [
@@ -359,7 +341,6 @@
           }
         },
         "required": [
-          "decided_by",
           "approve"
         ],
         "title": "ApprovalDecisionRequest",
@@ -547,12 +528,6 @@
             "title": "Category",
             "type": "string"
           },
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "employee_id": {
             "format": "uuid",
             "title": "Employee Id",
@@ -579,8 +554,7 @@
         },
         "required": [
           "employee_id",
-          "name",
-          "created_by"
+          "name"
         ],
         "title": "AssetCreate",
         "type": "object"
@@ -588,12 +562,6 @@
       "AssetMissing": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "maxLength": 1000,
             "minLength": 1,
@@ -602,7 +570,6 @@
           }
         },
         "required": [
-          "by",
           "note"
         ],
         "title": "AssetMissing",
@@ -611,12 +578,6 @@
       "AssetReturn": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "anyOf": [
               {
@@ -642,9 +603,6 @@
             "title": "Returned On"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "AssetReturn",
         "type": "object"
       },
@@ -776,12 +734,6 @@
       "AssetWriteOff": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "maxLength": 1000,
             "minLength": 1,
@@ -790,7 +742,6 @@
           }
         },
         "required": [
-          "by",
           "reason"
         ],
         "title": "AssetWriteOff",
@@ -799,12 +750,6 @@
       "AssignmentCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "due_on": {
             "anyOf": [
               {
@@ -841,8 +786,7 @@
         },
         "required": [
           "employee_id",
-          "reviewer_id",
-          "created_by"
+          "reviewer_id"
         ],
         "title": "AssignmentCreate",
         "type": "object"
@@ -850,12 +794,6 @@
       "AssignmentSkip": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "maxLength": 500,
             "minLength": 1,
@@ -864,7 +802,6 @@
           }
         },
         "required": [
-          "by",
           "reason"
         ],
         "title": "AssignmentSkip",
@@ -882,12 +819,6 @@
       "AssignmentSubmit": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "comments": {
             "default": "",
             "maxLength": 4000,
@@ -904,7 +835,6 @@
           }
         },
         "required": [
-          "by",
           "ratings"
         ],
         "title": "AssignmentSubmit",
@@ -1175,12 +1105,6 @@
       "BalanceAdjust": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "days": {
             "title": "Days",
             "type": "number"
@@ -1212,8 +1136,7 @@
           }
         },
         "required": [
-          "days",
-          "by"
+          "days"
         ],
         "title": "BalanceAdjust",
         "type": "object"
@@ -1371,12 +1294,6 @@
       "BreachCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "description": {
             "default": "",
             "maxLength": 4000,
@@ -1395,12 +1312,6 @@
             ],
             "title": "Discovered At"
           },
-          "discovered_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Discovered By",
-            "type": "string"
-          },
           "impact": {
             "$ref": "#/components/schemas/BreachImpact",
             "default": "medium"
@@ -1413,9 +1324,7 @@
           }
         },
         "required": [
-          "title",
-          "discovered_by",
-          "created_by"
+          "title"
         ],
         "title": "BreachCreate",
         "type": "object"
@@ -1498,12 +1407,6 @@
       "BreachTransition": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "anyOf": [
               {
@@ -1521,8 +1424,7 @@
           }
         },
         "required": [
-          "status",
-          "by"
+          "status"
         ],
         "title": "BreachTransition",
         "type": "object"
@@ -1657,17 +1559,8 @@
       },
       "ByActor": {
         "additionalProperties": false,
-        "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          }
-        },
-        "required": [
-          "by"
-        ],
+        "description": "Activating a goal needs no body: the actor is the principal.\n\nKept as an empty strict model rather than dropping the body parameter, so a\nclient that still sends ``by`` is refused with a 422 instead of having it\nsilently ignored. An ignored field is how a caller comes to believe they\noverrode something.",
+        "properties": {},
         "title": "ByActor",
         "type": "object"
       },
@@ -2179,12 +2072,6 @@
             "title": "Capture Method",
             "type": "string"
           },
-          "captured_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Captured By",
-            "type": "string"
-          },
           "expires_at": {
             "anyOf": [
               {
@@ -2243,8 +2130,7 @@
         "required": [
           "subject_kind",
           "subject_id",
-          "purpose",
-          "captured_by"
+          "purpose"
         ],
         "title": "ConsentCreate",
         "type": "object"
@@ -2271,12 +2157,6 @@
       "ConsentRevoke": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "maxLength": 500,
             "minLength": 1,
@@ -2285,7 +2165,6 @@
           }
         },
         "required": [
-          "by",
           "reason"
         ],
         "title": "ConsentRevoke",
@@ -2675,12 +2554,6 @@
       "CycleAction": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "anyOf": [
               {
@@ -2694,21 +2567,12 @@
             "title": "Reason"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "CycleAction",
         "type": "object"
       },
       "CycleCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "description": {
             "default": "",
             "maxLength": 2000,
@@ -2761,8 +2625,7 @@
         "required": [
           "name",
           "period_start",
-          "period_end",
-          "created_by"
+          "period_end"
         ],
         "title": "CycleCreate",
         "type": "object"
@@ -3454,17 +3317,8 @@
       },
       "ErasureAction": {
         "additionalProperties": false,
-        "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          }
-        },
-        "required": [
-          "by"
-        ],
+        "description": "Submitting or executing an erasure needs no body.\n\nBoth moves are gated on the principal and on the shared approval queue, and\nneither takes anything else. Empty and strict, so a body is refused rather\nthan ignored.",
+        "properties": {},
         "title": "ErasureAction",
         "type": "object"
       },
@@ -3483,12 +3337,6 @@
             "title": "Reason",
             "type": "string"
           },
-          "requested_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Requested By",
-            "type": "string"
-          },
           "subject_id": {
             "maxLength": 200,
             "minLength": 1,
@@ -3502,8 +3350,7 @@
         "required": [
           "subject_kind",
           "subject_id",
-          "reason",
-          "requested_by"
+          "reason"
         ],
         "title": "ErasureCreate",
         "type": "object"
@@ -3522,12 +3369,6 @@
       "ErasureVerify": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "method": {
             "maxLength": 120,
             "minLength": 1,
@@ -3536,7 +3377,6 @@
           }
         },
         "required": [
-          "by",
           "method"
         ],
         "title": "ErasureVerify",
@@ -3885,12 +3725,6 @@
       "ExitInterviewSchedule": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "scheduled_for": {
             "format": "date-time",
             "title": "Scheduled For",
@@ -3898,8 +3732,7 @@
           }
         },
         "required": [
-          "scheduled_for",
-          "by"
+          "scheduled_for"
         ],
         "title": "ExitInterviewSchedule",
         "type": "object"
@@ -4010,12 +3843,6 @@
       "GoalAction": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "default": "",
             "maxLength": 1000,
@@ -4035,21 +3862,12 @@
             "title": "Reason"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "GoalAction",
         "type": "object"
       },
       "GoalCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "cycle_id": {
             "anyOf": [
               {
@@ -4118,8 +3936,7 @@
         },
         "required": [
           "employee_id",
-          "title",
-          "created_by"
+          "title"
         ],
         "title": "GoalCreate",
         "type": "object"
@@ -4127,12 +3944,6 @@
       "GoalProgress": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "default": "",
             "maxLength": 1000,
@@ -4147,8 +3958,7 @@
           }
         },
         "required": [
-          "percent",
-          "by"
+          "percent"
         ],
         "title": "GoalProgress",
         "type": "object"
@@ -4399,12 +4209,6 @@
       "HandoverCreate": {
         "additionalProperties": false,
         "properties": {
-          "authored_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Authored By",
-            "type": "string"
-          },
           "content": {
             "maxLength": 8000,
             "minLength": 1,
@@ -4413,8 +4217,7 @@
           }
         },
         "required": [
-          "content",
-          "authored_by"
+          "content"
         ],
         "title": "HandoverCreate",
         "type": "object"
@@ -4453,12 +4256,6 @@
       "HolidaySet": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "holidays": {
             "items": {
               "format": "date",
@@ -4469,8 +4266,7 @@
           }
         },
         "required": [
-          "holidays",
-          "by"
+          "holidays"
         ],
         "title": "HolidaySet",
         "type": "object"
@@ -4555,12 +4351,6 @@
       "InputsSet": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "inputs": {
             "items": {
               "$ref": "#/components/schemas/InputLine"
@@ -4571,8 +4361,7 @@
           }
         },
         "required": [
-          "inputs",
-          "by"
+          "inputs"
         ],
         "title": "InputsSet",
         "type": "object"
@@ -4986,12 +4775,6 @@
             ],
             "title": "Reason"
           },
-          "requested_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Requested By",
-            "type": "string"
-          },
           "start_date": {
             "format": "date",
             "title": "Start Date",
@@ -5002,8 +4785,7 @@
           "employee_id",
           "leave_type",
           "start_date",
-          "end_date",
-          "requested_by"
+          "end_date"
         ],
         "title": "LeaveRequestCreate",
         "type": "object"
@@ -5097,12 +4879,6 @@
       "LegalHoldRequest": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "held": {
             "title": "Held",
             "type": "boolean"
@@ -5116,7 +4892,6 @@
         },
         "required": [
           "held",
-          "by",
           "reason"
         ],
         "title": "LegalHoldRequest",
@@ -5325,18 +5100,11 @@
               }
             ],
             "title": "Reference"
-          },
-          "sent_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Sent By",
-            "type": "string"
           }
         },
         "required": [
           "recipient_kind",
-          "recipient",
-          "sent_by"
+          "recipient"
         ],
         "title": "NotificationCreate",
         "type": "object"
@@ -5437,12 +5205,6 @@
             "title": "Accepted",
             "type": "boolean"
           },
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "default": "",
             "maxLength": 500,
@@ -5451,7 +5213,6 @@
           }
         },
         "required": [
-          "by",
           "accepted"
         ],
         "title": "OfferAcceptanceRequest",
@@ -5463,12 +5224,6 @@
           "application_id": {
             "format": "uuid",
             "title": "Application Id",
-            "type": "string"
-          },
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
             "type": "string"
           },
           "note": {
@@ -5483,8 +5238,7 @@
         },
         "required": [
           "application_id",
-          "terms",
-          "by"
+          "terms"
         ],
         "title": "OfferCreate",
         "type": "object"
@@ -5492,12 +5246,6 @@
       "OfferDecisionRequest": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "decision": {
             "enum": [
               "approve",
@@ -5514,7 +5262,6 @@
           }
         },
         "required": [
-          "by",
           "decision"
         ],
         "title": "OfferDecisionRequest",
@@ -5534,12 +5281,6 @@
               }
             ],
             "title": "Body"
-          },
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
           },
           "language": {
             "default": "en",
@@ -5575,9 +5316,6 @@
             "title": "To Email"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "OfferMessageRequest",
         "type": "object"
       },
@@ -5650,12 +5388,6 @@
       "OfferReviseRequest": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "default": "",
             "maxLength": 500,
@@ -5667,8 +5399,7 @@
           }
         },
         "required": [
-          "terms",
-          "by"
+          "terms"
         ],
         "title": "OfferReviseRequest",
         "type": "object"
@@ -5736,17 +5467,8 @@
       },
       "OfferSubmitRequest": {
         "additionalProperties": false,
-        "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          }
-        },
-        "required": [
-          "by"
-        ],
+        "description": "Submitting a draft offer needs no body.\n\nThe actor is the authenticated principal and the offer's terms are already\non the record, so there is nothing left for the client to say. An empty\nstrict model still refuses a body carrying anything, so a client that sends\nan actor gets a 422 naming the field instead of believing it was obeyed.",
+        "properties": {},
         "title": "OfferSubmitRequest",
         "type": "object"
       },
@@ -6237,12 +5959,6 @@
       "PlanAction": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "anyOf": [
               {
@@ -6256,21 +5972,12 @@
             "title": "Note"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "PlanAction",
         "type": "object"
       },
       "PlanCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "employee_id": {
             "format": "uuid",
             "title": "Employee Id",
@@ -6300,8 +6007,7 @@
         "required": [
           "employee_id",
           "reason",
-          "last_working_day",
-          "created_by"
+          "last_working_day"
         ],
         "title": "PlanCreate",
         "type": "object"
@@ -6309,12 +6015,6 @@
       "PlanStartRequest": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "employee_id": {
             "format": "uuid",
             "title": "Employee Id",
@@ -6334,8 +6034,7 @@
           }
         },
         "required": [
-          "employee_id",
-          "created_by"
+          "employee_id"
         ],
         "title": "PlanStartRequest",
         "type": "object"
@@ -6618,21 +6317,12 @@
             ],
             "title": "As Of"
           },
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "dry_run": {
             "default": false,
             "title": "Dry Run",
             "type": "boolean"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "PurgeRequest",
         "type": "object"
       },
@@ -6815,12 +6505,6 @@
       "RateTableCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "jurisdiction": {
             "default": "ID",
             "maxLength": 2,
@@ -6840,8 +6524,7 @@
         },
         "required": [
           "kind",
-          "name",
-          "created_by"
+          "name"
         ],
         "title": "RateTableCreate",
         "type": "object"
@@ -6850,12 +6533,6 @@
         "additionalProperties": false,
         "description": "Replace a table's rows. Setting entries always clears verification.",
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "entries": {
             "items": {
               "$ref": "#/components/schemas/RateEntry"
@@ -6866,8 +6543,7 @@
           }
         },
         "required": [
-          "entries",
-          "by"
+          "entries"
         ],
         "title": "RateTableEntriesUpdate",
         "type": "object"
@@ -6892,12 +6568,6 @@
         "additionalProperties": false,
         "description": "Certify a rate table against a recorded source. Unblocks payroll compute.",
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "source_note": {
             "description": "Where the numbers came from (regulation, official page, date fetched)",
             "maxLength": 500,
@@ -6907,7 +6577,6 @@
           }
         },
         "required": [
-          "by",
           "source_note"
         ],
         "title": "RateTableVerify",
@@ -7058,12 +6727,6 @@
             ],
             "title": "Anchor At"
           },
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "entity": {
             "$ref": "#/components/schemas/RecordEntity"
           },
@@ -7099,8 +6762,7 @@
         "required": [
           "entity",
           "subject_kind",
-          "subject_id",
-          "created_by"
+          "subject_id"
         ],
         "title": "RecordTrack",
         "type": "object"
@@ -7446,12 +7108,6 @@
       "RequestAction": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "anyOf": [
               {
@@ -7465,9 +7121,6 @@
             "title": "Reason"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "RequestAction",
         "type": "object"
       },
@@ -7505,12 +7158,6 @@
       "RunAction": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "anyOf": [
               {
@@ -7524,21 +7171,12 @@
             "title": "Reason"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "RunAction",
         "type": "object"
       },
       "RunCreate": {
         "additionalProperties": false,
         "properties": {
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "kind": {
             "$ref": "#/components/schemas/PayrollRunKind",
             "default": "monthly"
@@ -7558,8 +7196,7 @@
         },
         "required": [
           "period_year",
-          "period_month",
-          "created_by"
+          "period_month"
         ],
         "title": "RunCreate",
         "type": "object"
@@ -8007,12 +7644,6 @@
       "StepAction": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "anyOf": [
               {
@@ -8038,21 +7669,12 @@
             "title": "Reason"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "StepAction",
         "type": "object"
       },
       "StepActionRequest": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "anyOf": [
               {
@@ -8066,21 +7688,12 @@
             "title": "Note"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "StepActionRequest",
         "type": "object"
       },
       "StepComplete": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "note": {
             "anyOf": [
               {
@@ -8094,9 +7707,6 @@
             "title": "Note"
           }
         },
-        "required": [
-          "by"
-        ],
         "title": "StepComplete",
         "type": "object"
       },
@@ -8120,17 +7730,10 @@
             "format": "uuid",
             "title": "Document Id",
             "type": "string"
-          },
-          "linked_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Linked By",
-            "type": "string"
           }
         },
         "required": [
-          "document_id",
-          "linked_by"
+          "document_id"
         ],
         "title": "StepLinkDocumentRequest",
         "type": "object"
@@ -8149,12 +7752,6 @@
       "StepWaiveRequest": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "reason": {
             "maxLength": 1000,
             "minLength": 1,
@@ -8163,7 +7760,6 @@
           }
         },
         "required": [
-          "by",
           "reason"
         ],
         "title": "StepWaiveRequest",
@@ -8193,12 +7789,6 @@
             "title": "Draft Text",
             "type": "string"
           },
-          "drafted_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Drafted By",
-            "type": "string"
-          },
           "employee_id": {
             "format": "uuid",
             "title": "Employee Id",
@@ -8208,8 +7798,7 @@
         "required": [
           "cycle_id",
           "employee_id",
-          "draft_text",
-          "drafted_by"
+          "draft_text"
         ],
         "title": "SummaryDraft",
         "type": "object"
@@ -8217,12 +7806,6 @@
       "SummaryFinalize": {
         "additionalProperties": false,
         "properties": {
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "final_text": {
             "maxLength": 10000,
             "minLength": 1,
@@ -8231,7 +7814,6 @@
           }
         },
         "required": [
-          "by",
           "final_text"
         ],
         "title": "SummaryFinalize",
@@ -9042,19 +8624,12 @@
             "minimum": 1.0,
             "title": "Retention Months",
             "type": "integer"
-          },
-          "updated_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Updated By",
-            "type": "string"
           }
         },
         "required": [
           "entity",
           "name",
-          "retention_months",
-          "updated_by"
+          "retention_months"
         ],
         "title": "PolicySet",
         "type": "object"
@@ -9213,12 +8788,6 @@
             "$ref": "#/components/schemas/ApproverRole",
             "default": "manager"
           },
-          "by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "By",
-            "type": "string"
-          },
           "carryover_allowed": {
             "default": false,
             "title": "Carryover Allowed",
@@ -9328,8 +8897,7 @@
         },
         "required": [
           "leave_type",
-          "name",
-          "by"
+          "name"
         ],
         "title": "PolicySet",
         "type": "object"
@@ -9678,12 +9246,6 @@
             "title": "Applies To Roles",
             "type": "array"
           },
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "description": {
             "default": "",
             "maxLength": 1000,
@@ -9707,8 +9269,7 @@
         },
         "required": [
           "name",
-          "steps",
-          "created_by"
+          "steps"
         ],
         "title": "TemplateCreate",
         "type": "object"
@@ -10027,12 +9588,6 @@
             "title": "Applies To Roles",
             "type": "array"
           },
-          "created_by": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Created By",
-            "type": "string"
-          },
           "description": {
             "default": "",
             "maxLength": 1000,
@@ -10056,7 +9611,6 @@
         },
         "required": [
           "name",
-          "created_by",
           "steps"
         ],
         "title": "TemplateCreate",
@@ -11421,19 +10975,8 @@
     },
     "/v1/compliance/audit/verify": {
       "get": {
+        "description": "Verify the tamper-evident chain and say who checked it.\n\nThe verifier used to be a query parameter, so the report named whoever the\ncaller typed in the URL -- the one place in the compliance surface where a\nself-declared actor could still reach the response unchallenged.",
         "operationId": "verify_audit_v1_compliance_audit_verify_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "checked_by",
-            "required": false,
-            "schema": {
-              "default": "system",
-              "title": "Checked By",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -11444,16 +10987,6 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
         "summary": "Verify Audit",

@@ -74,7 +74,7 @@ def seed_verified_tables(rate_tables: RateTableService) -> None:
     ]
     for kind, employer, employee, cap in specs:
         table = rate_tables.create(
-            kind=kind, name=kind.value, created_by="hr-admin", jurisdiction="ID"
+            kind=kind, name=kind.value, actor=ActorRef.legacy("hr-admin"), jurisdiction="ID"
         )
         rate_tables.set_entries(
             table.id,
@@ -86,23 +86,27 @@ def seed_verified_tables(rate_tables: RateTableService) -> None:
                     wage_cap=cap,
                 )
             ],
-            updated_by="hr-admin",
+            actor=ActorRef.legacy("hr-admin"),
         )
         rate_tables.verify(
-            table.id, verified_by="hr-admin", source_note="test fixture (illustrative)"
+            table.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture (illustrative)"
         )
 
     overtime = rate_tables.create(
-        kind=RateTableKind.OVERTIME_PREMIUM, name="Overtime", created_by="hr-admin"
+        kind=RateTableKind.OVERTIME_PREMIUM,
+        name="Overtime",
+        actor=ActorRef.legacy("hr-admin"),
     )
     rate_tables.set_entries(
         overtime.id,
         entries=[RateEntry(label="first hour", multiplier=1.5)],
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    rate_tables.verify(overtime.id, verified_by="hr-admin", source_note="test fixture")
+    rate_tables.verify(overtime.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
 
-    pph = rate_tables.create(kind=RateTableKind.PPH21_TER, name="TER", created_by="hr-admin")
+    pph = rate_tables.create(
+        kind=RateTableKind.PPH21_TER, name="TER", actor=ActorRef.legacy("hr-admin")
+    )
     rate_tables.set_entries(
         pph.id,
         entries=[
@@ -116,9 +120,9 @@ def seed_verified_tables(rate_tables: RateTableService) -> None:
                 employee_share_percent=5.0,
             ),
         ],
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    rate_tables.verify(pph.id, verified_by="hr-admin", source_note="test fixture")
+    rate_tables.verify(pph.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
 
 
 def make_employee(employees: EmployeeService, name: str = "Sari Dewi") -> Employee:
@@ -139,7 +143,7 @@ def make_run(
     return service.create_run(
         period_year=PERIOD_YEAR,
         period_month=period_month,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         kind=kind,
     )
 
@@ -156,7 +160,7 @@ def test_create_run_and_edit(service: PayrollService) -> None:
 def test_compute_requires_inputs(service: PayrollService) -> None:
     run = make_run(service)
     with pytest.raises(PayrollError, match="no inputs"):
-        service.compute(run.id, by="hr-admin")
+        service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_compute_blocks_without_verified_tables(
@@ -171,9 +175,9 @@ def test_compute_blocks_without_verified_tables(
                 employee_id=employee.id, base_salary=5_000_000
             )
         ],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    computed = service.compute(run.id, by="hr-admin")
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
 
     # Missing required tables are ERROR anomalies
     codes = {anomaly.code for anomaly in computed.anomalies}
@@ -199,9 +203,9 @@ def test_compute_with_verified_tables(
                 overtime_hours=3.0,
             )
         ],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    computed = service.compute(run.id, by="hr-admin")
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
 
     assert computed.status is PayrollRunStatus.READY_FOR_REVIEW
     line = computed.lines[0]
@@ -231,9 +235,9 @@ def test_missing_employee_is_not_fatal(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=uuid4(), base_salary=5_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    computed = service.compute(run.id, by="hr-admin")
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
     assert computed.lines[0].employee_name == ""
     assert computed.lines[0].net > 0
 
@@ -258,9 +262,9 @@ def test_negative_net_blocks(
                 other_deductions=5_000_000,
             )
         ],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    computed = service.compute(run.id, by="hr-admin")
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
     codes = {anomaly.code for anomaly in computed.anomalies}
     assert "negative_net" in codes
     assert any(anomaly.severity is AnomalySeverity.ERROR for anomaly in computed.anomalies)
@@ -277,9 +281,9 @@ def test_excessive_overtime_warns(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=5_000_000, overtime_hours=80)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    computed = service.compute(run.id, by="hr-admin")
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
     assert any(anomaly.code == "overtime_excessive" for anomaly in computed.anomalies)
 
 
@@ -295,17 +299,17 @@ def test_net_deviation_warns(
     service.set_inputs(
         first.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=10_000_000)],
-        by="hr",
+        actor=ActorRef.legacy("hr"),
     )
-    service.compute(first.id, by="hr")
+    service.compute(first.id, actor=ActorRef.legacy("hr"))
 
     second = make_run(service, period_month=6)
     service.set_inputs(
         second.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=4_000_000)],
-        by="hr",
+        actor=ActorRef.legacy("hr"),
     )
-    computed = service.compute(second.id, by="hr")
+    computed = service.compute(second.id, actor=ActorRef.legacy("hr"))
 
     assert any(anomaly.code == "net_deviation" for anomaly in computed.anomalies)
 
@@ -327,11 +331,11 @@ def test_signoff_flow_approve_and_export(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=8_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.compute(run.id, by="hr-admin")
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
 
-    submitted = service.submit_for_signoff(run.id, by="hr-admin")
+    submitted = service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
     assert submitted.status is PayrollRunStatus.PENDING_SIGNOFF
 
     queue = approvals.pending_for(ApproverRole.FINANCE)
@@ -339,13 +343,13 @@ def test_signoff_flow_approve_and_export(
 
     approval_id = submitted.approval_id
     assert approval_id is not None
-    approvals.decide(approval_id, decided_by="finance-lead", approve=True)
+    approvals.decide(approval_id, actor=ActorRef.legacy("finance-lead"), approve=True)
     approved = service.apply_decision(approval_id)
 
     assert approved.status is PayrollRunStatus.APPROVED
     assert approved.signed_off_by == "finance-lead"
 
-    exported = service.mark_exported(run.id, by="finance-lead")
+    exported = service.mark_exported(run.id, actor=ActorRef.legacy("finance-lead"))
     assert exported.status is PayrollRunStatus.EXPORTED
 
 
@@ -363,15 +367,15 @@ def test_signoff_requires_human(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=8_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.compute(run.id, by="hr-admin")
-    submitted = service.submit_for_signoff(run.id, by="hr-admin")
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+    submitted = service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
 
     approval_id = submitted.approval_id
     assert approval_id is not None
     with pytest.raises(Exception, match="named human"):
-        approvals.decide(approval_id, decided_by="agent:payroll_bot", approve=True)
+        approvals.decide(approval_id, actor=ActorRef.agent("payroll_bot"), approve=True)
 
 
 def test_signoff_blocked_by_anomalies(service: PayrollService, employees: EmployeeService) -> None:
@@ -382,12 +386,12 @@ def test_signoff_blocked_by_anomalies(service: PayrollService, employees: Employ
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=5_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.compute(run.id, by="hr-admin")  # missing tables → ERROR anomalies
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))  # missing tables → ERROR anomalies
 
     with pytest.raises(PayrollError, match="blocking anomalies"):
-        service.submit_for_signoff(run.id, by="hr-admin")
+        service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_cannot_edit_after_signoff(
@@ -404,20 +408,20 @@ def test_cannot_edit_after_signoff(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=8_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.compute(run.id, by="hr-admin")
-    submitted = service.submit_for_signoff(run.id, by="hr-admin")
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+    submitted = service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
     approval_id = submitted.approval_id
     assert approval_id is not None
-    approvals.decide(approval_id, decided_by="finance", approve=True)
+    approvals.decide(approval_id, actor=ActorRef.legacy("finance"), approve=True)
     service.apply_decision(approval_id)
 
     with pytest.raises(PayrollError, match="no longer be edited"):
         service.set_inputs(
             run.id,
             inputs=[PayrollInput(employee_id=employee.id, base_salary=1_000_000)],
-            by="hr-admin",
+            actor=ActorRef.legacy("hr-admin"),
         )
 
 
@@ -435,13 +439,15 @@ def test_rejected_run_returns_to_review_state(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=8_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.compute(run.id, by="hr-admin")
-    submitted = service.submit_for_signoff(run.id, by="hr-admin")
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+    submitted = service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
     approval_id = submitted.approval_id
     assert approval_id is not None
-    approvals.decide(approval_id, decided_by="finance", approve=False, reason="wrong period")
+    approvals.decide(
+        approval_id, actor=ActorRef.legacy("finance"), approve=False, reason="wrong period"
+    )
     rejected = service.apply_decision(approval_id)
     assert rejected.status is PayrollRunStatus.REJECTED
     assert rejected.signed_off_by is None
@@ -450,9 +456,9 @@ def test_rejected_run_returns_to_review_state(
 def test_cancel_run_requires_reason_and_state(service: PayrollService) -> None:
     run = make_run(service)
     with pytest.raises(PayrollError, match="requires a reason"):
-        service.cancel_run(run.id, by="hr", reason="")
+        service.cancel_run(run.id, actor=ActorRef.legacy("hr"), reason="")
 
-    cancelled = service.cancel_run(run.id, by="hr", reason="wrong period")
+    cancelled = service.cancel_run(run.id, actor=ActorRef.legacy("hr"), reason="wrong period")
     assert cancelled.status is PayrollRunStatus.CANCELLED
 
 
@@ -482,9 +488,9 @@ def test_review_packet_exports_xlsx(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=9_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.compute(run.id, by="hr-admin")
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
 
     content = service.build_review_packet_xlsx(run.id)
     workbook = load_workbook(BytesIO(content))
@@ -522,9 +528,9 @@ def test_audit_chain_covers_payroll(
     service.set_inputs(
         run.id,
         inputs=[PayrollInput(employee_id=employee.id, base_salary=5_000_000)],
-        by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.compute(run.id, by="hr-admin")
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
 
     actions = [entry.action for entry in audit.entries]
     assert "payroll.run_created" in actions

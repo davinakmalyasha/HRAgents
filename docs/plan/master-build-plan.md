@@ -577,20 +577,20 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 Found in the Stage 0 audit. Ordered by blast radius. Each is a real code path,
 not a style opinion.
 
-1. **The named-human gate is a substring test on a self-declared string.** **Partly fixed.**
+1. ~~**The named-human gate is a substring test on a self-declared string.**~~ **Fixed.**
    `hr_agents/identity.py` now owns one `classify_actor()`, one `require_named_human()`, and
    `ActorRef` (which carries the actor *and* how it was established); the 19 private copies are
    deleted and the ten ungated operations are gated. Authentication moved into middleware, so the
-   key is resolved once per request and 401/403 are distinguishable. **The recruiting group no
-   longer accepts an actor from a request body** — the eleven actor fields are gone, routers pass
-   `ActorRef` from the authenticated principal, and the dashboard's "type your name" inputs were
-   removed rather than left silently ignored, and the same is now true of the **people workspace** —
-   `EmployeeService` (create, transition, employee documents, document verification, org units),
-   `ContractService`, `TaskEngine` and `StageTransitionService` all take `ActorRef`, and a blank
-   actor can no longer be constructed at all. **Still open:** offers, onboarding, offboarding, leave,
-   growth, payroll, rate tables and compliance still carry ~55 `by`/`created_by` request fields, so
-   a holder of one `hr_admin` key can still name a different person in those. Fixing that is the
-   rest of Phase 2 of the core work.
+   key is resolved once per request and 401/403 are distinguishable. **No request body in the API
+   names the actor**: 60 `by`/`created_by`-style fields are gone across all eight groups plus the
+   approval endpoints, 70 service parameters take an `ActorRef`, 69 endpoints pass the
+   authenticated principal, and the dashboard's "type your name" inputs are deleted rather than
+   left silently ignored. A blank actor can no longer be constructed at all. Sending one of those
+   fields now returns **422 naming the field** — refused, not ignored. `GET /v1/compliance/audit/verify`
+   was the last actor claim reachable outside a body and now takes the principal too.
+   **Still open, and it is a different problem:** authentication establishes *who*, not *what
+   they may do*. A `MANAGER` can still decide a `FINANCE`-assigned payroll sign-off, and 68 write
+   endpoints are still guarded by a READ permission (item 4). That is the B3 authorization work.
 2. ~~**Actor classification is implemented 11 times with 3 behaviours.**~~ **Fixed.** All three
    sites recording `agent:` as `ActorType.HUMAN` (`contracts`, `employees`, `rate_tables`) now route
    through the shared classifier, as do the four that matched only the exact string `"system"`.

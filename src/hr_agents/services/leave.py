@@ -10,11 +10,10 @@ import contextlib
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.models import (
     AccrualMethod,
     ApprovalSubject,
-    AuditActor,
     Employee,
     LeaveBalance,
     LeaveRequest,
@@ -56,16 +55,16 @@ class LeaveService:
 
     # --- policy management ----------------------------------------------
 
-    def set_policy(self, policy: LeaveTypePolicy, *, by: str) -> LeaveTypePolicy:
+    def set_policy(self, policy: LeaveTypePolicy, *, actor: ActorRef) -> LeaveTypePolicy:
         """Install a leave policy. Accrual, caps, and minimum service are money-like
         rules that change for every employee at once, so a named human sets them."""
-        by = require_named_human(by, "setting a leave policy", LeaveError)
+        actor.require_human("setting a leave policy", LeaveError)
         self._policies[policy.leave_type] = policy
         self._record(
             action="leave.policy_set",
             subject_type="leave_policy",
             subject_id=policy.leave_type.value,
-            actor_id=by,
+            actor=actor,
             payload={
                 "name": policy.name,
                 "paid": policy.paid,
@@ -85,14 +84,14 @@ class LeaveService:
     def list_policies(self) -> list[LeaveTypePolicy]:
         return sorted(self._policies.values(), key=lambda item: item.leave_type.value)
 
-    def set_holidays(self, holidays: list[date], *, by: str) -> int:
+    def set_holidays(self, holidays: list[date], *, actor: ActorRef) -> int:
         """Set public holidays (affects working-day computations)."""
         self._holidays = set(holidays)
         self._record(
             action="leave.holidays_set",
             subject_type="leave_calendar",
             subject_id="public_holidays",
-            actor_id=by,
+            actor=actor,
             payload={"count": len(holidays)},
         )
         return len(holidays)
@@ -232,7 +231,7 @@ class LeaveService:
         *,
         days: float,
         year: int | None = None,
-        by: str,
+        actor: ActorRef,
         reason: str | None = None,
     ) -> LeaveBalance:
         """Manual adjustment (positive or negative) — always audited.
@@ -240,7 +239,7 @@ class LeaveService:
         A balance is a money-like entitlement, so an agent may not move one; the
         human attribution is what makes the ledger entry reviewable.
         """
-        by = require_named_human(by, "adjusting a leave balance", LeaveError)
+        actor.require_human("adjusting a leave balance", LeaveError)
         self._require_employee(employee_id)
         self.get_policy(leave_type)
         target_year = year or date.today().year
@@ -250,7 +249,7 @@ class LeaveService:
             action="leave.balance_adjusted",
             subject_type="leave_balance",
             subject_id=str(employee_id),
-            actor_id=by,
+            actor=actor,
             payload={
                 "leave_type": leave_type.value,
                 "days": days,
@@ -269,7 +268,7 @@ class LeaveService:
         leave_type: LeaveType,
         start_date: date,
         end_date: date,
-        requested_by: str,
+        actor: ActorRef,
         reason: str | None = None,
         document_id: UUID | None = None,
     ) -> LeaveRequest:
@@ -336,7 +335,7 @@ class LeaveService:
                     f"({start_date.isoformat()} → {end_date.isoformat()}, {days:g} days)"
                 ),
                 assignee_role=policy.approver_role,
-                requested_by=requested_by,
+                actor=actor,
                 summary=reason or "",
                 payload={
                     "employee_id": str(employee_id),
@@ -354,7 +353,7 @@ class LeaveService:
             action="leave.request_submitted",
             subject_type="leave_request",
             subject_id=str(request.id),
-            actor_id=requested_by,
+            actor=actor,
             payload={
                 "employee_id": str(employee_id),
                 "leave_type": leave_type.value,
@@ -398,19 +397,21 @@ class LeaveService:
             action=f"leave.request_{target.value}",
             subject_type="leave_request",
             subject_id=str(updated.id),
-            actor_id=approval.decided_by or "system",
+            actor=deciding_actor(approval.decided_by),
             payload={"approval_id": str(approval_id), "status": target.value},
         )
         return updated
 
-    def cancel(self, request_id: UUID, *, by: str) -> LeaveRequest:
+    def cancel(self, request_id: UUID, *, actor: ActorRef) -> LeaveRequest:
         request = self._require_request(request_id)
         if request.status not in {RequestStatus.PENDING, RequestStatus.DRAFT}:
             raise LeaveError(f"request {request_id} is {request.status.value}; cannot cancel")
         if request.approval_id is not None:
             with contextlib.suppress(Exception):
                 # Approval may already be terminal; cancellation still proceeds.
-                self._approvals.withdraw(request.approval_id, by=by, reason="request cancelled")
+                self._approvals.withdraw(
+                    request.approval_id, actor=actor, reason="request cancelled"
+                )
         updated = request.model_copy(
             update={"status": RequestStatus.CANCELLED, "updated_at": utc_now()}
         )
@@ -419,7 +420,7 @@ class LeaveService:
             action="leave.request_cancelled",
             subject_type="leave_request",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={},
         )
         return updated
@@ -480,12 +481,11 @@ class LeaveService:
         action: str,
         subject_type: str,
         subject_id: str,
-        actor_id: str,
+        actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        actor_type = classify_actor(actor_id)
         self._audit.append(
-            actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
+            actor=actor.audit_actor(),
             action=action,
             subject_type=subject_type,
             subject_id=subject_id,

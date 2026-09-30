@@ -17,15 +17,13 @@ from uuid import UUID
 
 from pydantic import EmailStr
 
-from hr_agents.identity import ActorRef, require_named_human
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     EXPIRABLE_OFFER_STATUSES,
-    ActorType,
     ApprovalRequest,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
-    AuditActor,
     Offer,
     OfferRevision,
     OfferStatus,
@@ -132,28 +130,30 @@ class OfferService:
 
     # creation & revisions
 
-    def create(self, application_id: UUID, terms: OfferTerms, *, by: str, note: str = "") -> Offer:
+    def create(
+        self, application_id: UUID, terms: OfferTerms, *, actor: ActorRef, note: str = ""
+    ) -> Offer:
         """Create a draft offer; the evaluation supplies candidate and job."""
-        actor = self._require_human(by)
+        actor = actor.require_human("an offer decision", OfferError)
         record = self._evaluations.get_by_application(application_id)
         offer = Offer(
             application_id=application_id,
             candidate_id=record.candidate_id,
             job_id=record.job_id,
             terms=terms,
-            created_by=actor,
+            created_by=actor.actor_id,
         )
         revision = OfferRevision(
             offer_id=offer.id,
             revision_index=1,
             terms=terms,
-            changed_by=actor,
+            changed_by=actor.actor_id,
             note=note.strip(),
         )
         offer = offer.model_copy(update={"revisions": [revision]})
         self._persist(offer)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=actor.audit_actor(),
             action="offer.created",
             subject_type="offer",
             subject_id=str(offer.id),
@@ -166,9 +166,11 @@ class OfferService:
         )
         return offer
 
-    def revise(self, offer_id: UUID, terms: OfferTerms, *, by: str, note: str = "") -> Offer:
+    def revise(
+        self, offer_id: UUID, terms: OfferTerms, *, actor: ActorRef, note: str = ""
+    ) -> Offer:
         """Revise a draft offer; each revision is an append-only snapshot."""
-        actor = self._require_human(by)
+        actor = actor.require_human("an offer decision", OfferError)
         offer = self.get(offer_id)
         if offer.status is not OfferStatus.DRAFT:
             raise OfferError("only draft offers can be revised; withdraw and create a new one")
@@ -176,7 +178,7 @@ class OfferService:
             offer_id=offer.id,
             revision_index=len(offer.revisions) + 1,
             terms=terms,
-            changed_by=actor,
+            changed_by=actor.actor_id,
             note=note.strip(),
         )
         updated = offer.model_copy(
@@ -188,7 +190,7 @@ class OfferService:
         )
         self._persist(updated)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=actor.audit_actor(),
             action="offer.revised",
             subject_type="offer",
             subject_id=str(offer.id),
@@ -198,9 +200,9 @@ class OfferService:
 
     # approval gate
 
-    def submit(self, offer_id: UUID, *, by: str) -> Offer:
+    def submit(self, offer_id: UUID, *, actor: ActorRef) -> Offer:
         """Send the draft to the approval queue as a named human."""
-        actor = self._require_human(by)
+        actor = actor.require_human("an offer decision", OfferError)
         offer = self.get(offer_id)
         if offer.status is not OfferStatus.DRAFT:
             raise OfferError(f"offer is {offer.status.value}; only a draft can be submitted")
@@ -218,7 +220,7 @@ class OfferService:
                     f"starts {offer.terms.start_date.isoformat()}"
                 ),
                 assignee_role=ApproverRole.HR_ADMIN,
-                requested_by=actor,
+                actor=actor,
                 payload={
                     "offer_id": str(offer.id),
                     "application_id": str(offer.application_id),
@@ -226,7 +228,7 @@ class OfferService:
                 },
             )
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=actor.audit_actor(),
             action="offer.submitted",
             subject_type="offer",
             subject_id=str(offer.id),
@@ -234,11 +236,11 @@ class OfferService:
         )
         return updated
 
-    def decide(self, offer_id: UUID, *, decision: str, by: str, reason: str = "") -> Offer:
+    def decide(self, offer_id: UUID, *, decision: str, actor: ActorRef, reason: str = "") -> Offer:
         """Approve or withdraw an offer as a named human (single writer)."""
         if decision not in {"approve", "withdraw"}:
             raise OfferError(f"unknown decision {decision!r}")
-        actor = self._require_human(by)
+        actor = actor.require_human("an offer decision", OfferError)
         offer = self.get(offer_id)
         if offer.is_terminal:
             raise OfferError(f"offer is {offer.status.value}; it cannot be decided again")
@@ -252,18 +254,18 @@ class OfferService:
                 raise OfferError(
                     f"offer is {offer.status.value}; only a pending offer can be approved"
                 )
-            self._decide_linked_approval(approval, by=actor, reason=reason)
+            self._decide_linked_approval(approval, actor=actor, reason=reason)
             updated = offer.model_copy(
                 update={
                     "status": OfferStatus.APPROVED,
-                    "decided_by": actor,
+                    "decided_by": actor.actor_id,
                     "decided_at": datetime.now(UTC),
                     "updated_at": datetime.now(UTC),
                 }
             )
             self._persist(updated)
             self._audit.append(
-                actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+                actor=actor.audit_actor(),
                 action="offer.approved",
                 subject_type="offer",
                 subject_id=str(offer.id),
@@ -276,18 +278,18 @@ class OfferService:
 
         if not reason.strip():
             raise OfferError("a reason is required to withdraw an offer")
-        self._withdraw_linked_approval(approval, by=actor, reason=reason)
+        self._withdraw_linked_approval(approval, actor=actor, reason=reason)
         updated = offer.model_copy(
             update={
                 "status": OfferStatus.WITHDRAWN,
-                "decided_by": actor,
+                "decided_by": actor.actor_id,
                 "decided_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
             }
         )
         self._persist(updated)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=actor.audit_actor(),
             action="offer.withdrawn",
             subject_type="offer",
             subject_id=str(offer.id),
@@ -301,14 +303,14 @@ class OfferService:
         self,
         offer_id: UUID,
         *,
-        by: ActorRef | str,
+        actor: ActorRef,
         body: str | None = None,
         subject: str | None = None,
         language: str = "en",
         to_email: EmailStr | None = None,
     ) -> Offer:
         """Queue the candidate-facing offer message through the outbox."""
-        actor = ActorRef.coerce(by)
+        actor = ActorRef.coerce(actor)
         actor.require_human("a candidate offer message", OfferError)
         offer = self.get(offer_id)
         if offer.status is OfferStatus.QUEUED:
@@ -342,10 +344,10 @@ class OfferService:
         return updated
 
     def record_acceptance(
-        self, offer_id: UUID, *, by: str, accepted: bool, reason: str = ""
+        self, offer_id: UUID, *, actor: ActorRef, accepted: bool, reason: str = ""
     ) -> Offer:
         """Record the candidate's decision (a human relays it; nothing auto-accepts)."""
-        actor = self._require_human(by)
+        actor = actor.require_human("an offer decision", OfferError)
         offer = self.get(offer_id)
         if offer.status not in {OfferStatus.APPROVED, OfferStatus.QUEUED}:
             raise OfferError(
@@ -367,7 +369,7 @@ class OfferService:
         self._persist(updated)
         self._note_application(updated, "offer.accepted" if accepted else "offer.declined")
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=actor),
+            actor=actor.audit_actor(),
             action="offer.accepted" if accepted else "offer.declined",
             subject_type="offer",
             subject_id=str(offer.id),
@@ -377,8 +379,14 @@ class OfferService:
 
     # time-driven
 
-    def expire_overdue(self, *, now: datetime | None = None) -> list[Offer]:
-        """Expire stale offers; a scheduler calls this, the service performs no timers."""
+    def expire_overdue(self, *, now: datetime | None = None, actor: ActorRef) -> list[Offer]:
+        """Expire stale offers; a scheduler calls this, the service performs no timers.
+
+        The actor is the caller's, and a scheduler is not a person. It used to
+        write the bare string ``"system"`` onto the chain, which reads on the
+        record as an unclassified value indistinguishable from a name someone
+        typed into a form.
+        """
         moment = now or datetime.now(UTC)
         expired: list[Offer] = []
         for offer in self._iter():
@@ -395,7 +403,7 @@ class OfferService:
             )
             self._persist(updated)
             self._audit.append(
-                actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id="system"),
+                actor=actor.audit_actor(),
                 action="offer.expired",
                 subject_type="offer",
                 subject_id=str(offer.id),
@@ -433,7 +441,7 @@ class OfferService:
         return self._approvals.find_by_subject(ApprovalSubject.OFFER, str(offer_id))
 
     def _decide_linked_approval(
-        self, approval: ApprovalRequest | None, *, by: str, reason: str
+        self, approval: ApprovalRequest | None, *, actor: ActorRef, reason: str
     ) -> None:
         if approval is None or self._approvals is None:
             return
@@ -444,7 +452,7 @@ class OfferService:
         try:
             self._approvals.decide(
                 approval.id,
-                decided_by=by,
+                actor=actor,
                 approve=True,
                 reason=reason.strip() or "offer approved",
             )
@@ -452,15 +460,11 @@ class OfferService:
             raise OfferError(str(exc)) from exc
 
     def _withdraw_linked_approval(
-        self, approval: ApprovalRequest | None, *, by: str, reason: str
+        self, approval: ApprovalRequest | None, *, actor: ActorRef, reason: str
     ) -> None:
         if approval is None or self._approvals is None or not approval.active:
             return
         try:
-            self._approvals.withdraw(approval.id, by=by, reason=reason.strip() or None)
+            self._approvals.withdraw(approval.id, actor=actor, reason=reason.strip() or None)
         except ApprovalError as exc:
             raise OfferError(str(exc)) from exc
-
-    @staticmethod
-    def _require_human(actor: str) -> str:
-        return require_named_human(actor, "an offer decision", OfferError)

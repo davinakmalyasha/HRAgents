@@ -21,17 +21,12 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from hr_agents.identity import (
-    classify_actor,
-    require_named_human,
-    require_named_human_or_system,
-)
+from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.logging import get_logger
 from hr_agents.models import (
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
-    AuditActor,
     AuditVerificationReport,
     BreachChecklistTemplate,
     BreachImpact,
@@ -151,7 +146,7 @@ class ComplianceService:
         subject_kind: SubjectKind,
         subject_id: str,
         purpose: str,
-        captured_by: str,
+        actor: ActorRef,
         granted: bool = True,
         lawful_basis: LawfulBasis = LawfulBasis.CONSENT,
         capture_method: str = "manual",
@@ -165,6 +160,7 @@ class ComplianceService:
         actor is preserved on the record and the audit chain.
         """
         record = ConsentGrant(
+            captured_by=actor.actor_id,
             subject_kind=subject_kind,
             subject_id=subject_id,
             purpose=purpose,
@@ -173,7 +169,6 @@ class ComplianceService:
             capture_method=capture_method,
             policy_version=policy_version,
             expires_at=expires_at,
-            captured_by=captured_by,
             note=note,
         )
         self._store.add_consent(record)
@@ -181,7 +176,7 @@ class ComplianceService:
             action="compliance.consent_recorded",
             subject_type="consent",
             subject_id=str(record.id),
-            actor_id=captured_by,
+            actor=actor,
             payload={
                 "subject_kind": subject_kind.value,
                 "subject_id": subject_id,
@@ -192,9 +187,9 @@ class ComplianceService:
         )
         return record
 
-    def revoke_consent(self, consent_id: UUID, *, by: str, reason: str) -> ConsentGrant:
+    def revoke_consent(self, consent_id: UUID, *, actor: ActorRef, reason: str) -> ConsentGrant:
         """Revoke a consent grant. Humans only; a reason is mandatory."""
-        self._require_human(by, "revoke consent")
+        actor.require_human("revoke consent", ComplianceError)
         if not reason.strip():
             raise ComplianceError("revoking consent requires a reason")
         record = self.get_consent(consent_id)
@@ -208,7 +203,7 @@ class ComplianceService:
             action="compliance.consent_revoked",
             subject_type="consent",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={"reason": reason, "subject_id": record.subject_id},
         )
         return updated
@@ -245,23 +240,23 @@ class ComplianceService:
         entity: RecordEntity,
         name: str,
         retention_months: int,
-        updated_by: str,
+        actor: ActorRef,
         expiry_action: PurgeAction = PurgeAction.ANONYMIZE,
         jurisdiction: str = "ID",
         active: bool = True,
         note: str | None = None,
     ) -> RetentionPolicy:
         """Create or update the retention policy for one entity kind."""
-        self._require_human(updated_by, "set retention policy")
+        actor.require_human("set retention policy", ComplianceError)
         existing = self._store.get_policy(entity)
         policy = RetentionPolicy(
+            updated_by=actor.actor_id,
             entity=entity,
             name=name,
             retention_months=retention_months,
             expiry_action=expiry_action,
             jurisdiction=jurisdiction,
             active=active,
-            updated_by=updated_by,
             note=note,
         )
         if existing is not None:
@@ -271,7 +266,7 @@ class ComplianceService:
             action="compliance.retention_policy_set",
             subject_type="retention_policy",
             subject_id=str(policy.id),
-            actor_id=updated_by,
+            actor=actor,
             payload={
                 "entity": entity.value,
                 "retention_months": retention_months,
@@ -296,7 +291,7 @@ class ComplianceService:
         entity: RecordEntity,
         subject_kind: SubjectKind,
         subject_id: str,
-        created_by: str,
+        actor: ActorRef,
         label: str = "",
         anchor_at: datetime | None = None,
         retention_months_override: int | None = None,
@@ -315,7 +310,7 @@ class ComplianceService:
             action="compliance.record_tracked",
             subject_type="retention_record",
             subject_id=str(record.id),
-            actor_id=created_by,
+            actor=actor,
             payload={"entity": entity.value, "subject_id": subject_id},
         )
         return record
@@ -346,10 +341,10 @@ class ComplianceService:
         return records
 
     def set_legal_hold(
-        self, record_id: UUID, *, held: bool, by: str, reason: str
+        self, record_id: UUID, *, held: bool, actor: ActorRef, reason: str
     ) -> RetentionRecord:
         """Place or lift a legal hold. Humans only; reason mandatory both ways."""
-        self._require_human(by, "set legal hold")
+        actor.require_human("set legal hold", ComplianceError)
         if not reason.strip():
             raise ComplianceError("legal hold changes require a reason")
         record = self.get_record(record_id)
@@ -363,7 +358,7 @@ class ComplianceService:
             update={
                 "legal_hold": held,
                 "legal_hold_reason": reason if held else None,
-                "held_by": by if held else None,
+                "held_by": actor.actor_id if held else None,
                 "held_at": utc_now() if held else None,
             }
         )
@@ -372,7 +367,7 @@ class ComplianceService:
             action="compliance.legal_hold_set" if held else "compliance.legal_hold_lifted",
             subject_type="retention_record",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={"reason": reason},
         )
         return updated
@@ -432,14 +427,14 @@ class ComplianceService:
         return tuple(sorted(self._purge_handlers, key=lambda item: item.value))
 
     def execute_purge(
-        self, *, by: str, as_of: datetime | None = None, dry_run: bool = False
+        self, *, actor: ActorRef, as_of: datetime | None = None, dry_run: bool = False
     ) -> PurgeReport:
         """Purge every expired, unheld record per its policy.
 
-        ``by`` may be a named human or ``system`` (scheduled job); agents are
+        ``actor`` may be a named human or ``system`` (scheduled job); agents are
         refused. A dry run reports what would happen without mutating anything.
         """
-        self._require_automatic_actor(by, "execute retention purge")
+        actor.require_human_or_system("execute retention purge", ComplianceError)
         moment = as_of or utc_now()
         report = self.scan(as_of=moment)
 
@@ -452,7 +447,7 @@ class ComplianceService:
                 detail = "dry run; no store mutation performed"
                 purged = False
             else:
-                detail = self._apply_purge(item.record, item.action, by)
+                detail = self._apply_purge(item.record, item.action, actor)
                 purged = detail is not None
                 if purged:
                     updated = item.record.model_copy(
@@ -467,7 +462,7 @@ class ComplianceService:
                         action="compliance.record_purged",
                         subject_type="retention_record",
                         subject_id=str(updated.id),
-                        actor_id=by,
+                        actor=actor,
                         payload={
                             "entity": updated.entity.value,
                             "subject_id": updated.subject_id,
@@ -481,7 +476,7 @@ class ComplianceService:
                         action="compliance.record_purge_skipped",
                         subject_type="retention_record",
                         subject_id=str(item.record.id),
-                        actor_id=by,
+                        actor=actor,
                         payload={
                             "entity": item.record.entity.value,
                             "subject_id": item.record.subject_id,
@@ -507,7 +502,7 @@ class ComplianceService:
                 action="compliance.purge_executed",
                 subject_type="retention_ledger",
                 subject_id="all",
-                actor_id=by,
+                actor=actor,
                 payload={
                     "purged": len(outcomes),
                     "skipped": len(skipped),
@@ -519,7 +514,7 @@ class ComplianceService:
         return PurgeReport(
             executed_at=moment,
             dry_run=dry_run,
-            by=by,
+            by=actor.actor_id,
             purged=outcomes,
             held=[record.id for record in report.held],
             uncovered=[record.id for record in report.uncovered],
@@ -534,7 +529,7 @@ class ComplianceService:
         subject_kind: SubjectKind,
         subject_id: str,
         reason: str,
-        requested_by: str,
+        actor: ActorRef,
         channel: str = "manual",
     ) -> ErasureRequest:
         """Open an erasure request. Agents may request; they cannot decide or execute."""
@@ -542,7 +537,7 @@ class ComplianceService:
             subject_kind=subject_kind,
             subject_id=subject_id,
             reason=reason,
-            requested_by=requested_by,
+            requested_by=actor.actor_id,
             channel=channel,
         )
         self._store.add_erasure(request)
@@ -550,7 +545,7 @@ class ComplianceService:
             action="compliance.erasure_requested",
             subject_type="erasure_request",
             subject_id=str(request.id),
-            actor_id=requested_by,
+            actor=actor,
             payload={"subject_kind": subject_kind.value, "subject_id": subject_id},
         )
         return request
@@ -564,9 +559,9 @@ class ComplianceService:
     def list_erasures(self) -> list[ErasureRequest]:
         return self._store.list_erasures()
 
-    def verify_identity(self, request_id: UUID, *, by: str, method: str) -> ErasureRequest:
+    def verify_identity(self, request_id: UUID, *, actor: ActorRef, method: str) -> ErasureRequest:
         """Record that a human verified the requester's identity."""
-        self._require_human(by, "verify erasure identity")
+        actor.require_human("verify erasure identity", ComplianceError)
         request = self.get_erasure(request_id)
         if request.status is not ErasureStatus.RECEIVED:
             raise ComplianceError(f"request is {request.status.value}; cannot verify identity")
@@ -574,7 +569,7 @@ class ComplianceService:
             raise ComplianceError("identity verification requires a method")
         updated = request.model_copy(
             update={
-                "identity_verified_by": by,
+                "identity_verified_by": actor.actor_id,
                 "identity_verified_at": utc_now(),
                 "identity_method": method,
                 "updated_at": utc_now(),
@@ -585,12 +580,12 @@ class ComplianceService:
             action="compliance.erasure_identity_verified",
             subject_type="erasure_request",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={"method": method},
         )
         return updated
 
-    def submit_for_decision(self, request_id: UUID, *, by: str) -> ErasureRequest:
+    def submit_for_decision(self, request_id: UUID, *, actor: ActorRef) -> ErasureRequest:
         """Route a verified request to the Data Protection approver."""
         request = self.get_erasure(request_id)
         if request.status is not ErasureStatus.RECEIVED:
@@ -602,7 +597,7 @@ class ComplianceService:
             subject_id=str(request.id),
             title=f"Erasure request: {request.subject_kind.value} {request.subject_id}",
             assignee_role=ApproverRole.DATA_PROTECTION,
-            requested_by=by,
+            actor=actor,
             summary=(
                 "Data-subject erasure request with identity verified. "
                 "Approval is required before any data is deleted or anonymized."
@@ -622,7 +617,7 @@ class ComplianceService:
             action="compliance.erasure_submitted",
             subject_type="erasure_request",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={"approval_id": str(approval.id)},
         )
         return updated
@@ -665,18 +660,18 @@ class ComplianceService:
             action="compliance.erasure_approved" if approved else "compliance.erasure_denied",
             subject_type="erasure_request",
             subject_id=str(updated.id),
-            actor_id=approval.decided_by or "system",
+            actor=deciding_actor(approval.decided_by),
             payload={"approval_id": str(approval_id)},
         )
         return updated
 
-    def execute_erasure(self, request_id: UUID, *, by: str) -> ErasureRequest:
+    def execute_erasure(self, request_id: UUID, *, actor: ActorRef) -> ErasureRequest:
         """Execute an approved erasure: purge unheld records, revoke consents.
 
         Legal holds are respected and reported per record. Execution is a
         separate human action from approval — defense in depth.
         """
-        self._require_human(by, "execute erasure")
+        actor.require_human("execute erasure", ComplianceError)
         request = self.get_erasure(request_id)
         if request.status is not ErasureStatus.APPROVED:
             raise ComplianceError(f"request is {request.status.value}; approval required first")
@@ -698,7 +693,7 @@ class ComplianceService:
                 continue
             policy = self._store.get_policy(record.entity)
             action = policy.expiry_action if policy else PurgeAction.DELETE
-            detail = self._apply_purge(record, action, by)
+            detail = self._apply_purge(record, action, actor)
             if detail is None:
                 dispositions.append(
                     ErasureDisposition(
@@ -716,7 +711,7 @@ class ComplianceService:
                     action="compliance.record_erasure_skipped",
                     subject_type="retention_record",
                     subject_id=str(record.id),
-                    actor_id=by,
+                    actor=actor,
                     payload={
                         "entity": record.entity.value,
                         "subject_id": record.subject_id,
@@ -749,7 +744,7 @@ class ComplianceService:
                 action="compliance.record_erased",
                 subject_type="retention_record",
                 subject_id=str(record.id),
-                actor_id=by,
+                actor=actor,
                 payload={
                     "entity": record.entity.value,
                     "subject_id": record.subject_id,
@@ -779,7 +774,7 @@ class ComplianceService:
             update={
                 "status": ErasureStatus.EXECUTED,
                 "executed_at": utc_now(),
-                "executed_by": by,
+                "executed_by": actor.actor_id,
                 "dispositions": dispositions,
                 "consents_revoked": revoked,
                 "updated_at": utc_now(),
@@ -790,7 +785,7 @@ class ComplianceService:
             action="compliance.erasure_executed",
             subject_type="erasure_request",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={
                 "purged": len(dispositions),
                 "retained_legal_hold": sum(
@@ -811,12 +806,18 @@ class ComplianceService:
         title: str,
         description: str,
         impact: BreachImpact,
-        discovered_by: str,
-        created_by: str,
+        actor: ActorRef,
         discovered_at: datetime | None = None,
         template: BreachChecklistTemplate | None = None,
     ) -> BreachIncident:
-        """Open a breach incident from a checklist template (default starter)."""
+        """Open a breach incident from a checklist template (default starter).
+
+        The incident records one person in both ``discovered_by`` and
+        ``created_by``. That redundancy is deliberate rather than a leftover:
+        the request used to accept two different free-text names for one action,
+        so a record could claim that one person found the breach and another
+        opened it. One authenticated human did both.
+        """
         checklist = template or default_breach_template()
         moment = discovered_at or utc_now()
         steps = [
@@ -834,7 +835,7 @@ class ComplianceService:
             description=description,
             impact=impact,
             discovered_at=moment,
-            discovered_by=discovered_by,
+            discovered_by=actor.actor_id,
             template_name=checklist.name,
             steps=steps,
             created_at=utc_now(),
@@ -845,7 +846,7 @@ class ComplianceService:
             action="compliance.breach_reported",
             subject_type="breach_incident",
             subject_id=str(incident.id),
-            actor_id=created_by,
+            actor=actor,
             payload={"impact": impact.value, "template": checklist.name},
         )
         return incident
@@ -860,10 +861,10 @@ class ComplianceService:
         return self._store.list_incidents()
 
     def complete_step(
-        self, incident_id: UUID, *, step_key: str, by: str, note: str | None = None
+        self, incident_id: UUID, *, step_key: str, actor: ActorRef, note: str | None = None
     ) -> BreachIncident:
         """Complete one checklist step. Humans only — steps are legal evidence."""
-        self._require_human(by, "complete breach checklist step")
+        actor.require_human("complete breach checklist step", ComplianceError)
         incident = self.get_incident(incident_id)
         if incident.status is BreachStatus.CLOSED:
             raise ComplianceError("incident is closed")
@@ -875,7 +876,7 @@ class ComplianceService:
         steps = [
             item.model_copy(
                 update={
-                    "completed_by": by,
+                    "completed_by": actor.actor_id,
                     "completed_at": utc_now(),
                     "note": note,
                 }
@@ -890,7 +891,7 @@ class ComplianceService:
             action="compliance.breach_step_completed",
             subject_type="breach_incident",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={"step": step_key},
         )
         return updated
@@ -901,19 +902,19 @@ class ComplianceService:
         *,
         recipient_kind: NotificationRecipient,
         recipient: str,
-        sent_by: str,
+        actor: ActorRef,
         reference: str | None = None,
         note: str | None = None,
     ) -> BreachIncident:
         """Log a notification that was sent outside the system."""
-        self._require_human(sent_by, "record breach notification")
+        actor.require_human("record breach notification", ComplianceError)
         incident = self.get_incident(incident_id)
         if incident.status is BreachStatus.CLOSED:
             raise ComplianceError("incident is closed")
         notification = BreachNotification(
             recipient_kind=recipient_kind,
             recipient=recipient,
-            sent_by=sent_by,
+            sent_by=actor.actor_id,
             reference=reference,
             note=note,
         )
@@ -928,7 +929,7 @@ class ComplianceService:
             action="compliance.breach_notification_recorded",
             subject_type="breach_incident",
             subject_id=str(updated.id),
-            actor_id=sent_by,
+            actor=actor,
             payload={"recipient_kind": recipient_kind.value, "recipient": recipient},
         )
         return updated
@@ -938,11 +939,11 @@ class ComplianceService:
         incident_id: UUID,
         *,
         status: BreachStatus,
-        by: str,
+        actor: ActorRef,
         note: str | None = None,
     ) -> BreachIncident:
         """Advance the incident lifecycle. Closing requires all required steps."""
-        self._require_human(by, "transition breach status")
+        actor.require_human("transition breach status", ComplianceError)
         incident = self.get_incident(incident_id)
         allowed: dict[BreachStatus, set[BreachStatus]] = {
             BreachStatus.OPEN: {BreachStatus.CONTAINED, BreachStatus.NOTIFIED, BreachStatus.CLOSED},
@@ -971,7 +972,7 @@ class ComplianceService:
             update["notified_at"] = now
         elif status is BreachStatus.CLOSED:
             update["closed_at"] = now
-            update["closed_by"] = by
+            update["closed_by"] = actor.actor_id
             update["closure_note"] = note
         updated = incident.model_copy(update=update)
         self._store.save_incident(updated)
@@ -979,7 +980,7 @@ class ComplianceService:
             action=f"compliance.breach_{status.value}",
             subject_type="breach_incident",
             subject_id=str(updated.id),
-            actor_id=by,
+            actor=actor,
             payload={"note": note or ""},
         )
         return updated
@@ -1006,8 +1007,12 @@ class ComplianceService:
 
     # --- audit verification ------------------------------------------------
 
-    def verify_audit_chain(self, *, checked_by: str = "system") -> AuditVerificationReport:
-        """Verify the full hash chain; report the first broken entry, if any."""
+    def verify_audit_chain(self, *, actor: ActorRef) -> AuditVerificationReport:
+        """Verify the full hash chain; report the first broken entry, if any.
+
+        The verifier is named. A report that says "checked by system" when a
+        person pressed the button is how a chain check stops being evidence.
+        """
         first_invalid = self._audit.verify()
         intact = first_invalid == -1
         return AuditVerificationReport(
@@ -1015,12 +1020,14 @@ class ComplianceService:
             entry_count=len(self._audit.entries),
             first_invalid_seq=None if intact else first_invalid,
             head_hash=self._audit.last_hash,
-            checked_by=checked_by,
+            checked_by=actor.actor_id,
         )
 
     # --- internals ----------------------------------------------------------
 
-    def _apply_purge(self, record: RetentionRecord, action: PurgeAction, by: str) -> str | None:
+    def _apply_purge(
+        self, record: RetentionRecord, action: PurgeAction, actor: ActorRef
+    ) -> str | None:
         """Delete or anonymize the underlying record.
 
         Returns the handler's detail string, or ``None`` when no handler is
@@ -1034,17 +1041,11 @@ class ComplianceService:
                 "purge_handler_missing",
                 entity=record.entity.value,
                 subject_id=record.subject_id,
-                requested_by=by,
+                actor=actor,
                 registered=sorted(item.value for item in self._purge_handlers),
             )
             return None
         return handler(record, action)
-
-    def _require_human(self, actor: str, action: str) -> str:
-        return require_named_human(actor, action, ComplianceError)
-
-    def _require_automatic_actor(self, actor: str, action: str) -> str:
-        return require_named_human_or_system(actor, action, ComplianceError)
 
     def _record(
         self,
@@ -1052,12 +1053,11 @@ class ComplianceService:
         action: str,
         subject_type: str,
         subject_id: str,
-        actor_id: str,
+        actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        actor_type = classify_actor(actor_id)
         self._audit.append(
-            actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
+            actor=actor.audit_actor(),
             action=action,
             subject_type=subject_type,
             subject_id=subject_id,

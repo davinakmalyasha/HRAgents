@@ -66,7 +66,6 @@ export function StartPlanDialog({
   const [email, setEmail] = useState('')
   const [jobTitle, setJobTitle] = useState('')
   const [templateId, setTemplateId] = useState('')
-  const [createdBy, setCreatedBy] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [seeding, setSeeding] = useState(false)
@@ -75,8 +74,7 @@ export function StartPlanDialog({
 
   async function seedStarterTemplate() {
     const draft = starter.data
-    if (draft === null || draft === undefined || createdBy.trim() === '') {
-      setProblem(t('onboarding.errors.byRequired'))
+    if (draft === null || draft === undefined) {
       return
     }
     setProblem(null)
@@ -84,7 +82,6 @@ export function StartPlanDialog({
     const created = await createTemplate({
       name: draft.name,
       description: draft.description,
-      created_by: createdBy.trim(),
       applies_to_contract_types: draft.applies_to_contract_types,
       applies_to_roles: draft.applies_to_roles,
       steps: draft.steps,
@@ -107,10 +104,6 @@ export function StartPlanDialog({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (createdBy.trim() === '') {
-      setProblem(t('onboarding.errors.byRequired'))
-      return
-    }
     if (mode === 'existing' && employeeId === '') {
       setProblem(t('onboarding.errors.employeeRequired'))
       return
@@ -147,7 +140,6 @@ export function StartPlanDialog({
 
     const result = await startPlan({
       employee_id: targetEmployeeId,
-      created_by: createdBy.trim(),
       template_id: templateId === '' ? null : templateId,
     })
     setBusy(false)
@@ -313,19 +305,6 @@ export function StartPlanDialog({
                 {t('onboarding.startDialog.noTemplates')}
               </span>
             )}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="onboarding-created-by" className={labelClass}>
-              {t('onboarding.startDialog.createdBy')}
-            </label>
-            <Input
-              id="onboarding-created-by"
-              value={createdBy}
-              onChange={(event) => setCreatedBy(event.target.value)}
-              placeholder={t('onboarding.startDialog.createdByPlaceholder')}
-              autoComplete="off"
-            />
           </div>
 
           <DialogFooter>

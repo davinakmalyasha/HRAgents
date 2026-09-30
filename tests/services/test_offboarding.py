@@ -110,7 +110,7 @@ def make_template(service: OffboardingService, **overrides: object) -> Offboardi
                 requires_human_signoff=True,
             ),
         ],
-        "created_by": "hr-admin",
+        "actor": ActorRef.legacy("hr-admin"),
     }
     defaults.update(overrides)
     return service.create_template(**defaults)  # type: ignore[arg-type]
@@ -181,7 +181,7 @@ def test_start_plan_creates_steps_tasks_and_notice_period(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
@@ -203,14 +203,14 @@ def test_start_plan_requires_human_and_template(
             employee_id=employee.id,
             reason=OffboardingReason.RESIGNATION,
             last_working_day=LAST_DAY,
-            created_by="agent:offboarding_coordinator",
+            actor=ActorRef.agent("offboarding_coordinator"),
         )
     with pytest.raises(OffboardingError, match="no offboarding template"):
         service.start_plan(
             employee_id=employee.id,
             reason=OffboardingReason.RESIGNATION,
             last_working_day=LAST_DAY,
-            created_by="hr-admin",
+            actor=ActorRef.legacy("hr-admin"),
         )
 
 
@@ -232,7 +232,7 @@ def test_start_plan_rejects_already_offboarded(
             employee_id=employee.id,
             reason=OffboardingReason.RESIGNATION,
             last_working_day=LAST_DAY,
-            created_by="hr-admin",
+            actor=ActorRef.legacy("hr-admin"),
         )
 
 
@@ -248,21 +248,23 @@ def test_complete_step_is_human_only(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
     with pytest.raises(OffboardingError, match="named human"):
-        service.complete_step(plan.id, "handover", by="agent:offboarding_coordinator")
+        service.complete_step(plan.id, "handover", actor=ActorRef.agent("offboarding_coordinator"))
 
-    updated = service.complete_step(plan.id, "handover", by="hr-admin", note="notes added")
+    updated = service.complete_step(
+        plan.id, "handover", actor=ActorRef.legacy("hr-admin"), note="notes added"
+    )
     step = next(item for item in updated.steps if item.key == "handover")
     assert step.status is StepStatus.DONE
     assert step.completed_by == "hr-admin"
     assert updated.progress == pytest.approx(1 / 3, abs=1e-4)
 
     with pytest.raises(OffboardingError, match="already done"):
-        service.complete_step(plan.id, "handover", by="hr-admin")
+        service.complete_step(plan.id, "handover", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_waive_requires_human_and_reason(
@@ -274,16 +276,18 @@ def test_waive_requires_human_and_reason(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
     with pytest.raises(OffboardingError, match="named human"):
-        service.waive_step(plan.id, "interview", by="agent:x", reason="r")
+        service.waive_step(plan.id, "interview", actor=ActorRef.agent("x"), reason="r")
     with pytest.raises(OffboardingError, match="requires a reason"):
-        service.waive_step(plan.id, "interview", by="hr-admin", reason=" ")
+        service.waive_step(plan.id, "interview", actor=ActorRef.legacy("hr-admin"), reason=" ")
 
-    waived = service.waive_step(plan.id, "interview", by="hr-admin", reason="declined")
+    waived = service.waive_step(
+        plan.id, "interview", actor=ActorRef.legacy("hr-admin"), reason="declined"
+    )
     step = next(item for item in waived.steps if item.key == "interview")
     assert step.status is StepStatus.WAIVED
     assert step.note == "declined"
@@ -296,17 +300,19 @@ def test_schedule_exit_interview(service: OffboardingService, employees: Employe
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
     moment = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 
     with pytest.raises(OffboardingError, match="timezone-aware"):
         service.schedule_exit_interview(
-            plan.id, scheduled_for=datetime(2026, 10, 1, 9, 0), by="hr-admin"
+            plan.id, scheduled_for=datetime(2026, 10, 1, 9, 0), actor=ActorRef.legacy("hr-admin")
         )
 
-    updated = service.schedule_exit_interview(plan.id, scheduled_for=moment, by="hr-admin")
+    updated = service.schedule_exit_interview(
+        plan.id, scheduled_for=moment, actor=ActorRef.legacy("hr-admin")
+    )
     step = next(item for item in updated.steps if item.key == "interview")
     assert step.scheduled_for == moment
     assert step.status is StepStatus.IN_PROGRESS
@@ -319,12 +325,12 @@ def test_handover_note_appended(service: OffboardingService, employees: Employee
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
     updated = service.add_handover_note(
-        plan.id, content="Prod credentials are in Vault path x.", authored_by="rudi"
+        plan.id, content="Prod credentials are in Vault path x.", actor=ActorRef.legacy("rudi")
     )
     assert len(updated.handover_notes) == 1
     assert updated.handover_notes[0].authored_by == "rudi"
@@ -342,52 +348,65 @@ def test_asset_clearance_blocks_plan_completion(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
     asset = service.register_asset(
-        employee_id=employee.id, name="MacBook Pro", created_by="hr-admin", asset_code="MB-001"
+        employee_id=employee.id,
+        name="MacBook Pro",
+        actor=ActorRef.legacy("hr-admin"),
+        asset_code="MB-001",
     )
 
     for step in plan.steps:
-        service.complete_step(plan.id, step.key, by="hr-admin")
+        service.complete_step(plan.id, step.key, actor=ActorRef.legacy("hr-admin"))
 
     current = service.get_plan(plan.id)
     assert current.is_complete
     assert current.completed_at is None  # asset still out
 
     with pytest.raises(OffboardingError, match="assets not cleared"):
-        service.complete_plan(plan.id, by="hr-admin")
+        service.complete_plan(plan.id, actor=ActorRef.legacy("hr-admin"))
 
-    service.mark_asset_returned(asset.id, by="hr-admin", note="returned at office")
-    completed = service.complete_plan(plan.id, by="hr-admin")
+    service.mark_asset_returned(
+        asset.id, actor=ActorRef.legacy("hr-admin"), note="returned at office"
+    )
+    completed = service.complete_plan(plan.id, actor=ActorRef.legacy("hr-admin"))
     assert completed.completed_at is not None
 
 
 def test_asset_lifecycle_guards(service: OffboardingService, employees: EmployeeService) -> None:
     employee = make_employee(employees)
-    asset = service.register_asset(employee_id=employee.id, name="Phone", created_by="hr-admin")
+    asset = service.register_asset(
+        employee_id=employee.id, name="Phone", actor=ActorRef.legacy("hr-admin")
+    )
 
     with pytest.raises(OffboardingError, match="named human"):
-        service.mark_asset_returned(asset.id, by="agent:records")
+        service.mark_asset_returned(asset.id, actor=ActorRef.agent("records"))
 
-    missing = service.mark_asset_missing(asset.id, by="hr-admin", note="not in locker")
+    missing = service.mark_asset_missing(
+        asset.id, actor=ActorRef.legacy("hr-admin"), note="not in locker"
+    )
     assert missing.status is AssetStatus.MISSING
     assert service.asset_clearance(employee.id) == [missing]
 
-    written_off = service.write_off_asset(asset.id, by="hr-admin", reason="police report filed")
+    written_off = service.write_off_asset(
+        asset.id, actor=ActorRef.legacy("hr-admin"), reason="police report filed"
+    )
     assert written_off.status is AssetStatus.WRITTEN_OFF
     assert service.asset_clearance(employee.id) == []
 
     with pytest.raises(OffboardingError, match="cannot be marked returned"):
-        service.mark_asset_returned(asset.id, by="hr-admin")
+        service.mark_asset_returned(asset.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_missing_requires_note(service: OffboardingService, employees: EmployeeService) -> None:
     employee = make_employee(employees)
-    asset = service.register_asset(employee_id=employee.id, name="Phone", created_by="hr-admin")
+    asset = service.register_asset(
+        employee_id=employee.id, name="Phone", actor=ActorRef.legacy("hr-admin")
+    )
     with pytest.raises(OffboardingError, match="requires a note"):
-        service.mark_asset_missing(asset.id, by="hr-admin", note=" ")
+        service.mark_asset_missing(asset.id, actor=ActorRef.legacy("hr-admin"), note=" ")
 
 
 # --- final pay -------------------------------------------------------------------------
@@ -402,20 +421,20 @@ def test_coordinate_final_pay_creates_final_run(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
     with pytest.raises(OffboardingError, match="named human"):
-        service.coordinate_final_pay(plan.id, by="agent:offboarding_coordinator")
+        service.coordinate_final_pay(plan.id, actor=ActorRef.agent("offboarding_coordinator"))
 
-    updated = service.coordinate_final_pay(plan.id, by="hr-admin")
+    updated = service.coordinate_final_pay(plan.id, actor=ActorRef.legacy("hr-admin"))
     assert updated.final_pay_run_id is not None
     run = payroll.get_run(updated.final_pay_run_id)
     assert run.kind is PayrollRunKind.FINAL
 
     with pytest.raises(OffboardingError, match="already coordinated"):
-        service.coordinate_final_pay(plan.id, by="hr-admin")
+        service.coordinate_final_pay(plan.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_final_pay_does_not_execute_payments(
@@ -427,11 +446,11 @@ def test_final_pay_does_not_execute_payments(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
-    updated = service.coordinate_final_pay(plan.id, by="hr-admin")
+    updated = service.coordinate_final_pay(plan.id, actor=ActorRef.legacy("hr-admin"))
     assert updated.final_pay_run_id is not None
     run = payroll.get_run(updated.final_pay_run_id)
     assert run.status.value == "draft"
@@ -450,13 +469,13 @@ def test_finalize_employee_exit_transitions_status(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
     for step in plan.steps:
-        service.complete_step(plan.id, step.key, by="hr-admin")
+        service.complete_step(plan.id, step.key, actor=ActorRef.legacy("hr-admin"))
 
-    updated_employee = service.finalize_employee_exit(plan.id, by="hr-admin")
+    updated_employee = service.finalize_employee_exit(plan.id, actor=ActorRef.legacy("hr-admin"))
 
     assert updated_employee.status is EmployeeStatus.OFFBOARDED
     assert updated_employee.offboarded_on == TODAY
@@ -472,14 +491,14 @@ def test_finalize_requires_completed_steps(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
     with pytest.raises(OffboardingError, match="required steps incomplete"):
-        service.complete_plan(plan.id, by="hr-admin")
+        service.complete_plan(plan.id, actor=ActorRef.legacy("hr-admin"))
     with pytest.raises(OffboardingError, match="required steps incomplete"):
-        service.finalize_employee_exit(plan.id, by="hr-admin")
+        service.finalize_employee_exit(plan.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_plans_for_employee_and_active(
@@ -491,7 +510,7 @@ def test_plans_for_employee_and_active(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
 
@@ -508,11 +527,13 @@ def test_audit_chain_records_offboarding_actions(
         employee_id=employee.id,
         reason=OffboardingReason.RESIGNATION,
         last_working_day=LAST_DAY,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         template_id=template.id,
     )
-    service.complete_step(plan.id, "handover", by="hr-admin")
-    service.register_asset(employee_id=employee.id, name="Laptop", created_by="hr-admin")
+    service.complete_step(plan.id, "handover", actor=ActorRef.legacy("hr-admin"))
+    service.register_asset(
+        employee_id=employee.id, name="Laptop", actor=ActorRef.legacy("hr-admin")
+    )
 
     actions = [entry.action for entry in service._audit.entries]
     assert "offboarding.template_created" in actions

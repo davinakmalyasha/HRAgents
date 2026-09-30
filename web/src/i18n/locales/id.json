@@ -270,7 +270,6 @@
     },
     "fields": {
       "by": "Diputuskan oleh",
-      "byPlaceholder": "mis. Sinta Prabowo",
       "reason": "Alasan",
       "reasonPlaceholder": "Tercatat di log audit",
       "body": "Pesan (opsional)",
@@ -279,7 +278,6 @@
       "language": "Bahasa"
     },
     "errors": {
-      "byRequired": "Nama orang wajib diisi.",
       "positionRequired": "Nama posisi wajib diisi.",
       "startRequired": "Tanggal mulai wajib diisi.",
       "salaryInvalid": "Gaji harus angka non-negatif.",
@@ -399,7 +397,6 @@
     },
     "fields": {
       "by": "Disetujui oleh",
-      "byPlaceholder": "mis. Sinta Prabowo",
       "language": "Bahasa",
       "channel": "Saluran",
       "subject": "Subjek",
@@ -429,7 +426,6 @@
     "openWhatsapp": "Buka WhatsApp",
     "recordAfterLink": "Sudah saya kirim — catat pengiriman",
     "errors": {
-      "byRequired": "Nama orang wajib diisi.",
       "bodyRequired": "Isi pesan wajib diisi.",
       "forbidden": "Peran Anda tidak boleh mengantrekan pesan kandidat.",
       "notFound": "Kandidat atau evaluasi sudah tidak ada.",
@@ -475,12 +471,10 @@
     },
     "fields": {
       "by": "Diputuskan oleh",
-      "byPlaceholder": "mis. Sinta Prabowo",
       "reason": "Alasan",
       "reasonPlaceholder": "Tercatat di log audit"
     },
     "errors": {
-      "byRequired": "Nama orang wajib diisi.",
       "reasonRequired": "Alasan wajib diisi untuk membatalkan atau menjadwalkan ulang.",
       "approvalRejected": "Persetujuan tertaut ditolak; buat usulan baru.",
       "forbidden": "Peran Anda tidak boleh memutuskan usulan penjadwalan.",
@@ -619,7 +613,6 @@
       "template": "Templat",
       "templateDefault": "Gunakan default server",
       "createdBy": "Dimulai oleh",
-      "createdByPlaceholder": "mis. Sinta Prabowo",
       "confirm": "Mulai onboarding",
       "templatePlaceholder": "Pilih templat",
       "createStarter": "Pakai daftar awal",
@@ -633,14 +626,11 @@
     },
     "fields": {
       "by": "Ditangani oleh",
-      "byPlaceholder": "mis. Sinta Prabowo",
       "reason": "Alasan",
       "reasonHint": "Wajib. Tersimpan pada rantai audit bersama nama Anda.",
-      "note": "Catatan",
-      "linkedBy": "Dihubungkan oleh"
+      "note": "Catatan"
     },
     "errors": {
-      "byRequired": "Nama orang wajib diisi.",
       "employeeRequired": "Pilih karyawan yang akan di-onboarding.",
       "nameRequired": "Nama lengkap wajib diisi.",
       "reasonRequired": "Penglepasan wajib menyertakan alasan.",
@@ -708,7 +698,6 @@
       "failed": "Ditolak"
     },
     "errors": {
-      "byRequired": "Nama orang wajib diisi sebelum dokumen dinilai.",
       "forbidden": "Peran Anda tidak boleh memverifikasi dokumen.",
       "failed": "Gagal menyimpan. Silakan coba lagi."
     }

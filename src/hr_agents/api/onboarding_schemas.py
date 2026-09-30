@@ -38,7 +38,6 @@ class TemplateStepInput(StrictModel):
 
 class TemplateCreate(StrictModel):
     name: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=1000)
     steps: list[TemplateStepInput] = Field(min_length=1)
     applies_to_contract_types: list[ContractType] = Field(default_factory=list)
@@ -119,23 +118,19 @@ class TemplateView(StrictModel):
 
 class PlanStartRequest(StrictModel):
     employee_id: UUID
-    created_by: str = Field(min_length=1, max_length=200)
     template_id: UUID | None = None
 
 
 class StepActionRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
 
 
 class StepWaiveRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str = Field(min_length=1, max_length=1000)
 
 
 class StepLinkDocumentRequest(StrictModel):
     document_id: UUID
-    linked_by: str = Field(min_length=1, max_length=200)
 
 
 class StepView(StrictModel):

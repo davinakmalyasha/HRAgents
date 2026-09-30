@@ -174,10 +174,6 @@ describe('OnboardingBoard', () => {
       screen.getByLabelText(i18n.t('onboarding.startDialog.fullName')),
       'Budi Santoso',
     )
-    await userEvent.type(
-      screen.getByLabelText(i18n.t('onboarding.startDialog.createdBy')),
-      'Sinta Prabowo',
-    )
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('onboarding.startDialog.confirm') }),
     )
@@ -187,11 +183,10 @@ describe('OnboardingBoard', () => {
         full_name: 'Budi Santoso',
       }),
     )
-    // The employee is attributed to the API key holder, not to the name typed
-    // into the dialog. `startPlan` and the template still take one.
+    // Nothing in this flow names the actor: the server attributes the employee,
+    // the template and the plan to the API key holder.
     expect(startPlanMock).toHaveBeenCalledWith({
       employee_id: 'emp-9',
-      created_by: 'Sinta Prabowo',
       template_id: null,
     })
   })
@@ -222,33 +217,27 @@ describe('OnboardingBoard', () => {
 
     expect(screen.getByText(i18n.t('onboarding.startDialog.noTemplates'))).toBeInTheDocument()
 
-    await userEvent.click(
-      screen.getByRole('button', { name: i18n.t('onboarding.startDialog.createStarter') }),
-    )
-    expect(createTemplateMock).not.toHaveBeenCalled()
-
-    await userEvent.type(
-      screen.getByLabelText(i18n.t('onboarding.startDialog.createdBy')),
-      'Sinta Prabowo',
-    )
+    // One click: seeding the starter template no longer needs a name typed in.
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('onboarding.startDialog.createStarter') }),
     )
 
     expect(createTemplateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        created_by: 'Sinta Prabowo',
         steps: [expect.objectContaining({ key: 'collect_ktp' })],
       }),
     )
   })
 
-  it('refuses to start without a named person', async () => {
+  it('starts a plan for an existing hire without asking for a name', async () => {
     state.employees = [employee()]
     startPlanMock.mockResolvedValue({ status: 201, plan: plan() })
     renderWithRouter(<OnboardingBoard />)
 
     await userEvent.click(screen.getByRole('button', { name: i18n.t('onboarding.startPlan') }))
+    expect(
+      screen.queryByLabelText(i18n.t('onboarding.startDialog.createdBy')),
+    ).not.toBeInTheDocument()
     await userEvent.selectOptions(
       screen.getByLabelText(i18n.t('onboarding.startDialog.employee')),
       'emp-1',
@@ -257,8 +246,10 @@ describe('OnboardingBoard', () => {
       screen.getByRole('button', { name: i18n.t('onboarding.startDialog.confirm') }),
     )
 
-    expect(startPlanMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('onboarding.errors.byRequired'))).toBeInTheDocument()
+    expect(startPlanMock).toHaveBeenCalledWith({
+      employee_id: 'emp-1',
+      template_id: null,
+    })
   })
 })
 
@@ -293,13 +284,13 @@ describe('OnboardingChecklist', () => {
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('onboarding.actions.complete') }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('onboarding.fields.by')), 'Sinta Prabowo')
+    // No actor field: the server attributes the step to the API key holder.
+    expect(screen.queryByLabelText(i18n.t('onboarding.fields.by'))).not.toBeInTheDocument()
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('onboarding.actions.confirmComplete') }),
     )
 
     expect(completeStepMock).toHaveBeenCalledWith('plan-1', 'ktp', {
-      by: 'Sinta Prabowo',
       note: null,
     })
   })
@@ -327,7 +318,6 @@ describe('OnboardingChecklist', () => {
         name: i18n.t('onboarding.actions.waive'),
       }),
     )
-    await userEvent.type(screen.getByLabelText(i18n.t('onboarding.fields.by')), 'Sinta Prabowo')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('onboarding.actions.confirmWaive') }),
     )
@@ -344,7 +334,6 @@ describe('OnboardingChecklist', () => {
     )
 
     expect(waiveStepMock).toHaveBeenCalledWith('plan-1', 'swag', {
-      by: 'Sinta Prabowo',
       reason: 'Not needed in this country',
     })
   })

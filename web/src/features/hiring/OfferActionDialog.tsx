@@ -39,7 +39,8 @@ const labelClass = 'text-xs font-medium text-ink-strong'
 /**
  * One dialog for the offer lifecycle: submit, approve, withdraw, queue the
  * candidate message, and record the candidate's acceptance or decline. Every
- * path is a named-human act; nothing here decides on its own.
+ * path is attributed to the authenticated principal server-side, so the user is
+ * never asked to spell their name; nothing here decides on its own.
  */
 export function OfferActionDialog({
   offer,
@@ -54,7 +55,6 @@ export function OfferActionDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [by, setBy] = useState('')
   const [reason, setReason] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
@@ -93,35 +93,30 @@ export function OfferActionDialog({
   async function perform(): Promise<OfferResult> {
     switch (action) {
       case 'submit':
-        return submitOffer(offer.id, { by: by.trim() })
+        return submitOffer(offer.id, {})
       case 'approve':
         return decideOffer(offer.id, {
-          by: by.trim(),
           decision: 'approve',
           reason: reason.trim(),
         })
       case 'withdraw':
         return decideOffer(offer.id, {
-          by: by.trim(),
           decision: 'withdraw',
           reason: reason.trim(),
         })
       case 'message':
         return queueOfferMessage(offer.id, {
-          by: by.trim(),
           body: body.trim() === '' ? null : body,
           subject: subject.trim() === '' ? null : subject.trim(),
           language,
         })
       case 'accept':
         return recordOfferAcceptance(offer.id, {
-          by: by.trim(),
           accepted: true,
           reason: '',
         })
       case 'decline':
         return recordOfferAcceptance(offer.id, {
-          by: by.trim(),
           accepted: false,
           reason: reason.trim(),
         })
@@ -130,10 +125,6 @@ export function OfferActionDialog({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (by.trim() === '') {
-      setProblem(t('offer.errors.byRequired'))
-      return
-    }
     if (reasonRequired && reason.trim() === '') {
       setProblem(t('offer.errors.reasonRequired'))
       return
@@ -168,19 +159,6 @@ export function OfferActionDialog({
               {problem}
             </p>
           ) : null}
-
-          <div className={fieldClass}>
-            <label htmlFor={`offer-action-by-${action}`} className={labelClass}>
-              {t('offer.fields.by')}
-            </label>
-            <Input
-              id={`offer-action-by-${action}`}
-              value={by}
-              onChange={(event) => setBy(event.target.value)}
-              placeholder={t('offer.fields.byPlaceholder')}
-              autoComplete="off"
-            />
-          </div>
 
           {reasonRequired || action === 'approve' ? (
             <div className={fieldClass}>

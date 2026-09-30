@@ -23,13 +23,12 @@ from uuid import UUID
 
 from openpyxl import Workbook
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.models import (
     AnomalySeverity,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
-    AuditActor,
     Employee,
     PayrollAnomaly,
     PayrollInput,
@@ -108,7 +107,7 @@ class PayrollService:
         *,
         period_year: int,
         period_month: int,
-        created_by: str,
+        actor: ActorRef,
         kind: PayrollRunKind = PayrollRunKind.MONTHLY,
     ) -> PayrollRun:
         if not 1 <= period_month <= 12:
@@ -123,7 +122,7 @@ class PayrollService:
         self._record(
             run,
             action="payroll.run_created",
-            actor_id=created_by,
+            actor=actor,
             payload={"year": period_year, "month": period_month, "kind": kind.value},
         )
         return run
@@ -140,7 +139,9 @@ class PayrollService:
             key=lambda run: (run.period_year, run.period_month, run.created_at),
         )
 
-    def set_inputs(self, run_id: UUID, *, inputs: list[PayrollInput], by: str) -> PayrollRun:
+    def set_inputs(
+        self, run_id: UUID, *, inputs: list[PayrollInput], actor: ActorRef
+    ) -> PayrollRun:
         run = self._require_editable(run_id)
         updated = run.model_copy(
             update={
@@ -153,14 +154,14 @@ class PayrollService:
         self._record(
             updated,
             action="payroll.inputs_set",
-            actor_id=by,
+            actor=actor,
             payload={"employee_count": len(inputs)},
         )
         return updated
 
     # --- computation -----------------------------------------------------
 
-    def compute(self, run_id: UUID, *, by: str) -> PayrollRun:
+    def compute(self, run_id: UUID, *, actor: ActorRef) -> PayrollRun:
         """Compute all lines from verified rate tables + detected anomalies."""
         run = self._require_editable(run_id)
         if not run.inputs:
@@ -218,7 +219,7 @@ class PayrollService:
         self._record(
             updated,
             action="payroll.computed",
-            actor_id=by,
+            actor=actor,
             payload={
                 "employees": len(lines),
                 "anomalies": len(anomalies),
@@ -441,7 +442,7 @@ class PayrollService:
 
     # --- sign-off --------------------------------------------------------
 
-    def submit_for_signoff(self, run_id: UUID, *, by: str) -> PayrollRun:
+    def submit_for_signoff(self, run_id: UUID, *, actor: ActorRef) -> PayrollRun:
         """Send the computed run to the Finance approver. Humans only."""
         run = self.get_run(run_id)
         if run.status is not PayrollRunStatus.READY_FOR_REVIEW:
@@ -461,7 +462,7 @@ class PayrollService:
                 f"({run.totals.employees} employees, net {run.totals.net:,.0f})"
             ),
             assignee_role=ApproverRole.FINANCE,
-            requested_by=by,
+            actor=actor,
             summary="Review packet prepared. No payments are executed by the system.",
             payload={
                 "year": run.period_year,
@@ -481,7 +482,7 @@ class PayrollService:
         self._record(
             updated,
             action="payroll.submitted_for_signoff",
-            actor_id=by,
+            actor=actor,
             payload={"approval_id": str(approval.id)},
         )
         return updated
@@ -527,13 +528,13 @@ class PayrollService:
         self._record(
             updated,
             action="payroll.run_approved" if approved else "payroll.run_rejected",
-            actor_id=approval.decided_by or "system",
+            actor=deciding_actor(approval.decided_by),
             payload={"approval_id": str(approval_id)},
         )
         return updated
 
-    def mark_exported(self, run_id: UUID, *, by: str) -> PayrollRun:
-        by = require_named_human(by, "exporting a payroll run", PayrollError)
+    def mark_exported(self, run_id: UUID, *, actor: ActorRef) -> PayrollRun:
+        actor.require_human("exporting a payroll run", PayrollError)
         run = self.get_run(run_id)
         if run.status is not PayrollRunStatus.APPROVED:
             raise PayrollError(f"run is {run.status.value}; only approved runs may be exported")
@@ -544,7 +545,7 @@ class PayrollService:
         self._record(
             updated,
             action="payroll.packet_exported",
-            actor_id=by,
+            actor=actor,
             payload={
                 "net": run.totals.net,
                 "employees": run.totals.employees,
@@ -553,8 +554,8 @@ class PayrollService:
         )
         return updated
 
-    def cancel_run(self, run_id: UUID, *, by: str, reason: str) -> PayrollRun:
-        by = require_named_human(by, "cancelling a payroll run", PayrollError)
+    def cancel_run(self, run_id: UUID, *, actor: ActorRef, reason: str) -> PayrollRun:
+        actor.require_human("cancelling a payroll run", PayrollError)
         run = self.get_run(run_id)
         if run.status in {PayrollRunStatus.APPROVED, PayrollRunStatus.EXPORTED}:
             raise PayrollError(f"run is {run.status.value}; cannot cancel")
@@ -565,7 +566,7 @@ class PayrollService:
         )
         self._runs[run.id] = updated
         self._record(
-            updated, action="payroll.run_cancelled", actor_id=by, payload={"reason": reason}
+            updated, action="payroll.run_cancelled", actor=actor, payload={"reason": reason}
         )
         return updated
 
@@ -705,12 +706,11 @@ class PayrollService:
         run: PayrollRun,
         *,
         action: str,
-        actor_id: str,
+        actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        actor_type = classify_actor(actor_id)
         self._audit.append(
-            actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
+            actor=actor.audit_actor(),
             action=action,
             subject_type="payroll_run",
             subject_id=str(run.id),

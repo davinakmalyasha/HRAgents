@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApprovalRequest,
     ApproverRole,
@@ -72,7 +73,7 @@ def track_candidate(
         entity=entity,
         subject_kind=SubjectKind.CANDIDATE,
         subject_id=subject_id,
-        created_by="screening-pipeline",
+        actor=ActorRef.legacy("screening-pipeline"),
         label="Budi Santoso",
         anchor_at=anchor_at or (NOW - timedelta(days=800)),
     )
@@ -93,7 +94,7 @@ def test_record_and_check_consent(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="screening-agent",
+        actor=ActorRef.legacy("screening-agent"),
         capture_method="web_form",
     )
 
@@ -106,7 +107,7 @@ def test_consent_is_purpose_scoped(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
 
     assert not service.has_active_consent(SubjectKind.CANDIDATE, "cand-1", "talent_pool")
@@ -117,7 +118,7 @@ def test_refusal_is_recorded_but_inactive(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         granted=False,
     )
 
@@ -130,7 +131,7 @@ def test_expired_consent_is_inactive(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expires_at=datetime(2020, 1, 1, tzinfo=UTC),
     )
 
@@ -142,19 +143,21 @@ def test_revoke_requires_human_and_reason(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
 
     with pytest.raises(ComplianceError, match="named human"):
-        service.revoke_consent(record.id, by="agent:screening", reason="subject asked")
+        service.revoke_consent(record.id, actor=ActorRef.agent("screening"), reason="subject asked")
     with pytest.raises(ComplianceError, match="requires a reason"):
-        service.revoke_consent(record.id, by="hr-admin", reason="  ")
+        service.revoke_consent(record.id, actor=ActorRef.legacy("hr-admin"), reason="  ")
 
-    revoked = service.revoke_consent(record.id, by="hr-admin", reason="subject asked")
+    revoked = service.revoke_consent(
+        record.id, actor=ActorRef.legacy("hr-admin"), reason="subject asked"
+    )
     assert revoked.revoked_at is not None
     assert not service.has_active_consent(SubjectKind.CANDIDATE, "cand-1", "recruitment_evaluation")
     with pytest.raises(ComplianceError, match="already revoked"):
-        service.revoke_consent(record.id, by="hr-admin", reason="again")
+        service.revoke_consent(record.id, actor=ActorRef.legacy("hr-admin"), reason="again")
 
 
 def test_list_consents_filters(service: ComplianceService) -> None:
@@ -162,13 +165,13 @@ def test_list_consents_filters(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     service.record_consent(
         subject_kind=SubjectKind.EMPLOYEE,
         subject_id="emp-1",
         purpose="payroll_processing",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         lawful_basis=LawfulBasis.CONTRACT,
     )
 
@@ -185,14 +188,14 @@ def test_set_policy_upserts_and_keeps_id(service: ComplianceService) -> None:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expiry_action=PurgeAction.ANONYMIZE,
     )
     second = service.set_policy(
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=12,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expiry_action=PurgeAction.DELETE,
     )
 
@@ -207,7 +210,7 @@ def test_agent_cannot_set_policy(service: ComplianceService) -> None:
             entity=RecordEntity.CANDIDATE,
             name="X",
             retention_months=12,
-            updated_by="agent:compliance",
+            actor=ActorRef.agent("compliance"),
         )
 
 
@@ -216,7 +219,7 @@ def test_scan_flags_overdue_unheld_records(service: ComplianceService) -> None:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     track_candidate(service)
 
@@ -232,7 +235,7 @@ def test_scan_keeps_recent_records_out_of_due(service: ComplianceService) -> Non
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     track_candidate(service, anchor_at=NOW - timedelta(days=30))
 
@@ -252,12 +255,12 @@ def test_legal_hold_requires_human_and_reason(service: ComplianceService) -> Non
     record = track_candidate(service)
 
     with pytest.raises(ComplianceError, match="named human"):
-        service.set_legal_hold(record.id, held=True, by="agent:records", reason="case")
+        service.set_legal_hold(record.id, held=True, actor=ActorRef.agent("records"), reason="case")
     with pytest.raises(ComplianceError, match="require a reason"):
-        service.set_legal_hold(record.id, held=True, by="hr-admin", reason=" ")
+        service.set_legal_hold(record.id, held=True, actor=ActorRef.legacy("hr-admin"), reason=" ")
 
     held = service.set_legal_hold(
-        record.id, held=True, by="hr-admin", reason="litigation hold 2026-14"
+        record.id, held=True, actor=ActorRef.legacy("hr-admin"), reason="litigation hold 2026-14"
     )
     assert held.legal_hold
     assert held.held_by == "hr-admin"
@@ -268,10 +271,10 @@ def test_scan_separates_held_from_due(service: ComplianceService) -> None:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     record = track_candidate(service)
-    service.set_legal_hold(record.id, held=True, by="hr-admin", reason="case")
+    service.set_legal_hold(record.id, held=True, actor=ActorRef.legacy("hr-admin"), reason="case")
 
     report = service.scan(as_of=NOW)
 
@@ -285,11 +288,13 @@ def test_execute_purge_dry_run_does_not_mutate(service: ComplianceService) -> No
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     record = track_candidate(service)
 
-    report = service.execute_purge(by="system", as_of=NOW, dry_run=True)
+    report = service.execute_purge(
+        actor=ActorRef.system("retention-sweep"), as_of=NOW, dry_run=True
+    )
 
     assert report.dry_run
     assert len(report.purged) == 1
@@ -302,12 +307,12 @@ def test_execute_purge_marks_records_and_audits(service: ComplianceService) -> N
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expiry_action=PurgeAction.DELETE,
     )
     record = track_candidate(service)
 
-    report = service.execute_purge(by="system", as_of=NOW)
+    report = service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
 
     assert len(report.purged) == 1
     purged = service.get_record(record.id)
@@ -324,12 +329,12 @@ def test_purge_skips_held_records(service: ComplianceService) -> None:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     record = track_candidate(service)
-    service.set_legal_hold(record.id, held=True, by="hr-admin", reason="case")
+    service.set_legal_hold(record.id, held=True, actor=ActorRef.legacy("hr-admin"), reason="case")
 
-    report = service.execute_purge(by="system", as_of=NOW)
+    report = service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
 
     assert report.purged == []
     assert report.held == [record.id]
@@ -341,7 +346,7 @@ def test_purge_uses_registered_handler(service: ComplianceService) -> None:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     record = track_candidate(service)
     seen: list[tuple[str, PurgeAction]] = []
@@ -351,7 +356,7 @@ def test_purge_uses_registered_handler(service: ComplianceService) -> None:
         return "removed from candidate store"
 
     service.register_purge_handler(RecordEntity.CANDIDATE, handler)
-    report = service.execute_purge(by="hr-admin", as_of=NOW)
+    report = service.execute_purge(actor=ActorRef.legacy("hr-admin"), as_of=NOW)
 
     assert seen == [(str(record.id), PurgeAction.ANONYMIZE)]
     assert report.purged[0].detail == "removed from candidate store"
@@ -362,7 +367,7 @@ def test_dry_run_does_not_call_handler(service: ComplianceService) -> None:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     track_candidate(service)
     calls: list[str] = []
@@ -372,7 +377,9 @@ def test_dry_run_does_not_call_handler(service: ComplianceService) -> None:
         return "removed"
 
     service.register_purge_handler(RecordEntity.CANDIDATE, handler)
-    report = service.execute_purge(by="system", as_of=NOW, dry_run=True)
+    report = service.execute_purge(
+        actor=ActorRef.system("retention-sweep"), as_of=NOW, dry_run=True
+    )
 
     assert calls == []
     assert report.purged[0].detail == "dry run; no store mutation performed"
@@ -380,7 +387,7 @@ def test_dry_run_does_not_call_handler(service: ComplianceService) -> None:
 
 def test_agents_cannot_execute_purge(service: ComplianceService) -> None:
     with pytest.raises(ComplianceError, match="agents cannot"):
-        service.execute_purge(by="agent:records", as_of=NOW)
+        service.execute_purge(actor=ActorRef.agent("records"), as_of=NOW)
 
 
 def test_add_months_clamps_month_end() -> None:
@@ -397,7 +404,7 @@ def setup_erasure_fixture(service: ComplianceService) -> str:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expiry_action=PurgeAction.ANONYMIZE,
     )
     return "cand-1"
@@ -408,12 +415,12 @@ def test_erasure_requires_identity_verification(service: ComplianceService) -> N
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         reason="subject request via email",
-        requested_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     request = service.list_erasures()[0]
 
     with pytest.raises(ComplianceError, match="identity must be verified"):
-        service.submit_for_decision(request.id, by="hr-admin")
+        service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_erasure_identity_verification_is_human(service: ComplianceService) -> None:
@@ -421,14 +428,18 @@ def test_erasure_identity_verification_is_human(service: ComplianceService) -> N
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         reason="subject request",
-        requested_by="agent:policy_assistant",
+        actor=ActorRef.agent("policy_assistant"),
     )
     request = service.list_erasures()[0]
 
     with pytest.raises(ComplianceError, match="named human"):
-        service.verify_identity(request.id, by="agent:policy_assistant", method="email reply")
+        service.verify_identity(
+            request.id, actor=ActorRef.agent("policy_assistant"), method="email reply"
+        )
 
-    verified = service.verify_identity(request.id, by="hr-admin", method="email reply")
+    verified = service.verify_identity(
+        request.id, actor=ActorRef.legacy("hr-admin"), method="email reply"
+    )
     assert verified.identity_verified_by == "hr-admin"
 
 
@@ -437,11 +448,11 @@ def test_erasure_routes_to_data_protection_approver(service: ComplianceService) 
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         reason="subject request",
-        requested_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     request = service.list_erasures()[0]
-    service.verify_identity(request.id, by="hr-admin", method="email reply")
-    submitted = service.submit_for_decision(request.id, by="hr-admin")
+    service.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email reply")
+    submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
 
     assert submitted.status is ErasureStatus.PENDING_APPROVAL
     approval = approval_for(service, submitted)
@@ -455,11 +466,11 @@ def test_erasure_approval_does_not_auto_execute(service: ComplianceService) -> N
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         reason="subject request",
-        requested_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     request = service.list_erasures()[0]
-    service.verify_identity(request.id, by="hr-admin", method="email")
-    submitted = service.submit_for_decision(request.id, by="hr-admin")
+    service.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email")
+    submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(ComplianceError, match="no request transition"):
         service.apply_decision(submitted.approval_id)  # type: ignore[arg-type]
@@ -469,34 +480,36 @@ def test_erasure_full_flow_purges_and_revokes(service: ComplianceService) -> Non
     subject_id = setup_erasure_fixture(service)
     open_record = track_candidate(service, subject_id=subject_id)
     held_record = track_candidate(service, subject_id=subject_id)
-    service.set_legal_hold(held_record.id, held=True, by="hr-admin", reason="litigation")
+    service.set_legal_hold(
+        held_record.id, held=True, actor=ActorRef.legacy("hr-admin"), reason="litigation"
+    )
     consent = service.record_consent(
         subject_kind=SubjectKind.CANDIDATE,
         subject_id=subject_id,
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
 
     request = service.create_erasure_request(
         subject_kind=SubjectKind.CANDIDATE,
         subject_id=subject_id,
         reason="UU PDP erasure request",
-        requested_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.verify_identity(request.id, by="hr-admin", method="email")
-    submitted = service.submit_for_decision(request.id, by="hr-admin")
+    service.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email")
+    submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(service, submitted)
     assert approval is not None
 
     with pytest.raises(ComplianceError, match="approval required first"):
-        service.execute_erasure(request.id, by="hr-admin")
+        service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
 
-    service._approvals.decide(approval.id, decided_by="dpo-nadia", approve=True)
+    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
     synced = service.apply_decision(approval.id)
     assert synced.status is ErasureStatus.APPROVED
     assert synced.decided_by == "dpo-nadia"
 
-    executed = service.execute_erasure(request.id, by="hr-admin")
+    executed = service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
 
     assert executed.status is ErasureStatus.EXECUTED
     assert executed.consents_revoked == 1
@@ -514,17 +527,17 @@ def test_erasure_execution_is_human_only(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id=subject_id,
         reason="subject request",
-        requested_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.verify_identity(request.id, by="hr-admin", method="email")
-    submitted = service.submit_for_decision(request.id, by="hr-admin")
+    service.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email")
+    submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(service, submitted)
     assert approval is not None
-    service._approvals.decide(approval.id, decided_by="dpo-nadia", approve=True)
+    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
     service.apply_decision(approval.id)
 
     with pytest.raises(ComplianceError, match="named human"):
-        service.execute_erasure(request.id, by="agent:policy_assistant")
+        service.execute_erasure(request.id, actor=ActorRef.agent("policy_assistant"))
 
 
 def test_erasure_denial_blocks_execution(service: ComplianceService) -> None:
@@ -533,21 +546,24 @@ def test_erasure_denial_blocks_execution(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id=subject_id,
         reason="subject request",
-        requested_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.verify_identity(request.id, by="hr-admin", method="email")
-    submitted = service.submit_for_decision(request.id, by="hr-admin")
+    service.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email")
+    submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(service, submitted)
     assert approval is not None
     service._approvals.decide(
-        approval.id, decided_by="dpo-nadia", approve=False, reason="legal obligation to retain"
+        approval.id,
+        actor=ActorRef.legacy("dpo-nadia"),
+        approve=False,
+        reason="legal obligation to retain",
     )
     denied = service.apply_decision(approval.id)
 
     assert denied.status is ErasureStatus.DENIED
     assert denied.decision_reason == "legal obligation to retain"
     with pytest.raises(ComplianceError, match="approval required first"):
-        service.execute_erasure(request.id, by="hr-admin")
+        service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_erasure_policy_action_delete(service: ComplianceService) -> None:
@@ -555,7 +571,7 @@ def test_erasure_policy_action_delete(service: ComplianceService) -> None:
         entity=RecordEntity.CANDIDATE,
         name="Candidate records",
         retention_months=24,
-        updated_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         expiry_action=PurgeAction.DELETE,
     )
     record = track_candidate(service, subject_id="cand-9")
@@ -563,16 +579,16 @@ def test_erasure_policy_action_delete(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-9",
         reason="subject request",
-        requested_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
-    service.verify_identity(request.id, by="hr-admin", method="email")
-    submitted = service.submit_for_decision(request.id, by="hr-admin")
+    service.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email")
+    submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(service, submitted)
     assert approval is not None
-    service._approvals.decide(approval.id, decided_by="dpo-nadia", approve=True)
+    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
     service.apply_decision(approval.id)
 
-    executed = service.execute_erasure(request.id, by="hr-admin")
+    executed = service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
 
     assert executed.dispositions[0].action is DispositionAction.DELETED
     assert service.get_record(record.id).purge_action is PurgeAction.DELETE
@@ -583,7 +599,7 @@ def test_agents_can_open_erasure_requests(service: ComplianceService) -> None:
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         reason="inbound message forwarded by agent",
-        requested_by="agent:screening_coordinator",
+        actor=ActorRef.agent("screening_coordinator"),
         channel="whatsapp",
     )
     assert request.status is ErasureStatus.RECEIVED
@@ -597,8 +613,7 @@ def test_default_template_and_incident_materialization(service: ComplianceServic
         title="Laptop with HR export lost",
         description="Device encryption status unknown",
         impact=BreachImpact.HIGH,
-        discovered_by="it-ops",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("it-ops"),
         discovered_at=NOW,
     )
 
@@ -613,20 +628,22 @@ def test_breach_step_completion_is_human_only(service: ComplianceService) -> Non
         title="Misdirected email",
         description="",
         impact=BreachImpact.MEDIUM,
-        discovered_by="hr-admin",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         discovered_at=NOW,
     )
 
     with pytest.raises(ComplianceError, match="named human"):
-        service.complete_step(incident.id, step_key="contain", by="agent:compliance")
+        service.complete_step(incident.id, step_key="contain", actor=ActorRef.agent("compliance"))
 
     updated = service.complete_step(
-        incident.id, step_key="contain", by="hr-admin", note="attachment recalled"
+        incident.id,
+        step_key="contain",
+        actor=ActorRef.legacy("hr-admin"),
+        note="attachment recalled",
     )
     assert updated.steps[0].completed_by == "hr-admin"
     with pytest.raises(ComplianceError, match="already complete"):
-        service.complete_step(incident.id, step_key="contain", by="hr-admin")
+        service.complete_step(incident.id, step_key="contain", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_breach_unknown_step_rejected(service: ComplianceService) -> None:
@@ -634,12 +651,11 @@ def test_breach_unknown_step_rejected(service: ComplianceService) -> None:
         title="X",
         description="",
         impact=BreachImpact.LOW,
-        discovered_by="hr-admin",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         discovered_at=NOW,
     )
     with pytest.raises(ComplianceError, match="unknown checklist step"):
-        service.complete_step(incident.id, step_key="nope", by="hr-admin")
+        service.complete_step(incident.id, step_key="nope", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_notified_requires_notification_record(service: ComplianceService) -> None:
@@ -647,23 +663,27 @@ def test_notified_requires_notification_record(service: ComplianceService) -> No
         title="X",
         description="",
         impact=BreachImpact.HIGH,
-        discovered_by="hr-admin",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         discovered_at=NOW,
     )
 
     with pytest.raises(ComplianceError, match="at least one notification"):
-        service.transition(incident.id, status=BreachStatus.NOTIFIED, by="hr-admin")
+        service.transition(
+            incident.id, status=BreachStatus.NOTIFIED, actor=ActorRef.legacy("hr-admin")
+        )
 
     service.record_notification(
         incident.id,
         recipient_kind=NotificationRecipient.REGULATOR,
         recipient="authority portal",
-        sent_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         reference="ticket-42",
     )
     updated = service.transition(
-        incident.id, status=BreachStatus.NOTIFIED, by="hr-admin", note="notice sent"
+        incident.id,
+        status=BreachStatus.NOTIFIED,
+        actor=ActorRef.legacy("hr-admin"),
+        note="notice sent",
     )
     assert updated.status is BreachStatus.NOTIFIED
     assert updated.notifications[0].reference == "ticket-42"
@@ -674,28 +694,34 @@ def test_close_requires_completed_checklist_and_note(service: ComplianceService)
         title="X",
         description="",
         impact=BreachImpact.MEDIUM,
-        discovered_by="hr-admin",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         discovered_at=NOW,
     )
 
     with pytest.raises(ComplianceError, match="required steps incomplete"):
-        service.transition(incident.id, status=BreachStatus.CLOSED, by="hr-admin", note="done")
+        service.transition(
+            incident.id, status=BreachStatus.CLOSED, actor=ActorRef.legacy("hr-admin"), note="done"
+        )
 
     for step in incident.steps:
         if step.required:
-            service.complete_step(incident.id, step_key=step.key, by="hr-admin")
+            service.complete_step(incident.id, step_key=step.key, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(ComplianceError, match="closure note"):
-        service.transition(incident.id, status=BreachStatus.CLOSED, by="hr-admin")
+        service.transition(
+            incident.id, status=BreachStatus.CLOSED, actor=ActorRef.legacy("hr-admin")
+        )
 
     closed = service.transition(
-        incident.id, status=BreachStatus.CLOSED, by="hr-admin", note="post-mortem done"
+        incident.id,
+        status=BreachStatus.CLOSED,
+        actor=ActorRef.legacy("hr-admin"),
+        note="post-mortem done",
     )
     assert closed.status is BreachStatus.CLOSED
     assert closed.closed_by == "hr-admin"
     with pytest.raises(ComplianceError, match="closed"):
-        service.complete_step(incident.id, step_key="remediate", by="hr-admin")
+        service.complete_step(incident.id, step_key="remediate", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_transitions_are_forward_only(service: ComplianceService) -> None:
@@ -703,13 +729,17 @@ def test_transitions_are_forward_only(service: ComplianceService) -> None:
         title="X",
         description="",
         impact=BreachImpact.LOW,
-        discovered_by="hr-admin",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         discovered_at=NOW,
     )
-    service.transition(incident.id, status=BreachStatus.CONTAINED, by="hr-admin", note="contained")
+    service.transition(
+        incident.id,
+        status=BreachStatus.CONTAINED,
+        actor=ActorRef.legacy("hr-admin"),
+        note="contained",
+    )
     with pytest.raises(ComplianceError, match="cannot move incident"):
-        service.transition(incident.id, status=BreachStatus.OPEN, by="hr-admin")
+        service.transition(incident.id, status=BreachStatus.OPEN, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_overdue_steps_report_open_incidents(service: ComplianceService) -> None:
@@ -717,8 +747,7 @@ def test_overdue_steps_report_open_incidents(service: ComplianceService) -> None
         title="X",
         description="",
         impact=BreachImpact.LOW,
-        discovered_by="hr-admin",
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
         discovered_at=NOW,
     )
 
@@ -736,10 +765,10 @@ def test_verify_audit_chain_intact(service: ComplianceService, audit: AuditChain
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
 
-    report = service.verify_audit_chain(checked_by="auditor")
+    report = service.verify_audit_chain(actor=ActorRef.legacy("auditor"))
 
     assert report.intact
     assert report.first_invalid_seq is None
@@ -753,18 +782,18 @@ def test_verify_audit_chain_detects_tampering(
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-1",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     service.record_consent(
         subject_kind=SubjectKind.CANDIDATE,
         subject_id="cand-2",
         purpose="recruitment_evaluation",
-        captured_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
     tampered = audit._entries[0].model_copy(update={"action": "compliance.denied"})
     audit._entries[0] = tampered
 
-    report = service.verify_audit_chain()
+    report = service.verify_audit_chain(actor=ActorRef.legacy("auditor"))
 
     assert not report.intact
     assert report.first_invalid_seq == 0

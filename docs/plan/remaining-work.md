@@ -1,15 +1,14 @@
 # Remaining Work — core integrity, then MCP layer to paper & release
 
-Status snapshot: **2026-09-29**. Everything up to and including Phase 5 (multi-department
+Status snapshot: **2026-09-30**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
 cross-workspace handoff) is built and tested. Stage 0 of the core work landed: **the evaluation
 worker now runs**, all five agents are constructed in production, the rate-table API makes payroll
 reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A landed after that:
 **one identity module** now owns actor classification and the named-human gate, the ten
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
-`sigma` gate. Block B has begun: **authentication happens once per request**, `ActorRef` carries
-the actor together with its provenance, and the recruiting and people workspaces no longer accept
-an actor from a request body.
+`sigma` gate. Block B is complete: **authentication happens once per request**, `ActorRef` carries
+the actor together with its provenance, and **no request body in the API names the actor at all**.
 **1183 tests (1179 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
@@ -19,10 +18,11 @@ an actor from a request body.
 > `{"action":"deleted"}` and deleted zero bytes, in both the API response and the audit chain.
 > Three services wrote `agent:` onto the tamper-evident chain as `ActorType.HUMAN`, and every
 > named-human gate accepted `system`, so a caller could decide an approval as `system`. All fixed
-> and regression-tested. Block B continues the same line: an API key's holder is now the only actor
-> the recruiting and people endpoints will record, and the dashboard's "type your name here" fields
-> are gone rather than quietly ignored. The remaining groups are offers, onboarding, offboarding,
-> leave, growth, payroll, rate tables and compliance. and **scoring generalization** (a qualified accountant is auto-rejected today). The
+> and regression-tested. Block B then closed the trust boundary from the outside in: the actor is
+> resolved from the API key in middleware, before routing, and **no request body names it** — the
+> dashboard's "type your name here" fields are all deleted rather than quietly ignored. What is left
+> is not attribution but *authority*: who may decide, which lands with the B3 authorization work.
+> and **scoring generalization** (a qualified accountant is auto-rejected today). The
 > measured defect list is `docs/plan/master-build-plan.md` Appendix C.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
@@ -90,12 +90,46 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [x] **Two scheduled sweeps stop claiming to be people.** `ContractService.refresh_status` and the
       task/approval fan-out in `scheduler` recorded the bare string `"system"`, which read on the
       chain as an unclassified legacy value. They now record `ActorRef.system("scheduler")`.
-- [ ] **Migrate the remaining groups to `ActorRef`**: offers, onboarding, offboarding, leave, growth,
-      payroll, rate tables and compliance still carry ~55 `by`/`created_by` request fields, so a
-      holder of one `hr_admin` key can still name a different person there.
+- [x] **The remaining groups take their actor from the principal too** — offers,
+      onboarding, offboarding, leave, growth, payroll, rate tables, compliance, and the
+      approval endpoints themselves. **70 service parameters and 60 request-schema
+      fields** are gone; 69 endpoints take an `ActorDep`. `POST /v1/approvals` and
+      `POST /v1/approvals/{id}/decide` were the last holdout and B2 had skipped them:
+      deciding an approval was still attributable to any name in a body, which is the
+      single most consequential version of the hole this block exists to close.
+      `GET /v1/compliance/audit/verify?checked_by=` was the last one reachable *outside*
+      a body, and the dead `AuditVerifyRequest` schema it belonged to is deleted. The
+      dashboard loses five more name inputs. An audit of the generated contract
+      confirms that none of the 86 request schemas references an actor field, while
+      the 24 response fields that record who acted are untouched.
+- [x] **The named-human gates are now reached only where an actor can be one.**
+      Thirteen HTTP tests that asserted 403 or 409 for an "agent actor in the body" are
+      obsolete: a request cannot name an actor, so they assert **422 naming the field**
+      — the stronger property, since the field is refused rather than ignored. The gates
+      themselves live at the service layer and in `tests/test_named_human_gates.py`.
+      One new test configures a principal whose `actor_id` is `agent:hr_bot` and proves
+      it still cannot set a leave policy or decide an approval: authentication
+      establishes *who*, it does not make an agent a person. That test is also what
+      keeps the routers' 403 branches from rotting into dead code.
+- [x] **`ActorRef.require_human_or_system`** for the one consequential operation that
+      legitimately runs unattended: the retention purge. Tightening it to a
+      human-only gate would leave expired records in place because nobody was
+      watching. The four `system`-actor purge tests are preserved unchanged.
+- [x] **`HRAGENTS_ACTOR_NAME` is in `LEAKY_ENV_KEYS`.** It names the local operator and
+      therefore the actor on every audit entry an unconfigured test install records, so
+      a developer's local `.env` would have failed every `== "local-dev"` assertion for
+      a reason unrelated to the code under test.
+- [x] **Provenance reaches the whole chain.** Every `_record` helper now calls
+      `ActorRef.coerce(actor).audit_actor()`, so growth, offboarding and compliance
+      entries carry provenance and role like the rest. `ApprovalEngine._record` defaults
+      to `ActorRef.system("approval-engine")` for its own SLA sweep, and
+      `offers.expire_overdue` no longer writes the bare string `"system"`.
 - [ ] **Bind approval decisions to `assignee_role`** — `decide` checks that the actor is a human,
       but not that they hold the role the approval is assigned to, so a `MANAGER` can decide a
       `FINANCE`-assigned payroll sign-off. The table exists (see above); enforcement does not.
+      Also lands here: **`RateTableService.verify` has no named-human gate**, so an agent can
+      certify a BPJS or PPh21 table today. The endpoint is already behind `RATES_VERIFY`, so
+      the check is the only thing missing.
 - [ ] **Fix the 68 write endpoints guarded by a READ permission** and wire the 6 dead permissions
       (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`, `AUDIT_READ`,
       `ADMIN_MANAGE`).

@@ -121,7 +121,7 @@ def test_offboarding_blocked_by_open_approval(
         subject_id=str(employee.id),
         title="Update bank account",
         assignee_role=ApproverRole.HR_ADMIN,
-        requested_by="hr-staff",
+        actor=ActorRef.legacy("hr-staff"),
     )
     with pytest.raises(EmployeeError, match="blocked by open items"):
         service.transition(
@@ -138,7 +138,7 @@ def test_forced_offboarding_requires_reason(
         subject_id=str(employee.id),
         title="Open item",
         assignee_role=ApproverRole.HR_ADMIN,
-        requested_by="hr-staff",
+        actor=ActorRef.legacy("hr-staff"),
     )
     with pytest.raises(EmployeeError, match="requires a reason"):
         service.transition(
@@ -158,7 +158,7 @@ def test_forced_offboarding_with_reason_succeeds(
         subject_id=str(employee.id),
         title="Open item",
         assignee_role=ApproverRole.HR_ADMIN,
-        requested_by="hr-staff",
+        actor=ActorRef.legacy("hr-staff"),
     )
     offboarded = service.transition(
         employee.id,

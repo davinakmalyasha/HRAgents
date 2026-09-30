@@ -646,9 +646,9 @@ def test_offer_adapter_records_and_revisions(factory: sessionmaker[Session]) -> 
         salary_amount=25_000_000.0,
         salary_currency="IDR",
     )
-    created = offers.create(record.id, terms, by="hr-admin")
+    created = offers.create(record.id, terms, actor=ActorRef.legacy("hr-admin"))
     revised_terms = terms.model_copy(update={"salary_amount": 27_000_000.0})
-    offers.revise(created.id, revised_terms, by="hr-admin", note="negotiated")
+    offers.revise(created.id, revised_terms, actor=ActorRef.legacy("hr-admin"), note="negotiated")
 
     fresh = DbOfferService(
         evaluations=evaluations, communications=communications, session_factory=factory

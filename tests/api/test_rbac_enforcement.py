@@ -26,7 +26,6 @@ def _payroll_payload() -> dict:
     return {
         "period_year": date.today().year,
         "period_month": 6,
-        "created_by": "finance-1",
     }
 
 
@@ -99,3 +98,65 @@ def test_unconfigured_auth_allows_local_admin() -> None:
     with TestClient(app) as client:
         response = client.get("/v1/queue", params={"job_id": str(uuid4())})
         assert response.status_code == 200
+
+
+def _agent_settings() -> Settings:
+    """A principal whose actor id claims to be an agent tool.
+
+    The request body can no longer name an actor, so the only remaining way to
+    reach a named-human gate with a non-human identity is to configure one. That
+    makes this a real hole, not a hypothetical, and the gates still have to
+    refuse it.
+    """
+    return Settings.model_construct(
+        api_keys=[],
+        api_principals=[
+            ApiPrincipalSettings(
+                key=SecretStr("bot-key"), role=RoleId.HR_ADMIN, actor_id="agent:hr_bot"
+            ),
+        ],
+    )
+
+
+def test_a_configured_agent_actor_still_cannot_decide() -> None:
+    """Authentication establishes who; it does not make an agent a person.
+
+    The 403 branches in the routers are only reachable through a principal like
+    this one now that request bodies cannot supply an actor, so this test is what
+    keeps those branches honest instead of letting them rot into dead code.
+    """
+    app = create_app(_agent_settings())
+    with TestClient(app) as client:
+        headers = {"X-API-Key": "bot-key"}
+        offer_refused = client.put(
+            "/v1/leave/policies",
+            json={"leave_type": "annual", "name": "Annual leave"},
+            headers=headers,
+        )
+        approvals = client.get("/v1/approvals", headers=headers)
+        opened = client.post(
+            "/v1/approvals",
+            json={
+                "subject": "candidate_rejection",
+                "subject_id": "cand-1",
+                "title": "Rejection sign-off",
+                "assignee_role": "engineering_lead",
+            },
+            headers=headers,
+        )
+        decided = client.post(
+            f"/v1/approvals/{opened.json()['id']}/decide",
+            json={"approve": True},
+            headers=headers,
+        )
+
+    # The policy write is refused by the named-human gate, not by RBAC: the role
+    # is hr_admin, which holds the permission.
+    assert offer_refused.status_code == 409
+    assert "named human" in offer_refused.json()["title"]
+    # reading the approval queue is fine, and so is raising an approval
+    assert approvals.status_code == 200
+    assert opened.status_code == 201
+    # deciding is not: an authenticated agent is still an agent
+    assert decided.status_code == 409
+    assert "named human" in decided.json()["title"]

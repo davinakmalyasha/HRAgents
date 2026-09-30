@@ -209,14 +209,11 @@ class ApprovalCreate(StrictModel):
     subject_id: str = Field(min_length=1, max_length=200)
     title: str = Field(min_length=1, max_length=200)
     assignee_role: ApproverRole
-    requested_by: str = Field(min_length=1, max_length=200)
     summary: str = Field(default="", max_length=2000)
     urgency: Urgency = Urgency.NORMAL
-    requested_by_agent: bool = False
 
 
 class ApprovalDecisionRequest(StrictModel):
-    decided_by: str = Field(min_length=1, max_length=200)
     approve: bool
     reason: str | None = Field(default=None, max_length=500)
 
@@ -323,7 +320,6 @@ class TaskView(StrictModel):
 class RateTableCreate(StrictModel):
     kind: RateTableKind
     name: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     jurisdiction: str = Field(default="ID", min_length=2, max_length=2)
 
 
@@ -368,13 +364,11 @@ class RateTableEntriesUpdate(StrictModel):
     """Replace a table's rows. Setting entries always clears verification."""
 
     entries: list[RateEntry] = Field(min_length=1)
-    by: str = Field(min_length=1, max_length=200)
 
 
 class RateTableVerify(StrictModel):
     """Certify a rate table against a recorded source. Unblocks payroll compute."""
 
-    by: str = Field(min_length=1, max_length=200)
     source_note: str = Field(
         min_length=1,
         max_length=500,

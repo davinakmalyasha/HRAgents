@@ -85,28 +85,24 @@ def test_offer_full_flow() -> None:
             json={
                 "application_id": application["application_id"],
                 "terms": terms_payload(),
-                "by": "hr-admin",
             },
         )
         offer = created.json()
 
         revised = client.patch(
             f"/v1/offers/{offer['id']}",
-            json={"terms": terms_payload(salary_amount=27_000_000.0), "by": "hr-admin"},
+            json={"terms": terms_payload(salary_amount=27_000_000.0)},
         )
-        submitted = client.post(f"/v1/offers/{offer['id']}/submit", json={"by": "hr-admin"})
+        submitted = client.post(f"/v1/offers/{offer['id']}/submit", json={})
         pending = client.get("/v1/approvals")
         approved = client.post(
             f"/v1/offers/{offer['id']}/decision",
-            json={"by": "hr-admin", "decision": "approve"},
+            json={"decision": "approve"},
         )
-        messaged = client.post(
-            f"/v1/offers/{offer['id']}/message",
-            json={"by": "hr-admin"},
-        )
+        messaged = client.post(f"/v1/offers/{offer['id']}/message", json={})
         accepted = client.post(
             f"/v1/offers/{offer['id']}/acceptance",
-            json={"by": "hr-admin", "accepted": True},
+            json={"accepted": True},
         )
         communications = client.get(f"/v1/candidates/{application['candidate_id']}/communications")
 
@@ -123,7 +119,7 @@ def test_offer_full_flow() -> None:
 
     assert approved.status_code == 200, approved.text
     assert approved.json()["status"] == "approved"
-    assert approved.json()["decided_by"] == "hr-admin"
+    assert approved.json()["decided_by"] == "local-dev"
 
     assert messaged.status_code == 200, messaged.text
     assert messaged.json()["status"] == "queued"
@@ -146,38 +142,60 @@ def test_offer_guards_and_terminal_states() -> None:
             json={
                 "application_id": application["application_id"],
                 "terms": terms_payload(),
-                "by": "hr-admin",
             },
         ).json()
 
-        agent_created = client.post(
-            "/v1/offers",
-            json={
-                "application_id": application["application_id"],
-                "terms": terms_payload(),
-                "by": "agent:hr_bot",
-            },
-        )
-        premature = client.post(f"/v1/offers/{created['id']}/message", json={"by": "hr-admin"})
-        client.post(f"/v1/offers/{created['id']}/submit", json={"by": "hr-admin"})
+        premature = client.post(f"/v1/offers/{created['id']}/message", json={})
+        client.post(f"/v1/offers/{created['id']}/submit", json={})
         late_revision = client.patch(
             f"/v1/offers/{created['id']}",
-            json={"terms": terms_payload(salary_amount=30_000_000.0), "by": "hr-admin"},
-        )
-        agent_decision = client.post(
-            f"/v1/offers/{created['id']}/decision",
-            json={"by": "agent:hr_bot", "decision": "approve"},
+            json={"terms": terms_payload(salary_amount=30_000_000.0)},
         )
         unknown = client.get(f"/v1/offers/{uuid4()}")
 
-    assert agent_created.status_code == 403
-    assert "named human" in agent_created.json()["title"]
     assert premature.status_code == 409
     assert "approved offer" in premature.json()["title"]
     assert late_revision.status_code == 409
     assert "draft" in late_revision.json()["title"]
-    assert agent_decision.status_code == 403
     assert unknown.status_code == 404
+
+
+def test_offer_refuses_a_caller_supplied_actor() -> None:
+    """A body cannot name the actor, and the field is refused rather than ignored.
+
+    The old assertion here was a 403 with "named human" in the message: a request
+    body that said ``by="agent:hr_bot"``. Over HTTP a request can no longer name
+    an actor at all, so the same attempt is a 422 naming the field. That is the
+    stronger property — the difference between a field the server refuses and a
+    field a user might believe they overrode. The named-human gate itself moved
+    to the service layer, where an agent actor can still be constructed, and
+    ``tests/services/test_offers.py`` covers it there.
+    """
+    with make_client() as client:
+        application = seeded_application(client)
+        body = {
+            "application_id": application["application_id"],
+            "terms": terms_payload(),
+        }
+        create_refused = client.post("/v1/offers", json={**body, "by": "agent:hr_bot"})
+        created = client.post("/v1/offers", json=body).json()
+        client.post(f"/v1/offers/{created['id']}/submit", json={})
+        decide_refused = client.post(
+            f"/v1/offers/{created['id']}/decision",
+            json={"decision": "approve", "by": "agent:hr_bot"},
+        )
+        decided = client.post(
+            f"/v1/offers/{created['id']}/decision",
+            json={"decision": "approve"},
+        )
+
+    assert create_refused.status_code == 422
+    assert any(error["loc"][-1] == "by" for error in create_refused.json()["detail"])
+    assert decide_refused.status_code == 422
+    assert any(error["loc"][-1] == "by" for error in decide_refused.json()["detail"])
+    # and the same call without the field is attributed to the key's holder
+    assert decided.status_code == 200
+    assert decided.json()["decided_by"] == "local-dev"
 
 
 def test_offer_withdrawal_withdraws_the_approval() -> None:
@@ -188,18 +206,17 @@ def test_offer_withdrawal_withdraws_the_approval() -> None:
             json={
                 "application_id": application["application_id"],
                 "terms": terms_payload(),
-                "by": "hr-admin",
             },
         ).json()
-        client.post(f"/v1/offers/{created['id']}/submit", json={"by": "hr-admin"})
+        client.post(f"/v1/offers/{created['id']}/submit", json={})
 
         without_reason = client.post(
             f"/v1/offers/{created['id']}/decision",
-            json={"by": "hr-admin", "decision": "withdraw"},
+            json={"decision": "withdraw"},
         )
         withdrawn = client.post(
             f"/v1/offers/{created['id']}/decision",
-            json={"by": "hr-admin", "decision": "withdraw", "reason": "headcount frozen"},
+            json={"decision": "withdraw", "reason": "headcount frozen"},
         )
         approvals = client.get("/v1/approvals")
 

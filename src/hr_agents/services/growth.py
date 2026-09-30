@@ -10,12 +10,11 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.identity import ActorRef, classify_actor, require_named_human
+from hr_agents.identity import ActorRef, require_named_human
 from hr_agents.models import (
     CYCLE_TRANSITIONS,
     ApproverRole,
     AssignmentStatus,
-    AuditActor,
     Goal,
     GoalStatus,
     GoalUpdate,
@@ -62,15 +61,16 @@ class GrowthService:
         name: str,
         period_start: date,
         period_end: date,
-        created_by: str,
+        actor: ActorRef,
         kind: ReviewCycleKind = ReviewCycleKind.ANNUAL,
         rating_scale_min: float = 1.0,
         rating_scale_max: float = 5.0,
         submission_due_on: date | None = None,
         description: str = "",
     ) -> ReviewCycle:
-        self._require_human(created_by, "create a review cycle")
+        actor.require_human("create a review cycle", GrowthError)
         cycle = ReviewCycle(
+            created_by=actor.actor_id,
             name=name,
             kind=kind,
             period_start=period_start,
@@ -79,13 +79,12 @@ class GrowthService:
             rating_scale_max=rating_scale_max,
             submission_due_on=submission_due_on,
             description=description,
-            created_by=created_by,
         )
         self._store.add_cycle(cycle)
         self._record(
             cycle,
             action="growth.cycle_created",
-            actor_id=created_by,
+            actor=actor,
             payload={"kind": kind.value, "name": name},
         )
         return cycle
@@ -107,29 +106,29 @@ class GrowthService:
         cycle_id: UUID,
         *,
         target: ReviewCycleStatus,
-        by: str,
+        actor: ActorRef,
         action: str,
         payload: dict[str, object] | None = None,
     ) -> ReviewCycle:
-        self._require_human(by, "transition a review cycle")
+        actor.require_human("transition a review cycle", GrowthError)
         cycle = self.get_cycle(cycle_id)
         if target not in CYCLE_TRANSITIONS[cycle.status]:
             raise GrowthError(f"cannot move cycle from {cycle.status.value} to {target.value}")
         updated = cycle.model_copy(update={"status": target, "updated_at": utc_now()})
         self._store.save_cycle(updated)
-        self._record(updated, action=action, actor_id=by, payload=payload or {})
+        self._record(updated, action=action, actor=actor, payload=payload or {})
         return updated
 
-    def activate_cycle(self, cycle_id: UUID, *, by: str) -> ReviewCycle:
+    def activate_cycle(self, cycle_id: UUID, *, actor: ActorRef) -> ReviewCycle:
         """Open the cycle for form collection; requires at least one assignment."""
         self.get_cycle(cycle_id)
         if not self.list_assignments(cycle_id):
             raise GrowthError("add at least one assignment before activating the cycle")
         return self._transition_cycle(
-            cycle_id, target=ReviewCycleStatus.ACTIVE, by=by, action="growth.cycle_activated"
+            cycle_id, target=ReviewCycleStatus.ACTIVE, actor=actor, action="growth.cycle_activated"
         )
 
-    def advance_to_reviewing(self, cycle_id: UUID, *, by: str) -> ReviewCycle:
+    def advance_to_reviewing(self, cycle_id: UUID, *, actor: ActorRef) -> ReviewCycle:
         self.get_cycle(cycle_id)
         pending = [item for item in self.list_assignments(cycle_id) if not item.terminal]
         if pending:
@@ -137,11 +136,11 @@ class GrowthService:
         return self._transition_cycle(
             cycle_id,
             target=ReviewCycleStatus.REVIEWING,
-            by=by,
+            actor=actor,
             action="growth.cycle_reviewing",
         )
 
-    def close_cycle(self, cycle_id: UUID, *, by: str) -> ReviewCycle:
+    def close_cycle(self, cycle_id: UUID, *, actor: ActorRef) -> ReviewCycle:
         """Complete the cycle: no pending forms, all existing summaries finalized."""
         self.get_cycle(cycle_id)
         pending = [item for item in self.list_assignments(cycle_id) if not item.terminal]
@@ -157,16 +156,19 @@ class GrowthService:
                 f"{len(open_summaries)} summaries await human finalization; finalize first"
             )
         return self._transition_cycle(
-            cycle_id, target=ReviewCycleStatus.COMPLETED, by=by, action="growth.cycle_completed"
+            cycle_id,
+            target=ReviewCycleStatus.COMPLETED,
+            actor=actor,
+            action="growth.cycle_completed",
         )
 
-    def cancel_cycle(self, cycle_id: UUID, *, by: str, reason: str) -> ReviewCycle:
+    def cancel_cycle(self, cycle_id: UUID, *, actor: ActorRef, reason: str) -> ReviewCycle:
         if not reason.strip():
             raise GrowthError("cancelling a cycle requires a reason")
         return self._transition_cycle(
             cycle_id,
             target=ReviewCycleStatus.CANCELLED,
-            by=by,
+            actor=actor,
             action="growth.cycle_cancelled",
             payload={"reason": reason},
         )
@@ -179,7 +181,7 @@ class GrowthService:
         *,
         employee_id: UUID,
         reviewer_id: str,
-        created_by: str,
+        actor: ActorRef,
         reviewer_role: ApproverRole | None = None,
         due_on: date | None = None,
     ) -> ReviewAssignment:
@@ -208,7 +210,7 @@ class GrowthService:
         self._record(
             cycle,
             action="growth.assignment_created",
-            actor_id=created_by,
+            actor=actor,
             payload={
                 "assignment_id": str(assignment.id),
                 "employee_id": str(employee_id),
@@ -237,12 +239,12 @@ class GrowthService:
         self,
         assignment_id: UUID,
         *,
-        by: str,
+        actor: ActorRef,
         ratings: dict[str, float],
         comments: str = "",
     ) -> ReviewAssignment:
         """Submit a reviewer's form. Humans only; ratings validated against the scale."""
-        self._require_human(by, "submit a review form")
+        actor.require_human("submit a review form", GrowthError)
         assignment = self.get_assignment(assignment_id)
         if assignment.status is not AssignmentStatus.PENDING:
             raise GrowthError(f"assignment is {assignment.status.value}; cannot submit")
@@ -265,7 +267,7 @@ class GrowthService:
                 "status": AssignmentStatus.SUBMITTED,
                 "ratings": ratings,
                 "comments": comments,
-                "submitted_by": by,
+                "submitted_by": actor.actor_id,
                 "submitted_at": utc_now(),
                 "updated_at": utc_now(),
             }
@@ -274,14 +276,16 @@ class GrowthService:
         self._record(
             cycle,
             action="growth.assignment_submitted",
-            actor_id=by,
+            actor=actor,
             payload={"assignment_id": str(updated.id), "dimensions": sorted(ratings)},
         )
         return updated
 
-    def skip_assignment(self, assignment_id: UUID, *, by: str, reason: str) -> ReviewAssignment:
+    def skip_assignment(
+        self, assignment_id: UUID, *, actor: ActorRef, reason: str
+    ) -> ReviewAssignment:
         """Skip a form (e.g., reviewer left). Human decision with a reason."""
-        self._require_human(by, "skip a review form")
+        actor.require_human("skip a review form", GrowthError)
         if not reason.strip():
             raise GrowthError("skipping an assignment requires a reason")
         assignment = self.get_assignment(assignment_id)
@@ -292,7 +296,7 @@ class GrowthService:
             update={
                 "status": AssignmentStatus.SKIPPED,
                 "skip_reason": reason,
-                "skipped_by": by,
+                "skipped_by": actor.actor_id,
                 "skipped_at": utc_now(),
                 "updated_at": utc_now(),
             }
@@ -301,7 +305,7 @@ class GrowthService:
         self._record(
             cycle,
             action="growth.assignment_skipped",
-            actor_id=by,
+            actor=actor,
             payload={"assignment_id": str(updated.id), "reason": reason},
         )
         return updated
@@ -324,7 +328,7 @@ class GrowthService:
         employee_id: UUID,
         *,
         draft_text: str,
-        drafted_by: str,
+        actor: ActorRef,
     ) -> ReviewSummary:
         """Create or refresh an agent/human draft. Never finalizes."""
         cycle = self.get_cycle(cycle_id)
@@ -352,7 +356,7 @@ class GrowthService:
             updated = existing.model_copy(
                 update={
                     "agent_draft": draft_text,
-                    "draft_by": drafted_by,
+                    "draft_by": actor.actor_id,
                     "draft_created_at": utc_now(),
                     "updated_at": utc_now(),
                 }
@@ -365,7 +369,7 @@ class GrowthService:
                 employee_id=employee_id,
                 status=SummaryStatus.PENDING_REVIEW,
                 agent_draft=draft_text,
-                draft_by=drafted_by,
+                draft_by=actor.actor_id,
                 draft_created_at=utc_now(),
             )
             self._store.add_summary(summary)
@@ -373,7 +377,7 @@ class GrowthService:
         self._record(
             cycle,
             action="growth.summary_drafted",
-            actor_id=drafted_by,
+            actor=actor,
             payload={"summary_id": str(summary.id), "employee_id": str(employee_id)},
         )
         return summary
@@ -387,9 +391,11 @@ class GrowthService:
     def list_summaries(self, cycle_id: UUID) -> list[ReviewSummary]:
         return [item for item in self._store.list_summaries() if item.cycle_id == cycle_id]
 
-    def finalize_summary(self, summary_id: UUID, *, by: str, final_text: str) -> ReviewSummary:
+    def finalize_summary(
+        self, summary_id: UUID, *, actor: ActorRef, final_text: str
+    ) -> ReviewSummary:
         """Human-only finalization. The final text is what gets shared."""
-        self._require_human(by, "finalize a review summary")
+        actor.require_human("finalize a review summary", GrowthError)
         if not final_text.strip():
             raise GrowthError("final text cannot be empty")
         summary = self.get_summary(summary_id)
@@ -400,7 +406,7 @@ class GrowthService:
             update={
                 "status": SummaryStatus.FINALIZED,
                 "final_text": final_text,
-                "finalized_by": by,
+                "finalized_by": actor.actor_id,
                 "finalized_at": utc_now(),
                 "updated_at": utc_now(),
             }
@@ -409,7 +415,7 @@ class GrowthService:
         self._record(
             cycle,
             action="growth.summary_finalized",
-            actor_id=by,
+            actor=actor,
             payload={"summary_id": str(updated.id), "employee_id": str(summary.employee_id)},
         )
         return updated
@@ -502,17 +508,18 @@ class GrowthService:
         *,
         employee_id: UUID,
         title: str,
-        created_by: str,
+        actor: ActorRef,
         description: str = "",
         metric: str | None = None,
         cycle_id: UUID | None = None,
         start_on: date | None = None,
         due_on: date | None = None,
     ) -> Goal:
-        self._require_human(created_by, "create a goal")
+        actor.require_human("create a goal", GrowthError)
         if cycle_id is not None:
             self.get_cycle(cycle_id)
         goal = Goal(
+            created_by=actor.actor_id,
             employee_id=employee_id,
             title=title,
             description=description,
@@ -520,13 +527,12 @@ class GrowthService:
             cycle_id=cycle_id,
             start_on=start_on,
             due_on=due_on,
-            created_by=created_by,
         )
         self._store.add_goal(goal)
         self._record(
             goal,
             action="growth.goal_created",
-            actor_id=created_by,
+            actor=actor,
             payload={"employee_id": str(employee_id), "title": title},
         )
         return goal
@@ -547,18 +553,20 @@ class GrowthService:
             goals = [goal for goal in goals if goal.status is status]
         return goals
 
-    def activate_goal(self, goal_id: UUID, *, by: str) -> Goal:
-        self._require_human(by, "activate a goal")
+    def activate_goal(self, goal_id: UUID, *, actor: ActorRef) -> Goal:
+        actor.require_human("activate a goal", GrowthError)
         goal = self.get_goal(goal_id)
         if goal.status is not GoalStatus.DRAFT:
             raise GrowthError(f"goal is {goal.status.value}; cannot activate")
         updated = goal.model_copy(update={"status": GoalStatus.ACTIVE, "updated_at": utc_now()})
         self._store.save_goal(updated)
-        self._record(updated, action="growth.goal_activated", actor_id=by, payload={})
+        self._record(updated, action="growth.goal_activated", actor=actor, payload={})
         return updated
 
-    def update_progress(self, goal_id: UUID, *, percent: float, by: str, note: str = "") -> Goal:
-        self._require_human(by, "update goal progress")
+    def update_progress(
+        self, goal_id: UUID, *, percent: float, actor: ActorRef, note: str = ""
+    ) -> Goal:
+        actor.require_human("update goal progress", GrowthError)
         goal = self.get_goal(goal_id)
         if not goal.open:
             raise GrowthError(f"goal is {goal.status.value}; cannot update progress")
@@ -566,7 +574,7 @@ class GrowthService:
             raise GrowthError("progress must be between 0 and 100")
         updates = [
             *goal.updates,
-            GoalUpdate(progress_percent=percent, note=note, by=by),
+            GoalUpdate(progress_percent=percent, note=note, by=actor.actor_id),
         ]
         updated = goal.model_copy(
             update={
@@ -580,17 +588,17 @@ class GrowthService:
         self._record(
             updated,
             action="growth.goal_progress",
-            actor_id=by,
+            actor=actor,
             payload={"percent": percent},
         )
         return updated
 
-    def complete_goal(self, goal_id: UUID, *, by: str, note: str = "") -> Goal:
-        self._require_human(by, "complete a goal")
+    def complete_goal(self, goal_id: UUID, *, actor: ActorRef, note: str = "") -> Goal:
+        actor.require_human("complete a goal", GrowthError)
         goal = self.get_goal(goal_id)
         if not goal.open:
             raise GrowthError(f"goal is {goal.status.value}; cannot complete")
-        updates = [*goal.updates, GoalUpdate(progress_percent=100.0, note=note, by=by)]
+        updates = [*goal.updates, GoalUpdate(progress_percent=100.0, note=note, by=actor.actor_id)]
         updated = goal.model_copy(
             update={
                 "status": GoalStatus.COMPLETED,
@@ -600,11 +608,11 @@ class GrowthService:
             }
         )
         self._store.save_goal(updated)
-        self._record(updated, action="growth.goal_completed", actor_id=by, payload={})
+        self._record(updated, action="growth.goal_completed", actor=actor, payload={})
         return updated
 
-    def cancel_goal(self, goal_id: UUID, *, by: str, reason: str) -> Goal:
-        self._require_human(by, "cancel a goal")
+    def cancel_goal(self, goal_id: UUID, *, actor: ActorRef, reason: str) -> Goal:
+        actor.require_human("cancel a goal", GrowthError)
         if not reason.strip():
             raise GrowthError("cancelling a goal requires a reason")
         goal = self.get_goal(goal_id)
@@ -613,7 +621,7 @@ class GrowthService:
         updated = goal.model_copy(update={"status": GoalStatus.CANCELLED, "updated_at": utc_now()})
         self._store.save_goal(updated)
         self._record(
-            updated, action="growth.goal_cancelled", actor_id=by, payload={"reason": reason}
+            updated, action="growth.goal_cancelled", actor=actor, payload={"reason": reason}
         )
         return updated
 
@@ -630,7 +638,7 @@ class GrowthService:
         subject: ReviewCycle | ReviewSummary | Goal,
         *,
         action: str,
-        actor_id: str,
+        actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
         subject_type = {
@@ -639,7 +647,7 @@ class GrowthService:
             Goal: "goal",
         }[type(subject)]
         self._audit.append(
-            actor=AuditActor(actor_type=classify_actor(actor_id), actor_id=actor_id),
+            actor=actor.audit_actor(),
             action=action,
             subject_type=subject_type,
             subject_id=str(subject.id),

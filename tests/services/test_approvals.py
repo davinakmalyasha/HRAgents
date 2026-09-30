@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pytest
 
+from hr_agents.identity import ActorError, ActorRef
 from hr_agents.models import (
     ApprovalRequest,
     ApprovalStatus,
@@ -43,14 +44,16 @@ def create_request(
     requested_by_agent: bool = False,
     max_escalations: int = 2,
 ) -> ApprovalRequest:
+    # The engine derives `requested_by_agent` from the actor's type now, so the
+    # helper states the kind of actor it means rather than the derived flag.
+    actor = ActorRef.agent(requested_by) if requested_by_agent else ActorRef.legacy(requested_by)
     return engine.create(
         subject=subject,
         subject_id=subject_id,
         title=title,
         assignee_role=assignee_role,
-        requested_by=requested_by,
+        actor=actor,
         urgency=urgency,
-        requested_by_agent=requested_by_agent,
         max_escalations=max_escalations,
     )
 
@@ -73,7 +76,9 @@ def test_agent_requested_is_labeled(engine: ApprovalEngine) -> None:
 
 def test_approve_flow(engine: ApprovalEngine) -> None:
     request = create_request(engine)
-    decision = engine.decide(request.id, decided_by="manager-budi", approve=True, reason="ok")
+    decision = engine.decide(
+        request.id, actor=ActorRef.legacy("manager-budi"), approve=True, reason="ok"
+    )
 
     assert decision.action == "approved"
     assert decision.request.status is ApprovalStatus.APPROVED
@@ -84,7 +89,7 @@ def test_approve_flow(engine: ApprovalEngine) -> None:
 def test_reject_flow(engine: ApprovalEngine) -> None:
     request = create_request(engine)
     decision = engine.decide(
-        request.id, decided_by="manager-budi", approve=False, reason="busy week"
+        request.id, actor=ActorRef.legacy("manager-budi"), approve=False, reason="busy week"
     )
     assert decision.request.status is ApprovalStatus.REJECTED
 
@@ -92,25 +97,27 @@ def test_reject_flow(engine: ApprovalEngine) -> None:
 def test_agents_cannot_decide(engine: ApprovalEngine) -> None:
     request = create_request(engine)
     with pytest.raises(ApprovalError, match="named human"):
-        engine.decide(request.id, decided_by="agent:policy_assistant", approve=True)
+        engine.decide(request.id, actor=ActorRef.agent("policy_assistant"), approve=True)
 
 
 def test_double_decide_rejected(engine: ApprovalEngine) -> None:
     request = create_request(engine)
-    engine.decide(request.id, decided_by="manager", approve=True)
+    engine.decide(request.id, actor=ActorRef.legacy("manager"), approve=True)
     with pytest.raises(ApprovalError, match="cannot decide"):
-        engine.decide(request.id, decided_by="manager", approve=False)
+        engine.decide(request.id, actor=ActorRef.legacy("manager"), approve=False)
 
 
 def test_withdraw(engine: ApprovalEngine) -> None:
     request = create_request(engine)
-    withdrawn = engine.withdraw(request.id, by="sari@example.com", reason="changed plans")
+    withdrawn = engine.withdraw(
+        request.id, actor=ActorRef.legacy("sari@example.com"), reason="changed plans"
+    )
     assert withdrawn.status is ApprovalStatus.WITHDRAWN
 
 
 def test_unknown_request_raises(engine: ApprovalEngine) -> None:
     with pytest.raises(ApprovalError, match="unknown approval"):
-        engine.decide(uuid4(), decided_by="someone", approve=True)
+        engine.decide(uuid4(), actor=ActorRef.legacy("someone"), approve=True)
 
 
 # --- SLA escalation ----------------------------------------------------------
@@ -181,7 +188,7 @@ def test_escalated_requests_stay_in_queue(engine: ApprovalEngine) -> None:
 def test_counts_by_status(engine: ApprovalEngine) -> None:
     first = create_request(engine)
     create_request(engine)
-    engine.decide(first.id, decided_by="manager", approve=True)
+    engine.decide(first.id, actor=ActorRef.legacy("manager"), approve=True)
 
     counts = engine.counts_by_status()
     assert counts[ApprovalStatus.PENDING.value] == 1
@@ -195,11 +202,19 @@ def test_counts_by_status(engine: ApprovalEngine) -> None:
 
 def test_reassign_refuses_a_non_human_actor(engine: ApprovalEngine) -> None:
     request = create_request(engine)
-    for actor in ("agent:screening", "system:scheduler", "system", "  "):
+    for actor in ("agent:screening", "system:scheduler", "system"):
         with pytest.raises(ApprovalError):
             engine.reassign(
-                request.id, by=actor, to_role=ApproverRole.FINANCE, reason="wrong queue"
+                request.id,
+                actor=ActorRef.legacy(actor),
+                to_role=ApproverRole.FINANCE,
+                reason="wrong queue",
             )
+    # A blank actor is refused one step earlier: there is nothing to gate. The
+    # old test fed "  " to reassign and asserted the gate caught it, which left a
+    # state change followed by a failed audit append as the alternative.
+    with pytest.raises(ActorError):
+        ActorRef.legacy("  ")
     assert reloaded(engine, request).assignee_role is ApproverRole.MANAGER
 
 
@@ -208,33 +223,53 @@ def test_reassign_requires_a_reason(engine: ApprovalEngine) -> None:
     request = create_request(engine)
     for reason in ("", "   "):
         with pytest.raises(ApprovalError, match="requires a reason"):
-            engine.reassign(request.id, by="Rina", to_role=ApproverRole.FINANCE, reason=reason)
+            engine.reassign(
+                request.id,
+                actor=ActorRef.legacy("Rina"),
+                to_role=ApproverRole.FINANCE,
+                reason=reason,
+            )
     assert reloaded(engine, request).assignee_role is ApproverRole.MANAGER
 
 
 def test_reassign_refuses_a_no_op_route(engine: ApprovalEngine) -> None:
     request = create_request(engine)
     with pytest.raises(ApprovalError, match="already assigned"):
-        engine.reassign(request.id, by="Rina", to_role=ApproverRole.MANAGER, reason="same role")
+        engine.reassign(
+            request.id,
+            actor=ActorRef.legacy("Rina"),
+            to_role=ApproverRole.MANAGER,
+            reason="same role",
+        )
 
 
 def test_reassign_refuses_a_decided_approval(engine: ApprovalEngine) -> None:
     request = create_request(engine)
-    engine.decide(request.id, decided_by="Budi", approve=True)
+    engine.decide(request.id, actor=ActorRef.legacy("Budi"), approve=True)
     with pytest.raises(ApprovalError):
-        engine.reassign(request.id, by="Rina", to_role=ApproverRole.FINANCE, reason="too late")
+        engine.reassign(
+            request.id,
+            actor=ActorRef.legacy("Rina"),
+            to_role=ApproverRole.FINANCE,
+            reason="too late",
+        )
 
 
 def test_reassign_refuses_an_unknown_approval(engine: ApprovalEngine) -> None:
     with pytest.raises(ApprovalError):
-        engine.reassign(uuid4(), by="Rina", to_role=ApproverRole.FINANCE, reason="wrong id")
+        engine.reassign(
+            uuid4(), actor=ActorRef.legacy("Rina"), to_role=ApproverRole.FINANCE, reason="wrong id"
+        )
 
 
 def test_reassign_moves_the_approval_and_records_why(engine: ApprovalEngine) -> None:
     request = create_request(engine, assignee_role=ApproverRole.MANAGER)
 
     moved = engine.reassign(
-        request.id, by="Rina", to_role=ApproverRole.FINANCE, reason="wrong department"
+        request.id,
+        actor=ActorRef.legacy("Rina"),
+        to_role=ApproverRole.FINANCE,
+        reason="wrong department",
     )
 
     assert moved.assignee_role is ApproverRole.FINANCE
@@ -245,7 +280,10 @@ def test_reassign_moves_the_approval_and_records_why(engine: ApprovalEngine) -> 
 def test_reassign_is_on_the_audit_chain(engine: ApprovalEngine) -> None:
     request = create_request(engine)
     engine.reassign(
-        request.id, by="Rina", to_role=ApproverRole.HR_ADMIN, reason="conflict of interest"
+        request.id,
+        actor=ActorRef.legacy("Rina"),
+        to_role=ApproverRole.HR_ADMIN,
+        reason="conflict of interest",
     )
 
     entry = engine.audit.entries[-1]
@@ -260,7 +298,10 @@ def test_reassign_keeps_the_approval_decidable(engine: ApprovalEngine) -> None:
     """The escape hatch must not produce a request nobody can sign."""
     request = create_request(engine, assignee_role=ApproverRole.MANAGER)
     moved = engine.reassign(
-        request.id, by="Rina", to_role=ApproverRole.DATA_PROTECTION, reason="DPO review"
+        request.id,
+        actor=ActorRef.legacy("Rina"),
+        to_role=ApproverRole.DATA_PROTECTION,
+        reason="DPO review",
     )
-    engine.decide(moved.id, decided_by="Rina", approve=True)
+    engine.decide(moved.id, actor=ActorRef.legacy("Rina"), approve=True)
     assert reloaded(engine, moved).status is ApprovalStatus.APPROVED

@@ -89,7 +89,7 @@ def make_template(
     return service.create_template(
         name="Test Template",
         steps=steps if steps is not None else default_steps,
-        created_by="hr-admin",
+        actor=ActorRef.legacy("hr-admin"),
     )
 
 
@@ -111,7 +111,7 @@ def test_template_hash_changes_with_content(service: OnboardingService) -> None:
 def test_duplicate_step_keys_rejected(service: OnboardingService) -> None:
     step = TemplateStep(key="dup", title="A", kind=StepKind.TASK)
     with pytest.raises(ValueError, match="duplicate step keys"):
-        service.create_template(name="X", steps=[step, step], created_by="hr")
+        service.create_template(name="X", steps=[step, step], actor=ActorRef.legacy("hr"))
 
 
 def test_document_step_requires_document_kind() -> None:
@@ -134,13 +134,13 @@ def test_template_selection_by_role(service: OnboardingService) -> None:
     service.create_template(
         name=engineering.name,
         steps=engineering.steps,
-        created_by="system",
+        actor=ActorRef.system("retention-sweep"),
         applies_to_roles=engineering.applies_to_roles,
     )
     finance_template = service.create_template(
         name="Finance",
         steps=[TemplateStep(key="x", title="X", kind=StepKind.TASK)],
-        created_by="hr",
+        actor=ActorRef.legacy("hr"),
         applies_to_roles=["finance"],
     )
 
@@ -157,7 +157,7 @@ def test_template_selection_by_contract_type(service: OnboardingService) -> None
     service.create_template(
         name="PKWT only",
         steps=[TemplateStep(key="x", title="X", kind=StepKind.TASK)],
-        created_by="hr",
+        actor=ActorRef.legacy("hr"),
         applies_to_contract_types=[ContractType.PKWT],
     )
     assert service.select_template(contract_type=ContractType.PKWT, role_text=None) is not None
@@ -174,7 +174,7 @@ def test_start_plan_creates_steps_and_tasks(
     template = make_template(service)
 
     plan = service.start_plan(
-        employee_id=employee.id, created_by="hr-admin", template_id=template.id
+        employee_id=employee.id, actor=ActorRef.legacy("hr-admin"), template_id=template.id
     )
 
     assert len(plan.steps) == 3
@@ -191,7 +191,7 @@ def test_start_plan_requires_matching_template(
 ) -> None:
     employee = make_employee(employee_service, job_title="Warehouse Operator")
     with pytest.raises(OnboardingError, match="no onboarding template"):
-        service.start_plan(employee_id=employee.id, created_by="hr")
+        service.start_plan(employee_id=employee.id, actor=ActorRef.legacy("hr"))
 
 
 def test_start_plan_uses_auto_selected_template(
@@ -200,10 +200,10 @@ def test_start_plan_uses_auto_selected_template(
     template = service.create_template(
         name="Universal",
         steps=[TemplateStep(key="x", title="X", kind=StepKind.TASK)],
-        created_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
     employee = make_employee(employee_service, job_title="Anything")
-    plan = service.start_plan(employee_id=employee.id, created_by="hr")
+    plan = service.start_plan(employee_id=employee.id, actor=ActorRef.legacy("hr"))
     assert plan.template_id == template.id
 
 
@@ -212,7 +212,9 @@ def test_due_dates_computed_from_hire(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     ktp_step = next(step for step in plan.steps if step.key == "collect_ktp")
     assert ktp_step.due_on == TODAY + timedelta(days=3)
 
@@ -225,9 +227,11 @@ def test_complete_step_by_human(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
 
-    updated = service.complete_step(plan.id, "orientation", by="hr-admin")
+    updated = service.complete_step(plan.id, "orientation", actor=ActorRef.legacy("hr-admin"))
     assert updated.steps[2].status is StepStatus.DONE
     assert updated.progress == round(1 / 3, 4)
 
@@ -237,9 +241,13 @@ def test_agent_cannot_complete_step(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
-    with pytest.raises(OnboardingError, match="completed by humans"):
-        service.complete_step(plan.id, "orientation", by="agent:onboarding_coordinator")
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
+    with pytest.raises(OnboardingError, match="named human"):
+        service.complete_step(
+            plan.id, "orientation", actor=ActorRef.agent("onboarding_coordinator")
+        )
 
 
 def test_double_completion_rejected(
@@ -247,10 +255,12 @@ def test_double_completion_rejected(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
-    service.complete_step(plan.id, "orientation", by="hr-admin")
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
+    service.complete_step(plan.id, "orientation", actor=ActorRef.legacy("hr-admin"))
     with pytest.raises(OnboardingError, match="already"):
-        service.complete_step(plan.id, "orientation", by="hr-admin")
+        service.complete_step(plan.id, "orientation", actor=ActorRef.legacy("hr-admin"))
 
 
 def test_plan_completes_when_all_required_done(
@@ -258,9 +268,11 @@ def test_plan_completes_when_all_required_done(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     for step_key in ("collect_ktp", "sign_contract", "orientation"):
-        plan = service.complete_step(plan.id, step_key, by="hr-admin")
+        plan = service.complete_step(plan.id, step_key, actor=ActorRef.legacy("hr-admin"))
 
     assert plan.is_complete
     assert plan.completed_at is not None
@@ -272,10 +284,15 @@ def test_waive_step_with_reason(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
 
     waived = service.waive_step(
-        plan.id, "collect_ktp", by="hr-admin", reason="document submitted offline"
+        plan.id,
+        "collect_ktp",
+        actor=ActorRef.legacy("hr-admin"),
+        reason="document submitted offline",
     )
     assert waived.steps[0].status is StepStatus.WAIVED
     assert "offline" in (waived.steps[0].note or "")
@@ -286,17 +303,21 @@ def test_waive_requires_reason(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     with pytest.raises(OnboardingError, match="requires a reason"):
-        service.waive_step(plan.id, "collect_ktp", by="hr-admin", reason="  ")
+        service.waive_step(plan.id, "collect_ktp", actor=ActorRef.legacy("hr-admin"), reason="  ")
 
 
 def test_agent_cannot_waive(service: OnboardingService, employee_service: EmployeeService) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     with pytest.raises(OnboardingError, match="named human"):
-        service.waive_step(plan.id, "collect_ktp", by="agent:x", reason="skip")
+        service.waive_step(plan.id, "collect_ktp", actor=ActorRef.agent("x"), reason="skip")
 
 
 # --- documents ---------------------------------------------------------------
@@ -307,7 +328,9 @@ def test_link_document_then_auto_complete(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
 
     document = employee_service.add_document(
         employee.id,
@@ -316,7 +339,9 @@ def test_link_document_then_auto_complete(
         sha256="a" * 64,
         actor=ActorRef.legacy("hr-admin"),
     )
-    linked = service.link_document(plan.id, "collect_ktp", document=document, linked_by="hr-admin")
+    linked = service.link_document(
+        plan.id, "collect_ktp", document=document, actor=ActorRef.legacy("hr-admin")
+    )
     assert linked.steps[0].status is StepStatus.IN_PROGRESS
     assert linked.steps[0].linked_document_id == document.id
 
@@ -341,7 +366,9 @@ def test_auto_complete_rejects_non_document_step(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     document = employee_service.add_document(
         employee.id,
         kind=DocumentKind.KTP,
@@ -373,9 +400,11 @@ def test_auto_complete_rejects_signoff_step(
                 requires_human_signoff=True,
             )
         ],
-        created_by="hr",
+        actor=ActorRef.legacy("hr"),
     )
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     document = employee_service.add_document(
         employee.id,
         kind=DocumentKind.KTP,
@@ -386,7 +415,7 @@ def test_auto_complete_rejects_signoff_step(
     verified = employee_service.mark_document_verified(
         document.id, actor=ActorRef.legacy("hr"), verified=True
     )
-    service.link_document(plan.id, "doc", document=verified, linked_by="hr")
+    service.link_document(plan.id, "doc", document=verified, actor=ActorRef.legacy("hr"))
 
     with pytest.raises(OnboardingError, match="human sign-off"):
         service.auto_complete_document_step(
@@ -399,7 +428,9 @@ def test_link_document_kind_mismatch(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     wrong = employee_service.add_document(
         employee.id,
         kind=DocumentKind.NPWP,
@@ -408,7 +439,7 @@ def test_link_document_kind_mismatch(
         actor=ActorRef.legacy("hr"),
     )
     with pytest.raises(OnboardingError, match="expects ktp"):
-        service.link_document(plan.id, "collect_ktp", document=wrong, linked_by="hr")
+        service.link_document(plan.id, "collect_ktp", document=wrong, actor=ActorRef.legacy("hr"))
 
 
 def test_document_status_report(
@@ -416,7 +447,9 @@ def test_document_status_report(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     status = service.document_step_status(plan.id)
     assert status == {"collect_ktp": "missing"}
 
@@ -427,7 +460,7 @@ def test_document_status_report(
         sha256="a" * 64,
         actor=ActorRef.legacy("hr"),
     )
-    service.link_document(plan.id, "collect_ktp", document=document, linked_by="hr")
+    service.link_document(plan.id, "collect_ktp", document=document, actor=ActorRef.legacy("hr"))
     status = service.document_step_status(plan.id)
     assert status == {"collect_ktp": "pending_validation"}
 
@@ -440,7 +473,9 @@ def test_active_plans_and_blockers(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     assert [p.id for p in service.active_plans()] == [plan.id]
     assert {step.key for step in plan.blockers()} == {
         "collect_ktp",
@@ -457,9 +492,11 @@ def test_unknown_plan_and_step_raise(
 
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
     with pytest.raises(OnboardingError, match="unknown step"):
-        service.complete_step(plan.id, "nope", by="hr")
+        service.complete_step(plan.id, "nope", actor=ActorRef.legacy("hr"))
 
 
 def test_audit_chain_covers_onboarding_events(
@@ -467,8 +504,10 @@ def test_audit_chain_covers_onboarding_events(
 ) -> None:
     employee = make_employee(employee_service)
     template = make_template(service)
-    plan = service.start_plan(employee_id=employee.id, created_by="hr", template_id=template.id)
-    service.complete_step(plan.id, "orientation", by="hr-admin")
+    plan = service.start_plan(
+        employee_id=employee.id, actor=ActorRef.legacy("hr"), template_id=template.id
+    )
+    service.complete_step(plan.id, "orientation", actor=ActorRef.legacy("hr-admin"))
 
     actions = [entry.action for entry in audit.entries]
     assert "onboarding.template_created" in actions

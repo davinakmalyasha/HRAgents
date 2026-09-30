@@ -70,8 +70,8 @@ DEFAULT_ACTOR = ActorRef.legacy("hr-admin")
 # A blank actor is absent from this list on purpose: it cannot be constructed.
 # See `test_a_blank_actor_cannot_be_constructed` below, which is the stronger
 # property -- a gate that has to reject "" is a weaker design than one that
-# cannot accept it. Services that still take a bare `by: str` keep their own
-# blank-string tests, because a request body can still supply one.
+# cannot accept it. No service takes a bare `by: str` any more, and no request
+# body can name an actor, so there is no remaining path that produces a blank one.
 NON_HUMANS = [
     ActorRef.legacy("agent:screening"),
     ActorRef.legacy("agent:"),
@@ -218,14 +218,21 @@ def test_leave_policy_and_balance_adjustment_refuse_non_humans() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(LeaveError, match="named human"):
-            leave.set_policy(policy, by=actor.actor_id)
-    leave.set_policy(policy, by="Rina")
+            leave.set_policy(policy, actor=ActorRef.legacy(actor.actor_id))
+    leave.set_policy(policy, actor=ActorRef.legacy("Rina"))
 
     for actor in NON_HUMANS:
         with pytest.raises(LeaveError, match="named human"):
-            leave.adjust_balance(employee.id, LeaveType.ANNUAL, days=2, by=actor.actor_id)
+            leave.adjust_balance(
+                employee.id, LeaveType.ANNUAL, days=2, actor=ActorRef.legacy(actor.actor_id)
+            )
 
-    assert leave.adjust_balance(employee.id, LeaveType.ANNUAL, days=2, by="Rina").adjustment == 2
+    assert (
+        leave.adjust_balance(
+            employee.id, LeaveType.ANNUAL, days=2, actor=ActorRef.legacy("Rina")
+        ).adjustment
+        == 2
+    )
 
 
 # --- payroll ------------------------------------------------------------------
@@ -241,9 +248,9 @@ def test_payroll_export_and_cancellation_refuse_non_humans() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(PayrollError, match="named human"):
-            payroll.mark_exported(uuid4(), by=actor.actor_id)
+            payroll.mark_exported(uuid4(), actor=ActorRef.legacy(actor.actor_id))
         with pytest.raises(PayrollError, match="named human"):
-            payroll.cancel_run(uuid4(), by=actor.actor_id, reason="mistake")
+            payroll.cancel_run(uuid4(), actor=ActorRef.legacy(actor.actor_id), reason="mistake")
 
 
 def test_the_payroll_gate_runs_before_the_lookup() -> None:
@@ -256,7 +263,7 @@ def test_the_payroll_gate_runs_before_the_lookup() -> None:
         audit=AuditChain(),
     )
     with pytest.raises(PayrollError, match="named human"):
-        payroll.mark_exported(uuid4(), by="system")
+        payroll.mark_exported(uuid4(), actor=ActorRef.system("retention-sweep"))
 
 
 # --- offboarding --------------------------------------------------------------
@@ -288,11 +295,11 @@ def test_finalizing_an_exit_refuses_non_humans() -> None:
 
     for actor in NON_HUMANS:
         with pytest.raises(OffboardingError, match="named human"):
-            service.finalize_employee_exit(missing, by=actor.actor_id)
+            service.finalize_employee_exit(missing, actor=ActorRef.legacy(actor.actor_id))
 
     # The gate is not merely present, it runs first: a human gets the real error.
     with pytest.raises(OffboardingError, match="unknown"):
-        service.finalize_employee_exit(missing, by="Rina")
+        service.finalize_employee_exit(missing, actor=ActorRef.legacy("Rina"))
 
 
 # --- the approval engine ------------------------------------------------------
@@ -311,16 +318,20 @@ def test_approval_decisions_refuse_system_actors() -> None:
         subject_id=str(uuid4()),
         title="Sign off the March run",
         summary="All anomalies cleared; figures match last month.",
-        requested_by="payroll",
+        actor=ActorRef.legacy("payroll"),
         assignee_role=ApproverRole.FINANCE,
         urgency=Urgency.NORMAL,
     )
 
     for actor in NON_HUMANS:
         with pytest.raises(Exception, match="named human"):
-            approvals.decide(request.id, decided_by=actor.actor_id, approve=True, reason="ok")
+            approvals.decide(
+                request.id, actor=ActorRef.legacy(actor.actor_id), approve=True, reason="ok"
+            )
 
-    decision = approvals.decide(request.id, decided_by="dpo-nadia", approve=True, reason="ok")
+    decision = approvals.decide(
+        request.id, actor=ActorRef.legacy("dpo-nadia"), approve=True, reason="ok"
+    )
     assert decision.action == "approved"
     assert decision.request.decided_by == "dpo-nadia"
 
@@ -346,7 +357,7 @@ def test_an_agent_actor_reaches_the_chain_as_an_agent_everywhere() -> None:
     rates.create(
         kind=RateTableKind.BPJS_KESEHATAN,
         name="BPJS",
-        created_by="agent:x",
+        actor=ActorRef.agent("x"),
     )
     assert audit.entries[-1].actor.actor_type.value == "agent"
 

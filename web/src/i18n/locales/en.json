@@ -270,7 +270,6 @@
     },
     "fields": {
       "by": "Decided by",
-      "byPlaceholder": "e.g. Sinta Prabowo",
       "reason": "Reason",
       "reasonPlaceholder": "Recorded in the audit log",
       "body": "Message (optional)",
@@ -279,7 +278,6 @@
       "language": "Language"
     },
     "errors": {
-      "byRequired": "A named person is required.",
       "positionRequired": "A position title is required.",
       "startRequired": "A start date is required.",
       "salaryInvalid": "Salary must be a non-negative number.",
@@ -399,7 +397,6 @@
     },
     "fields": {
       "by": "Approved by",
-      "byPlaceholder": "e.g. Sinta Prabowo",
       "language": "Language",
       "channel": "Channel",
       "subject": "Subject",
@@ -429,7 +426,6 @@
     "openWhatsapp": "Open WhatsApp",
     "recordAfterLink": "I sent it — record dispatch",
     "errors": {
-      "byRequired": "A named person is required.",
       "bodyRequired": "A message body is required.",
       "forbidden": "Your role cannot queue candidate messages.",
       "notFound": "The candidate or evaluation no longer exists.",
@@ -475,12 +471,10 @@
     },
     "fields": {
       "by": "Decided by",
-      "byPlaceholder": "e.g. Sinta Prabowo",
       "reason": "Reason",
       "reasonPlaceholder": "Recorded in the audit log"
     },
     "errors": {
-      "byRequired": "A named person is required.",
       "reasonRequired": "A reason is required to cancel or reschedule.",
       "approvalRejected": "The linked approval was rejected; create a new proposal instead.",
       "forbidden": "Your role cannot decide scheduling proposals.",
@@ -619,7 +613,6 @@
       "template": "Template",
       "templateDefault": "Use the server default",
       "createdBy": "Started by",
-      "createdByPlaceholder": "e.g. Sinta Prabowo",
       "confirm": "Start onboarding",
       "templatePlaceholder": "Select a template",
       "createStarter": "Use starter checklist",
@@ -633,14 +626,11 @@
     },
     "fields": {
       "by": "Handled by",
-      "byPlaceholder": "e.g. Sinta Prabowo",
       "reason": "Reason",
       "reasonHint": "Required. Stored on the audit chain with your name.",
-      "note": "Note",
-      "linkedBy": "Linked by"
+      "note": "Note"
     },
     "errors": {
-      "byRequired": "A named person is required.",
       "employeeRequired": "Pick an employee to onboard.",
       "nameRequired": "A full name is required.",
       "reasonRequired": "A waiver needs a reason.",
@@ -708,7 +698,6 @@
       "failed": "Rejected"
     },
     "errors": {
-      "byRequired": "A named person is required before a document can be judged.",
       "forbidden": "Your role cannot verify documents.",
       "failed": "Could not save. Please try again."
     }

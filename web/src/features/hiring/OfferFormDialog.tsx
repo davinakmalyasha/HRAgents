@@ -53,7 +53,6 @@ export function OfferFormDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [by, setBy] = useState('')
   const [position, setPosition] = useState(offer?.terms.position_title ?? '')
   const [employmentType, setEmploymentType] = useState<EmploymentType>(
     (offer?.terms.employment_type as EmploymentType | undefined) ?? 'pkwtt',
@@ -80,9 +79,6 @@ export function OfferFormDialog({
 
   function validate(): string[] {
     const problems: string[] = []
-    if (by.trim() === '') {
-      problems.push(t('offer.errors.byRequired'))
-    }
     if (position.trim() === '') {
       problems.push(t('offer.errors.positionRequired'))
     }
@@ -149,10 +145,9 @@ export function OfferFormDialog({
         ? await createOffer({
             application_id: applicationId,
             terms,
-            by: by.trim(),
             note: '',
           })
-        : await reviseOffer(offer.id, { terms, by: by.trim(), note: note.trim() })
+        : await reviseOffer(offer.id, { terms, note: note.trim() })
     setBusy(false)
     if (result.status === 200 || result.status === 201) {
       await queryClient.invalidateQueries({ queryKey: ['offers', applicationId] })
@@ -179,19 +174,6 @@ export function OfferFormDialog({
               {problem}
             </p>
           ) : null}
-
-          <div className={fieldClass}>
-            <label htmlFor="offer-by" className={labelClass}>
-              {t('offer.form.by')}
-            </label>
-            <Input
-              id="offer-by"
-              value={by}
-              onChange={(event) => setBy(event.target.value)}
-              placeholder={t('offer.fields.byPlaceholder')}
-              autoComplete="off"
-            />
-          </div>
 
           <div className={fieldClass}>
             <label htmlFor="offer-position" className={labelClass}>

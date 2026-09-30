@@ -568,28 +568,30 @@ class OfferView(StrictModel):
 class OfferCreate(StrictModel):
     application_id: UUID
     terms: OfferTerms
-    by: str = Field(min_length=1, max_length=200)
     note: str = Field(default="", max_length=500)
 
 
 class OfferReviseRequest(StrictModel):
     terms: OfferTerms
-    by: str = Field(min_length=1, max_length=200)
     note: str = Field(default="", max_length=500)
 
 
 class OfferSubmitRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
+    """Submitting a draft offer needs no body.
+
+    The actor is the authenticated principal and the offer's terms are already
+    on the record, so there is nothing left for the client to say. An empty
+    strict model still refuses a body carrying anything, so a client that sends
+    an actor gets a 422 naming the field instead of believing it was obeyed.
+    """
 
 
 class OfferDecisionRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     decision: Literal["approve", "withdraw"]
     reason: str = Field(default="", max_length=500)
 
 
 class OfferMessageRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     body: str | None = Field(default=None, max_length=8000)
     subject: str | None = Field(default=None, max_length=200)
     language: Literal["en", "id"] = "en"
@@ -597,6 +599,5 @@ class OfferMessageRequest(StrictModel):
 
 
 class OfferAcceptanceRequest(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     accepted: bool
     reason: str = Field(default="", max_length=500)

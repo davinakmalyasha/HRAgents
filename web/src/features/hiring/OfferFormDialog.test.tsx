@@ -32,20 +32,22 @@ function renderForm(offer: OfferView | null = null) {
 }
 
 async function fillMinimum() {
-  await userEvent.type(screen.getByLabelText(i18n.t('offer.form.by')), 'hr-admin')
   await userEvent.type(screen.getByLabelText(i18n.t('offer.terms.position')), 'Backend Engineer')
   await userEvent.type(screen.getByLabelText(i18n.t('offer.terms.start')), '2026-11-01')
   await userEvent.type(screen.getByLabelText(i18n.t('offer.form.salary')), '25000000')
 }
 
 describe('OfferFormDialog', () => {
-  it('requires actor, position, start date, and a valid salary', async () => {
+  it('requires position, start date, and a valid salary -- and no actor', async () => {
     renderForm()
 
+    // No "by" field: the server attributes the offer to the API key holder, so
+    // asking for a name here would collect a value nothing reads.
+    expect(screen.queryByLabelText(i18n.t('offer.form.by'))).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: i18n.t('offer.form.save') }))
 
     expect(createMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('offer.errors.byRequired'))).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('offer.errors.positionRequired'))).toBeInTheDocument()
   })
 
   it('blocks a PKWT offer without an end date', async () => {
@@ -70,7 +72,6 @@ describe('OfferFormDialog', () => {
 
     expect(createMock).toHaveBeenCalledWith({
       application_id: 'app-1',
-      by: 'hr-admin',
       note: '',
       terms: {
         position_title: 'Backend Engineer',

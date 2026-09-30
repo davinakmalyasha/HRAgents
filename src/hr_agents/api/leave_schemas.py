@@ -22,7 +22,6 @@ from hr_agents.models import (
 class PolicySet(StrictModel):
     leave_type: LeaveType
     name: str = Field(min_length=1, max_length=120)
-    by: str = Field(min_length=1, max_length=200)
     paid: bool = True
     requires_approval: bool = True
     approver_role: ApproverRole = ApproverRole.MANAGER
@@ -38,7 +37,7 @@ class PolicySet(StrictModel):
     working_days_only: bool = True
 
     def to_policy(self) -> LeaveTypePolicy:
-        return LeaveTypePolicy(**self.model_dump(exclude={"by"}))
+        return LeaveTypePolicy(**self.model_dump())
 
 
 class PolicyView(StrictModel):
@@ -103,7 +102,6 @@ class BalanceView(StrictModel):
 
 class BalanceAdjust(StrictModel):
     days: float
-    by: str = Field(min_length=1, max_length=200)
     year: int | None = Field(default=None, ge=2000, le=2100)
     reason: str | None = Field(default=None, max_length=500)
 
@@ -113,13 +111,11 @@ class LeaveRequestCreate(StrictModel):
     leave_type: LeaveType
     start_date: date
     end_date: date
-    requested_by: str = Field(min_length=1, max_length=200)
     reason: str | None = Field(default=None, max_length=1000)
     document_id: UUID | None = None
 
 
 class RequestAction(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str | None = Field(default=None, max_length=1000)
 
 
@@ -151,4 +147,3 @@ class LeaveRequestView(StrictModel):
 
 class HolidaySet(StrictModel):
     holidays: list[date]
-    by: str = Field(min_length=1, max_length=200)

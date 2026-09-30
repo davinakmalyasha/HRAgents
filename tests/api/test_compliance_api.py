@@ -20,7 +20,6 @@ def set_policy(client: TestClient, *, action: str = "anonymize", entity: str = "
             "entity": entity,
             "name": f"{entity.title()} records",
             "retention_months": 24,
-            "updated_by": "hr-admin",
             "expiry_action": action,
         },
     )
@@ -36,7 +35,6 @@ def track_candidate(
             "entity": "candidate",
             "subject_kind": "candidate",
             "subject_id": subject_id,
-            "created_by": "screening-pipeline",
             "label": "Budi Santoso",
             "anchor_at": anchor_at or (NOW - timedelta(days=800)).isoformat(),
         },
@@ -56,7 +54,6 @@ def test_consent_register_status_revoke() -> None:
                 "subject_kind": "candidate",
                 "subject_id": "cand-1",
                 "purpose": "recruitment_evaluation",
-                "captured_by": "screening-agent",
                 "capture_method": "web_form",
             },
         )
@@ -72,13 +69,14 @@ def test_consent_register_status_revoke() -> None:
 
         agent_revoke = client.post(
             f"/v1/compliance/consents/{consent_id}/revoke",
-            json={"by": "agent:policy_assistant", "reason": "subject asked"},
+            json={"reason": "subject asked", "by": "agent:policy_assistant"},
         )
-        assert agent_revoke.status_code == 409
+        assert agent_revoke.status_code == 422
+        assert any(error["loc"][-1] == "by" for error in agent_revoke.json()["detail"])
 
         revoked = client.post(
             f"/v1/compliance/consents/{consent_id}/revoke",
-            json={"by": "hr-admin", "reason": "subject asked"},
+            json={"reason": "subject asked"},
         )
         assert revoked.status_code == 200
         assert revoked.json()["active"] is False
@@ -98,7 +96,7 @@ def test_retention_scan_purge_and_hold_flow() -> None:
 
         held = client.post(
             f"/v1/compliance/retention/records/{second['id']}/hold",
-            json={"held": True, "by": "hr-admin", "reason": "litigation hold"},
+            json={"held": True, "reason": "litigation hold"},
         )
         assert held.status_code == 200
         assert held.json()["legal_hold"] is True
@@ -109,14 +107,12 @@ def test_retention_scan_purge_and_hold_flow() -> None:
         assert len(body["due"]) == 1
         assert len(body["held"]) == 1
 
-        dry_run = client.post(
-            "/v1/compliance/retention/purge", json={"by": "system", "dry_run": True}
-        )
+        dry_run = client.post("/v1/compliance/retention/purge", json={"dry_run": True})
         assert dry_run.status_code == 200
         assert dry_run.json()["dry_run"] is True
         assert len(dry_run.json()["purged"]) == 1
 
-        executed = client.post("/v1/compliance/retention/purge", json={"by": "system"})
+        executed = client.post("/v1/compliance/retention/purge", json={})
         assert executed.status_code == 200
         # The candidate entity has no store handler, so the purge is skipped
         # rather than falsely reported. See the dedicated test below.
@@ -146,7 +142,7 @@ def test_purge_reports_skip_when_the_entity_has_no_store_handler() -> None:
         set_policy(client, action="delete")
         track_candidate(client, subject_id="cand-1")
 
-        response = client.post("/v1/compliance/retention/purge", json={"by": "system"})
+        response = client.post("/v1/compliance/retention/purge", json={})
         assert response.status_code == 200
         body = response.json()
 
@@ -171,7 +167,6 @@ def test_consent_purge_actually_removes_the_grant() -> None:
                 "subject_kind": "candidate",
                 "subject_id": "cand-1",
                 "purpose": "recruitment_evaluation",
-                "captured_by": "hr-admin",
             },
         )
         client.post(
@@ -180,14 +175,13 @@ def test_consent_purge_actually_removes_the_grant() -> None:
                 "entity": "consent",
                 "subject_kind": "candidate",
                 "subject_id": "cand-1",
-                "created_by": "compliance",
                 "anchor_at": (NOW - timedelta(days=900)).isoformat(),
             },
         )
         before = client.get("/v1/compliance/consents", params={"subject_id": "cand-1"})
         assert len(before.json()) == 1
 
-        response = client.post("/v1/compliance/retention/purge", json={"by": "system"})
+        response = client.post("/v1/compliance/retention/purge", json={})
         assert response.status_code == 200
         body = response.json()
         assert len(body["purged"]) == 1
@@ -206,7 +200,6 @@ def test_retention_uncovered_entity_reported() -> None:
                 "entity": "document",
                 "subject_kind": "employee",
                 "subject_id": "emp-1",
-                "created_by": "records",
                 "anchor_at": (NOW - timedelta(days=900)).isoformat(),
             },
         )
@@ -218,11 +211,27 @@ def test_retention_uncovered_entity_reported() -> None:
     assert scan.json()["due"] == []
 
 
-def test_agent_purge_rejected() -> None:
-    with make_client() as client:
-        response = client.post("/v1/compliance/retention/purge", json={"by": "agent:records"})
+def test_purge_refuses_a_caller_supplied_actor() -> None:
+    """The retention purge cannot be attributed by naming someone in the body.
 
-    assert response.status_code == 409
+    The sweep is the one consequential operation that may legitimately run
+    unattended, so its gate refuses *agents* rather than demanding a person --
+    see ``ActorRef.require_human_or_system``. Over HTTP nobody can name an actor
+    at all, so the attempt is a 422 on the field. The narrower gate is covered at
+    the service layer in ``tests/services/test_compliance.py``, which still
+    proves a ``system`` actor is accepted and an agent's is not.
+    """
+    with make_client() as client:
+        refused = client.post(
+            "/v1/compliance/retention/purge",
+            json={"by": "agent:records"},
+        )
+        accepted = client.post("/v1/compliance/retention/purge", json={})
+
+    assert refused.status_code == 422
+    assert any(error["loc"][-1] == "by" for error in refused.json()["detail"])
+    assert accepted.status_code == 200
+    assert accepted.json()["by"] == "local-dev"
 
 
 # --- erasure ------------------------------------------------------------------
@@ -234,7 +243,7 @@ def test_erasure_end_to_end_requires_human_approval() -> None:
         record = track_candidate(client, subject_id="cand-1")
         client.post(
             f"/v1/compliance/retention/records/{record['id']}/hold",
-            json={"held": True, "by": "hr-admin", "reason": "litigation"},
+            json={"held": True, "reason": "litigation"},
         )
         other = track_candidate(client, subject_id="cand-1")
         client.post(
@@ -243,7 +252,6 @@ def test_erasure_end_to_end_requires_human_approval() -> None:
                 "subject_kind": "candidate",
                 "subject_id": "cand-1",
                 "purpose": "recruitment_evaluation",
-                "captured_by": "hr-admin",
             },
         )
 
@@ -253,42 +261,35 @@ def test_erasure_end_to_end_requires_human_approval() -> None:
                 "subject_kind": "candidate",
                 "subject_id": "cand-1",
                 "reason": "UU PDP erasure request",
-                "requested_by": "hr-admin",
             },
         )
         assert created.status_code == 201, created.text
         request_id = created.json()["id"]
 
-        premature = client.post(
-            f"/v1/compliance/erasures/{request_id}/submit", json={"by": "hr-admin"}
-        )
+        premature = client.post(f"/v1/compliance/erasures/{request_id}/submit", json={})
         assert premature.status_code == 409
 
         verified = client.post(
             f"/v1/compliance/erasures/{request_id}/verify",
-            json={"by": "hr-admin", "method": "email reply"},
+            json={"method": "email reply"},
         )
         assert verified.status_code == 200
 
-        submitted = client.post(
-            f"/v1/compliance/erasures/{request_id}/submit", json={"by": "hr-admin"}
-        )
+        submitted = client.post(f"/v1/compliance/erasures/{request_id}/submit", json={})
         assert submitted.status_code == 200
         approval_id = submitted.json()["approval_id"]
 
         decision = client.post(
             f"/v1/approvals/{approval_id}/decide",
-            json={"decided_by": "dpo-nadia", "approve": True, "reason": "verified request"},
+            json={"approve": True, "reason": "verified request"},
         )
         assert decision.status_code == 200, decision.text
 
-        synced = client.post(f"/v1/compliance/erasures/approvals/{approval_id}/sync")
+        synced = client.post(f"/v1/compliance/erasures/approvals/{approval_id}/sync", json={})
         assert synced.status_code == 200
         assert synced.json()["status"] == "approved"
 
-        executed = client.post(
-            f"/v1/compliance/erasures/{request_id}/execute", json={"by": "hr-admin"}
-        )
+        executed = client.post(f"/v1/compliance/erasures/{request_id}/execute", json={})
         assert executed.status_code == 200, executed.text
         body = executed.json()
         assert body["status"] == "executed"
@@ -323,8 +324,6 @@ def test_breach_checklist_flow() -> None:
                 "title": "Laptop with HR export lost",
                 "description": "Device encryption status unknown",
                 "impact": "high",
-                "discovered_by": "it-ops",
-                "created_by": "hr-admin",
                 "discovered_at": NOW.isoformat(),
             },
         )
@@ -335,18 +334,19 @@ def test_breach_checklist_flow() -> None:
             f"/v1/compliance/breaches/{incident_id}/steps/contain/complete",
             json={"by": "agent:compliance"},
         )
-        assert agent_step.status_code == 409
+        assert agent_step.status_code == 422
+        assert any(error["loc"][-1] == "by" for error in agent_step.json()["detail"])
 
         completed = client.post(
             f"/v1/compliance/breaches/{incident_id}/steps/contain/complete",
-            json={"by": "it-ops", "note": "device remote-wiped"},
+            json={"note": "device remote-wiped"},
         )
         assert completed.status_code == 200
         assert completed.json()["steps"][0]["completed"] is True
 
         notified_without_record = client.post(
             f"/v1/compliance/breaches/{incident_id}/status",
-            json={"status": "notified", "by": "hr-admin"},
+            json={"status": "notified"},
         )
         assert notified_without_record.status_code == 409
 
@@ -355,13 +355,12 @@ def test_breach_checklist_flow() -> None:
             json={
                 "recipient_kind": "regulator",
                 "recipient": "authority portal",
-                "sent_by": "hr-admin",
                 "reference": "ticket-42",
             },
         )
         notified = client.post(
             f"/v1/compliance/breaches/{incident_id}/status",
-            json={"status": "notified", "by": "hr-admin", "note": "notice sent"},
+            json={"status": "notified", "note": "notice sent"},
         )
         assert notified.status_code == 200
         assert notified.json()["status"] == "notified"
@@ -370,12 +369,12 @@ def test_breach_checklist_flow() -> None:
             if step["required"] and not step["completed"]:
                 client.post(
                     f"/v1/compliance/breaches/{incident_id}/steps/{step['key']}/complete",
-                    json={"by": "hr-admin"},
+                    json={},
                 )
 
         closed = client.post(
             f"/v1/compliance/breaches/{incident_id}/status",
-            json={"status": "closed", "by": "hr-admin", "note": "post-mortem done"},
+            json={"status": "closed", "note": "post-mortem done"},
         )
         assert closed.status_code == 200, closed.text
         assert closed.json()["status"] == "closed"
@@ -393,8 +392,6 @@ def test_breach_close_requires_note() -> None:
                 "title": "Misdirected email",
                 "description": "",
                 "impact": "medium",
-                "discovered_by": "hr-admin",
-                "created_by": "hr-admin",
                 "discovered_at": NOW.isoformat(),
             },
         )
@@ -402,7 +399,7 @@ def test_breach_close_requires_note() -> None:
 
         response = client.post(
             f"/v1/compliance/breaches/{incident_id}/status",
-            json={"status": "closed", "by": "hr-admin"},
+            json={"status": "closed"},
         )
 
     assert response.status_code == 409
@@ -419,10 +416,9 @@ def test_audit_verify_reports_intact_chain() -> None:
                 "subject_kind": "candidate",
                 "subject_id": "cand-1",
                 "purpose": "recruitment_evaluation",
-                "captured_by": "hr-admin",
             },
         )
-        report = client.get("/v1/compliance/audit/verify", params={"checked_by": "auditor"})
+        report = client.get("/v1/compliance/audit/verify", params={})
 
     assert report.status_code == 200
     body = report.json()

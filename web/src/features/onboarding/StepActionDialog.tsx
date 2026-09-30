@@ -11,7 +11,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
 import { completeStep, waiveStep, type PlanResult } from './onboardingApi'
@@ -53,7 +52,6 @@ export function StepActionDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [by, setBy] = useState('')
   const [reason, setReason] = useState('')
   const [note, setNote] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
@@ -68,10 +66,6 @@ export function StepActionDialog({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (by.trim() === '') {
-      setProblem(t('onboarding.errors.byRequired'))
-      return
-    }
     if (mode === 'waive' && reason.trim() === '') {
       setProblem(t('onboarding.errors.reasonRequired'))
       return
@@ -82,10 +76,9 @@ export function StepActionDialog({
     const result =
       mode === 'complete'
         ? await completeStep(planId, step.key, {
-            by: by.trim(),
             note: note.trim() === '' ? null : note.trim(),
           })
-        : await waiveStep(planId, step.key, { by: by.trim(), reason: reason.trim() })
+        : await waiveStep(planId, step.key, { reason: reason.trim() })
     setBusy(false)
 
     if (result.status === 200 && result.plan !== undefined) {
@@ -125,19 +118,6 @@ export function StepActionDialog({
           {step.required ? (
             <p className="text-2xs text-ink-muted">{t('onboarding.actions.requiredStepNotice')}</p>
           ) : null}
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="onboarding-step-by" className="text-ink-strong text-xs font-medium">
-              {t('onboarding.fields.by')}
-            </label>
-            <Input
-              id="onboarding-step-by"
-              value={by}
-              onChange={(event) => setBy(event.target.value)}
-              placeholder={t('onboarding.fields.byPlaceholder')}
-              autoComplete="off"
-            />
-          </div>
 
           {mode === 'waive' ? (
             <div className="flex flex-col gap-1.5">

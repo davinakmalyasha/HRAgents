@@ -285,7 +285,6 @@ def test_approval_flow_via_api() -> None:
                 "subject_id": "leave-1",
                 "title": "Annual leave 3 days",
                 "assignee_role": "manager",
-                "requested_by": "sari@example.com",
                 "urgency": "high",
             },
         )
@@ -295,7 +294,7 @@ def test_approval_flow_via_api() -> None:
         queue_response = client.get("/v1/approvals", params={"role": "manager"})
         decided = client.post(
             f"/v1/approvals/{approval_id}/decide",
-            json={"decided_by": "manager-budi", "approve": True, "reason": "ok"},
+            json={"approve": True, "reason": "ok"},
         )
 
     assert queue_response.status_code == 200
@@ -305,9 +304,17 @@ def test_approval_flow_via_api() -> None:
     assert decided.json()["request"]["status"] == "approved"
 
 
-def test_agent_cannot_decide_via_api() -> None:
+def test_approval_request_and_decision_take_their_actor_from_the_key() -> None:
+    """Neither creating nor deciding an approval can name an actor in the body.
+
+    The old test asserted a 409 "named human" for a body carrying
+    ``decided_by="agent:policy_assistant"``. Unreachable over HTTP now: a request
+    cannot name an actor at all, so both attempts are refused at the boundary
+    with a 422 that names the field. ``ApprovalEngine`` still refuses a
+    non-human actor, covered in ``tests/test_named_human_gates.py``.
+    """
     with make_client() as client:
-        created = client.post(
+        create_refused = client.post(
             "/v1/approvals",
             json={
                 "subject": "candidate_rejection",
@@ -315,17 +322,35 @@ def test_agent_cannot_decide_via_api() -> None:
                 "title": "Rejection sign-off",
                 "assignee_role": "engineering_lead",
                 "requested_by": "policy_engine",
-                "requested_by_agent": True,
+            },
+        )
+        created = client.post(
+            "/v1/approvals",
+            json={
+                "subject": "candidate_rejection",
+                "subject_id": "cand-1",
+                "title": "Rejection sign-off",
+                "assignee_role": "engineering_lead",
             },
         )
         approval_id = created.json()["id"]
-        response = client.post(
+        decide_refused = client.post(
             f"/v1/approvals/{approval_id}/decide",
-            json={"decided_by": "agent:policy_assistant", "approve": True},
+            json={"approve": True, "decided_by": "agent:policy_assistant"},
+        )
+        decided = client.post(
+            f"/v1/approvals/{approval_id}/decide",
+            json={"approve": True},
         )
 
-    assert response.status_code == 409
-    assert "named human" in response.json()["title"]
+    assert create_refused.status_code == 422
+    assert any(error["loc"][-1] == "requested_by" for error in create_refused.json()["detail"])
+    assert created.json()["requested_by"] == "local-dev"
+    assert created.json()["requested_by_agent"] is False
+    assert decide_refused.status_code == 422
+    assert any(error["loc"][-1] == "decided_by" for error in decide_refused.json()["detail"])
+    assert decided.status_code == 200
+    assert decided.json()["action"] == "approved"
 
 
 def test_tasks_flow_via_api() -> None:
@@ -356,7 +381,7 @@ def test_rate_table_unverified_gate_via_api() -> None:
     with make_client() as client:
         created = client.post(
             "/v1/rate-tables",
-            json={"kind": "bpjs_kesehatan", "name": "BPJS Kesehatan", "created_by": "hr"},
+            json={"kind": "bpjs_kesehatan", "name": "BPJS Kesehatan"},
         )
         unverified = client.get("/v1/rate-tables/unverified")
 

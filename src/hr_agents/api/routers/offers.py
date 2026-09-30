@@ -12,7 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.recruitment_schemas import (
     OfferAcceptanceRequest,
     OfferCreate,
@@ -64,11 +64,9 @@ def list_offers(offers: OffersDep, application_id: UUID | None = None) -> list[O
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
     summary="Create a draft offer (named human; terms are human-entered)",
 )
-def create_offer(payload: OfferCreate, offers: OffersDep) -> OfferView:
+def create_offer(payload: OfferCreate, offers: OffersDep, actor: ActorDep) -> OfferView:
     try:
-        offer = offers.create(
-            payload.application_id, payload.terms, by=payload.by, note=payload.note
-        )
+        offer = offers.create(payload.application_id, payload.terms, actor=actor, note=payload.note)
     except RecruitingError as exc:
         raise _not_found(str(exc)) from exc
     except OfferError as exc:
@@ -92,9 +90,11 @@ def get_offer(offer_id: UUID, offers: OffersDep) -> OfferView:
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
     summary="Revise a draft offer (append-only revision)",
 )
-def revise_offer(offer_id: UUID, payload: OfferReviseRequest, offers: OffersDep) -> OfferView:
+def revise_offer(
+    offer_id: UUID, payload: OfferReviseRequest, offers: OffersDep, actor: ActorDep
+) -> OfferView:
     try:
-        offer = offers.revise(offer_id, payload.terms, by=payload.by, note=payload.note)
+        offer = offers.revise(offer_id, payload.terms, actor=actor, note=payload.note)
     except OfferError as exc:
         message = str(exc)
         if message.startswith("unknown offer"):
@@ -111,9 +111,11 @@ def revise_offer(offer_id: UUID, payload: OfferReviseRequest, offers: OffersDep)
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
     summary="Submit a draft offer for approval (shared approval queue)",
 )
-def submit_offer(offer_id: UUID, payload: OfferSubmitRequest, offers: OffersDep) -> OfferView:
+def submit_offer(
+    offer_id: UUID, payload: OfferSubmitRequest, offers: OffersDep, actor: ActorDep
+) -> OfferView:
     try:
-        offer = offers.submit(offer_id, by=payload.by)
+        offer = offers.submit(offer_id, actor=actor)
     except OfferError as exc:
         message = str(exc)
         if message.startswith("unknown offer"):
@@ -130,10 +132,12 @@ def submit_offer(offer_id: UUID, payload: OfferSubmitRequest, offers: OffersDep)
     dependencies=[Depends(require_permission(Permission.RECRUITING_OVERRIDE))],
     summary="Approve or withdraw an offer (named human; overrides the approval queue)",
 )
-def decide_offer(offer_id: UUID, payload: OfferDecisionRequest, offers: OffersDep) -> OfferView:
+def decide_offer(
+    offer_id: UUID, payload: OfferDecisionRequest, offers: OffersDep, actor: ActorDep
+) -> OfferView:
     try:
         offer = offers.decide(
-            offer_id, decision=payload.decision, by=payload.by, reason=payload.reason
+            offer_id, decision=payload.decision, actor=actor, reason=payload.reason
         )
     except OfferError as exc:
         message = str(exc)
@@ -152,12 +156,15 @@ def decide_offer(offer_id: UUID, payload: OfferDecisionRequest, offers: OffersDe
     summary="Queue the candidate-facing offer message through the outbox",
 )
 def queue_offer_message(
-    offer_id: UUID, payload: OfferMessageRequest, offers: OffersDep
+    offer_id: UUID,
+    payload: OfferMessageRequest,
+    offers: OffersDep,
+    actor: ActorDep,
 ) -> OfferView:
     try:
         offer = offers.queue_message(
             offer_id,
-            by=payload.by,
+            actor=actor,
             body=payload.body,
             subject=payload.subject,
             language=payload.language,
@@ -182,11 +189,14 @@ def queue_offer_message(
     summary="Record the candidate's acceptance or decline (human-relayed)",
 )
 def record_acceptance(
-    offer_id: UUID, payload: OfferAcceptanceRequest, offers: OffersDep
+    offer_id: UUID,
+    payload: OfferAcceptanceRequest,
+    offers: OffersDep,
+    actor: ActorDep,
 ) -> OfferView:
     try:
         offer = offers.record_acceptance(
-            offer_id, by=payload.by, accepted=payload.accepted, reason=payload.reason
+            offer_id, actor=actor, accepted=payload.accepted, reason=payload.reason
         )
     except OfferError as exc:
         message = str(exc)

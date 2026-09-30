@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 
 import { linkDocument, type PlanResult } from './onboardingApi'
@@ -54,7 +53,6 @@ export function LinkDocumentDialog({
   const queryClient = useQueryClient()
   const documents = useEmployeeDocuments(open ? employeeId : undefined)
   const [selected, setSelected] = useState('')
-  const [linkedBy, setLinkedBy] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -63,15 +61,10 @@ export function LinkDocumentDialog({
       setProblem(t('onboarding.errors.documentRequired'))
       return
     }
-    if (linkedBy.trim() === '') {
-      setProblem(t('onboarding.errors.byRequired'))
-      return
-    }
     setProblem(null)
     setBusy(true)
     const result = await linkDocument(planId, step.key, {
       document_id: selected,
-      linked_by: linkedBy.trim(),
     })
     setBusy(false)
     if (result.status === 200 && result.plan !== undefined) {
@@ -143,19 +136,6 @@ export function LinkDocumentDialog({
               ))}
             </ul>
           )}
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="onboarding-linked-by" className="text-ink-strong text-xs font-medium">
-              {t('onboarding.fields.linkedBy')}
-            </label>
-            <Input
-              id="onboarding-linked-by"
-              value={linkedBy}
-              onChange={(event) => setLinkedBy(event.target.value)}
-              placeholder={t('onboarding.fields.byPlaceholder')}
-              autoComplete="off"
-            />
-          </div>
         </div>
 
         <DialogFooter>

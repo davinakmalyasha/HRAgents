@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.offboarding_schemas import (
     AssetCreate,
     AssetMissing,
@@ -61,11 +61,13 @@ def default_template() -> TemplateView:
 
 
 @router.post("/templates", status_code=status.HTTP_201_CREATED, response_model=TemplateView)
-def create_template(payload: TemplateCreate, offboarding: OffboardingDep) -> TemplateView:
+def create_template(
+    payload: TemplateCreate, offboarding: OffboardingDep, actor: ActorDep
+) -> TemplateView:
     template = offboarding.create_template(
         name=payload.name,
         steps=payload.to_steps(),
-        created_by=payload.created_by,
+        actor=actor,
         description=payload.description,
         applies_to_reasons=payload.applies_to_reasons,
         applies_to_roles=payload.applies_to_roles,
@@ -90,13 +92,13 @@ def get_template(template_id: UUID, offboarding: OffboardingDep) -> TemplateView
 
 
 @router.post("/plans", status_code=status.HTTP_201_CREATED, response_model=PlanView)
-def start_plan(payload: PlanCreate, offboarding: OffboardingDep) -> PlanView:
+def start_plan(payload: PlanCreate, offboarding: OffboardingDep, actor: ActorDep) -> PlanView:
     try:
         plan = offboarding.start_plan(
             employee_id=payload.employee_id,
             reason=payload.reason,
             last_working_day=payload.last_working_day,
-            created_by=payload.created_by,
+            actor=actor,
             template_id=payload.template_id,
         )
     except OffboardingError as exc:
@@ -124,10 +126,14 @@ def plans_for_employee(employee_id: UUID, offboarding: OffboardingDep) -> list[P
 
 @router.post("/plans/{plan_id}/steps/{step_key}/complete", response_model=PlanView)
 def complete_step(
-    plan_id: UUID, step_key: str, payload: StepAction, offboarding: OffboardingDep
+    plan_id: UUID,
+    step_key: str,
+    payload: StepAction,
+    offboarding: OffboardingDep,
+    actor: ActorDep,
 ) -> PlanView:
     try:
-        plan = offboarding.complete_step(plan_id, step_key, by=payload.by, note=payload.note)
+        plan = offboarding.complete_step(plan_id, step_key, actor=actor, note=payload.note)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return PlanView.from_model(plan)
@@ -135,7 +141,11 @@ def complete_step(
 
 @router.post("/plans/{plan_id}/steps/{step_key}/waive", response_model=PlanView)
 def waive_step(
-    plan_id: UUID, step_key: str, payload: StepAction, offboarding: OffboardingDep
+    plan_id: UUID,
+    step_key: str,
+    payload: StepAction,
+    offboarding: OffboardingDep,
+    actor: ActorDep,
 ) -> PlanView:
     if not payload.reason:
         raise HTTPException(
@@ -143,7 +153,7 @@ def waive_step(
             detail="waiving a step requires a reason",
         )
     try:
-        plan = offboarding.waive_step(plan_id, step_key, by=payload.by, reason=payload.reason)
+        plan = offboarding.waive_step(plan_id, step_key, actor=actor, reason=payload.reason)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return PlanView.from_model(plan)
@@ -151,11 +161,14 @@ def waive_step(
 
 @router.post("/plans/{plan_id}/exit-interview", response_model=PlanView)
 def schedule_exit_interview(
-    plan_id: UUID, payload: ExitInterviewSchedule, offboarding: OffboardingDep
+    plan_id: UUID,
+    payload: ExitInterviewSchedule,
+    offboarding: OffboardingDep,
+    actor: ActorDep,
 ) -> PlanView:
     try:
         plan = offboarding.schedule_exit_interview(
-            plan_id, scheduled_for=payload.scheduled_for, by=payload.by
+            plan_id, scheduled_for=payload.scheduled_for, actor=actor
         )
     except OffboardingError as exc:
         raise _conflict(exc) from exc
@@ -163,11 +176,11 @@ def schedule_exit_interview(
 
 
 @router.post("/plans/{plan_id}/handover", response_model=PlanView)
-def add_handover(plan_id: UUID, payload: HandoverCreate, offboarding: OffboardingDep) -> PlanView:
+def add_handover(
+    plan_id: UUID, payload: HandoverCreate, offboarding: OffboardingDep, actor: ActorDep
+) -> PlanView:
     try:
-        plan = offboarding.add_handover_note(
-            plan_id, content=payload.content, authored_by=payload.authored_by
-        )
+        plan = offboarding.add_handover_note(plan_id, content=payload.content, actor=actor)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return PlanView.from_model(plan)
@@ -175,28 +188,35 @@ def add_handover(plan_id: UUID, payload: HandoverCreate, offboarding: Offboardin
 
 @router.post("/plans/{plan_id}/final-pay", response_model=PlanView)
 def coordinate_final_pay(
-    plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep
+    plan_id: UUID,
+    payload: PlanAction,
+    offboarding: OffboardingDep,
+    actor: ActorDep,
 ) -> PlanView:
     try:
-        plan = offboarding.coordinate_final_pay(plan_id, by=payload.by)
+        plan = offboarding.coordinate_final_pay(plan_id, actor=actor)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
 @router.post("/plans/{plan_id}/complete", response_model=PlanView)
-def complete_plan(plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep) -> PlanView:
+def complete_plan(
+    plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep, actor: ActorDep
+) -> PlanView:
     try:
-        plan = offboarding.complete_plan(plan_id, by=payload.by)
+        plan = offboarding.complete_plan(plan_id, actor=actor)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
 @router.post("/plans/{plan_id}/finalize-employee", response_model=PlanView)
-def finalize_employee(plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep) -> PlanView:
+def finalize_employee(
+    plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep, actor: ActorDep
+) -> PlanView:
     try:
-        offboarding.finalize_employee_exit(plan_id, by=payload.by)
+        offboarding.finalize_employee_exit(plan_id, actor=actor)
         plan = offboarding.get_plan(plan_id)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
@@ -207,9 +227,9 @@ def finalize_employee(plan_id: UUID, payload: PlanAction, offboarding: Offboardi
 
 
 @router.post("/assets", status_code=status.HTTP_201_CREATED, response_model=AssetView)
-def register_asset(payload: AssetCreate, offboarding: OffboardingDep) -> AssetView:
+def register_asset(payload: AssetCreate, offboarding: OffboardingDep, actor: ActorDep) -> AssetView:
     try:
-        asset = offboarding.register_asset(**payload.model_dump())
+        asset = offboarding.register_asset(actor=actor, **payload.model_dump())
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return AssetView.from_model(asset)
@@ -237,10 +257,12 @@ def asset_clearance(employee_id: UUID, offboarding: OffboardingDep) -> list[Asse
 
 
 @router.post("/assets/{asset_id}/return", response_model=AssetView)
-def return_asset(asset_id: UUID, payload: AssetReturn, offboarding: OffboardingDep) -> AssetView:
+def return_asset(
+    asset_id: UUID, payload: AssetReturn, offboarding: OffboardingDep, actor: ActorDep
+) -> AssetView:
     try:
         asset = offboarding.mark_asset_returned(
-            asset_id, by=payload.by, note=payload.note, returned_on=payload.returned_on
+            asset_id, actor=actor, note=payload.note, returned_on=payload.returned_on
         )
     except OffboardingError as exc:
         raise _conflict(exc) from exc
@@ -249,10 +271,13 @@ def return_asset(asset_id: UUID, payload: AssetReturn, offboarding: OffboardingD
 
 @router.post("/assets/{asset_id}/missing", response_model=AssetView)
 def mark_asset_missing(
-    asset_id: UUID, payload: AssetMissing, offboarding: OffboardingDep
+    asset_id: UUID,
+    payload: AssetMissing,
+    offboarding: OffboardingDep,
+    actor: ActorDep,
 ) -> AssetView:
     try:
-        asset = offboarding.mark_asset_missing(asset_id, by=payload.by, note=payload.note)
+        asset = offboarding.mark_asset_missing(asset_id, actor=actor, note=payload.note)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return AssetView.from_model(asset)
@@ -260,10 +285,13 @@ def mark_asset_missing(
 
 @router.post("/assets/{asset_id}/write-off", response_model=AssetView)
 def write_off_asset(
-    asset_id: UUID, payload: AssetWriteOff, offboarding: OffboardingDep
+    asset_id: UUID,
+    payload: AssetWriteOff,
+    offboarding: OffboardingDep,
+    actor: ActorDep,
 ) -> AssetView:
     try:
-        asset = offboarding.write_off_asset(asset_id, by=payload.by, reason=payload.reason)
+        asset = offboarding.write_off_asset(asset_id, actor=actor, reason=payload.reason)
     except OffboardingError as exc:
         raise _conflict(exc) from exc
     return AssetView.from_model(asset)

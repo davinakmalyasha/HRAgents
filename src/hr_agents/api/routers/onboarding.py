@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.onboarding_schemas import (
     PlanStartRequest,
     PlanView,
@@ -60,13 +60,15 @@ def _map(exc: OnboardingError) -> HTTPException:
 
 
 @router.post("/templates", status_code=status.HTTP_201_CREATED, response_model=TemplateView)
-def create_template(payload: TemplateCreate, onboarding: OnboardingDep) -> TemplateView:
+def create_template(
+    payload: TemplateCreate, onboarding: OnboardingDep, actor: ActorDep
+) -> TemplateView:
     try:
         template = onboarding.create_template(
             name=payload.name,
             description=payload.description,
             steps=[step.to_model() for step in payload.steps],
-            created_by=payload.created_by,
+            actor=actor,
             applies_to_contract_types=payload.applies_to_contract_types,
             applies_to_roles=payload.applies_to_roles,
         )
@@ -91,11 +93,11 @@ def default_template() -> TemplateDraftView:
 
 
 @router.post("/plans", status_code=status.HTTP_201_CREATED, response_model=PlanView)
-def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep) -> PlanView:
+def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep, actor: ActorDep) -> PlanView:
     try:
         plan = onboarding.start_plan(
             employee_id=payload.employee_id,
-            created_by=payload.created_by,
+            actor=actor,
             template_id=payload.template_id,
         )
     except OnboardingError as exc:
@@ -119,10 +121,14 @@ def get_plan(plan_id: UUID, onboarding: OnboardingDep) -> PlanView:
 
 @router.post("/plans/{plan_id}/steps/{step_key}/complete", response_model=PlanView)
 def complete_step(
-    plan_id: UUID, step_key: str, payload: StepActionRequest, onboarding: OnboardingDep
+    plan_id: UUID,
+    step_key: str,
+    payload: StepActionRequest,
+    onboarding: OnboardingDep,
+    actor: ActorDep,
 ) -> PlanView:
     try:
-        plan = onboarding.complete_step(plan_id, step_key, by=payload.by, note=payload.note)
+        plan = onboarding.complete_step(plan_id, step_key, actor=actor, note=payload.note)
     except OnboardingError as exc:
         raise _map(exc) from exc
     return PlanView.from_model(plan)
@@ -130,10 +136,14 @@ def complete_step(
 
 @router.post("/plans/{plan_id}/steps/{step_key}/waive", response_model=PlanView)
 def waive_step(
-    plan_id: UUID, step_key: str, payload: StepWaiveRequest, onboarding: OnboardingDep
+    plan_id: UUID,
+    step_key: str,
+    payload: StepWaiveRequest,
+    onboarding: OnboardingDep,
+    actor: ActorDep,
 ) -> PlanView:
     try:
-        plan = onboarding.waive_step(plan_id, step_key, by=payload.by, reason=payload.reason)
+        plan = onboarding.waive_step(plan_id, step_key, actor=actor, reason=payload.reason)
     except OnboardingError as exc:
         raise _map(exc) from exc
     return PlanView.from_model(plan)
@@ -146,15 +156,14 @@ def link_document(
     payload: StepLinkDocumentRequest,
     onboarding: OnboardingDep,
     request: Request,
+    actor: ActorDep,
 ) -> PlanView:
     people = request.app.state.people
     document = people.employees.get_document(payload.document_id)
     if document is None:
         raise _not_found(f"unknown document {payload.document_id}")
     try:
-        plan = onboarding.link_document(
-            plan_id, step_key, document=document, linked_by=payload.linked_by
-        )
+        plan = onboarding.link_document(plan_id, step_key, document=document, actor=actor)
     except OnboardingError as exc:
         raise _conflict(exc) from exc
     return PlanView.from_model(plan)

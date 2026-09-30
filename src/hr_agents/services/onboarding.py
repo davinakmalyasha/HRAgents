@@ -13,10 +13,9 @@ import hashlib
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.identity import classify_actor, require_named_human
+from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
-    AuditActor,
     Contract,
     ContractType,
     DocumentKind,
@@ -73,7 +72,7 @@ class OnboardingService:
         *,
         name: str,
         steps: list[TemplateStep],
-        created_by: str,
+        actor: ActorRef,
         description: str = "",
         applies_to_contract_types: list[ContractType] | None = None,
         applies_to_roles: list[str] | None = None,
@@ -90,7 +89,7 @@ class OnboardingService:
             action="onboarding.template_created",
             subject_type="onboarding_template",
             subject_id=str(template.id),
-            actor_id=created_by,
+            actor=actor,
             payload={"name": name, "step_count": len(steps)},
         )
         return template
@@ -125,7 +124,7 @@ class OnboardingService:
         self,
         *,
         employee_id: UUID,
-        created_by: str,
+        actor: ActorRef,
         template_id: UUID | None = None,
         contract: Contract | None = None,
     ) -> OnboardingPlan:
@@ -178,7 +177,7 @@ class OnboardingService:
             action="onboarding.plan_started",
             subject_type="onboarding_plan",
             subject_id=str(plan.id),
-            actor_id=created_by,
+            actor=actor,
             payload={
                 "employee_id": str(employee.id),
                 "template_id": str(template.id),
@@ -227,15 +226,11 @@ class OnboardingService:
         plan_id: UUID,
         step_key: str,
         *,
-        by: str,
+        actor: ActorRef,
         note: str | None = None,
     ) -> OnboardingPlan:
         """Complete a step as a human. Steps are human work items by default."""
-        if not by.strip() or by.strip().startswith("agent:"):
-            raise OnboardingActorError(
-                "onboarding steps are completed by humans; agents use "
-                "auto_complete_document_step after validation"
-            )
+        actor.require_human("an onboarding step", OnboardingActorError)
         plan = self.get_plan(plan_id)
         step = self._require_step(plan, step_key)
         if step.complete:
@@ -244,7 +239,7 @@ class OnboardingService:
         updated_step = step.model_copy(
             update={
                 "status": StepStatus.DONE,
-                "completed_by": by,
+                "completed_by": actor.actor_id,
                 "completed_at": utc_now(),
                 "note": note or step.note,
             }
@@ -257,7 +252,7 @@ class OnboardingService:
             action="onboarding.step_completed",
             subject_type="onboarding_plan",
             subject_id=str(plan.id),
-            actor_id=by,
+            actor=actor,
             payload={"step_key": step_key, "progress": plan.progress},
         )
         return plan
@@ -308,7 +303,7 @@ class OnboardingService:
             action="onboarding.document_step_auto_completed",
             subject_type="onboarding_plan",
             subject_id=str(plan.id),
-            actor_id=f"agent:{agent_name}",
+            actor=ActorRef.agent(agent_name),
             payload={
                 "step_key": step_key,
                 "document_id": str(document.id),
@@ -322,13 +317,13 @@ class OnboardingService:
         plan_id: UUID,
         step_key: str,
         *,
-        by: str,
+        actor: ActorRef,
         reason: str,
     ) -> OnboardingPlan:
         """Waive a step (required or not) — a human decision, always audited."""
         if not reason.strip():
             raise OnboardingError("waiving a step requires a reason")
-        by = require_named_human(by, "waiving a step", OnboardingActorError)
+        actor.require_human("waiving a step", OnboardingActorError)
         plan = self.get_plan(plan_id)
         step = self._require_step(plan, step_key)
         if step.complete:
@@ -337,7 +332,7 @@ class OnboardingService:
         updated_step = step.model_copy(
             update={
                 "status": StepStatus.WAIVED,
-                "completed_by": by,
+                "completed_by": actor.actor_id,
                 "completed_at": utc_now(),
                 "note": reason,
             }
@@ -350,7 +345,7 @@ class OnboardingService:
             action="onboarding.step_waived",
             subject_type="onboarding_plan",
             subject_id=str(plan.id),
-            actor_id=by,
+            actor=actor,
             payload={"step_key": step_key, "reason": reason},
         )
         return plan
@@ -361,7 +356,7 @@ class OnboardingService:
         step_key: str,
         *,
         document: EmployeeDocument,
-        linked_by: str,
+        actor: ActorRef,
     ) -> OnboardingPlan:
         """Attach a collected document to its document step (pending validation)."""
         plan = self.get_plan(plan_id)
@@ -384,7 +379,7 @@ class OnboardingService:
             action="onboarding.document_linked",
             subject_type="onboarding_plan",
             subject_id=str(plan.id),
-            actor_id=linked_by,
+            actor=actor,
             payload={"step_key": step_key, "document_id": str(document.id)},
         )
         return plan
@@ -429,12 +424,11 @@ class OnboardingService:
         action: str,
         subject_type: str,
         subject_id: str,
-        actor_id: str,
+        actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        actor_type = classify_actor(actor_id)
         self._audit.append(
-            actor=AuditActor(actor_type=actor_type, actor_id=actor_id),
+            actor=actor.audit_actor(),
             action=action,
             subject_type=subject_type,
             subject_id=subject_id,

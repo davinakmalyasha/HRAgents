@@ -88,7 +88,7 @@ def per_event_sick_policy() -> LeaveTypePolicy:
 
 
 def test_set_and_get_policy(service: LeaveService) -> None:
-    policy = service.set_policy(annual_policy(), by="hr-admin")
+    policy = service.set_policy(annual_policy(), actor=ActorRef.legacy("hr-admin"))
     assert service.get_policy(LeaveType.ANNUAL).name == policy.name
 
 
@@ -124,7 +124,7 @@ def test_working_days_excludes_weekends(service: LeaveService) -> None:
 
 
 def test_holidays_excluded(service: LeaveService) -> None:
-    service.set_holidays([date(2025, 1, 8)], by="hr-admin")
+    service.set_holidays([date(2025, 1, 8)], actor=ActorRef.legacy("hr-admin"))
     assert service.working_days(date(2025, 1, 6), date(2025, 1, 10)) == 4.0
 
 
@@ -134,7 +134,7 @@ def test_holidays_excluded(service: LeaveService) -> None:
 def test_lump_sum_entitlement_after_service(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service, days_employed=400)
 
     balance = service.balance(employee.id, LeaveType.ANNUAL)
@@ -145,7 +145,7 @@ def test_lump_sum_entitlement_after_service(
 def test_entitlement_denied_before_min_service(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service, days_employed=100)
 
     balance = service.balance(employee.id, LeaveType.ANNUAL)
@@ -162,7 +162,7 @@ def test_flat_monthly_accrual(service: LeaveService, employee_service: EmployeeS
             carryover_allowed=False,
             carryover_max_days=None,
         ),
-        by="hr",
+        actor=ActorRef.legacy("hr"),
     )
     employee = make_employee(employee_service, days_employed=100)
     balance = service.balance(employee.id, LeaveType.ANNUAL)
@@ -174,7 +174,7 @@ def test_flat_monthly_accrual(service: LeaveService, employee_service: EmployeeS
 def test_per_event_cap_has_no_accrual(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(per_event_sick_policy(), by="hr")
+    service.set_policy(per_event_sick_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service, days_employed=400)
     balance = service.balance(employee.id, LeaveType.SICK)
     assert balance.entitled == 0.0
@@ -183,17 +183,25 @@ def test_per_event_cap_has_no_accrual(
 def test_adjustment_changes_available(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service, days_employed=400)
 
     balance = service.adjust_balance(
-        employee.id, LeaveType.ANNUAL, days=3.0, by="hr-admin", reason="approved carry adjustment"
+        employee.id,
+        LeaveType.ANNUAL,
+        days=3.0,
+        actor=ActorRef.legacy("hr-admin"),
+        reason="approved carry adjustment",
     )
     assert balance.adjustment == 3.0
     assert balance.available == 15.0
 
     negative = service.adjust_balance(
-        employee.id, LeaveType.ANNUAL, days=-10.0, by="hr-admin", reason="correction"
+        employee.id,
+        LeaveType.ANNUAL,
+        days=-10.0,
+        actor=ActorRef.legacy("hr-admin"),
+        reason="correction",
     )
     assert negative.available == 5.0
 
@@ -204,7 +212,7 @@ def test_adjustment_changes_available(
 def test_request_routes_to_approval(
     service: LeaveService, employee_service: EmployeeService, approvals: ApprovalEngine
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
 
     request = service.request(
@@ -212,7 +220,7 @@ def test_request_routes_to_approval(
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=4),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
         reason="family event",
     )
 
@@ -227,18 +235,18 @@ def test_request_routes_to_approval(
 def test_approval_approve_syncs_request(
     service: LeaveService, employee_service: EmployeeService, approvals: ApprovalEngine
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     request = service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=4),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     assert request.approval_id is not None
 
-    approvals.decide(request.approval_id, decided_by="manager-budi", approve=True)
+    approvals.decide(request.approval_id, actor=ActorRef.legacy("manager-budi"), approve=True)
     synced = service.apply_decision(request.approval_id)
 
     assert synced.status is RequestStatus.APPROVED
@@ -249,17 +257,19 @@ def test_approval_approve_syncs_request(
 def test_approval_reject_syncs_request(
     service: LeaveService, employee_service: EmployeeService, approvals: ApprovalEngine
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     request = service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=1),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     assert request.approval_id is not None
-    approvals.decide(request.approval_id, decided_by="manager", approve=False, reason="peak period")
+    approvals.decide(
+        request.approval_id, actor=ActorRef.legacy("manager"), approve=False, reason="peak period"
+    )
     synced = service.apply_decision(request.approval_id)
     assert synced.status is RequestStatus.REJECTED
 
@@ -267,7 +277,7 @@ def test_approval_reject_syncs_request(
 def test_insufficient_balance_rejected(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(annual_policy(days_per_year=2.0), by="hr")
+    service.set_policy(annual_policy(days_per_year=2.0), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     with pytest.raises(LeaveError, match="insufficient balance"):
         service.request(
@@ -275,14 +285,14 @@ def test_insufficient_balance_rejected(
             leave_type=LeaveType.ANNUAL,
             start_date=WORK_START,
             end_date=WORK_START + timedelta(days=4),
-            requested_by="sari@example.com",
+            actor=ActorRef.legacy("sari@example.com"),
         )
 
 
 def test_document_required_rejected(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(per_event_sick_policy(), by="hr")
+    service.set_policy(per_event_sick_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     with pytest.raises(LeaveError, match="supporting document"):
         service.request(
@@ -290,21 +300,21 @@ def test_document_required_rejected(
             leave_type=LeaveType.SICK,
             start_date=WORK_START,
             end_date=WORK_START + timedelta(days=1),
-            requested_by="sari@example.com",
+            actor=ActorRef.legacy("sari@example.com"),
         )
 
 
 def test_document_provided_passes_sick_policy(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(per_event_sick_policy(), by="hr")
+    service.set_policy(per_event_sick_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     request = service.request(
         employee_id=employee.id,
         leave_type=LeaveType.SICK,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=1),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
         document_id=uuid4(),
     )
     assert request.status is RequestStatus.PENDING
@@ -317,7 +327,7 @@ def test_over_max_per_request_rejected(
         per_event_sick_policy().model_copy(
             update={"max_days_per_request": 2.0, "requires_document": False}
         ),
-        by="hr",
+        actor=ActorRef.legacy("hr"),
     )
     employee = make_employee(employee_service)
     with pytest.raises(LeaveError, match=r"exceeds the 2\.0-day cap"):
@@ -326,21 +336,21 @@ def test_over_max_per_request_rejected(
             leave_type=LeaveType.SICK,
             start_date=WORK_START,
             end_date=WORK_START + timedelta(days=4),
-            requested_by="sari@example.com",
+            actor=ActorRef.legacy("sari@example.com"),
         )
 
 
 def test_overlapping_requests_rejected(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=4),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     with pytest.raises(LeaveError, match="overlaps"):
         service.request(
@@ -348,7 +358,7 @@ def test_overlapping_requests_rejected(
             leave_type=LeaveType.ANNUAL,
             start_date=WORK_START + timedelta(days=2),
             end_date=WORK_START + timedelta(days=8),
-            requested_by="sari@example.com",
+            actor=ActorRef.legacy("sari@example.com"),
         )
 
 
@@ -362,7 +372,7 @@ def test_no_approval_policy_auto_approves(
             requires_approval=False,
             accrual_method=AccrualMethod.NONE,
         ),
-        by="hr",
+        actor=ActorRef.legacy("hr"),
     )
     employee = make_employee(employee_service)
     request = service.request(
@@ -370,14 +380,14 @@ def test_no_approval_policy_auto_approves(
         leave_type=LeaveType.PERSONAL,
         start_date=WORK_START,
         end_date=WORK_START,
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     assert request.status is RequestStatus.APPROVED
     assert request.approval_id is None
 
 
 def test_min_service_rejected(service: LeaveService, employee_service: EmployeeService) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service, days_employed=100)
     with pytest.raises(LeaveError, match="requires 12 months"):
         service.request(
@@ -385,23 +395,23 @@ def test_min_service_rejected(service: LeaveService, employee_service: EmployeeS
             leave_type=LeaveType.ANNUAL,
             start_date=WORK_START,
             end_date=WORK_START + timedelta(days=1),
-            requested_by="sari@example.com",
+            actor=ActorRef.legacy("sari@example.com"),
         )
 
 
 def test_cancel_withdraws_approval(
     service: LeaveService, employee_service: EmployeeService, approvals: ApprovalEngine
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     request = service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=1),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
-    cancelled = service.cancel(request.id, by="sari@example.com")
+    cancelled = service.cancel(request.id, actor=ActorRef.legacy("sari@example.com"))
     assert cancelled.status is RequestStatus.CANCELLED
 
     assert request.approval_id is not None
@@ -413,21 +423,21 @@ def test_cancel_withdraws_approval(
 def test_cancel_after_decision_rejected(
     service: LeaveService, employee_service: EmployeeService, approvals: ApprovalEngine
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     request = service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=1),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     assert request.approval_id is not None
-    approvals.decide(request.approval_id, decided_by="manager", approve=True)
+    approvals.decide(request.approval_id, actor=ActorRef.legacy("manager"), approve=True)
     service.apply_decision(request.approval_id)
 
     with pytest.raises(LeaveError, match="cannot cancel"):
-        service.cancel(request.id, by="sari@example.com")
+        service.cancel(request.id, actor=ActorRef.legacy("sari@example.com"))
 
 
 # --- queries -----------------------------------------------------------------
@@ -436,17 +446,17 @@ def test_cancel_after_decision_rejected(
 def test_calendar_on_leave(
     service: LeaveService, employee_service: EmployeeService, approvals: ApprovalEngine
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     request = service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=4),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     assert request.approval_id is not None
-    approvals.decide(request.approval_id, decided_by="manager", approve=True)
+    approvals.decide(request.approval_id, actor=ActorRef.legacy("manager"), approve=True)
     service.apply_decision(request.approval_id)
 
     assert [item.id for item in service.on_leave(on_date=WORK_START + timedelta(days=2))] == [
@@ -456,14 +466,14 @@ def test_calendar_on_leave(
 
 
 def test_pending_balance_counted(service: LeaveService, employee_service: EmployeeService) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=1),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     balance = service.balance(employee.id, LeaveType.ANNUAL, year=WORK_YEAR)
     assert balance.pending == 2.0
@@ -473,7 +483,7 @@ def test_pending_balance_counted(service: LeaveService, employee_service: Employ
 def test_unknown_employee_and_request_raise(
     service: LeaveService, employee_service: EmployeeService
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     with pytest.raises(LeaveError, match="unknown employee"):
         service.balance(uuid4(), LeaveType.ANNUAL)
     with pytest.raises(LeaveError, match="unknown leave request"):
@@ -483,14 +493,14 @@ def test_unknown_employee_and_request_raise(
 def test_audit_chain_covers_leave(
     service: LeaveService, employee_service: EmployeeService, audit: AuditChain
 ) -> None:
-    service.set_policy(annual_policy(), by="hr")
+    service.set_policy(annual_policy(), actor=ActorRef.legacy("hr"))
     employee = make_employee(employee_service)
     service.request(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=1),
-        requested_by="sari@example.com",
+        actor=ActorRef.legacy("sari@example.com"),
     )
     actions = [entry.action for entry in audit.entries]
     assert "leave.policy_set" in actions

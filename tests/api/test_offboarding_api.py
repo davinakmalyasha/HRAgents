@@ -39,7 +39,6 @@ def install_default_template(client: TestClient) -> dict:
             "steps": body["steps"],
             "applies_to_reasons": body["applies_to_reasons"],
             "applies_to_roles": body["applies_to_roles"],
-            "created_by": "hr-admin",
         },
     )
     assert template.status_code == 201, template.text
@@ -53,7 +52,6 @@ def start_plan(client: TestClient, employee_id: str) -> dict:
             "employee_id": employee_id,
             "reason": "resignation",
             "last_working_day": LAST_DAY.isoformat(),
-            "created_by": "hr-admin",
         },
     )
     assert response.status_code == 201, response.text
@@ -104,7 +102,6 @@ def test_full_exit_flow_with_assets_and_final_pay() -> None:
             json={
                 "employee_id": employee["id"],
                 "name": "MacBook Pro",
-                "created_by": "hr-admin",
                 "asset_code": "MB-001",
                 "plan_id": plan_id,
             },
@@ -116,22 +113,20 @@ def test_full_exit_flow_with_assets_and_final_pay() -> None:
         # Complete all steps as a human.
         for step in plan["steps"]:
             done = client.post(
-                f"/v1/offboarding/plans/{plan_id}/steps/{step['key']}/complete",
-                json={"by": "hr-admin"},
+                f"/v1/offboarding/plans/{plan_id}/steps/{step['key']}/complete", json={}
             )
             assert done.status_code == 200, done.text
 
-        # Agent tries to complete a step, is refused.
+        # A step cannot be completed by naming an actor in the body.
         agent_step = client.post(
             f"/v1/offboarding/plans/{plan_id}/steps/handover/complete",
             json={"by": "agent:offboarding_coordinator"},
         )
-        assert agent_step.status_code == 409
+        assert agent_step.status_code == 422
+        assert any(error["loc"][-1] == "by" for error in agent_step.json()["detail"])
 
         # Final pay coordination creates a FINAL run.
-        final_pay = client.post(
-            f"/v1/offboarding/plans/{plan_id}/final-pay", json={"by": "hr-admin"}
-        )
+        final_pay = client.post(f"/v1/offboarding/plans/{plan_id}/final-pay", json={})
         assert final_pay.status_code == 200, final_pay.text
         run_id = final_pay.json()["final_pay_run_id"]
         run = client.get(f"/v1/payroll/runs/{run_id}")
@@ -139,20 +134,18 @@ def test_full_exit_flow_with_assets_and_final_pay() -> None:
         assert run.json()["status"] == "draft"
 
         # Completion is blocked while the asset is out.
-        blocked = client.post(f"/v1/offboarding/plans/{plan_id}/complete", json={"by": "hr-admin"})
+        blocked = client.post(f"/v1/offboarding/plans/{plan_id}/complete", json={})
         assert blocked.status_code == 409
         assert "assets not cleared" in blocked.json()["title"]
 
         returned = client.post(
             f"/v1/offboarding/assets/{asset_id}/return",
-            json={"by": "hr-admin", "note": "returned at office"},
+            json={"note": "returned at office"},
         )
         assert returned.status_code == 200
         assert returned.json()["blocks_clearance"] is False
 
-        finalized = client.post(
-            f"/v1/offboarding/plans/{plan_id}/finalize-employee", json={"by": "hr-admin"}
-        )
+        finalized = client.post(f"/v1/offboarding/plans/{plan_id}/finalize-employee", json={})
         assert finalized.status_code == 200, finalized.text
         assert finalized.json()["is_complete"] is True
 
@@ -168,12 +161,12 @@ def test_write_off_missing_asset_clears_clearance() -> None:
         start_plan(client, employee["id"])
         asset = client.post(
             "/v1/offboarding/assets",
-            json={"employee_id": employee["id"], "name": "Phone", "created_by": "hr-admin"},
+            json={"employee_id": employee["id"], "name": "Phone"},
         ).json()
 
         missing = client.post(
             f"/v1/offboarding/assets/{asset['id']}/missing",
-            json={"by": "hr-admin", "note": "not in locker"},
+            json={"note": "not in locker"},
         )
         assert missing.status_code == 200
         assert missing.json()["status"] == "missing"
@@ -183,7 +176,7 @@ def test_write_off_missing_asset_clears_clearance() -> None:
 
         write_off = client.post(
             f"/v1/offboarding/assets/{asset['id']}/write-off",
-            json={"by": "hr-admin", "reason": "police report filed"},
+            json={"reason": "police report filed"},
         )
         assert write_off.status_code == 200
         assert write_off.json()["status"] == "written_off"
@@ -198,19 +191,25 @@ def test_waive_step_requires_reason() -> None:
         install_default_template(client)
         plan = start_plan(client, employee["id"])
 
-        response = client.post(
+        no_reason = client.post(
             f"/v1/offboarding/plans/{plan['id']}/steps/handover/waive",
-            json={"by": "hr-admin"},
+            json={},
         )
-        assert response.status_code == 422
+        blank_reason = client.post(
+            f"/v1/offboarding/plans/{plan['id']}/steps/handover/waive",
+            json={"reason": "   "},
+        )
 
         waived = client.post(
             f"/v1/offboarding/plans/{plan['id']}/steps/handover/waive",
-            json={"by": "hr-admin", "reason": "no active projects"},
+            json={"reason": "no active projects"},
         )
         assert waived.status_code == 200
         handover = next(step for step in waived.json()["steps"] if step["key"] == "handover")
         assert handover["status"] == "waived"
+
+    assert no_reason.status_code == 422
+    assert blank_reason.status_code == 422
 
 
 def test_handover_note_and_exit_interview_scheduling() -> None:
@@ -221,14 +220,14 @@ def test_handover_note_and_exit_interview_scheduling() -> None:
 
         note = client.post(
             f"/v1/offboarding/plans/{plan['id']}/handover",
-            json={"content": "Prod credentials in Vault path x.", "authored_by": "rudi"},
+            json={"content": "Prod credentials in Vault path x."},
         )
         assert note.status_code == 200
         assert len(note.json()["handover_notes"]) == 1
 
         scheduled = client.post(
             f"/v1/offboarding/plans/{plan['id']}/exit-interview",
-            json={"scheduled_for": f"{LAST_DAY.isoformat()}T09:00:00+07:00", "by": "hr-admin"},
+            json={"scheduled_for": f"{LAST_DAY.isoformat()}T09:00:00+07:00"},
         )
         assert scheduled.status_code == 200, scheduled.text
         interview = next(
@@ -247,7 +246,6 @@ def test_plan_requires_template() -> None:
                 "employee_id": employee["id"],
                 "reason": "resignation",
                 "last_working_day": LAST_DAY.isoformat(),
-                "created_by": "hr-admin",
             },
         )
 
@@ -262,10 +260,17 @@ def test_unknown_plan_404() -> None:
     assert response.status_code == 404
 
 
-def test_agent_cannot_register_asset() -> None:
+def test_registering_an_asset_refuses_a_caller_supplied_actor() -> None:
+    """Registering an asset for clearance is attributed to the key's holder.
+
+    The old test sent ``created_by="agent:offboarding_coordinator"`` and asserted
+    a 409. No request can name an actor now, so the attempt is refused at the
+    boundary with a 422 naming the field -- a stronger property than a 409 about
+    the state, because nothing was written at all.
+    """
     with make_client() as client:
         employee = create_employee(client)
-        response = client.post(
+        refused = client.post(
             "/v1/offboarding/assets",
             json={
                 "employee_id": employee["id"],
@@ -273,5 +278,14 @@ def test_agent_cannot_register_asset() -> None:
                 "created_by": "agent:offboarding_coordinator",
             },
         )
+        created = client.post(
+            "/v1/offboarding/assets",
+            json={
+                "employee_id": employee["id"],
+                "name": "Laptop",
+            },
+        )
 
-    assert response.status_code == 409
+    assert refused.status_code == 422
+    assert any(error["loc"][-1] == "created_by" for error in refused.json()["detail"])
+    assert created.status_code == 201

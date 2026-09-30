@@ -33,7 +33,10 @@ export async function reviseOffer(offerId: string, body: OfferReviseRequest): Pr
   return toResult(response, data, error)
 }
 
-export async function submitOffer(offerId: string, body: { by: string }): Promise<OfferResult> {
+export async function submitOffer(
+  offerId: string,
+  body: components['schemas']['OfferSubmitRequest'],
+): Promise<OfferResult> {
   const { data, error, response } = await api.POST('/v1/offers/{offer_id}/submit', {
     params: { path: { offer_id: offerId } },
     body,

@@ -68,7 +68,6 @@ class TemplateView(StrictModel):
 class TemplateCreate(StrictModel):
     name: str = Field(min_length=1, max_length=200)
     steps: list[TemplateStepView] = Field(min_length=1)
-    created_by: str = Field(min_length=1, max_length=200)
     description: str = Field(default="", max_length=1000)
     applies_to_reasons: list[OffboardingReason] = Field(default_factory=list)
     applies_to_roles: list[str] = Field(default_factory=list)
@@ -84,29 +83,24 @@ class PlanCreate(StrictModel):
     employee_id: UUID
     reason: OffboardingReason
     last_working_day: date
-    created_by: str = Field(min_length=1, max_length=200)
     template_id: UUID | None = None
 
 
 class PlanAction(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
 
 
 class StepAction(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
     reason: str | None = Field(default=None, max_length=1000)
 
 
 class ExitInterviewSchedule(StrictModel):
     scheduled_for: UtcDateTime
-    by: str = Field(min_length=1, max_length=200)
 
 
 class HandoverCreate(StrictModel):
     content: str = Field(min_length=1, max_length=8000)
-    authored_by: str = Field(min_length=1, max_length=200)
 
 
 class StepView(StrictModel):
@@ -181,7 +175,6 @@ class PlanView(StrictModel):
 class AssetCreate(StrictModel):
     employee_id: UUID
     name: str = Field(min_length=1, max_length=200)
-    created_by: str = Field(min_length=1, max_length=200)
     plan_id: UUID | None = None
     asset_code: str | None = Field(default=None, max_length=80)
     category: str = Field(default="", max_length=80)
@@ -189,18 +182,15 @@ class AssetCreate(StrictModel):
 
 
 class AssetReturn(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     note: str | None = Field(default=None, max_length=1000)
     returned_on: date | None = None
 
 
 class AssetMissing(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     note: str = Field(min_length=1, max_length=1000)
 
 
 class AssetWriteOff(StrictModel):
-    by: str = Field(min_length=1, max_length=200)
     reason: str = Field(min_length=1, max_length=1000)
 
 

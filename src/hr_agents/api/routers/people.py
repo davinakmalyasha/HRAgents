@@ -319,9 +319,9 @@ def terminate_contract(
 
 
 @approvals_router.post("", status_code=status.HTTP_201_CREATED, response_model=ApprovalView)
-def create_approval(payload: ApprovalCreate, people: PeopleDep) -> ApprovalView:
+def create_approval(payload: ApprovalCreate, people: PeopleDep, actor: ActorDep) -> ApprovalView:
     try:
-        request = people.approvals.create(**payload.model_dump())
+        request = people.approvals.create(actor=actor, **payload.model_dump())
     except ApprovalError as exc:
         raise _conflict(exc) from exc
     return ApprovalView.from_model(request)
@@ -349,12 +349,15 @@ def list_approvals(
     dependencies=[Depends(require_permission(Permission.APPROVALS_DECIDE))],
 )
 def decide_approval(
-    approval_id: UUID, payload: ApprovalDecisionRequest, people: PeopleDep
+    approval_id: UUID,
+    payload: ApprovalDecisionRequest,
+    people: PeopleDep,
+    actor: ActorDep,
 ) -> ApprovalDecisionResponse:
     try:
         decision = people.approvals.decide(
             approval_id,
-            decided_by=payload.decided_by,
+            actor=actor,
             approve=payload.approve,
             reason=payload.reason,
         )
@@ -410,8 +413,10 @@ def complete_task(
 
 
 @rate_tables_router.post("", status_code=status.HTTP_201_CREATED, response_model=RateTableView)
-def create_rate_table(payload: RateTableCreate, people: PeopleDep) -> RateTableView:
-    table = people.rate_tables.create(**payload.model_dump())
+def create_rate_table(
+    payload: RateTableCreate, people: PeopleDep, actor: ActorDep
+) -> RateTableView:
+    table = people.rate_tables.create(actor=actor, **payload.model_dump())
     return RateTableView.from_model(table)
 
 
@@ -436,13 +441,14 @@ def get_rate_table(table_id: UUID, people: PeopleDep) -> RateTableView:
 
 @rate_tables_router.put("/{table_id}/entries", response_model=RateTableView)
 def set_rate_table_entries(
-    table_id: UUID, payload: RateTableEntriesUpdate, people: PeopleDep
+    table_id: UUID,
+    payload: RateTableEntriesUpdate,
+    people: PeopleDep,
+    actor: ActorDep,
 ) -> RateTableView:
     """Replace a table's rows. Editing values always invalidates verification."""
     try:
-        table = people.rate_tables.set_entries(
-            table_id, entries=payload.entries, updated_by=payload.by
-        )
+        table = people.rate_tables.set_entries(table_id, entries=payload.entries, actor=actor)
     except RateTableError as exc:
         raise _conflict(exc) from exc
     return RateTableView.from_model(table)
@@ -453,12 +459,12 @@ def set_rate_table_entries(
     response_model=RateTableView,
     dependencies=[Depends(require_permission(Permission.RATES_VERIFY))],
 )
-def verify_rate_table(table_id: UUID, payload: RateTableVerify, people: PeopleDep) -> RateTableView:
+def verify_rate_table(
+    table_id: UUID, payload: RateTableVerify, people: PeopleDep, actor: ActorDep
+) -> RateTableView:
     """Certify a rate table against a recorded source. Unblocks payroll compute."""
     try:
-        table = people.rate_tables.verify(
-            table_id, verified_by=payload.by, source_note=payload.source_note
-        )
+        table = people.rate_tables.verify(table_id, actor=actor, source_note=payload.source_note)
     except RateTableError as exc:
         raise _conflict(exc) from exc
     return RateTableView.from_model(table)

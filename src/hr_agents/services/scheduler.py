@@ -232,7 +232,9 @@ class Scheduler:
         return len(escalated) + len(expired), f"escalated {len(escalated)}, expired {len(expired)}"
 
     def _run_retention(self, moment: datetime, purge: bool) -> tuple[int, str]:
-        report = self._people.compliance.execute_purge(by="system", as_of=moment, dry_run=not purge)
+        report = self._people.compliance.execute_purge(
+            actor=ActorRef.system("retention-sweep"), as_of=moment, dry_run=not purge
+        )
         detail = f"purged {len(report.purged)}, held {len(report.held)}"
         if report.skipped:
             entities = ", ".join(sorted({item.entity.value for item in report.skipped}))
@@ -260,7 +262,9 @@ class Scheduler:
         return len(tasks), f"{len(tasks)} document reminder task(s)"
 
     def _run_offer_expiry(self, moment: datetime, _purge: bool) -> tuple[int, str]:
-        expired = self._recruiting.offers.expire_overdue(now=moment)
+        expired = self._recruiting.offers.expire_overdue(
+            now=moment, actor=ActorRef.system("offer-expiry")
+        )
         return len(expired), f"{len(expired)} offer(s) expired"
 
     def _run_tasks_overdue(self, moment: datetime, _purge: bool) -> tuple[int, str]:
@@ -268,7 +272,7 @@ class Scheduler:
         return 0, f"{len(items)} open overdue task(s)"
 
     def _run_audit_verify(self, _moment: datetime, _purge: bool) -> tuple[int, str]:
-        report = self._people.compliance.verify_audit_chain(checked_by="system")
+        report = self._people.compliance.verify_audit_chain(actor=ActorRef.system("audit-verify"))
         state = "intact" if report.intact else f"BROKEN at seq {report.first_invalid_seq}"
         return 0, f"chain {state} ({report.entry_count} entries)"
 

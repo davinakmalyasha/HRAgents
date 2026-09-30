@@ -31,7 +31,6 @@ def create_template(client: TestClient) -> dict:
         "/v1/onboarding/templates",
         json={
             "name": "Engineering Starter",
-            "created_by": "hr-admin",
             "applies_to_roles": ["engineer"],
             "steps": [
                 {
@@ -63,7 +62,6 @@ def test_full_onboarding_flow_via_api() -> None:
             "/v1/onboarding/plans",
             json={
                 "employee_id": employee["id"],
-                "created_by": "hr-admin",
                 "template_id": template["id"],
             },
         )
@@ -74,14 +72,13 @@ def test_full_onboarding_flow_via_api() -> None:
         assert set(plan["blockers"]) == {"collect_ktp", "sign_contract"}
 
         completed = client.post(
-            f"/v1/onboarding/plans/{plan['id']}/steps/sign_contract/complete",
-            json={"by": "hr-admin"},
+            f"/v1/onboarding/plans/{plan['id']}/steps/sign_contract/complete", json={}
         )
         assert completed.status_code == 200
         assert completed.json()["progress"] == 0.5
 
 
-def test_agent_step_completion_rejected_via_api() -> None:
+def test_step_completion_refuses_a_caller_supplied_actor() -> None:
     with make_client() as client:
         employee = create_employee(client)
         template = create_template(client)
@@ -89,23 +86,29 @@ def test_agent_step_completion_rejected_via_api() -> None:
             "/v1/onboarding/plans",
             json={
                 "employee_id": employee["id"],
-                "created_by": "hr-admin",
                 "template_id": template["id"],
             },
         )
         plan = started.json()
 
-        response = client.post(
+        refused = client.post(
             f"/v1/onboarding/plans/{plan['id']}/steps/sign_contract/complete",
             json={"by": "agent:onboarding_coordinator"},
         )
+        completed = client.post(
+            f"/v1/onboarding/plans/{plan['id']}/steps/sign_contract/complete",
+            json={},
+        )
 
-    # An agent actor is a permission problem, not a state conflict.
-    assert response.status_code == 403
-    assert "completed by humans" in response.json()["title"]
+    # A request can no longer name an actor, so the attempt is a 422 on the
+    # field rather than a 403 on the agent. The named-human gate itself is a
+    # service-layer rule now, covered in tests/services/test_onboarding.py.
+    assert refused.status_code == 422
+    assert any(error["loc"][-1] == "by" for error in refused.json()["detail"])
+    assert completed.status_code == 200
 
 
-def test_agent_cannot_waive_and_a_required_step_can_still_be_waived() -> None:
+def test_a_waiver_needs_a_reason_and_a_waived_step_can_still_be_waived() -> None:
     with make_client() as client:
         employee = create_employee(client)
         template = create_template(client)
@@ -113,25 +116,19 @@ def test_agent_cannot_waive_and_a_required_step_can_still_be_waived() -> None:
             "/v1/onboarding/plans",
             json={
                 "employee_id": employee["id"],
-                "created_by": "hr-admin",
                 "template_id": template["id"],
             },
         ).json()
 
-        agent = client.post(
-            f"/v1/onboarding/plans/{plan['id']}/steps/collect_ktp/waive",
-            json={"by": "agent:onboarding_coordinator", "reason": "skip it"},
-        )
         waived = client.post(
             f"/v1/onboarding/plans/{plan['id']}/steps/collect_ktp/waive",
-            json={"by": "Sinta Prabowo", "reason": "document submitted offline"},
+            json={"reason": "document submitted offline"},
         )
         blank = client.post(
             f"/v1/onboarding/plans/{plan['id']}/steps/sign_contract/waive",
-            json={"by": "Sinta Prabowo", "reason": "   "},
+            json={"reason": "   "},
         )
 
-    assert agent.status_code == 403
     assert waived.status_code == 200
     assert any(
         step["key"] == "collect_ktp" and step["status"] == "waived"
@@ -148,7 +145,6 @@ def test_document_link_and_status_via_api() -> None:
             "/v1/onboarding/plans",
             json={
                 "employee_id": employee["id"],
-                "created_by": "hr-admin",
                 "template_id": template["id"],
             },
         ).json()
@@ -164,7 +160,7 @@ def test_document_link_and_status_via_api() -> None:
 
         linked = client.post(
             f"/v1/onboarding/plans/{plan['id']}/steps/collect_ktp/link-document",
-            json={"document_id": document["id"], "linked_by": "hr-admin"},
+            json={"document_id": document["id"]},
         )
         status = client.get(f"/v1/onboarding/plans/{plan['id']}/document-status")
 
@@ -181,14 +177,13 @@ def test_waive_requires_reason_via_api() -> None:
             "/v1/onboarding/plans",
             json={
                 "employee_id": employee["id"],
-                "created_by": "hr-admin",
                 "template_id": template["id"],
             },
         ).json()
 
         response = client.post(
             f"/v1/onboarding/plans/{plan['id']}/steps/collect_ktp/waive",
-            json={"by": "hr-admin", "reason": ""},
+            json={"reason": ""},
         )
 
     assert response.status_code == 422  # schema-level min_length
@@ -199,7 +194,7 @@ def test_start_plan_without_matching_template_conflicts() -> None:
         employee = create_employee(client, job_title="Warehouse Operator")
         response = client.post(
             "/v1/onboarding/plans",
-            json={"employee_id": employee["id"], "created_by": "hr-admin"},
+            json={"employee_id": employee["id"]},
         )
 
     assert response.status_code == 409
@@ -214,7 +209,6 @@ def test_tasks_created_for_onboarding_steps() -> None:
             "/v1/onboarding/plans",
             json={
                 "employee_id": employee["id"],
-                "created_by": "hr-admin",
                 "template_id": template["id"],
             },
         )
@@ -244,7 +238,6 @@ def test_starter_template_is_served_and_saves_as_a_template() -> None:
             json={
                 "name": body["name"],
                 "description": body["description"],
-                "created_by": "hr-admin",
                 "applies_to_contract_types": body["applies_to_contract_types"],
                 "applies_to_roles": body["applies_to_roles"],
                 "steps": body["steps"],
@@ -264,7 +257,7 @@ def test_creating_a_template_from_the_starter_unblocks_starting_a_plan() -> None
         employee = create_employee(client)
         blocked = client.post(
             "/v1/onboarding/plans",
-            json={"employee_id": employee["id"], "created_by": "hr-admin"},
+            json={"employee_id": employee["id"]},
         )
         draft = client.get("/v1/onboarding/templates/default").json()
         client.post(
@@ -272,7 +265,6 @@ def test_creating_a_template_from_the_starter_unblocks_starting_a_plan() -> None
             json={
                 "name": draft["name"],
                 "description": draft["description"],
-                "created_by": "hr-admin",
                 "applies_to_contract_types": draft["applies_to_contract_types"],
                 "applies_to_roles": draft["applies_to_roles"],
                 "steps": draft["steps"],
@@ -280,7 +272,7 @@ def test_creating_a_template_from_the_starter_unblocks_starting_a_plan() -> None
         )
         started = client.post(
             "/v1/onboarding/plans",
-            json={"employee_id": employee["id"], "created_by": "hr-admin"},
+            json={"employee_id": employee["id"]},
         )
 
     assert blocked.status_code == 409
@@ -297,7 +289,6 @@ def test_onboarding_due_date_math() -> None:
             "/v1/onboarding/plans",
             json={
                 "employee_id": employee["id"],
-                "created_by": "hr-admin",
                 "template_id": template["id"],
             },
         ).json()

@@ -202,7 +202,9 @@ def test_confirm_refuses_when_the_linked_approval_was_rejected() -> None:
     proposal = propose(world)
     approval = engine_of(world).find_by_subject(ApprovalSubject.SCHEDULING, str(proposal.id))
     assert approval is not None
-    engine_of(world).decide(approval.id, decided_by="lead-1", approve=False, reason="no slots")
+    engine_of(world).decide(
+        approval.id, actor=ActorRef.legacy("lead-1"), approve=False, reason="no slots"
+    )
 
     with pytest.raises(RecruitingError, match="was rejected"):
         world.scheduling.decide(proposal.id, decision="confirm", actor=ActorRef.legacy("hr-admin"))

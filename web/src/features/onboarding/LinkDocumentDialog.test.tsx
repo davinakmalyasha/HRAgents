@@ -95,7 +95,7 @@ beforeEach(() => {
 })
 
 describe('LinkDocumentDialog', () => {
-  it('links a document with a named actor', async () => {
+  it('links a document without asking the user to name themselves', async () => {
     state.documents = [document()]
     linkDocumentMock.mockResolvedValue({ status: 200, plan: plan() })
 
@@ -111,18 +111,16 @@ describe('LinkDocumentDialog', () => {
     )
 
     await userEvent.click(await screen.findByRole('radio', { name: /KTP/ }))
-    await userEvent.type(screen.getByLabelText(i18n.t('onboarding.fields.linkedBy')), 'Sinta')
     await userEvent.click(
       screen.getByRole('button', { name: i18n.t('onboarding.linkDialog.confirm') }),
     )
 
     expect(linkDocumentMock).toHaveBeenCalledWith('plan-1', 'ktp', {
       document_id: 'doc-1',
-      linked_by: 'Sinta',
     })
   })
 
-  it('needs both a document and a name', async () => {
+  it('needs a document to be selected', async () => {
     state.documents = [document()]
 
     renderDialog(

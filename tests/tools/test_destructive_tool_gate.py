@@ -7,6 +7,7 @@ three properties that make it safe (same arguments, at most once, audited).
 
 import pytest
 
+from hr_agents.identity import ActorRef
 from hr_agents.models import ApprovalStatus, ApproverRole, payload_digest
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
@@ -157,7 +158,9 @@ def test_execution_is_refused_after_a_rejection() -> None:
     gate = DestructiveToolGate(engine)
     tool = make_destructive_tool(calls=calls)
     ticket = gate.request(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
-    engine.decide(ticket.request_id, decided_by="Sinta", approve=False, reason="wrong record")
+    engine.decide(
+        ticket.request_id, actor=ActorRef.legacy("Sinta"), approve=False, reason="wrong record"
+    )
 
     with pytest.raises(DestructiveToolError, match="is rejected"):
         gate.execute_approved(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
@@ -170,7 +173,7 @@ def test_approved_arguments_cannot_be_swapped_after_the_human_read_them() -> Non
     gate = DestructiveToolGate(engine)
     tool = make_destructive_tool(calls=calls)
     ticket = gate.request(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
-    engine.decide(ticket.request_id, decided_by="Sinta", approve=True)
+    engine.decide(ticket.request_id, actor=ActorRef.legacy("Sinta"), approve=True)
 
     with pytest.raises(DestructiveToolError, match="different arguments"):
         gate.execute_approved(tool, agent_name=AGENT, arguments={"employee_id": "emp-2"})
@@ -183,7 +186,7 @@ def test_another_agent_cannot_spend_someone_elses_approval() -> None:
     gate = DestructiveToolGate(engine)
     tool = make_destructive_tool(calls=calls)
     ticket = gate.request(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
-    engine.decide(ticket.request_id, decided_by="Sinta", approve=True)
+    engine.decide(ticket.request_id, actor=ActorRef.legacy("Sinta"), approve=True)
 
     # The grant is bound to the requesting agent, so another agent has none.
     with pytest.raises(DestructiveToolError, match="for this agent"):
@@ -197,7 +200,7 @@ def test_an_approval_runs_the_tool_at_most_once() -> None:
     gate = DestructiveToolGate(engine)
     tool = make_destructive_tool(calls=calls)
     ticket = gate.request(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
-    engine.decide(ticket.request_id, decided_by="Sinta", approve=True)
+    engine.decide(ticket.request_id, actor=ActorRef.legacy("Sinta"), approve=True)
 
     first = gate.execute_approved(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
     with pytest.raises(DestructiveToolError, match="already executed once"):
@@ -217,7 +220,7 @@ def test_an_agent_cannot_decide_its_own_destructive_call() -> None:
     )
 
     with pytest.raises(ApprovalError, match="named human"):
-        engine.decide(ticket.request_id, decided_by=AGENT, approve=True)
+        engine.decide(ticket.request_id, actor=ActorRef.legacy(AGENT), approve=True)
 
 
 # --- the happy path, and its guarantees ---------------------------------------
@@ -261,7 +264,9 @@ def test_the_approved_execution_is_audited_with_the_approval_id() -> None:
     gate = DestructiveToolGate(engine, audit=audit)
     tool = make_destructive_tool()
     ticket = gate.request(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
-    engine.decide(ticket.request_id, decided_by="Sinta", approve=True, reason="documented")
+    engine.decide(
+        ticket.request_id, actor=ActorRef.legacy("Sinta"), approve=True, reason="documented"
+    )
 
     gate.execute_approved(tool, agent_name=AGENT, arguments={"employee_id": "emp-1"})
 

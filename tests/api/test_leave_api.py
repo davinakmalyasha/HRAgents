@@ -33,7 +33,6 @@ def set_annual_policy(client: TestClient) -> None:
         json={
             "leave_type": "annual",
             "name": "Cuti Tahunan",
-            "by": "hr-admin",
             "accrual_method": "lump_sum_annual",
             "days_per_year": 12.0,
             "min_service_months": 12,
@@ -75,7 +74,6 @@ def test_full_request_approve_flow() -> None:
                 "leave_type": "annual",
                 "start_date": WORK_START.isoformat(),
                 "end_date": (WORK_START + timedelta(days=4)).isoformat(),
-                "requested_by": "sari@example.com",
                 "reason": "family event",
             },
         )
@@ -87,11 +85,11 @@ def test_full_request_approve_flow() -> None:
         # Manager approves through the generic approvals API
         decided = client.post(
             f"/v1/approvals/{request['approval_id']}/decide",
-            json={"decided_by": "manager-budi", "approve": True, "reason": "ok"},
+            json={"approve": True, "reason": "ok"},
         )
         assert decided.status_code == 200
 
-        synced = client.post(f"/v1/leave/approvals/{request['approval_id']}/sync")
+        synced = client.post(f"/v1/leave/approvals/{request['approval_id']}/sync", json={})
         assert synced.status_code == 200
         assert synced.json()["status"] == "approved"
 
@@ -111,7 +109,6 @@ def test_insufficient_balance_conflict() -> None:
             json={
                 "leave_type": "annual",
                 "name": "Cuti Tahunan",
-                "by": "hr",
                 "accrual_method": "lump_sum_annual",
                 "days_per_year": 2.0,
                 "min_service_months": 12,
@@ -124,7 +121,6 @@ def test_insufficient_balance_conflict() -> None:
                 "leave_type": "annual",
                 "start_date": WORK_START.isoformat(),
                 "end_date": (WORK_START + timedelta(days=4)).isoformat(),
-                "requested_by": "sari@example.com",
             },
         )
 
@@ -138,7 +134,7 @@ def test_balance_adjustment() -> None:
         set_annual_policy(client)
         response = client.post(
             f"/v1/leave/balances/{employee['id']}/annual/adjust",
-            json={"days": 3.0, "by": "hr-admin", "reason": "replacement holiday"},
+            json={"days": 3.0, "reason": "replacement holiday"},
         )
 
     assert response.status_code == 200
@@ -156,13 +152,10 @@ def test_cancel_request_via_api() -> None:
                 "leave_type": "annual",
                 "start_date": WORK_START.isoformat(),
                 "end_date": (WORK_START + timedelta(days=1)).isoformat(),
-                "requested_by": "sari@example.com",
             },
         ).json()
 
-        cancelled = client.post(
-            f"/v1/leave/requests/{created['id']}/cancel", json={"by": "sari@example.com"}
-        )
+        cancelled = client.post(f"/v1/leave/requests/{created['id']}/cancel", json={})
 
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
@@ -179,14 +172,13 @@ def test_calendar_endpoint() -> None:
                 "leave_type": "annual",
                 "start_date": WORK_START.isoformat(),
                 "end_date": (WORK_START + timedelta(days=4)).isoformat(),
-                "requested_by": "sari@example.com",
             },
         ).json()
         client.post(
             f"/v1/approvals/{created['approval_id']}/decide",
-            json={"decided_by": "manager", "approve": True},
+            json={"approve": True},
         )
-        client.post(f"/v1/leave/approvals/{created['approval_id']}/sync")
+        client.post(f"/v1/leave/approvals/{created['approval_id']}/sync", json={})
 
         calendar = client.get("/v1/leave/calendar", params={"on_date": WORK_START.isoformat()})
 
@@ -200,7 +192,7 @@ def test_holidays_affect_day_count() -> None:
         set_annual_policy(client)
         client.put(
             "/v1/leave/calendar/holidays",
-            json={"holidays": [WORK_START.isoformat()], "by": "hr"},
+            json={"holidays": [WORK_START.isoformat()]},
         )
         created = client.post(
             "/v1/leave",
@@ -209,7 +201,6 @@ def test_holidays_affect_day_count() -> None:
                 "leave_type": "annual",
                 "start_date": WORK_START.isoformat(),
                 "end_date": (WORK_START + timedelta(days=4)).isoformat(),
-                "requested_by": "sari@example.com",
             },
         )
 
@@ -228,7 +219,6 @@ def test_pending_listing() -> None:
                 "leave_type": "annual",
                 "start_date": WORK_START.isoformat(),
                 "end_date": (WORK_START + timedelta(days=1)).isoformat(),
-                "requested_by": "sari@example.com",
             },
         )
         pending = client.get("/v1/leave", params={"pending_only": True})
