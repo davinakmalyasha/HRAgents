@@ -9,6 +9,7 @@ vi.mock('./hiringApi', () => ({ recordOverride: vi.fn() }))
 
 import { recordOverride } from './hiringApi'
 import { OverrideDialog } from './OverrideDialog'
+import { REVIEWER_ROLES } from './review'
 
 const recordOverrideMock = vi.mocked(recordOverride)
 
@@ -51,40 +52,50 @@ beforeEach(() => {
 })
 
 describe('OverrideDialog', () => {
-  it('requires a named reviewer, a role, a decision, and a reason', async () => {
+  it('offers only roles the API will accept', async () => {
+    renderDialog()
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('review.role') }))
+
+    for (const role of REVIEWER_ROLES) {
+      expect(
+        screen.getByRole('menuitemradio', { name: i18n.t(`review.roles.${role}`) }),
+      ).toBeInTheDocument()
+    }
+    // `hr_partner` used to be listed here. It is not in the server's
+    // ApproverRole enum, so choosing it 422'd the one screen whose whole job is
+    // a human sign-off.
+    expect(REVIEWER_ROLES).not.toContain('hr_partner')
+  })
+
+  it('requires a role, a decision, and a reason', async () => {
     renderDialog()
 
     await userEvent.click(screen.getByRole('button', { name: i18n.t('review.submit') }))
 
     expect(recordOverrideMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('review.errors.reviewerRequired'))).toBeInTheDocument()
     expect(screen.getByText(i18n.t('review.errors.roleRequired'))).toBeInTheDocument()
     expect(screen.getByText(i18n.t('review.errors.decisionRequired'))).toBeInTheDocument()
     expect(screen.getByText(i18n.t('review.errors.reasonRequired'))).toBeInTheDocument()
   })
 
-  it('blocks agent-prefixed reviewers', async () => {
+  it('has no reviewer field, because the API takes the reviewer from the key', async () => {
     renderDialog()
 
-    await userEvent.type(screen.getByLabelText(i18n.t('review.reviewer')), 'agent:screening')
-    await userEvent.click(screen.getByRole('button', { name: i18n.t('review.submit') }))
-
-    expect(recordOverrideMock).not.toHaveBeenCalled()
-    expect(screen.getByText(i18n.t('review.errors.agentBlocked'))).toBeInTheDocument()
+    expect(screen.queryByLabelText(i18n.t('review.reviewer'))).not.toBeInTheDocument()
   })
 
   it('records the decision and shows the audit receipt', async () => {
     recordOverrideMock.mockResolvedValue({ status: 201, receipt: RECEIPT })
     renderDialog()
 
-    await userEvent.type(screen.getByLabelText(i18n.t('review.reviewer')), 'Sinta Prabowo')
     await chooseOption('role', i18n.t('review.roles.recruiter_lead'))
     await chooseOption('decision', i18n.t('review.decisions.hitl_soft_rejection'))
     await userEvent.type(screen.getByLabelText(i18n.t('review.reason')), 'below_bar_after_review')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('review.submit') }))
 
+    // No `reviewer_id`: the field used to be collected and then ignored by the
+    // server, which recorded the API key's holder instead.
     expect(recordOverrideMock).toHaveBeenCalledWith('eval-1', {
-      reviewer_id: 'Sinta Prabowo',
       reviewer_role: 'recruiter_lead',
       override_decision: 'hitl_soft_rejection',
       reason_code: 'below_bar_after_review',
@@ -101,12 +112,23 @@ describe('OverrideDialog', () => {
     recordOverrideMock.mockResolvedValue({ status: 403 })
     renderDialog()
 
-    await userEvent.type(screen.getByLabelText(i18n.t('review.reviewer')), 'Sinta Prabowo')
     await chooseOption('role', i18n.t('review.roles.engineering_lead'))
     await chooseOption('decision', i18n.t('review.decisions.auto_schedule'))
     await userEvent.type(screen.getByLabelText(i18n.t('review.reason')), 'reconsider')
     await userEvent.click(screen.getByRole('button', { name: i18n.t('review.submit') }))
 
     expect(await screen.findByText(i18n.t('review.errors.forbidden'))).toBeInTheDocument()
+  })
+
+  it('maps a 422 to the generic failure, since the form no longer guesses a reviewer', async () => {
+    recordOverrideMock.mockResolvedValue({ status: 422 })
+    renderDialog()
+
+    await chooseOption('role', i18n.t('review.roles.engineering_lead'))
+    await chooseOption('decision', i18n.t('review.decisions.auto_schedule'))
+    await userEvent.type(screen.getByLabelText(i18n.t('review.reason')), 'reconsider')
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('review.submit') }))
+
+    expect(await screen.findByText(i18n.t('review.errors.failed'))).toBeInTheDocument()
   })
 })

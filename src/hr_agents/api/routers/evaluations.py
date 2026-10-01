@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.recruitment_schemas import (
     AuditReceipt,
     EvaluationView,
@@ -88,12 +88,12 @@ def list_overrides(evaluation_id: UUID, evaluations: EvaluationsDep) -> list[Ove
     dependencies=[Depends(require_permission(Permission.RECRUITING_OVERRIDE))],
 )
 def record_override(
-    evaluation_id: UUID, payload: OverrideCreate, evaluations: EvaluationsDep
+    evaluation_id: UUID, payload: OverrideCreate, evaluations: EvaluationsDep, actor: ActorDep
 ) -> AuditReceipt:
     try:
         outcome = evaluations.record_override(
             evaluation_id,
-            reviewer_id=payload.reviewer_id,
+            actor=actor,
             reviewer_role=payload.reviewer_role,
             override_decision=payload.override_decision,
             reason_code=payload.reason_code,

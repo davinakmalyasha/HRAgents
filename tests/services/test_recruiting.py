@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
+from inspect import Parameter, signature
 from uuid import UUID, uuid4
 
 import pytest
 
-from hr_agents.identity import ActorRef
+from hr_agents.identity import ActorProvenance, ActorRef, ActorType
 from hr_agents.models import (
+    ApproverRole,
     DimensionScore,
     EvaluationFlag,
     JobStatus,
@@ -34,6 +36,22 @@ CANDIDATE_ID = uuid4()
 APPLICATION_ID = uuid4()
 
 BASE_SLOT = datetime(2026, 10, 1, 1, 0, tzinfo=UTC)
+
+
+def signed_in(actor_id: str, role: ApproverRole) -> ActorRef:
+    """An authenticated principal, shaped the way ``from_principal`` builds one.
+
+    ``ActorRef`` has no ``human`` constructor on purpose: being a person is a
+    property of how the actor arrived, and only the auth layer can assert that.
+    Tests that need one go through this, so a test cannot accidentally model a
+    human as a bare string.
+    """
+    return ActorRef(
+        actor_id=actor_id,
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=role.value,
+    )
 
 
 def make_evaluation(
@@ -273,15 +291,15 @@ def test_override_is_append_only_with_audit_receipt(evaluations: EvaluationServi
 
     first = evaluations.record_override(
         evaluation.id,
-        reviewer_id="lead-1",
-        reviewer_role="engineering_lead",
+        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_SOFT_REJECTION,
         reason_code="confirm_review",
     )
     second = evaluations.record_override(
         evaluation.id,
-        reviewer_id="recruiter-2",
-        reviewer_role="recruiter_lead",
+        actor=signed_in("recruiter-2", ApproverRole.RECRUITER_LEAD),
+        reviewer_role=ApproverRole.RECRUITER_LEAD,
         override_decision=PolicyDecision.REJECT_AUTO,
         reason_code="below_bar_after_review",
         notes="Discussed with the lead.",
@@ -289,6 +307,7 @@ def test_override_is_append_only_with_audit_receipt(evaluations: EvaluationServi
 
     overrides = evaluations.list_overrides(evaluation.id)
     assert [item.reason_code for item in overrides] == ["confirm_review", "below_bar_after_review"]
+    assert [item.reviewer_id for item in overrides] == ["lead-1", "recruiter-2"]
     assert second.receipt.prev_hash == first.receipt.entry_hash
     assert second.receipt.verify()
 
@@ -307,27 +326,59 @@ def test_override_requires_named_human_and_permitted_role(
     with pytest.raises(RecruitingError, match="named human"):
         evaluations.record_override(
             evaluation.id,
-            reviewer_id="agent:screening_coordinator",
-            reviewer_role="engineering_lead",
+            actor=ActorRef.agent("agent:screening_coordinator"),
+            reviewer_role=ApproverRole.ENGINEERING_LEAD,
             override_decision=PolicyDecision.REJECT_AUTO,
             reason_code="x",
         )
     with pytest.raises(RecruitingError, match="cannot override"):
         evaluations.record_override(
             evaluation.id,
-            reviewer_id="someone",
-            reviewer_role="manager",
+            actor=signed_in("someone", ApproverRole.MANAGER),
+            reviewer_role=ApproverRole.MANAGER,
             override_decision=PolicyDecision.REJECT_AUTO,
             reason_code="x",
         )
     with pytest.raises(RecruitingError, match="reason code"):
         evaluations.record_override(
             evaluation.id,
-            reviewer_id="lead-1",
-            reviewer_role="engineering_lead",
+            actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+            reviewer_role=ApproverRole.ENGINEERING_LEAD,
             override_decision=PolicyDecision.REJECT_AUTO,
             reason_code="  ",
         )
+
+
+def test_override_reviewer_is_the_authenticated_actor(evaluations: EvaluationService) -> None:
+    """The recorded reviewer cannot be anyone but the caller.
+
+    ``record_override`` took ``reviewer_id`` as an argument, so a caller could
+    file a gated-rejection reversal under a colleague's -- or the CEO's -- name.
+    The signed chain then said a person decided when they never saw the request.
+    """
+    evaluation = make_evaluation()
+    evaluations.register(
+        application_id=APPLICATION_ID,
+        evaluation=evaluation,
+        candidate_name="Budi",
+        job_title="Engineer",
+    )
+
+    outcome = evaluations.record_override(
+        evaluation.id,
+        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        reviewer_role=ApproverRole.ENGINEERING_LEAD,
+        override_decision=PolicyDecision.REJECT_AUTO,
+        reason_code="below_bar_after_review",
+    )
+    recorded = evaluations.list_overrides(evaluation.id)
+
+    assert outcome.override.reviewer_id == "lead-1"
+    assert [item.reviewer_id for item in recorded] == ["lead-1"]
+
+    parameters = signature(EvaluationService.record_override).parameters
+    assert "reviewer_id" not in parameters
+    assert parameters["actor"].kind is Parameter.KEYWORD_ONLY
 
 
 def test_override_syncs_application_status(audit: AuditChain) -> None:
@@ -349,8 +400,8 @@ def test_override_syncs_application_status(audit: AuditChain) -> None:
 
     service.record_override(
         evaluation.id,
-        reviewer_id="lead-1",
-        reviewer_role="engineering_lead",
+        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_MANUAL,
         reason_code="reconsider",
     )

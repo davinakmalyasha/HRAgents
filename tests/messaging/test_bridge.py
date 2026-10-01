@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from hr_agents.identity import ActorRef
+from hr_agents.identity import ActorProvenance, ActorRef
 from hr_agents.messaging.base import (
     InboundEmail,
     OutboundEmail,
@@ -25,6 +25,7 @@ from hr_agents.messaging.outbox import OutboxDispatcher, default_subject
 from hr_agents.messaging.store import ReplyStore
 from hr_agents.models import (
     ActorType,
+    ApproverRole,
     CandidateReply,
     Channel,
     CommunicationKind,
@@ -111,6 +112,20 @@ def make_evaluation(
 @pytest.fixture
 def audit() -> AuditChain:
     return AuditChain()
+
+
+def signed_in(actor_id: str, role: ApproverRole) -> ActorRef:
+    """An authenticated principal, shaped the way ``from_principal`` builds one.
+
+    ``ActorRef`` has no ``human`` constructor on purpose: being a person is a
+    property of how the actor arrived, and only the auth layer can assert that.
+    """
+    return ActorRef(
+        actor_id=actor_id,
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=role.value,
+    )
 
 
 @pytest.fixture
@@ -367,8 +382,8 @@ def test_rejection_approval_still_gates_dispatch(
         )
     evaluations.record_override(
         record.evaluation.id,
-        reviewer_id="lead-1",
-        reviewer_role="engineering_lead",
+        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_SOFT_REJECTION,
         reason_code="below_bar_after_review",
     )

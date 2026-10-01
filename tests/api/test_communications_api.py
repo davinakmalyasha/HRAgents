@@ -159,7 +159,6 @@ def test_gated_rejection_needs_a_recorded_decision() -> None:
         override = client.post(
             f"/v1/evaluations/{evaluation.id}/overrides",
             json={
-                "reviewer_id": "lead-1",
                 "reviewer_role": "engineering_lead",
                 "override_decision": "hitl_soft_rejection",
                 "reason_code": "below_bar_after_review",
@@ -274,7 +273,6 @@ def test_rejection_preview_reports_the_gates_that_block_queueing() -> None:
         client.post(
             f"/v1/evaluations/{evaluation.id}/overrides",
             json={
-                "reviewer_id": "lead-1",
                 "reviewer_role": "engineering_lead",
                 "override_decision": "hitl_soft_rejection",
                 "reason_code": "below_bar_after_review",
@@ -405,7 +403,7 @@ def test_offer_queues_human_authored_message_and_blocks_blank() -> None:
             f"/v1/candidates/{application['candidate_id']}/communications/offer",
             json={
                 "body": "We would like to offer you the role.",
-                "subject": "Offer — Backend Engineer",
+                "subject": "Offer â€” Backend Engineer",
             },
         )
 
@@ -413,7 +411,7 @@ def test_offer_queues_human_authored_message_and_blocks_blank() -> None:
     assert queued.status_code == 201, queued.text
     body = queued.json()
     assert body["kind"] == "offer"
-    assert body["subject"] == "Offer — Backend Engineer"
+    assert body["subject"] == "Offer â€” Backend Engineer"
     # Attributed to the authenticated operator, not to any body field.
     assert body["approved_by"] == "local-dev"
 

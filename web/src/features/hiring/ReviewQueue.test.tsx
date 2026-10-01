@@ -74,7 +74,10 @@ describe('ReviewQueue', () => {
     await userEvent.click(screen.getByRole('button', { name: i18n.t('review.review') }))
 
     expect(screen.getByText(i18n.t('review.title'))).toBeInTheDocument()
-    expect(screen.getByLabelText(i18n.t('review.reviewer'))).toBeInTheDocument()
+    // The dialog asks for the authority being signed under, not for a name:
+    // the API takes the reviewer from the API key.
+    expect(screen.getByText(i18n.t('review.role'))).toBeInTheDocument()
+    expect(screen.queryByLabelText(i18n.t('review.reviewer'))).not.toBeInTheDocument()
   })
 
   it('celebrates an empty queue', () => {

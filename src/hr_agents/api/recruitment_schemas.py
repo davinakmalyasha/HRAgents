@@ -13,6 +13,7 @@ from uuid import UUID
 from pydantic import EmailStr, Field, field_validator
 
 from hr_agents.models import (
+    ApproverRole,
     AuditEntry,
     CandidateCommunication,
     CandidateReply,
@@ -178,8 +179,16 @@ class EvaluationView(StrictModel):
 
 
 class OverrideCreate(StrictModel):
-    reviewer_id: str = Field(min_length=1, max_length=200)
-    reviewer_role: str = Field(min_length=1, max_length=60)
+    """A human sign-off on a gated decision.
+
+    There is no ``reviewer_id``. It used to be here, and one caller could sign
+    the chain with a name that had never authenticated -- on the one endpoint
+    whose whole purpose is a named-human sign-off. The reviewer is whoever holds
+    the API key; what the caller states is which authority they are signing
+    under, and that has to be a real role.
+    """
+
+    reviewer_role: ApproverRole
     override_decision: PolicyDecision
     reason_code: str = Field(min_length=1, max_length=120)
     notes: str | None = Field(default=None, max_length=2000)

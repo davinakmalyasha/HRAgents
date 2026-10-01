@@ -31,11 +31,12 @@ from hr_agents.db.recruiting import (
     DbJobService,
     DbSchedulingService,
 )
-from hr_agents.identity import ActorRef
+from hr_agents.identity import ActorProvenance, ActorRef
 from hr_agents.messaging.contacts import InMemoryCandidateDirectory
 from hr_agents.messaging.store import ReplyStore, reply_dedup_key
 from hr_agents.models import (
     ActorType,
+    ApproverRole,
     AuditActor,
     CandidateCommunication,
     CandidateReply,
@@ -81,6 +82,20 @@ def _submission(**overrides: object) -> SubmissionInput:
 
 def _actor(actor_id: str = "hr-admin") -> AuditActor:
     return AuditActor(actor_type=ActorType.HUMAN, actor_id=actor_id)
+
+
+def signed_in(actor_id: str, role: ApproverRole) -> ActorRef:
+    """An authenticated principal, shaped the way ``from_principal`` builds one.
+
+    ``ActorRef`` has no ``human`` constructor on purpose: being a person is a
+    property of how the actor arrived, and only the auth layer can assert that.
+    """
+    return ActorRef(
+        actor_id=actor_id,
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=role.value,
+    )
 
 
 def _seed_job(factory: sessionmaker[Session]) -> UUID:
@@ -372,8 +387,8 @@ def test_evaluation_adapter_registration_and_overrides(factory: sessionmaker[Ses
 
     outcome = fresh.record_override(
         evaluation.id,
-        reviewer_id="lead-1",
-        reviewer_role="engineering_lead",
+        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_SOFT_REJECTION,
         reason_code="evidence_insufficient",
         notes="Reviewed together",

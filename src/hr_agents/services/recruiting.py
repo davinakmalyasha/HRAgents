@@ -82,7 +82,24 @@ if TYPE_CHECKING:
 DOCUMENT_KINDS = frozenset({"cv", "portfolio", "questionnaire", "linkedin_export", "other"})
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024  # 10 MiB
 
-OVERRIDE_REVIEWER_ROLES = frozenset({"engineering_lead", "recruiter_lead", "hr_partner"})
+OVERRIDE_REVIEWER_ROLES: frozenset[ApproverRole] = frozenset(
+    {
+        ApproverRole.HR_ADMIN,
+        ApproverRole.RECRUITER_LEAD,
+        ApproverRole.ENGINEERING_LEAD,
+    }
+)
+"""Who may sign off on a gated rejection.
+
+These were three free-text strings -- ``engineering_lead``,
+``recruiter_lead``, ``hr_partner``. Two are real ``ApproverRole`` members; the
+third never existed in any table, including ``APPROVER_ROLE_HOLDERS``, so it
+could be typed by anyone and meant nothing. Typed now, so an unrecognised role is
+a 422 at the boundary rather than a string that matches no one.
+
+The *reviewer identity* is no longer part of this decision at all: it comes from
+the API key. What is left is which authority the sign-off is being made under.
+"""
 
 JOB_TRANSITIONS: dict[JobStatus, frozenset[JobStatus]] = {
     JobStatus.DRAFT: frozenset({JobStatus.OPEN, JobStatus.CLOSED}),
@@ -495,28 +512,42 @@ class EvaluationService:
         self,
         evaluation_id: UUID,
         *,
-        reviewer_id: str,
-        reviewer_role: str,
+        actor: ActorRef,
+        reviewer_role: ApproverRole,
         override_decision: PolicyDecision,
         reason_code: str,
         notes: str | None = None,
     ) -> OverrideOutcome:
-        """Append a named human decision. Overrides are never edited or deleted."""
+        """Append a named human decision. Overrides are never edited or deleted.
+
+        The reviewer is whoever authenticated. This used to take ``reviewer_id``
+        from the request body, which meant one recruiter could reverse a gated
+        rejection and sign the chain with a colleague's name -- or the chief
+        executive's. The record named a person who was never asked and never
+        authenticated, on the one endpoint whose entire purpose is a named-human
+        sign-off.
+
+        ``reviewer_role`` stays a claim, because a principal's role cannot supply
+        it: ``RoleId`` has no lead roles, so deriving one would mean inventing
+        the whole approval-authority model. Instead the claim is permitted-set
+        checked and the authenticated role is written beside it, so a body that
+        says "engineering_lead" from a recruiter principal is visible rather than
+        silent.
+        """
         record = self.get(evaluation_id)
-        if not reviewer_id or reviewer_id.startswith(AGENT_ACTOR_PREFIX):
-            raise RecruitingError("overrides require a named human reviewer")
+        actor.require_human("record a human override", RecruitingError)
         if reviewer_role not in OVERRIDE_REVIEWER_ROLES:
             raise RecruitingError(
-                f"role {reviewer_role!r} cannot override; expected one of "
-                + ", ".join(sorted(OVERRIDE_REVIEWER_ROLES))
+                f"role {reviewer_role.value!r} cannot override; expected one of "
+                + ", ".join(sorted(role.value for role in OVERRIDE_REVIEWER_ROLES))
             )
         if not reason_code.strip():
             raise RecruitingError("an override requires a reason code")
 
         override = HitlOverride(
             evaluation_id=str(evaluation_id),
-            reviewer_id=reviewer_id,
-            reviewer_role=reviewer_role,
+            reviewer_id=actor.actor_id,
+            reviewer_role=reviewer_role.value,
             override_decision=override_decision,
             reason_code=reason_code,
             notes=notes,
@@ -527,12 +558,13 @@ class EvaluationService:
             self._apply_override_status(record, override_decision)
 
         receipt = self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=reviewer_id),
+            actor=actor.audit_actor(),
             action="evaluation.override_recorded",
             subject_type="evaluation",
             subject_id=str(evaluation_id),
             payload={
-                "reviewer_role": reviewer_role,
+                "reviewer_role": reviewer_role.value,
+                "authenticated_role": actor.role,
                 "override_decision": override_decision.value,
                 "reason_code": reason_code,
                 "notes_present": bool(notes),

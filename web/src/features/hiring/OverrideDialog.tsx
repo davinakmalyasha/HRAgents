@@ -37,16 +37,23 @@ interface OverrideDialogProps {
 type Phase =
   | { name: 'form' }
   | { name: 'submitting' }
-  | { name: 'done'; receipt: AuditReceipt; decision: PolicyDecision; reviewer: string }
+  | { name: 'done'; receipt: AuditReceipt; decision: PolicyDecision }
   | { name: 'error'; detail: string }
 
 const fieldClass = 'flex flex-col gap-1.5'
 const labelClass = 'text-xs font-medium text-ink-strong'
 
 /**
- * Named-human sign-off. Client validation mirrors the server gates
- * (named reviewer, permitted role, non-blank reason code); the API stays
- * authoritative and every outcome is audited with a receipt.
+ * Named-human sign-off.
+ *
+ * The reviewer is whoever is signed in: the API takes no reviewer field, because
+ * a typed name is a claim and the API key is a fact. The form used to ask for
+ * the name and the server silently recorded whoever called instead, so the
+ * screen asked a question whose answer was discarded.
+ *
+ * Client validation mirrors the remaining server gates (permitted role, non-blank
+ * reason code); the API stays authoritative and every outcome is audited with a
+ * receipt.
  */
 export function OverrideDialog({
   evaluationId,
@@ -57,7 +64,6 @@ export function OverrideDialog({
 }: OverrideDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [reviewer, setReviewer] = useState('')
   const [role, setRole] = useState<ReviewerRole | ''>('')
   const [decision, setDecision] = useState<PolicyDecision | ''>('')
   const [reason, setReason] = useState('')
@@ -75,11 +81,6 @@ export function OverrideDialog({
 
   function validate(): string[] {
     const problems: string[] = []
-    if (reviewer.trim() === '') {
-      problems.push(t('review.errors.reviewerRequired'))
-    } else if (reviewer.trim().toLowerCase().startsWith('agent:')) {
-      problems.push(t('review.errors.agentBlocked'))
-    }
     if (role === '') {
       problems.push(t('review.errors.roleRequired'))
     }
@@ -116,7 +117,6 @@ export function OverrideDialog({
     setPhase({ name: 'submitting' })
 
     const result = await recordOverride(evaluationId, {
-      reviewer_id: reviewer.trim(),
       reviewer_role: role,
       override_decision: decision,
       reason_code: reason.trim(),
@@ -125,12 +125,7 @@ export function OverrideDialog({
 
     if (result.status === 201 && result.receipt !== undefined) {
       await queryClient.invalidateQueries({ queryKey: ['applications'] })
-      setPhase({
-        name: 'done',
-        receipt: result.receipt,
-        decision,
-        reviewer: reviewer.trim(),
-      })
+      setPhase({ name: 'done', receipt: result.receipt, decision })
       return
     }
     setPhase({ name: 'error', detail: errorFor(result.status) })
@@ -150,9 +145,6 @@ export function OverrideDialog({
           <div className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{t(`review.decisions.${phase.decision}`)}</Badge>
-              <span className="text-ink-muted text-xs">
-                {t('review.decidedBy', { reviewer: phase.reviewer })}
-              </span>
             </div>
             <dl className="border-line bg-surface-subtle flex flex-col gap-1 rounded-md border p-3 text-xs">
               <div className="flex items-center justify-between gap-2">
@@ -190,19 +182,6 @@ export function OverrideDialog({
                 ))}
               </ul>
             ) : null}
-
-            <div className={fieldClass}>
-              <label htmlFor="override-reviewer" className={labelClass}>
-                {t('review.reviewer')}
-              </label>
-              <Input
-                id="override-reviewer"
-                value={reviewer}
-                onChange={(event) => setReviewer(event.target.value)}
-                placeholder={t('review.reviewerPlaceholder')}
-                autoComplete="off"
-              />
-            </div>
 
             <div className={fieldClass}>
               <span id="override-role-label" className={labelClass}>

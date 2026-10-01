@@ -240,16 +240,15 @@ def test_override_records_receipt_and_updates_application() -> None:
         bad_role = client.post(
             f"/v1/evaluations/{evaluation.id}/overrides",
             json={
-                "reviewer_id": "manager-1",
                 "reviewer_role": "manager",
                 "override_decision": "reject_auto",
                 "reason_code": "below_bar",
             },
         )
-        agent_blocked = client.post(
+        names_itself = client.post(
             f"/v1/evaluations/{evaluation.id}/overrides",
             json={
-                "reviewer_id": "agent:screening_coordinator",
+                "reviewer_id": "manager-1",
                 "reviewer_role": "engineering_lead",
                 "override_decision": "reject_auto",
                 "reason_code": "below_bar",
@@ -258,7 +257,6 @@ def test_override_records_receipt_and_updates_application() -> None:
         recorded = client.post(
             f"/v1/evaluations/{evaluation.id}/overrides",
             json={
-                "reviewer_id": "lead-1",
                 "reviewer_role": "engineering_lead",
                 "override_decision": "reject_auto",
                 "reason_code": "below_bar_after_review",
@@ -269,7 +267,10 @@ def test_override_records_receipt_and_updates_application() -> None:
         status = client.get(f"/v1/applications/{application['application_id']}")
 
     assert bad_role.status_code == 403
-    assert agent_blocked.status_code == 403
+    # The body cannot name the reviewer. Identity comes from the API key, so a
+    # caller can no longer sign a gated-rejection reversal with a colleague's
+    # name -- or the chief executive's.
+    assert names_itself.status_code == 422
     assert recorded.status_code == 201
     receipt = recorded.json()
     assert len(receipt["entry_hash"]) == 64
@@ -277,7 +278,8 @@ def test_override_records_receipt_and_updates_application() -> None:
     assert receipt["seq"] >= 1  # the chain already carries application.received entries
     assert history.status_code == 200
     assert len(history.json()) == 1
-    assert history.json()[0]["reviewer_id"] == "lead-1"
+    # The recorded reviewer is the authenticated caller, not a body field.
+    assert history.json()[0]["reviewer_id"] == "local-dev"
     assert status.json()["status"] == "rejected"
 
 
@@ -286,7 +288,6 @@ def test_override_unknown_evaluation_404() -> None:
         response = client.post(
             f"/v1/evaluations/{uuid4()}/overrides",
             json={
-                "reviewer_id": "lead-1",
                 "reviewer_role": "engineering_lead",
                 "override_decision": "auto_schedule",
                 "reason_code": "x",
