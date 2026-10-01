@@ -364,7 +364,7 @@ class LeaveService:
         )
         return request
 
-    def apply_decision(self, approval_id: UUID) -> LeaveRequest:
+    def apply_decision(self, approval_id: UUID, *, actor: ActorRef) -> LeaveRequest:
         """Sync a request with its approval's outcome (called by the app layer)."""
         request = next(
             (item for item in self._requests.values() if item.approval_id == approval_id),
@@ -397,8 +397,13 @@ class LeaveService:
             action=f"leave.request_{target.value}",
             subject_type="leave_request",
             subject_id=str(updated.id),
+            # The approver is the actor; the caller only triggered the sync.
             actor=deciding_actor(approval.decided_by),
-            payload={"approval_id": str(approval_id), "status": target.value},
+            payload={
+                "approval_id": str(approval_id),
+                "status": target.value,
+                "synced_by": actor.actor_id,
+            },
         )
         return updated
 

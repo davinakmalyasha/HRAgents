@@ -177,10 +177,10 @@ def cancel_request(
 
 
 @router.post("/approvals/{approval_id}/sync", response_model=LeaveRequestView)
-def sync_from_approval(approval_id: UUID, leave: LeaveDep) -> LeaveRequestView:
+def sync_from_approval(approval_id: UUID, leave: LeaveDep, actor: ActorDep) -> LeaveRequestView:
     """Sync a leave request with its approval's outcome (called after a decision)."""
     try:
-        request = leave.apply_decision(approval_id)
+        request = leave.apply_decision(approval_id, actor=actor)
     except LeaveError as exc:
         raise _not_found(str(exc)) from exc
     return LeaveRequestView.from_model(request)

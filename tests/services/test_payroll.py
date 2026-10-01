@@ -344,7 +344,7 @@ def test_signoff_flow_approve_and_export(
     approval_id = submitted.approval_id
     assert approval_id is not None
     approvals.decide(approval_id, actor=ActorRef.legacy("finance-lead"), approve=True)
-    approved = service.apply_decision(approval_id)
+    approved = service.apply_decision(approval_id, actor=ActorRef.legacy("hr-admin"))
 
     assert approved.status is PayrollRunStatus.APPROVED
     assert approved.signed_off_by == "finance-lead"
@@ -415,7 +415,7 @@ def test_cannot_edit_after_signoff(
     approval_id = submitted.approval_id
     assert approval_id is not None
     approvals.decide(approval_id, actor=ActorRef.legacy("finance"), approve=True)
-    service.apply_decision(approval_id)
+    service.apply_decision(approval_id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(PayrollError, match="no longer be edited"):
         service.set_inputs(
@@ -448,7 +448,7 @@ def test_rejected_run_returns_to_review_state(
     approvals.decide(
         approval_id, actor=ActorRef.legacy("finance"), approve=False, reason="wrong period"
     )
-    rejected = service.apply_decision(approval_id)
+    rejected = service.apply_decision(approval_id, actor=ActorRef.legacy("hr-admin"))
     assert rejected.status is PayrollRunStatus.REJECTED
     assert rejected.signed_off_by is None
 

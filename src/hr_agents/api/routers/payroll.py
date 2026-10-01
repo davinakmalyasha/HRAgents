@@ -102,9 +102,10 @@ def submit_for_signoff(
     response_model=RunView,
     dependencies=[Depends(require_permission(Permission.PAYROLL_APPROVE))],
 )
-def sync_decision(approval_id: UUID, payroll: PayrollDep) -> RunView:
+def sync_decision(approval_id: UUID, payroll: PayrollDep, actor: ActorDep) -> RunView:
+    """Land a decided approval's outcome on the payroll run."""
     try:
-        run = payroll.apply_decision(approval_id)
+        run = payroll.apply_decision(approval_id, actor=actor)
     except PayrollError as exc:
         raise _not_found(str(exc)) from exc
     return RunView.from_model(run)

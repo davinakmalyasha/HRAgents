@@ -284,9 +284,12 @@ def submit_erasure(
 
 
 @router.post("/erasures/approvals/{approval_id}/sync", response_model=ErasureView)
-def sync_erasure_decision(approval_id: UUID, compliance: ComplianceDep) -> ErasureView:
+def sync_erasure_decision(
+    approval_id: UUID, compliance: ComplianceDep, actor: ActorDep
+) -> ErasureView:
+    """Land a decided approval's outcome on the erasure request."""
     try:
-        request = compliance.apply_decision(approval_id)
+        request = compliance.apply_decision(approval_id, actor=actor)
     except ComplianceError as exc:
         raise _raise(exc) from exc
     return ErasureView.from_model(request)

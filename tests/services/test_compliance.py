@@ -473,7 +473,10 @@ def test_erasure_approval_does_not_auto_execute(service: ComplianceService) -> N
     submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(ComplianceError, match="no request transition"):
-        service.apply_decision(submitted.approval_id)  # type: ignore[arg-type]
+        # ``approval_id`` is optional on the model, so narrow it rather than
+        # silencing the checker: a submitted request always has one.
+        assert submitted.approval_id is not None
+        service.apply_decision(submitted.approval_id, actor=ActorRef.legacy("hr-admin"))
 
 
 def test_erasure_full_flow_purges_and_revokes(service: ComplianceService) -> None:
@@ -505,7 +508,7 @@ def test_erasure_full_flow_purges_and_revokes(service: ComplianceService) -> Non
         service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
 
     service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
-    synced = service.apply_decision(approval.id)
+    synced = service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
     assert synced.status is ErasureStatus.APPROVED
     assert synced.decided_by == "dpo-nadia"
 
@@ -534,7 +537,7 @@ def test_erasure_execution_is_human_only(service: ComplianceService) -> None:
     approval = approval_for(service, submitted)
     assert approval is not None
     service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
-    service.apply_decision(approval.id)
+    service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(ComplianceError, match="named human"):
         service.execute_erasure(request.id, actor=ActorRef.agent("policy_assistant"))
@@ -558,7 +561,7 @@ def test_erasure_denial_blocks_execution(service: ComplianceService) -> None:
         approve=False,
         reason="legal obligation to retain",
     )
-    denied = service.apply_decision(approval.id)
+    denied = service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
 
     assert denied.status is ErasureStatus.DENIED
     assert denied.decision_reason == "legal obligation to retain"
@@ -586,7 +589,7 @@ def test_erasure_policy_action_delete(service: ComplianceService) -> None:
     approval = approval_for(service, submitted)
     assert approval is not None
     service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
-    service.apply_decision(approval.id)
+    service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
 
     executed = service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
 

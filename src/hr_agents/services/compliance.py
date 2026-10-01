@@ -622,7 +622,7 @@ class ComplianceService:
         )
         return updated
 
-    def apply_decision(self, approval_id: UUID) -> ErasureRequest:
+    def apply_decision(self, approval_id: UUID, *, actor: ActorRef) -> ErasureRequest:
         """Sync the request with the approver's decision. Never auto-executes."""
         request = next(
             (item for item in self._store.list_erasures() if item.approval_id == approval_id),
@@ -660,8 +660,11 @@ class ComplianceService:
             action="compliance.erasure_approved" if approved else "compliance.erasure_denied",
             subject_type="erasure_request",
             subject_id=str(updated.id),
+            # The approver is the actor: this transition is a consequence of their
+            # decision. The caller only triggered the sync, so it goes in the
+            # payload -- crediting the write to them would hide who decided.
             actor=deciding_actor(approval.decided_by),
-            payload={"approval_id": str(approval_id)},
+            payload={"approval_id": str(approval_id), "synced_by": actor.actor_id},
         )
         return updated
 

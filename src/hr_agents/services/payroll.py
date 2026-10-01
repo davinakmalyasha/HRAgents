@@ -487,7 +487,7 @@ class PayrollService:
         )
         return updated
 
-    def apply_decision(self, approval_id: UUID) -> PayrollRun:
+    def apply_decision(self, approval_id: UUID, *, actor: ActorRef) -> PayrollRun:
         """Sync the run with the approver's decision."""
         run = next(
             (item for item in self._runs.values() if item.approval_id == approval_id),
@@ -528,8 +528,11 @@ class PayrollService:
         self._record(
             updated,
             action="payroll.run_approved" if approved else "payroll.run_rejected",
+            # The approver is the actor: the sign-off is theirs. The caller only
+            # triggered the sync, so it is recorded beside the decision rather
+            # than in place of it.
             actor=deciding_actor(approval.decided_by),
-            payload={"approval_id": str(approval_id)},
+            payload={"approval_id": str(approval_id), "synced_by": actor.actor_id},
         )
         return updated
 

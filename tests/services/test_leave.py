@@ -247,7 +247,7 @@ def test_approval_approve_syncs_request(
     assert request.approval_id is not None
 
     approvals.decide(request.approval_id, actor=ActorRef.legacy("manager-budi"), approve=True)
-    synced = service.apply_decision(request.approval_id)
+    synced = service.apply_decision(request.approval_id, actor=ActorRef.legacy("hr-admin"))
 
     assert synced.status is RequestStatus.APPROVED
     balance = service.balance(employee.id, LeaveType.ANNUAL, year=WORK_YEAR)
@@ -270,7 +270,7 @@ def test_approval_reject_syncs_request(
     approvals.decide(
         request.approval_id, actor=ActorRef.legacy("manager"), approve=False, reason="peak period"
     )
-    synced = service.apply_decision(request.approval_id)
+    synced = service.apply_decision(request.approval_id, actor=ActorRef.legacy("hr-admin"))
     assert synced.status is RequestStatus.REJECTED
 
 
@@ -434,7 +434,7 @@ def test_cancel_after_decision_rejected(
     )
     assert request.approval_id is not None
     approvals.decide(request.approval_id, actor=ActorRef.legacy("manager"), approve=True)
-    service.apply_decision(request.approval_id)
+    service.apply_decision(request.approval_id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(LeaveError, match="cannot cancel"):
         service.cancel(request.id, actor=ActorRef.legacy("sari@example.com"))
@@ -457,7 +457,7 @@ def test_calendar_on_leave(
     )
     assert request.approval_id is not None
     approvals.decide(request.approval_id, actor=ActorRef.legacy("manager"), approve=True)
-    service.apply_decision(request.approval_id)
+    service.apply_decision(request.approval_id, actor=ActorRef.legacy("hr-admin"))
 
     assert [item.id for item in service.on_leave(on_date=WORK_START + timedelta(days=2))] == [
         request.id
