@@ -388,7 +388,7 @@ def test_reminders_create_tasks_and_deduplicate(service: GrowthService, tasks: T
     assignment = make_assignment(service, cycle.id)
     service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
 
-    first_run = service.run_reminders(as_of=TODAY)
+    first_run = service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY)
     assert len(first_run) == 1
     assert first_run[0].kind == "assignment_due"
     assert first_run[0].subject_id == assignment.id
@@ -398,7 +398,7 @@ def test_reminders_create_tasks_and_deduplicate(service: GrowthService, tasks: T
     assert len(created_task) == 1
     assert created_task[0].source is TaskSource.SYSTEM
 
-    second_run = service.run_reminders(as_of=TODAY)
+    second_run = service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY)
     assert second_run == []
     assert len(tasks.open_tasks()) == 1
 
@@ -408,7 +408,7 @@ def test_reminders_skip_far_future_assignments(service: GrowthService) -> None:
     make_assignment(service, cycle.id)
     service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
 
-    assert service.run_reminders(as_of=TODAY) == []
+    assert service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY) == []
 
 
 def test_reminders_cover_unfinalized_summaries(service: GrowthService) -> None:
@@ -418,7 +418,7 @@ def test_reminders_cover_unfinalized_summaries(service: GrowthService) -> None:
         cycle.id, _EMPLOYEE, draft_text="draft", actor=ActorRef.agent("feedback_writer")
     )
 
-    created = service.run_reminders(as_of=TODAY)
+    created = service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY)
 
     assert [item.kind for item in created] == ["summary_awaiting_finalize"]
     assert created[0].subject_id == summary.id
@@ -429,7 +429,7 @@ def test_reminders_ignore_cancelled_cycles(service: GrowthService) -> None:
     make_assignment(service, cycle.id)
     service.cancel_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"), reason="nope")
 
-    assert service.run_reminders(as_of=TODAY) == []
+    assert service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY) == []
 
 
 # --- goals --------------------------------------------------------------------------

@@ -433,12 +433,25 @@ class GrowthService:
     # --- reminders ---------------------------------------------------------
 
     def run_reminders(
-        self, *, as_of: date | None = None, window_days: int = DEFAULT_REMINDER_WINDOW_DAYS
+        self,
+        *,
+        actor: ActorRef,
+        as_of: date | None = None,
+        window_days: int = DEFAULT_REMINDER_WINDOW_DAYS,
     ) -> list[GrowthReminder]:
         """Create system tasks for due forms and unfinalized summaries.
 
         Deduplicated: an open task for the same assignment/summary is not
         duplicated, so this can run daily.
+
+        ``actor`` is required rather than defaulted. Every caller has one, and
+        defaulting it to a scheduler would mean an operator pressing the button
+        got their reminders filed as a timer -- the same defect the approval
+        escalation sweep had. A system actor is equally acceptable: the scheduled
+        run really is the cause, and it should say so rather than borrow a
+        person's name. The task stays ``TaskSource.SYSTEM`` either way: a missed
+        review form is a chore, not someone's request, and that is a different
+        claim from who noticed it.
         """
         moment = as_of or date.today()
         horizon = moment + timedelta(days=window_days)
@@ -458,7 +471,7 @@ class GrowthService:
                     continue
                 task = self._tasks.create(
                     title=f"[Review] Submit form for {cycle.name}",
-                    actor=ActorRef.system("scheduler"),
+                    actor=actor,
                     description=(
                         f"Reviewer {assignment.reviewer_id} has a pending form. "
                         f"Due {assignment.due_on.isoformat()}."
@@ -490,7 +503,7 @@ class GrowthService:
                     continue
                 task = self._tasks.create(
                     title=f"[Review] Finalize summary for {cycle.name}",
-                    actor=ActorRef.system("scheduler"),
+                    actor=actor,
                     description=(
                         "An agent draft awaits human editing and finalization before the "
                         "cycle can close."

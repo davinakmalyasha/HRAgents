@@ -248,7 +248,11 @@ class Scheduler:
         return 0, f"{len(steps)} overdue step(s) awaiting a human"
 
     def _run_growth(self, moment: datetime, _purge: bool) -> tuple[int, str]:
-        reminders = self._people.growth.run_reminders(as_of=moment.date())
+        # The scheduler really is the cause here, so it says so rather than
+        # borrowing an operator's name. The HTTP route passes the person instead.
+        reminders = self._people.growth.run_reminders(
+            as_of=moment.date(), actor=ActorRef.system("scheduler")
+        )
         return len(reminders), f"{len(reminders)} review reminder task(s)"
 
     def _run_contract_expiry(self, moment: datetime, _purge: bool) -> tuple[int, str]:

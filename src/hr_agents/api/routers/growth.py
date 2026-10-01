@@ -333,6 +333,15 @@ def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep, actor: Ac
 
 
 @router.post("/reminders/run", response_model=list[ReminderView])
-def run_reminders(payload: RemindersRun, growth: GrowthDep) -> list[ReminderView]:
-    created = growth.run_reminders(as_of=payload.as_of, window_days=payload.window_days)
+def run_reminders(payload: RemindersRun, growth: GrowthDep, actor: ActorDep) -> list[ReminderView]:
+    """Run the reminder sweep now, on top of the daily scheduler.
+
+    The reminders themselves are system-sourced: a missed review form is not the
+    reviewer's fault, and the task says so. But somebody pressed this button, and
+    the chain used to say ``system:scheduler`` for that -- the same defect the
+    approval escalation sweep had, where a human action was filed as a timer.
+    """
+    created = growth.run_reminders(
+        as_of=payload.as_of, window_days=payload.window_days, actor=actor
+    )
     return [ReminderView.from_model(item) for item in created]
