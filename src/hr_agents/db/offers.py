@@ -7,10 +7,14 @@ lifecycle rules stay in ``hr_agents.services.offers``.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 from hr_agents.db import offers_tables as ot
 from hr_agents.db.session import sync_session_scope
@@ -57,9 +61,17 @@ class DbOfferService(OfferService):
             return self._to_offer(row, revisions)
 
     def _iter(self) -> list[Offer]:
+        """Every offer, with its revisions, in two statements.
+
+        This issued one revision query per offer, so reading 100 offers cost 201
+        statements and the expiry sweep paid it on every run. Revisions are small
+        and always needed alongside the offer, so they are fetched once and
+        grouped in memory.
+        """
         with sync_session_scope(self._session_factory) as session:
             rows = session.execute(select(ot.OfferRecord)).scalars().all()
-            return [self._to_offer(row, self._revisions_for(session, row.id)) for row in rows]
+            revisions = self._revisions_by_offer(session, [row.id for row in rows])
+            return [self._to_offer(row, revisions.get(row.id, [])) for row in rows]
 
     def _persist(self, offer: Offer) -> None:
         with sync_session_scope(self._session_factory) as session:
@@ -108,6 +120,31 @@ class DbOfferService(OfferService):
                     )
                 )
             session.flush()
+
+    @staticmethod
+    def _revisions_by_offer(
+        session: Session, offer_ids: Sequence[UUID]
+    ) -> dict[UUID, list[ot.OfferRevisionRecord]]:
+        """Revisions for many offers at once, keyed by offer.
+
+        Ordered the same way ``_revisions_for`` orders a single offer's, so the
+        two paths cannot return a different revision history for the same offer.
+        """
+        if not offer_ids:
+            return {}
+        rows = (
+            session.execute(
+                select(ot.OfferRevisionRecord)
+                .where(ot.OfferRevisionRecord.offer_id.in_(offer_ids))
+                .order_by(ot.OfferRevisionRecord.offer_id, ot.OfferRevisionRecord.revision_index)
+            )
+            .scalars()
+            .all()
+        )
+        grouped: dict[UUID, list[ot.OfferRevisionRecord]] = {}
+        for row in rows:
+            grouped.setdefault(row.offer_id, []).append(row)
+        return grouped
 
     @staticmethod
     def _revisions_for(session: Session, offer_id: UUID) -> list[ot.OfferRevisionRecord]:
