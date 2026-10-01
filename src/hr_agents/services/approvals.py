@@ -22,6 +22,7 @@ from hr_agents.models import (
     Urgency,
     utc_now,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ApprovalStore
 
@@ -97,6 +98,17 @@ class ApprovalEngine:
         if not request.active:
             raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot decide")
         actor.require_human("a decision", ApprovalError)
+        if request.requested_by == actor.actor_id and actor.role != RoleId.HR_ADMIN:
+            # Separation of duties. An approval raised by the person who decides
+            # it is not an approval, it is a rubber stamp -- and at an SME the
+            # same person is often both the requester and the only available
+            # approver, so hr_admin is exempt rather than the check being dropped.
+            # The exemption is visible on the record: the chain shows one actor
+            # for both events.
+            raise ApprovalError(
+                f"approval {request_id} was raised by {actor.actor_id}; "
+                "you cannot decide what you raised"
+            )
 
         action = "approved" if approve else "rejected"
         decided = request.model_copy(
@@ -173,19 +185,25 @@ class ApprovalEngine:
         return updated
 
     # --- time-driven ----------------------------------------------------
-    def escalate_overdue(self, *, now: datetime | None = None) -> list[ApprovalRequest]:
+    def escalate_overdue(
+        self, *, actor: ActorRef | None = None, now: datetime | None = None
+    ) -> list[ApprovalRequest]:
         """Escalate every overdue active request (up to max_escalations).
 
         Returns the requests that changed. A scheduler calls this; the engine
-        itself performs no background work.
+        itself performs no background work. ``actor`` is the *caller* when a
+        person triggered the sweep from the API, and omitted when the scheduler
+        did -- which is the difference between "Rina pressed this" and "the
+        clock did it", and the chain now says which.
         """
+        who = actor or ActorRef.system("scheduler")
         moment = now or utc_now()
         changed: list[ApprovalRequest] = []
         for request in self._store.list_all():
             if not request.is_overdue(now=moment):
                 continue
             if request.escalation_count >= request.max_escalations:
-                self._expire(request)
+                self._expire(request, actor=who)
                 changed.append(self._require(request.id))
                 continue
             escalated = request.model_copy(
@@ -196,7 +214,7 @@ class ApprovalEngine:
                 }
             )
             self._store.save(escalated)
-            self._record(escalated, action="approval.escalated")
+            self._record(escalated, action="approval.escalated", actor=who)
             changed.append(escalated)
         return changed
 
@@ -314,7 +332,9 @@ class ApprovalEngine:
             raise ApprovalError(f"unknown approval {request_id}")
         return request
 
-    def _expire(self, request: ApprovalRequest) -> ApprovalRequest:
+    def _expire(
+        self, request: ApprovalRequest, *, actor: ActorRef | None = None
+    ) -> ApprovalRequest:
         expired = request.model_copy(
             update={
                 "status": ApprovalStatus.EXPIRED,
@@ -322,7 +342,7 @@ class ApprovalEngine:
             }
         )
         self._store.save(expired)
-        self._record(expired, action="approval.expired")
+        self._record(expired, action="approval.expired", actor=actor)
         return expired
 
     def _record(

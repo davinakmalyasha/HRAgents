@@ -11,8 +11,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from hr_agents.identity import ActorRef
+from hr_agents.identity import ActorProvenance, ActorRef
 from hr_agents.models import (
+    ActorType,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
@@ -28,6 +29,7 @@ from hr_agents.models import (
     ScoringRun,
     TechnicalEvaluation,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionInput
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.offers import OfferError, OfferService, compose_offer_body
@@ -116,6 +118,25 @@ def build() -> World:
     )
 
 
+def admin(actor_id: str = "hr-admin") -> ActorRef:
+    """An authenticated HR admin, which is what owns the offer approval queue.
+
+    The offer queue is assigned to ``ApproverRole.HR_ADMIN``, so a real
+    deployment delivers an authenticated principal carrying that role. Using
+    ``ActorRef.legacy`` here modelled a weaker actor than production ever
+    produces, and it hid the fact that the submitter and the decider are
+    normally the same person -- which the separation-of-duties check in
+    ``ApprovalService.decide`` has to make an explicit, role-claimed decision
+    about rather than infer from a display name.
+    """
+    return ActorRef(
+        actor_id=actor_id,
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=RoleId.HR_ADMIN.value,
+    )
+
+
 def terms(**overrides: object) -> OfferTerms:
     base: dict[str, object] = {
         "position_title": "Backend Engineer",
@@ -130,9 +151,9 @@ def terms(**overrides: object) -> OfferTerms:
 
 
 def approved_offer(world: World) -> UUID:
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
-    world.offers.decide(offer.id, decision="approve", actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
+    world.offers.submit(offer.id, actor=admin())
+    world.offers.decide(offer.id, decision="approve", actor=admin())
     return offer.id
 
 
@@ -148,7 +169,7 @@ def test_offers_require_a_named_human() -> None:
 def test_create_requires_an_evaluated_application() -> None:
     world = build()
     with pytest.raises(RecruitingError, match="no evaluation"):
-        world.offers.create(uuid4(), terms(), actor=ActorRef.legacy("hr-admin"))
+        world.offers.create(uuid4(), terms(), actor=admin())
 
 
 def test_unknown_offer_is_refused() -> None:
@@ -159,45 +180,43 @@ def test_unknown_offer_is_refused() -> None:
 
 def test_only_drafts_can_be_revised() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
+    world.offers.submit(offer.id, actor=admin())
 
     with pytest.raises(OfferError, match="only draft offers can be revised"):
-        world.offers.revise(
-            offer.id, terms(salary_amount=30_000_000.0), actor=ActorRef.legacy("hr-admin")
-        )
+        world.offers.revise(offer.id, terms(salary_amount=30_000_000.0), actor=admin())
 
 
 def test_only_drafts_can_be_submitted() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
+    world.offers.submit(offer.id, actor=admin())
 
     with pytest.raises(OfferError, match="only a draft can be submitted"):
-        world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
+        world.offers.submit(offer.id, actor=admin())
 
 
 def test_approval_requires_a_pending_offer() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
 
     with pytest.raises(OfferError, match="only a pending offer can be approved"):
-        world.offers.decide(offer.id, decision="approve", actor=ActorRef.legacy("hr-admin"))
+        world.offers.decide(offer.id, decision="approve", actor=admin())
 
 
 def test_withdrawal_requires_a_reason() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
+    world.offers.submit(offer.id, actor=admin())
 
     with pytest.raises(OfferError, match="reason is required"):
-        world.offers.decide(offer.id, decision="withdraw", actor=ActorRef.legacy("hr-admin"))
+        world.offers.decide(offer.id, decision="withdraw", actor=admin())
 
 
 def test_approve_refuses_when_the_linked_approval_was_rejected() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
+    world.offers.submit(offer.id, actor=admin())
     approval = world.approvals.find_by_subject(ApprovalSubject.OFFER, str(offer.id))
     assert approval is not None
     world.approvals.decide(
@@ -205,23 +224,23 @@ def test_approve_refuses_when_the_linked_approval_was_rejected() -> None:
     )
 
     with pytest.raises(OfferError, match="was rejected"):
-        world.offers.decide(offer.id, decision="approve", actor=ActorRef.legacy("hr-admin"))
+        world.offers.decide(offer.id, decision="approve", actor=admin())
 
 
 def test_message_requires_an_approved_offer() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
 
     with pytest.raises(OfferError, match="only an approved offer can be sent"):
-        world.offers.queue_message(offer.id, actor=ActorRef.legacy("hr-admin"))
+        world.offers.queue_message(offer.id, actor=admin())
 
 
 def test_acceptance_requires_an_approved_offer() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
 
     with pytest.raises(OfferError, match="acceptance is recorded on approved offers"):
-        world.offers.record_acceptance(offer.id, actor=ActorRef.legacy("hr-admin"), accepted=True)
+        world.offers.record_acceptance(offer.id, actor=admin(), accepted=True)
 
 
 def test_decline_requires_a_reason() -> None:
@@ -229,7 +248,7 @@ def test_decline_requires_a_reason() -> None:
     offer_id = approved_offer(world)
 
     with pytest.raises(OfferError, match="reason is required"):
-        world.offers.record_acceptance(offer_id, actor=ActorRef.legacy("hr-admin"), accepted=False)
+        world.offers.record_acceptance(offer_id, actor=admin(), accepted=False)
 
 
 def test_agents_cannot_record_acceptance() -> None:
@@ -243,12 +262,10 @@ def test_agents_cannot_record_acceptance() -> None:
 def test_terminal_offers_cannot_be_decided_again() -> None:
     world = build()
     offer_id = approved_offer(world)
-    world.offers.record_acceptance(offer_id, actor=ActorRef.legacy("hr-admin"), accepted=True)
+    world.offers.record_acceptance(offer_id, actor=admin(), accepted=True)
 
     with pytest.raises(OfferError, match="cannot be decided again"):
-        world.offers.decide(
-            offer_id, decision="withdraw", actor=ActorRef.legacy("hr-admin"), reason="changed"
-        )
+        world.offers.decide(offer_id, decision="withdraw", actor=admin(), reason="changed")
 
 
 # --- allowed flows --------------------------------------------------------------------
@@ -256,9 +273,7 @@ def test_terminal_offers_cannot_be_decided_again() -> None:
 
 def test_create_records_the_first_revision_and_audit() -> None:
     world = build()
-    offer = world.offers.create(
-        world.application_id, terms(), actor=ActorRef.legacy("hr-admin"), note="initial"
-    )
+    offer = world.offers.create(world.application_id, terms(), actor=admin(), note="initial")
 
     assert offer.status is OfferStatus.DRAFT
     assert [item.revision_index for item in offer.revisions] == [1]
@@ -273,15 +288,15 @@ def test_create_records_the_first_revision_and_audit() -> None:
 
 def test_revisions_are_append_only() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
     updated = world.offers.revise(
         offer.id,
         terms(salary_amount=27_500_000.0),
-        actor=ActorRef.legacy("hr-admin"),
+        actor=admin(),
         note="negotiated",
     )
     updated = world.offers.revise(
-        offer.id, terms(salary_amount=28_000_000.0), actor=ActorRef.legacy("hr-admin"), note="final"
+        offer.id, terms(salary_amount=28_000_000.0), actor=admin(), note="final"
     )
 
     assert [item.revision_index for item in updated.revisions] == [1, 2, 3]
@@ -292,8 +307,8 @@ def test_revisions_are_append_only() -> None:
 
 def test_submit_creates_the_approval_and_approve_signs_it() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    pending = world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
+    pending = world.offers.submit(offer.id, actor=admin())
 
     approval = world.approvals.find_by_subject(ApprovalSubject.OFFER, str(offer.id))
     assert pending.status is OfferStatus.PENDING_APPROVAL
@@ -301,7 +316,7 @@ def test_submit_creates_the_approval_and_approve_signs_it() -> None:
     assert approval.status is ApprovalStatus.PENDING
     assert approval.assignee_role is ApproverRole.HR_ADMIN
 
-    approved = world.offers.decide(offer.id, decision="approve", actor=ActorRef.legacy("hr-admin"))
+    approved = world.offers.decide(offer.id, decision="approve", actor=admin())
 
     assert approved.status is OfferStatus.APPROVED
     assert approved.decided_by == "hr-admin"
@@ -316,11 +331,11 @@ def test_submit_creates_the_approval_and_approve_signs_it() -> None:
 
 def test_withdrawal_records_and_withdraws_the_approval() -> None:
     world = build()
-    offer = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    world.offers.submit(offer.id, actor=ActorRef.legacy("hr-admin"))
+    offer = world.offers.create(world.application_id, terms(), actor=admin())
+    world.offers.submit(offer.id, actor=admin())
 
     withdrawn = world.offers.decide(
-        offer.id, decision="withdraw", actor=ActorRef.legacy("hr-admin"), reason="headcount frozen"
+        offer.id, decision="withdraw", actor=admin(), reason="headcount frozen"
     )
 
     assert withdrawn.status is OfferStatus.WITHDRAWN
@@ -334,7 +349,7 @@ def test_queue_message_composes_from_terms_and_queues_the_communication() -> Non
     world = build()
     offer_id = approved_offer(world)
 
-    queued = world.offers.queue_message(offer_id, actor=ActorRef.legacy("hr-admin"))
+    queued = world.offers.queue_message(offer_id, actor=admin())
 
     assert queued.status is OfferStatus.QUEUED
     assert queued.queued_at is not None
@@ -347,16 +362,14 @@ def test_queue_message_composes_from_terms_and_queues_the_communication() -> Non
     assert world.audit.verify() == -1
 
     with pytest.raises(OfferError, match="already queued"):
-        world.offers.queue_message(offer_id, actor=ActorRef.legacy("hr-admin"))
+        world.offers.queue_message(offer_id, actor=admin())
 
 
 def test_queue_message_accepts_a_human_edited_body() -> None:
     world = build()
     offer_id = approved_offer(world)
 
-    world.offers.queue_message(
-        offer_id, actor=ActorRef.legacy("hr-admin"), body="A personal note from the CEO."
-    )
+    world.offers.queue_message(offer_id, actor=admin(), body="A personal note from the CEO.")
 
     messages = world.communications.list_for(world.candidate_id)
     assert messages[0].body == "A personal note from the CEO."
@@ -365,11 +378,9 @@ def test_queue_message_accepts_a_human_edited_body() -> None:
 def test_acceptance_is_recorded_with_a_timeline_note() -> None:
     world = build()
     offer_id = approved_offer(world)
-    world.offers.queue_message(offer_id, actor=ActorRef.legacy("hr-admin"))
+    world.offers.queue_message(offer_id, actor=admin())
 
-    accepted = world.offers.record_acceptance(
-        offer_id, actor=ActorRef.legacy("hr-admin"), accepted=True
-    )
+    accepted = world.offers.record_acceptance(offer_id, actor=admin(), accepted=True)
 
     assert accepted.status is OfferStatus.ACCEPTED
     assert accepted.accepted_at is not None
@@ -384,7 +395,7 @@ def test_decline_records_the_reason() -> None:
     offer_id = approved_offer(world)
 
     declined = world.offers.record_acceptance(
-        offer_id, actor=ActorRef.legacy("hr-admin"), accepted=False, reason="accepted another offer"
+        offer_id, actor=admin(), accepted=False, reason="accepted another offer"
     )
 
     assert declined.status is OfferStatus.DECLINED
@@ -400,13 +411,13 @@ def test_expired_offers_do_not_apply_to_accepted_records() -> None:
     expiring = world.offers.create(
         world.application_id,
         terms(expires_at=NOW - timedelta(hours=1)),
-        actor=ActorRef.legacy("hr-admin"),
+        actor=admin(),
     )
-    world.offers.submit(expiring.id, actor=ActorRef.legacy("hr-admin"))
-    accepted = world.offers.create(world.application_id, terms(), actor=ActorRef.legacy("hr-admin"))
-    world.offers.submit(accepted.id, actor=ActorRef.legacy("hr-admin"))
-    world.offers.decide(accepted.id, decision="approve", actor=ActorRef.legacy("hr-admin"))
-    world.offers.record_acceptance(accepted.id, actor=ActorRef.legacy("hr-admin"), accepted=True)
+    world.offers.submit(expiring.id, actor=admin())
+    accepted = world.offers.create(world.application_id, terms(), actor=admin())
+    world.offers.submit(accepted.id, actor=admin())
+    world.offers.decide(accepted.id, decision="approve", actor=admin())
+    world.offers.record_acceptance(accepted.id, actor=admin(), accepted=True)
 
     expired = world.offers.expire_overdue(now=NOW, actor=ActorRef.system("offer-expiry"))
 

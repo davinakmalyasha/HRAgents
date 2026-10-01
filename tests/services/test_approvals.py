@@ -3,14 +3,16 @@ from uuid import uuid4
 
 import pytest
 
-from hr_agents.identity import ActorError, ActorRef
+from hr_agents.identity import ActorError, ActorProvenance, ActorRef
 from hr_agents.models import (
+    ActorType,
     ApprovalRequest,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
     Urgency,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services import ApprovalEngine, ApprovalError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ApprovalStore
@@ -30,6 +32,20 @@ def reloaded(engine: ApprovalEngine, request: ApprovalRequest) -> ApprovalReques
     found = engine.find(request.id)
     assert found is not None, f"approval {request.id} disappeared"
     return found
+
+
+def hr_admin(actor_id: str) -> ActorRef:
+    """An authenticated principal carrying the HR admin role.
+
+    The self-approval exemption keys on the role claim, so tests that want it
+    need an actor the auth layer could actually have produced.
+    """
+    return ActorRef(
+        actor_id=actor_id,
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=RoleId.HR_ADMIN.value,
+    )
 
 
 def create_request(
@@ -98,6 +114,60 @@ def test_agents_cannot_decide(engine: ApprovalEngine) -> None:
     request = create_request(engine)
     with pytest.raises(ApprovalError, match="named human"):
         engine.decide(request.id, actor=ActorRef.agent("policy_assistant"), approve=True)
+
+
+def test_the_requester_cannot_decide_their_own_request(engine: ApprovalEngine) -> None:
+    """An approval the requester decides is not an approval.
+
+    Nothing stopped the person who raised a request from being the person who
+    signed it off, so the two-of-the-box control that every consequential screen
+    in this product depends on was a single click by one person wearing two
+    hats. The audit chain recorded both events, but nothing flagged them.
+    """
+    request = create_request(engine, requested_by="Budi")
+
+    with pytest.raises(ApprovalError, match="you cannot decide what you raised"):
+        engine.decide(request.id, actor=ActorRef.legacy("Budi"), approve=True)
+
+    unchanged = engine.find(request.id)
+    assert unchanged is not None
+    assert unchanged.status is ApprovalStatus.PENDING
+
+
+def test_a_different_human_may_decide(engine: ApprovalEngine) -> None:
+    request = create_request(engine, requested_by="Budi")
+    decision = engine.decide(request.id, actor=ActorRef.legacy("Rina"), approve=True, reason="ok")
+
+    assert decision.action == "approved"
+    assert decision.request.decided_by == "Rina"
+
+
+def test_hr_admin_may_decide_what_they_raised(engine: ApprovalEngine) -> None:
+    """The exemption is explicit, and only for an authenticated admin role.
+
+    At a small company the requester and the approver are frequently the same
+    person, and refusing would leave the request stuck rather than safer. The
+    chain still shows one actor on both events, so the shortcut is visible to
+    whoever reads it -- which is why it is allowed for a role claim rather than
+    being dropped.
+    """
+    request = create_request(engine, requested_by="Rina")
+    decision = engine.decide(request.id, actor=hr_admin("Rina"), approve=True)
+
+    assert decision.action == "approved"
+    assert decision.request.decided_by == "Rina"
+
+
+def test_a_legacy_string_actor_is_not_an_admin_claim(engine: ApprovalEngine) -> None:
+    """The exemption keys on the role, not on the actor's display name.
+
+    Otherwise the check would be bypassed by calling yourself ``hr-admin`` --
+    which is exactly what every caller in this suite does.
+    """
+    request = create_request(engine, requested_by="hr-admin")
+
+    with pytest.raises(ApprovalError, match="you cannot decide what you raised"):
+        engine.decide(request.id, actor=ActorRef.legacy("hr-admin"), approve=True)
 
 
 def test_double_decide_rejected(engine: ApprovalEngine) -> None:
