@@ -241,7 +241,12 @@ class EmployeeService:
         return None
 
     def documents_for(self, employee_id: UUID) -> list[EmployeeDocument]:
-        """One employee's vault, oldest first (checklist linking and review)."""
+        """One employee's vault, soonest expiry first (checklist linking and review).
+
+        The docstring here used to say "oldest first", which matched neither
+        store: the database adapter ordered by expiry and the in-memory one by
+        insertion. Both now order by expiry, and the docstring says so.
+        """
         self._require(employee_id)
         return self._store.list_documents(employee_id)
 
@@ -332,10 +337,14 @@ class EmployeeService:
         return employee
 
     def _all_documents(self) -> list[EmployeeDocument]:
-        documents: list[EmployeeDocument] = []
-        for employee in self._store.list_employees():
-            documents.extend(self._store.list_documents(employee.id))
-        return documents
+        """Every document in the vault, in the store's order.
+
+        This looped the employee list and called ``list_documents`` per employee,
+        which made an org-wide lookup cost one full-table read per employee --
+        501 statements to list documents for 100 employees. The store can answer
+        the whole-vault question directly, so ask it directly.
+        """
+        return self._store.all_documents()
 
     def _offboarding_blockers(self, employee_id: UUID) -> list[str]:
         blockers: list[str] = []

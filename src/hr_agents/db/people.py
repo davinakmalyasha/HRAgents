@@ -10,6 +10,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.sql.elements import ColumnElement
 
 from hr_agents.db import people_tables as pt
 from hr_agents.db.mapping import add_model, get_model, list_models, model_from_row, save_model
@@ -64,18 +65,35 @@ class DbEmployeeStore(EmployeeStore):
         add_model(self._session_factory, document, pt.EmployeeDocumentRecord)
 
     def list_documents(self, employee_id: UUID) -> list[EmployeeDocument]:
-        return [doc for doc in self.all_documents() if doc.employee_id == employee_id]
+        """One employee's vault, in the same order as the whole-vault read.
+
+        This used to call ``all_documents()`` and filter the result in Python,
+        which meant every call selected the entire ``employee_documents`` table
+        and re-validated every row. The service layer calls it once per employee,
+        so an org of 100 issued 100 full-table scans. ``ix_employee_documents_
+        employee`` was already there and unused.
+        """
+        return self._read_documents(where=pt.EmployeeDocumentRecord.employee_id == employee_id)
 
     def all_documents(self) -> list[EmployeeDocument]:
-        """The whole vault, soonest expiry first (records workspace, expiry sweep).
+        """The whole vault, soonest expiry first (records workspace, expiry sweep)."""
+        return self._read_documents()
+
+    def _read_documents(
+        self, *, where: ColumnElement[bool] | None = None
+    ) -> list[EmployeeDocument]:
+        """The one place document rows are read, so ordering cannot drift.
 
         The records endpoints filter in SQL where they can; this keeps the
         tenant-scoped read in one place instead of trusting a Python-side filter.
         """
         with sync_session_scope(self._session_factory) as session:
+            query = select(pt.EmployeeDocumentRecord)
+            if where is not None:
+                query = query.where(where)
             rows = (
                 session.execute(
-                    select(pt.EmployeeDocumentRecord).order_by(
+                    query.order_by(
                         pt.EmployeeDocumentRecord.expires_on.is_(None),
                         pt.EmployeeDocumentRecord.expires_on,
                         pt.EmployeeDocumentRecord.uploaded_at,

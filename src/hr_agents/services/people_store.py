@@ -73,10 +73,21 @@ class EmployeeStore:
         self._documents[document.id] = document
 
     def list_documents(self, employee_id: UUID) -> list[EmployeeDocument]:
-        return [doc for doc in self._documents.values() if doc.employee_id == employee_id]
+        """One employee's vault, in the same order as ``all_documents``.
+
+        The two stores have to agree: the database adapter orders by expiry, and
+        a test that runs green in memory while the deployment returns a different
+        order is worse than a test that fails.
+        """
+        return [doc for doc in self.all_documents() if doc.employee_id == employee_id]
 
     def all_documents(self) -> list[EmployeeDocument]:
-        """Every document in the vault, soonest expiry first."""
+        """Every document in the vault, soonest expiry first.
+
+        Sorted the same way the database adapter sorts, so an expiry sweep and a
+        human reviewing the vault read the same order whichever backend is
+        mounted.
+        """
         return sorted(
             self._documents.values(),
             key=lambda doc: (doc.expires_on is None, doc.expires_on or date.min),
