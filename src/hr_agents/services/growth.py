@@ -246,6 +246,16 @@ class GrowthService:
         """Submit a reviewer's form. Humans only; ratings validated against the scale."""
         actor.require_human("submit a review form", GrowthError)
         assignment = self.get_assignment(assignment_id)
+        if not self._is_assigned_reviewer(assignment, actor):
+            # Without this, anyone holding people:read could file a performance
+            # review in another person's name. The record kept the real
+            # reviewer's id and stamped `submitted_by` with whoever called it,
+            # so the two disagreed and `submitted_ratings` fed the impostor's
+            # numbers into the employee's summary.
+            raise GrowthError(
+                f"only the assigned reviewer may submit this form; it belongs to "
+                f"{assignment.reviewer_id}"
+            )
         if assignment.status is not AssignmentStatus.PENDING:
             raise GrowthError(f"assignment is {assignment.status.value}; cannot submit")
         cycle = self.get_cycle(assignment.cycle_id)
@@ -632,6 +642,19 @@ class GrowthService:
 
     def _require_human(self, actor: str, action: str) -> str:
         return require_named_human(actor, action, GrowthError)
+
+    def _is_assigned_reviewer(self, assignment: ReviewAssignment, actor: ActorRef) -> bool:
+        """Whether ``actor`` may file this assignment's form.
+
+        The reviewer is a person, so identity comes from the API key -- and that
+        makes the check an equality, not a permission. An HR admin may still file
+        it on someone's behalf, because an unreachable manager is a real
+        situation and an unattributable review is worse than a late one; that path
+        stays visible because ``submitted_by`` then differs from ``reviewer_id``.
+        """
+        if assignment.reviewer_id == actor.actor_id:
+            return True
+        return actor.role == "hr_admin"
 
     def _record(
         self,

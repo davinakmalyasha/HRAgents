@@ -3,8 +3,9 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from hr_agents.identity import ActorRef
+from hr_agents.identity import ActorProvenance, ActorRef
 from hr_agents.models import (
+    ActorType,
     ApproverRole,
     AssignmentStatus,
     GoalStatus,
@@ -59,6 +60,21 @@ def make_cycle(service: GrowthService, **overrides: object) -> ReviewCycle:
     }
     defaults.update(overrides)
     return service.create_cycle(**defaults)  # type: ignore[arg-type]
+
+
+def hr_admin(actor_id: str) -> ActorRef:
+    """An authenticated principal carrying the HR admin role.
+
+    ``submit_assignment`` compares the caller against the assigned reviewer, so
+    the HR admin exception keys on a role claim the auth layer could produce --
+    not on an actor whose name happens to contain "admin".
+    """
+    return ActorRef(
+        actor_id=actor_id,
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=ApproverRole.HR_ADMIN.value,
+    )
 
 
 def make_assignment(
@@ -157,6 +173,51 @@ def test_agents_cannot_submit(service: GrowthService) -> None:
         service.submit_assignment(
             assignment.id, actor=ActorRef.agent("feedback_writer"), ratings={"delivery": 4.0}
         )
+
+
+def test_only_the_assigned_reviewer_may_file_the_form(service: GrowthService) -> None:
+    """A performance review is a statement about someone, by a named person.
+
+    ``submit_assignment`` checked only that the caller was a human. Anyone who
+    could read the cycle could therefore file the assigned reviewer's form, and
+    the ratings they typed became the employee's performance summary. The record
+    kept the real reviewer's id while ``submitted_by`` named the impostor, so the
+    two disagreed on the face of the same row.
+    """
+    cycle = make_cycle(service)
+    assignment = make_assignment(service, cycle.id, reviewer_id="lead-1")
+    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+
+    with pytest.raises(GrowthError, match="only the assigned reviewer"):
+        service.submit_assignment(
+            assignment.id, actor=ActorRef.legacy("colleague-9"), ratings={"delivery": 1.0}
+        )
+
+    unchanged = service.get_assignment(assignment.id)
+    assert unchanged.status is AssignmentStatus.PENDING
+    assert unchanged.submitted_by is None
+    assert unchanged.ratings == {}
+
+
+def test_an_hr_admin_may_file_a_reviewers_form_for_them(service: GrowthService) -> None:
+    """The documented exception: an unreachable manager must not block a cycle.
+
+    The check is an identity comparison, not a permission, so it needs a way to
+    say "this is not the reviewer". HR admin is the one role allowed to, and the
+    substitution stays visible because ``submitted_by`` then differs from
+    ``reviewer_id``.
+    """
+    cycle = make_cycle(service)
+    assignment = make_assignment(service, cycle.id, reviewer_id="lead-1")
+    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+
+    submitted = service.submit_assignment(
+        assignment.id, actor=hr_admin("Rina"), ratings={"delivery": 3.0}
+    )
+
+    assert submitted.status is AssignmentStatus.SUBMITTED
+    assert submitted.reviewer_id == "lead-1"
+    assert submitted.submitted_by == "Rina"
 
 
 def test_submission_requires_active_cycle(service: GrowthService) -> None:
