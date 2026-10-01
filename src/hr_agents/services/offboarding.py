@@ -142,9 +142,9 @@ class OffboardingService:
                 if template_step.due_days_before_last_day is not None
                 else None
             )
-            task = self._tasks.create_agent_task(
+            task = self._tasks.create_on_behalf_of(
                 title=f"[Offboarding] {template_step.title}",
-                agent_name="offboarding_coordinator",
+                actor=actor,
                 description=template_step.description
                 or f"Exit step {template_step.key} for {employee.full_name}.",
                 assignee_role=template_step.assignee_role,

@@ -196,7 +196,11 @@ def test_expiry_tasks_created_once(service: ContractService) -> None:
 
     created = service.create_expiry_tasks()
     assert len(created) == 2
-    assert all(task.source is TaskSource.AGENT for task in created)
+    # A timer filed these, so the chain says so. It used to say
+    # `agent:contract_monitor`, which told an auditor an autonomous agent had
+    # created a task against a named employee.
+    assert all(task.source is TaskSource.SYSTEM for task in created)
+    assert all(task.created_by == "system:contract-expiry" for task in created)
 
     again = service.create_expiry_tasks()
     assert again == []

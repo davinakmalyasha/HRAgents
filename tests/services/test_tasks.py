@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from hr_agents.identity import ActorRef
-from hr_agents.models import ApproverRole, TaskPriority, TaskStatus
+from hr_agents.models import ApproverRole, TaskPriority, TaskSource, TaskStatus
 from hr_agents.services import TaskEngine, TaskError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import TaskStore
@@ -24,11 +24,40 @@ def test_create_and_audit(engine: TaskEngine) -> None:
     assert engine._audit.entries[-1].action == "task.created"
 
 
-def test_agent_created_task_is_labeled(engine: TaskEngine) -> None:
-    task = engine.create_agent_task(title="Chase missing NPWP", agent_name="onboarding_coordinator")
-    assert task.source.value == "agent"
-    assert task.created_by == "agent:onboarding_coordinator"
-    assert engine._audit.entries[-1].actor.actor_type.value == "agent"
+def test_a_non_human_task_is_labelled_from_its_actor_not_from_the_caller(
+    engine: TaskEngine,
+) -> None:
+    """The source follows the actor, so the two cannot contradict each other.
+
+    This used to be `create_agent_task(agent_name=...)`, and two callers were
+    mislabelling themselves: starting an onboarding plan recorded an *agent* as
+    the creator when a person had done it, and the contract-expiry sweep recorded
+    an agent when a timer had done it. An auditor reading the chain saw an
+    autonomous system filing work against a named employee, and a human's own
+    action attributed to software.
+    """
+    agent = engine.create_on_behalf_of(
+        title="Chase missing NPWP",
+        actor=ActorRef.agent("onboarding_coordinator"),
+    )
+    assert agent.source is TaskSource.AGENT
+    assert agent.created_by == "agent:onboarding_coordinator"
+    assert engine._audit.entries[-1].actor.provenance.value == "agent_tool"
+
+    sweep = engine.create_on_behalf_of(
+        title="Contract expiring in 7 days",
+        actor=ActorRef.system("contract-expiry"),
+    )
+    assert sweep.source is TaskSource.SYSTEM
+    assert sweep.created_by == "system:contract-expiry"
+    assert engine._audit.entries[-1].actor.provenance.value == "system_job"
+
+    human = engine.create_on_behalf_of(
+        title="Draft the offer letter",
+        actor=ActorRef.legacy("Sinta"),
+    )
+    assert human.source is TaskSource.MANUAL
+    assert human.created_by == "Sinta"
 
 
 def test_complete_flow(engine: TaskEngine) -> None:

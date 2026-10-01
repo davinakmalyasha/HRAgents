@@ -84,7 +84,7 @@ class EmployeeService:
             status=status,
         )
         self._store.add_employee(employee)
-        self._record(employee, action="employee.created", actor=actor.actor_id)
+        self._record(employee, action="employee.created", actor=actor)
         return employee
 
     def update_contact(
@@ -108,7 +108,7 @@ class EmployeeService:
             }
         )
         self._store.save_employee(updated)
-        self._record(updated, action="employee.contact_updated", actor=actor.actor_id)
+        self._record(updated, action="employee.contact_updated", actor=actor)
         return updated
 
     # --- lifecycle ------------------------------------------------------
@@ -194,7 +194,7 @@ class EmployeeService:
         self._record(
             employee,
             action="employee.document_added",
-            actor=actor.actor_id,
+            actor=actor,
             extra={"kind": kind.value, "document_id": str(document.id)},
         )
         return document
@@ -306,7 +306,7 @@ class EmployeeService:
             raise EmployeeError(f"unknown parent org unit {parent_id}")
         unit = OrgUnit(name=name, parent_id=parent_id, cost_center=cost_center)
         self._store.add_org_unit(unit)
-        self._record_org(unit, action="org_unit.created", actor=actor.actor_id)
+        self._record_org(unit, action="org_unit.created", actor=actor)
         return unit
 
     # --- queries --------------------------------------------------------

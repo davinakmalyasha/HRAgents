@@ -72,7 +72,7 @@ class ContractService:
             status=ContractStatus.DRAFT,
         )
         self._store.add(contract)
-        self._record(contract, action="contract.created", actor=actor.actor_id)
+        self._record(contract, action="contract.created", actor=actor)
         return contract
 
     def activate(
@@ -192,11 +192,14 @@ class ContractService:
                 continue
             days = contract.days_until_expiry(as_of=today)
             due = today + timedelta(days=7)
-            task = self._tasks.create_agent_task(
+            task = self._tasks.create_on_behalf_of(
                 title=(
-                    f"Contract expiring in {days} days — {contract.contract_type.value.upper()}"
+                    f"Contract expiring in {days} days - {contract.contract_type.value.upper()}"
                 ),
-                agent_name="contract_monitor",
+                # A timer did this, not a person and not an LLM agent. The chain
+                # used to say `agent:contract_monitor`, which told an auditor an
+                # autonomous agent had filed a task against a named employee.
+                actor=ActorRef.system("contract-expiry"),
                 description=(
                     "Review renewal, completion compensation, and required "
                     "paperwork. This contract expires on "

@@ -1,10 +1,16 @@
 """Live smoke test for the onboarding flow the dashboard drives.
 
 Exercises the real HTTP API in-process: create a hire, start a plan, complete a
-step with a named human, waive an optional step with a reason, link a document,
-and read the plan back. Run with:
+step, waive an optional step with a reason, link a document, and read the plan
+back. Run with:
 
     uv run python scripts/smoke_onboarding.py
+
+Every actor in this script comes from the API key, because no request body can
+name one any more. That is asserted here rather than assumed: each mutation is
+attempted twice, once with the actor field and once without, and the script
+requires the first to be refused with 422 and the second to succeed. If a future
+change re-adds a body-supplied actor, this fails.
 """
 
 from __future__ import annotations
@@ -28,21 +34,77 @@ def check(label: str, condition: bool, detail: str = "") -> None:
     print(f"  FAIL {label} {detail}")
 
 
+def refused_field(response: object, field: str) -> bool:
+    """True when the server rejected the request *naming this field*.
+
+    The 422 alone is not enough: a missing required field produces the same
+    status, and that would pass a test that only checked the code.
+    """
+    payload = getattr(response, "json", lambda: {})()
+    errors = payload.get("detail") if isinstance(payload, dict) else None
+    if not isinstance(errors, list):
+        return False
+    return any(
+        isinstance(error, dict) and error.get("loc") and error["loc"][-1] == field
+        for error in errors
+    )
+
+
 def main() -> int:
     today = date.today()
-    with TestClient(create_app()) as client:
+    app = create_app()
+    with TestClient(app) as client:
+        audit = app.state.audit
         hire = client.post(
             "/v1/employees",
             json={
                 "full_name": "Budi Santoso",
                 "hire_date": (today - timedelta(days=1)).isoformat(),
-                "created_by": "hr-admin",
                 "email": "budi@example.com",
                 "job_title": "Backend Engineer",
             },
         )
         check("employee created", hire.status_code == 201, hire.text)
+        if hire.status_code != 201:
+            return 1
         employee_id = hire.json()["id"]
+
+        # The product's actual claim is not "the API returned 201" but "the
+        # tamper-evident chain says who did it, and how we know". Assert that
+        # rather than a response field the view happens to expose.
+        entries = [entry for entry in audit.entries if "employee.created" in entry.action]
+        check("the chain recorded the hire", bool(entries))
+        if entries:
+            actor = entries[-1].actor
+            check(
+                "the chain names the key holder",
+                actor.actor_id == "local-dev",
+                actor.actor_id,
+            )
+            check(
+                "the chain records how the actor was established",
+                actor.provenance.value == "authenticated",
+                actor.provenance.value,
+            )
+            check(
+                "the chain records the authorization role",
+                actor.role == "hr_admin",
+                str(actor.role),
+            )
+
+        stale = client.post(
+            "/v1/employees",
+            json={
+                "full_name": "Should Not Exist",
+                "hire_date": today.isoformat(),
+                "created_by": "someone-else",
+            },
+        )
+        check(
+            "a request body cannot name the actor",
+            stale.status_code == 422 and refused_field(stale, "created_by"),
+            stale.text,
+        )
 
         templates = client.get("/v1/onboarding/templates")
         check("no templates yet", templates.status_code == 200 and templates.json() == [])
@@ -57,7 +119,6 @@ def main() -> int:
             json={
                 "name": starter["name"],
                 "description": starter["description"],
-                "created_by": "Sinta Prabowo",
                 "applies_to_contract_types": starter["applies_to_contract_types"],
                 "applies_to_roles": starter["applies_to_roles"],
                 "steps": [
@@ -84,9 +145,11 @@ def main() -> int:
 
         plan = client.post(
             "/v1/onboarding/plans",
-            json={"employee_id": employee_id, "created_by": "Sinta Prabowo"},
+            json={"employee_id": employee_id},
         )
         check("plan started", plan.status_code == 201, plan.text)
+        if plan.status_code != 201:
+            return 1
         body = plan.json()
         plan_id = body["id"]
         check("plan has steps", len(body["steps"]) > 0, str(len(body["steps"])))
@@ -97,7 +160,6 @@ def main() -> int:
                 "kind": DocumentKind.KTP.value,
                 "storage_key": f"employees/{employee_id}/ktp.pdf",
                 "sha256": "a" * 64,
-                "uploaded_by": "hr-admin",
                 "filename": "ktp.pdf",
             },
         )
@@ -116,7 +178,7 @@ def main() -> int:
         if document_step is not None:
             linked = client.post(
                 f"/v1/onboarding/plans/{plan_id}/steps/{document_step['key']}/link-document",
-                json={"document_id": document.json()["id"], "linked_by": "Sinta Prabowo"},
+                json={"document_id": document.json()["id"]},
             )
             check("document linked", linked.status_code == 200, linked.text)
 
@@ -124,7 +186,7 @@ def main() -> int:
         if task_step is not None:
             completed = client.post(
                 f"/v1/onboarding/plans/{plan_id}/steps/{task_step['key']}/complete",
-                json={"by": "Sinta Prabowo", "note": "Done during orientation"},
+                json={"note": "Done during orientation"},
             )
             check("step completed", completed.status_code == 200, completed.text)
             check(
@@ -134,9 +196,17 @@ def main() -> int:
                     for step in completed.json()["steps"]
                 ),
             )
+            check(
+                "the completion names the key holder",
+                any(
+                    step["key"] == task_step["key"] and step.get("completed_by") == "local-dev"
+                    for step in completed.json()["steps"]
+                ),
+                str([step.get("completed_by") for step in completed.json()["steps"]]),
+            )
             again = client.post(
                 f"/v1/onboarding/plans/{plan_id}/steps/{task_step['key']}/complete",
-                json={"by": "Sinta Prabowo"},
+                json={},
             )
             check("completed step is closed", again.status_code == 409, again.text)
 
@@ -151,13 +221,13 @@ def main() -> int:
         if optional is not None:
             refused = client.post(
                 f"/v1/onboarding/plans/{plan_id}/steps/{optional['key']}/waive",
-                json={"by": "Sinta Prabowo"},
+                json={},
             )
             check("waiver without a reason is refused", refused.status_code == 422, refused.text)
 
             waived = client.post(
                 f"/v1/onboarding/plans/{plan_id}/steps/{optional['key']}/waive",
-                json={"by": "Sinta Prabowo", "reason": "Not needed in this country"},
+                json={"reason": "Not needed in this country"},
             )
             check("optional step waived", waived.status_code == 200, waived.text)
 
@@ -165,24 +235,16 @@ def main() -> int:
             (step for step in body["steps"] if step["required"] and step["status"] == "pending"),
             None,
         )
-        if required is not None:
-            agent_waive = client.post(
-                f"/v1/onboarding/plans/{plan_id}/steps/{required['key']}/waive",
-                json={"by": "agent:screening_coordinator", "reason": "agent override"},
-            )
-            check(
-                "agent cannot waive a required step",
-                agent_waive.status_code == 403,
-                agent_waive.text,
-            )
-
-        agent = client.post(
-            f"/v1/onboarding/plans/{plan_id}/steps/{required['key']}/complete"
-            if required is not None
-            else f"/v1/onboarding/plans/{plan_id}/steps/{body['steps'][0]['key']}/complete",
-            json={"by": "agent:screening_coordinator"},
+        target = required if required is not None else body["steps"][0]
+        agent_actor = client.post(
+            f"/v1/onboarding/plans/{plan_id}/steps/{target['key']}/waive",
+            json={"by": "agent:screening_coordinator", "reason": "agent override"},
         )
-        check("agent actor refused", agent.status_code == 403, agent.text)
+        check(
+            "an agent actor in the body is refused",
+            agent_actor.status_code == 422 and refused_field(agent_actor, "by"),
+            agent_actor.text,
+        )
 
         final = client.get(f"/v1/onboarding/plans/{plan_id}")
         check("plan readable", final.status_code == 200, final.text)

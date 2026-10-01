@@ -13,6 +13,7 @@ from uuid import UUID
 
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
+    ActorType,
     ApproverRole,
     TaskItem,
     TaskPriority,
@@ -32,6 +33,21 @@ class TaskError(RuntimeError):
 class TaskUpdate:
     task: TaskItem
     action: str
+
+
+def _source_for(actor: ActorRef) -> TaskSource:
+    """The task source that matches the actor, so the two cannot contradict.
+
+    A timer and an agent tool are both non-human, and the dashboard shows the
+    difference to a human deciding whether to trust a task. Deriving it here
+    means a caller cannot file a human's task under "agent" because it copied
+    the wrong helper.
+    """
+    if actor.actor_type is ActorType.AGENT:
+        return TaskSource.AGENT
+    if actor.actor_type is ActorType.SYSTEM:
+        return TaskSource.SYSTEM
+    return TaskSource.MANUAL
 
 
 class TaskEngine:
@@ -70,30 +86,44 @@ class TaskEngine:
             created_by=actor.actor_id,
         )
         self._store.add(task)
-        self._record(task, action="task.created", actor=actor.actor_id)
+        self._record(task, action="task.created", actor=actor)
         return task
 
-    def create_agent_task(
+    def create_on_behalf_of(
         self,
         *,
         title: str,
-        agent_name: str,
+        actor: ActorRef,
         description: str = "",
         assignee_role: ApproverRole | None = None,
         due_on: date | None = None,
         priority: TaskPriority = TaskPriority.NORMAL,
+        source: TaskSource | None = None,
         related_subject: str | None = None,
         related_id: str | None = None,
     ) -> TaskItem:
-        """An agent-created task. Source is recorded so humans can tell them apart."""
+        """A task created as part of another operation. Source is recorded.
+
+        This used to be ``create_agent_task(agent_name=...)``, and every caller
+        was mislabelling itself. Starting an onboarding plan is a *human* action:
+        the chain recorded ``agent:onboarding_coordinator`` as the creator of
+        every step task, so a reader auditing who put work into the queue saw an
+        LLM agent where there was a person. The contract-expiry sweep is the
+        opposite case: it really is a timer, and it was recorded as an agent too.
+
+        The caller now states which it is, and ``source`` is derived from the
+        actor rather than passed separately -- a source that disagrees with the
+        actor on the chain is exactly the kind of quiet contradiction this whole
+        block exists to remove.
+        """
         return self.create(
             title=title,
             description=description,
-            actor=ActorRef.agent(agent_name),
+            actor=actor,
             assignee_role=assignee_role,
             due_on=due_on,
             priority=priority,
-            source=TaskSource.AGENT,
+            source=source or _source_for(actor),
             related_subject=related_subject,
             related_id=related_id,
         )

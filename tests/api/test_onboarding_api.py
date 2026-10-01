@@ -216,7 +216,10 @@ def test_tasks_created_for_onboarding_steps() -> None:
 
     titles = [task["title"] for task in tasks]
     assert any(title == "[Onboarding] Collect KTP" for title in titles)
-    assert any(task["source"] == "agent" for task in tasks)
+    # A person started this plan, so the tasks are theirs. They used to be filed
+    # under `agent` by a helper that named the acting agent rather than the actor.
+    assert all(task["source"] == "manual" for task in tasks)
+    assert all(task["created_by"] == "local-dev" for task in tasks)
 
 
 def test_templates_listing() -> None:
