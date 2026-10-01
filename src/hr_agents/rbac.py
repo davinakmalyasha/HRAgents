@@ -52,6 +52,12 @@ ROLE_PERMISSIONS: dict[RoleId, frozenset[Permission]] = {
             Permission.RECRUITING_WRITE,
             Permission.RECRUITING_OVERRIDE,
             Permission.PEOPLE_READ,
+            # Recruiting a person means entering them: onboarding plans, review
+            # cycles, the employee record. Those routes were guarded by
+            # `people:read`, so this restores exactly the reach the recruiter
+            # role had before the write permissions were named on them -- and
+            # `people:read` is now genuinely a read permission.
+            Permission.PEOPLE_WRITE,
             Permission.TASKS_WRITE,
             Permission.CHAT_USE,
         }

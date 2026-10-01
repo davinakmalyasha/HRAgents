@@ -48,7 +48,11 @@ def _not_found(detail: str) -> HTTPException:
 # --- policies ----------------------------------------------------------------
 
 
-@router.put("/policies", response_model=PolicyView)
+@router.put(
+    "/policies",
+    response_model=PolicyView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def set_policy(payload: PolicySet, leave: LeaveDep, actor: ActorDep) -> PolicyView:
     try:
         policy = leave.set_policy(payload.to_policy(), actor=actor)
@@ -62,7 +66,11 @@ def list_policies(leave: LeaveDep) -> list[PolicyView]:
     return [PolicyView.from_model(policy) for policy in leave.list_policies()]
 
 
-@router.put("/calendar/holidays", response_model=dict)
+@router.put(
+    "/calendar/holidays",
+    response_model=dict,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def set_holidays(payload: HolidaySet, leave: LeaveDep, actor: ActorDep) -> dict[str, int]:
     count = leave.set_holidays(payload.holidays, actor=actor)
     return {"holidays_set": count}
@@ -98,7 +106,11 @@ def employee_balance(
     return BalanceView.from_model(balance)
 
 
-@router.post("/balances/{employee_id}/{leave_type}/adjust", response_model=BalanceView)
+@router.post(
+    "/balances/{employee_id}/{leave_type}/adjust",
+    response_model=BalanceView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def adjust_balance(
     employee_id: UUID,
     leave_type: LeaveType,
@@ -176,7 +188,11 @@ def cancel_request(
     return LeaveRequestView.from_model(request)
 
 
-@router.post("/approvals/{approval_id}/sync", response_model=LeaveRequestView)
+@router.post(
+    "/approvals/{approval_id}/sync",
+    response_model=LeaveRequestView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def sync_from_approval(approval_id: UUID, leave: LeaveDep, actor: ActorDep) -> LeaveRequestView:
     """Sync a leave request with its approval's outcome (called after a decision)."""
     try:

@@ -13,7 +13,7 @@ from pydantic import SecretStr
 from hr_agents.api import routers
 from hr_agents.config import ApiPrincipalSettings, Settings
 from hr_agents.main import create_app
-from hr_agents.rbac import Permission, RoleId
+from hr_agents.rbac import Permission, Principal, RoleId, has_permission
 
 
 def _settings() -> Settings:
@@ -174,61 +174,32 @@ def _read_guarded_write_routes() -> set[str]:
 
 READ_ONLY_WRITE_ROUTES = frozenset(
     {
-        # Growth: cycle administration, review assignments, summary drafting and
-        # finalization, and goals. Left for the people-permission pass, which
-        # also decides which of these are self-service.
-        "/v1/growth/cycles",
-        "/v1/growth/cycles/{cycle_id}/activate",
-        "/v1/growth/cycles/{cycle_id}/reviewing",
-        "/v1/growth/cycles/{cycle_id}/close",
-        "/v1/growth/cycles/{cycle_id}/cancel",
-        "/v1/growth/cycles/{cycle_id}/assignments",
+        # These seven are the caller's own business: submitting a leave request,
+        # cancelling it, moving their own goal along, and filing the review form
+        # they were assigned. They want a `self_service` permission rather than
+        # `people:write`, because an employee should be able to request their own
+        # leave and today cannot.
+        #
+        # They are still on `people:read` because granting `self_service` before
+        # the services verify ownership would hand every employee write access to
+        # everyone's leave and goals: `LeaveService.request` takes an arbitrary
+        # `employee_id`, `cancel` does not check the requester, and none of the
+        # four goal transitions check whose goal it is. The permission is waiting
+        # on the principal-to-employee binding.
+        "/v1/leave",
+        "/v1/leave/requests/{request_id}/cancel",
         "/v1/growth/assignments/{assignment_id}/submit",
-        "/v1/growth/assignments/{assignment_id}/skip",
-        "/v1/growth/summaries",
-        "/v1/growth/summaries/{summary_id}/finalize",
-        "/v1/growth/goals",
         "/v1/growth/goals/{goal_id}/activate",
         "/v1/growth/goals/{goal_id}/progress",
         "/v1/growth/goals/{goal_id}/complete",
         "/v1/growth/goals/{goal_id}/cancel",
-        "/v1/growth/reminders/run",
-        # Leave: policy and calendar administration, balance adjustments, request
-        # submission, cancellation, and the approval sync.
-        "/v1/leave/policies",
-        "/v1/leave/calendar/holidays",
-        "/v1/leave/balances/{employee_id}/{leave_type}/adjust",
-        "/v1/leave",
-        "/v1/leave/requests/{request_id}/cancel",
-        "/v1/leave/approvals/{approval_id}/sync",
-        # Onboarding and offboarding: templates, plans, assets and step
-        # transitions.
-        "/v1/onboarding/templates",
-        "/v1/onboarding/plans",
-        "/v1/onboarding/plans/{plan_id}/steps/{step_key}/complete",
-        "/v1/onboarding/plans/{plan_id}/steps/{step_key}/waive",
-        "/v1/onboarding/plans/{plan_id}/steps/{step_key}/link-document",
-        "/v1/offboarding/templates",
-        "/v1/offboarding/plans",
-        "/v1/offboarding/plans/{plan_id}/steps/{step_key}/complete",
-        "/v1/offboarding/plans/{plan_id}/steps/{step_key}/waive",
-        "/v1/offboarding/plans/{plan_id}/exit-interview",
-        "/v1/offboarding/plans/{plan_id}/handover",
-        "/v1/offboarding/plans/{plan_id}/final-pay",
-        "/v1/offboarding/plans/{plan_id}/complete",
-        "/v1/offboarding/plans/{plan_id}/finalize-employee",
-        "/v1/offboarding/assets",
-        "/v1/offboarding/assets/{asset_id}/return",
-        "/v1/offboarding/assets/{asset_id}/missing",
-        "/v1/offboarding/assets/{asset_id}/write-off",
     }
 )
 """Mutating routes still authorized by a read permission alone.
 
-Payroll and compliance are no longer in this list. Every entry here is tracked
-work: each one is waiting on the people-permission pass to decide whether it is
-HR administration (``people:write``) or the caller's own business
-(``self_service``). Deleting an entry is how that pass records its progress."""
+Payroll, compliance and the people-administration routes are no longer in this
+list. Every remaining entry is self-service and blocked on the same prerequisite,
+so deleting them is how that work records its progress."""
 
 
 @pytest.mark.parametrize(
@@ -288,6 +259,45 @@ def test_the_execute_routes_keep_the_stronger_permission() -> None:
     for path in ("/v1/compliance/retention/purge", "/v1/compliance/erasures/{request_id}/execute"):
         required = _route_permissions(_route(path))
         assert Permission.COMPLIANCE_EXECUTE in required, path
+
+
+def test_recruiter_keeps_the_people_writes_it_had_through_the_read_permission() -> None:
+    """Entering a hire means writing people records, so recruiting keeps it.
+
+    Before these routes named a permission, the recruiter role reached all of
+    them through `people:read`. Naming `people:write` without also granting it
+    would have quietly removed that reach at exactly the moment someone was
+    trying to hire somebody, so the role was widened by the same commit.
+    """
+    recruiter = Principal(actor_id="rec-1", role=RoleId.RECRUITER)
+    for permission in (
+        Permission.PEOPLE_WRITE,
+        Permission.RECRUITING_WRITE,
+        Permission.TASKS_WRITE,
+    ):
+        assert has_permission(recruiter, permission), permission
+
+
+def test_roles_that_only_ever_read_people_records_do_not_gain_the_write() -> None:
+    """`people:write` is not granted as a side effect of seeing the directory.
+
+    `MANAGER` and `FINANCE` both hold `people:read` -- a manager needs the
+    directory to run a review, finance needs it to pay someone -- and neither is
+    an HR administrator. Granting the write to preserve the old reach would have
+    made the new permission as weak as the read it replaced.
+
+    `EMPLOYEE` is the third case and the opposite one: it holds neither, which is
+    why an employee cannot open a leave request today. The fix for that is the
+    self-service permission, not a blanket write.
+    """
+    for role in (RoleId.MANAGER, RoleId.FINANCE):
+        principal = Principal(actor_id="someone", role=role)
+        assert has_permission(principal, Permission.PEOPLE_READ), role
+        assert not has_permission(principal, Permission.PEOPLE_WRITE), role
+
+    employee = Principal(actor_id="someone", role=RoleId.EMPLOYEE)
+    assert not has_permission(employee, Permission.PEOPLE_READ)
+    assert not has_permission(employee, Permission.PEOPLE_WRITE)
 
 
 def test_a_read_permission_alone_never_guards_a_write() -> None:

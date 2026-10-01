@@ -60,7 +60,12 @@ def default_template() -> TemplateView:
     return TemplateView.from_model(default_offboarding_template())
 
 
-@router.post("/templates", status_code=status.HTTP_201_CREATED, response_model=TemplateView)
+@router.post(
+    "/templates",
+    status_code=status.HTTP_201_CREATED,
+    response_model=TemplateView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_template(
     payload: TemplateCreate, offboarding: OffboardingDep, actor: ActorDep
 ) -> TemplateView:
@@ -91,7 +96,12 @@ def get_template(template_id: UUID, offboarding: OffboardingDep) -> TemplateView
 # --- plans ----------------------------------------------------------------------
 
 
-@router.post("/plans", status_code=status.HTTP_201_CREATED, response_model=PlanView)
+@router.post(
+    "/plans",
+    status_code=status.HTTP_201_CREATED,
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def start_plan(payload: PlanCreate, offboarding: OffboardingDep, actor: ActorDep) -> PlanView:
     try:
         plan = offboarding.start_plan(
@@ -124,7 +134,11 @@ def plans_for_employee(employee_id: UUID, offboarding: OffboardingDep) -> list[P
     return [PlanView.from_model(item) for item in offboarding.plans_for_employee(employee_id)]
 
 
-@router.post("/plans/{plan_id}/steps/{step_key}/complete", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/steps/{step_key}/complete",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def complete_step(
     plan_id: UUID,
     step_key: str,
@@ -139,7 +153,11 @@ def complete_step(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/steps/{step_key}/waive", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/steps/{step_key}/waive",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def waive_step(
     plan_id: UUID,
     step_key: str,
@@ -159,7 +177,11 @@ def waive_step(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/exit-interview", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/exit-interview",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def schedule_exit_interview(
     plan_id: UUID,
     payload: ExitInterviewSchedule,
@@ -175,7 +197,11 @@ def schedule_exit_interview(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/handover", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/handover",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def add_handover(
     plan_id: UUID, payload: HandoverCreate, offboarding: OffboardingDep, actor: ActorDep
 ) -> PlanView:
@@ -186,7 +212,11 @@ def add_handover(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/final-pay", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/final-pay",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def coordinate_final_pay(
     plan_id: UUID,
     payload: PlanAction,
@@ -200,7 +230,11 @@ def coordinate_final_pay(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/complete", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/complete",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def complete_plan(
     plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep, actor: ActorDep
 ) -> PlanView:
@@ -211,7 +245,11 @@ def complete_plan(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/finalize-employee", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/finalize-employee",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def finalize_employee(
     plan_id: UUID, payload: PlanAction, offboarding: OffboardingDep, actor: ActorDep
 ) -> PlanView:
@@ -226,7 +264,12 @@ def finalize_employee(
 # --- assets ----------------------------------------------------------------------
 
 
-@router.post("/assets", status_code=status.HTTP_201_CREATED, response_model=AssetView)
+@router.post(
+    "/assets",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AssetView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def register_asset(payload: AssetCreate, offboarding: OffboardingDep, actor: ActorDep) -> AssetView:
     try:
         asset = offboarding.register_asset(actor=actor, **payload.model_dump())
@@ -256,7 +299,11 @@ def asset_clearance(employee_id: UUID, offboarding: OffboardingDep) -> list[Asse
     return [AssetView.from_model(item) for item in offboarding.asset_clearance(employee_id)]
 
 
-@router.post("/assets/{asset_id}/return", response_model=AssetView)
+@router.post(
+    "/assets/{asset_id}/return",
+    response_model=AssetView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def return_asset(
     asset_id: UUID, payload: AssetReturn, offboarding: OffboardingDep, actor: ActorDep
 ) -> AssetView:
@@ -269,7 +316,11 @@ def return_asset(
     return AssetView.from_model(asset)
 
 
-@router.post("/assets/{asset_id}/missing", response_model=AssetView)
+@router.post(
+    "/assets/{asset_id}/missing",
+    response_model=AssetView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def mark_asset_missing(
     asset_id: UUID,
     payload: AssetMissing,
@@ -283,7 +334,11 @@ def mark_asset_missing(
     return AssetView.from_model(asset)
 
 
-@router.post("/assets/{asset_id}/write-off", response_model=AssetView)
+@router.post(
+    "/assets/{asset_id}/write-off",
+    response_model=AssetView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def write_off_asset(
     asset_id: UUID,
     payload: AssetWriteOff,

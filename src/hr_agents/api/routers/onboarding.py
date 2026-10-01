@@ -59,7 +59,12 @@ def _map(exc: OnboardingError) -> HTTPException:
     return _conflict(exc)
 
 
-@router.post("/templates", status_code=status.HTTP_201_CREATED, response_model=TemplateView)
+@router.post(
+    "/templates",
+    status_code=status.HTTP_201_CREATED,
+    response_model=TemplateView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_template(
     payload: TemplateCreate, onboarding: OnboardingDep, actor: ActorDep
 ) -> TemplateView:
@@ -92,7 +97,12 @@ def default_template() -> TemplateDraftView:
     return TemplateDraftView.from_model(default_engineering_template())
 
 
-@router.post("/plans", status_code=status.HTTP_201_CREATED, response_model=PlanView)
+@router.post(
+    "/plans",
+    status_code=status.HTTP_201_CREATED,
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep, actor: ActorDep) -> PlanView:
     try:
         plan = onboarding.start_plan(
@@ -119,7 +129,11 @@ def get_plan(plan_id: UUID, onboarding: OnboardingDep) -> PlanView:
         raise _not_found(str(exc)) from exc
 
 
-@router.post("/plans/{plan_id}/steps/{step_key}/complete", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/steps/{step_key}/complete",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def complete_step(
     plan_id: UUID,
     step_key: str,
@@ -134,7 +148,11 @@ def complete_step(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/steps/{step_key}/waive", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/steps/{step_key}/waive",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def waive_step(
     plan_id: UUID,
     step_key: str,
@@ -149,7 +167,11 @@ def waive_step(
     return PlanView.from_model(plan)
 
 
-@router.post("/plans/{plan_id}/steps/{step_key}/link-document", response_model=PlanView)
+@router.post(
+    "/plans/{plan_id}/steps/{step_key}/link-document",
+    response_model=PlanView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def link_document(
     plan_id: UUID,
     step_key: str,

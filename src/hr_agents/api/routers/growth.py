@@ -56,7 +56,12 @@ def _not_found(detail: str) -> HTTPException:
 # --- cycles -----------------------------------------------------------------
 
 
-@router.post("/cycles", status_code=status.HTTP_201_CREATED, response_model=CycleView)
+@router.post(
+    "/cycles",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CycleView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_cycle(payload: CycleCreate, growth: GrowthDep, actor: ActorDep) -> CycleView:
     try:
         cycle = growth.create_cycle(actor=actor, **payload.model_dump())
@@ -80,7 +85,11 @@ def get_cycle(cycle_id: UUID, growth: GrowthDep) -> CycleView:
         raise _not_found(str(exc)) from exc
 
 
-@router.post("/cycles/{cycle_id}/activate", response_model=CycleView)
+@router.post(
+    "/cycles/{cycle_id}/activate",
+    response_model=CycleView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def activate_cycle(
     cycle_id: UUID, payload: CycleAction, growth: GrowthDep, actor: ActorDep
 ) -> CycleView:
@@ -91,7 +100,11 @@ def activate_cycle(
     return CycleView.from_model(cycle)
 
 
-@router.post("/cycles/{cycle_id}/reviewing", response_model=CycleView)
+@router.post(
+    "/cycles/{cycle_id}/reviewing",
+    response_model=CycleView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def advance_cycle(
     cycle_id: UUID, payload: CycleAction, growth: GrowthDep, actor: ActorDep
 ) -> CycleView:
@@ -102,7 +115,11 @@ def advance_cycle(
     return CycleView.from_model(cycle)
 
 
-@router.post("/cycles/{cycle_id}/close", response_model=CycleView)
+@router.post(
+    "/cycles/{cycle_id}/close",
+    response_model=CycleView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def close_cycle(
     cycle_id: UUID, payload: CycleAction, growth: GrowthDep, actor: ActorDep
 ) -> CycleView:
@@ -113,7 +130,11 @@ def close_cycle(
     return CycleView.from_model(cycle)
 
 
-@router.post("/cycles/{cycle_id}/cancel", response_model=CycleView)
+@router.post(
+    "/cycles/{cycle_id}/cancel",
+    response_model=CycleView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def cancel_cycle(
     cycle_id: UUID, payload: CycleAction, growth: GrowthDep, actor: ActorDep
 ) -> CycleView:
@@ -134,6 +155,7 @@ def cancel_cycle(
 
 @router.post(
     "/cycles/{cycle_id}/assignments",
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
     status_code=status.HTTP_201_CREATED,
     response_model=AssignmentView,
 )
@@ -188,7 +210,11 @@ def submit_assignment(
     return AssignmentView.from_model(assignment)
 
 
-@router.post("/assignments/{assignment_id}/skip", response_model=AssignmentView)
+@router.post(
+    "/assignments/{assignment_id}/skip",
+    response_model=AssignmentView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def skip_assignment(
     assignment_id: UUID,
     payload: AssignmentSkip,
@@ -205,7 +231,12 @@ def skip_assignment(
 # --- summaries -----------------------------------------------------------------
 
 
-@router.post("/summaries", status_code=status.HTTP_201_CREATED, response_model=SummaryView)
+@router.post(
+    "/summaries",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SummaryView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def draft_summary(payload: SummaryDraft, growth: GrowthDep, actor: ActorDep) -> SummaryView:
     try:
         summary = growth.draft_summary(
@@ -236,7 +267,11 @@ def list_summaries(cycle_id: UUID, growth: GrowthDep) -> list[SummaryView]:
     return [SummaryView.from_model(item) for item in growth.list_summaries(cycle_id)]
 
 
-@router.post("/summaries/{summary_id}/finalize", response_model=SummaryView)
+@router.post(
+    "/summaries/{summary_id}/finalize",
+    response_model=SummaryView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def finalize_summary(
     summary_id: UUID, payload: SummaryFinalize, growth: GrowthDep, actor: ActorDep
 ) -> SummaryView:
@@ -250,7 +285,12 @@ def finalize_summary(
 # --- goals ----------------------------------------------------------------------
 
 
-@router.post("/goals", status_code=status.HTTP_201_CREATED, response_model=GoalView)
+@router.post(
+    "/goals",
+    status_code=status.HTTP_201_CREATED,
+    response_model=GoalView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_goal(payload: GoalCreate, growth: GrowthDep, actor: ActorDep) -> GoalView:
     try:
         goal = growth.create_goal(actor=actor, **payload.model_dump())
@@ -332,7 +372,11 @@ def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep, actor: Ac
 # --- reminders -------------------------------------------------------------------
 
 
-@router.post("/reminders/run", response_model=list[ReminderView])
+@router.post(
+    "/reminders/run",
+    response_model=list[ReminderView],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def run_reminders(payload: RemindersRun, growth: GrowthDep, actor: ActorDep) -> list[ReminderView]:
     """Run the reminder sweep now, on top of the daily scheduler.
 
