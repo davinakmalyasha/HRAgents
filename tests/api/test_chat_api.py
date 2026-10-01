@@ -2,10 +2,13 @@
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.policy_assistant import PolicyAnswer, PolicyResult
+from hr_agents.config import ApiPrincipalSettings, Settings
 from hr_agents.main import create_app
+from hr_agents.rbac import RoleId
 from hr_agents.services.chat import ChatService
 from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.workspace_requests import HandoffService
@@ -72,6 +75,100 @@ def test_conversation_history_endpoint() -> None:
         turns = history.json()["turns"]
         assert [turn["role"] for turn in turns] == ["user", "assistant", "user", "assistant"]
         assert history.json()["workspace"] == "payroll"
+
+
+def _two_employee_app() -> FastAPI:
+    """An app where two people are distinct principals, neither an admin.
+
+    The default test install resolves every unauthenticated caller to
+    ``local-dev`` with ``hr_admin``, which would pass an ownership check for the
+    wrong reason. These guards are about one employee not reading another's
+    thread, so the identities have to be real and the roles have to be weak.
+    """
+    settings = Settings.model_construct(
+        api_principals=[
+            ApiPrincipalSettings(key=SecretStr("sari-key"), role=RoleId.EMPLOYEE, actor_id="Sari"),
+            ApiPrincipalSettings(key=SecretStr("budi-key"), role=RoleId.EMPLOYEE, actor_id="Budi"),
+        ],
+        api_keys=[],
+    )
+    return create_app(settings)
+
+
+def test_a_conversation_is_not_readable_by_another_employee() -> None:
+    """An HR chat thread is one employee's private history.
+
+    The conversation record had no owner, so the id was the only thing guarding
+    it. ``GET /v1/chat/conversations/{id}`` needed only ``chat:use`` -- the sole
+    permission the ``employee`` role has -- so any authenticated employee who
+    learned or guessed a UUID could read a colleague's thread. Those threads
+    carry payroll and health questions in the plaintext of the conversation.
+    """
+    app = _two_employee_app()
+    with TestClient(app) as client:
+        _install_fixed_chat(app)
+        sari = {"X-API-Key": "sari-key"}
+        budi = {"X-API-Key": "budi-key"}
+
+        opened = client.post(
+            "/v1/chat", json={"message": "kapan gaji saya dibayar?"}, headers=sari
+        ).json()
+        conversation_id = opened["conversation_id"]
+
+        assert (
+            client.get(f"/v1/chat/conversations/{conversation_id}", headers=sari).status_code == 200
+        )
+
+        stolen = client.get(f"/v1/chat/conversations/{conversation_id}", headers=budi)
+
+        # 404, not 403: a 403 would confirm the id exists and let a caller
+        # enumerate the workspace's conversations.
+        assert stolen.status_code == 404
+        assert "turns" not in stolen.json().get("detail", {})
+
+
+def test_a_conversation_cannot_be_continued_by_another_employee() -> None:
+    app = _two_employee_app()
+    with TestClient(app) as client:
+        _install_fixed_chat(app)
+        opened = client.post(
+            "/v1/chat", json={"message": "hai"}, headers={"X-API-Key": "sari-key"}
+        ).json()
+
+        hijacked = client.post(
+            "/v1/chat",
+            json={
+                "message": "dan gaji bulan ini sudah?",
+                "conversation_id": opened["conversation_id"],
+            },
+            headers={"X-API-Key": "budi-key"},
+        )
+
+        assert hijacked.status_code == 404
+
+
+def test_an_hr_admin_may_read_any_conversation() -> None:
+    settings = Settings.model_construct(
+        api_principals=[
+            ApiPrincipalSettings(key=SecretStr("sari-key"), role=RoleId.EMPLOYEE, actor_id="Sari"),
+            ApiPrincipalSettings(key=SecretStr("admin-key"), role=RoleId.HR_ADMIN, actor_id="Rina"),
+        ],
+        api_keys=[],
+    )
+    app = create_app(settings)
+    with TestClient(app) as client:
+        _install_fixed_chat(app)
+        opened = client.post(
+            "/v1/chat", json={"message": "hai"}, headers={"X-API-Key": "sari-key"}
+        ).json()
+
+        read = client.get(
+            f"/v1/chat/conversations/{opened['conversation_id']}",
+            headers={"X-API-Key": "admin-key"},
+        )
+
+    assert read.status_code == 200
+    assert [turn["role"] for turn in read.json()["turns"]] == ["user", "assistant"]
 
 
 def test_unknown_conversation_returns_404() -> None:

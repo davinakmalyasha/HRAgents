@@ -148,8 +148,13 @@ async def stream_hr(
     response_model=ConversationView,
     summary="Conversation history",
 )
-def get_conversation(conversation_id: UUID, chat: ChatDep) -> ConversationView:
-    record = chat.get_conversation(conversation_id)
+def get_conversation(conversation_id: UUID, chat: ChatDep, request: Request) -> ConversationView:
+    """Conversation history, if this caller is allowed to read it.
+
+    A conversation belongs to whoever opened it. Before the owner was recorded,
+    this was an IDOR guarded by nothing but the UUID.
+    """
+    record = chat.get_conversation(conversation_id, principal=request.state.principal)
     if record is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

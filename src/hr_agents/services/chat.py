@@ -16,7 +16,7 @@ from pydantic import Field
 from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.policy_assistant import PolicyResult, validate_policy_answer
 from hr_agents.models import ActorType, AuditActor, StrictModel, UtcDateTime, utc_now
-from hr_agents.rbac import Principal
+from hr_agents.rbac import Principal, RoleId
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.front_door import FrontDoor, RouteDecision, RouteReason
 from hr_agents.tools.registry import ToolRegistry
@@ -42,6 +42,16 @@ class ChatTurn(StrictModel):
 class ConversationRecord(StrictModel):
     id: UUID = Field(default_factory=uuid4)
     workspace: WorkspaceId
+    owner: str
+    """The actor who started this conversation, from the API key.
+
+    The record had no owner at all, so ``GET /v1/chat/conversations/{id}`` was a
+    pure IDOR: anyone holding ``chat:use`` -- the *only* permission the
+    ``employee`` role has -- could read anyone's HR conversation given the UUID.
+    An HR chat contains salaries and medical notes. The id is the only thing that
+    was standing between two people, which is not an authorization check.
+    """
+
     turns: list[ChatTurn] = Field(default_factory=list)
     created_at: UtcDateTime = Field(default_factory=utc_now)
     updated_at: UtcDateTime = Field(default_factory=utc_now)
@@ -106,8 +116,25 @@ class ChatService:
         self._tools = tools
         self._conversations = conversations or ConversationStore()
 
-    def get_conversation(self, conversation_id: UUID) -> ConversationRecord | None:
-        return self._conversations.get(conversation_id)
+    def get_conversation(
+        self, conversation_id: UUID, *, principal: Principal | None = None
+    ) -> ConversationRecord | None:
+        """One conversation, if the caller is allowed to see it.
+
+        Without a ``principal`` this is an internal read (the agent runtime
+        resolving a thread). Over HTTP the caller is always supplied, and a
+        conversation belongs to the actor who opened it; an HR admin may read any,
+        which is the one deliberate exception and matches every other record in
+        the product.
+        """
+        record = self._conversations.get(conversation_id)
+        if record is None or principal is None:
+            return record
+        if record.owner == principal.actor_id or principal.role is RoleId.HR_ADMIN:
+            return record
+        # Deliberately indistinguishable from "no such conversation": a caller
+        # must not be able to probe for which ids exist.
+        return None
 
     async def ask(
         self,
@@ -124,7 +151,9 @@ class ChatService:
         if conversation_id is not None and record is None:
             raise ChatError(f"unknown conversation {conversation_id}")
         if record is None:
-            record = ConversationRecord(workspace=decision.workspace)
+            record = ConversationRecord(workspace=decision.workspace, owner=principal.actor_id)
+        elif record.owner != principal.actor_id and principal.role is not RoleId.HR_ADMIN:
+            raise ChatError(f"unknown conversation {conversation_id}")
         elif record.workspace is not decision.workspace:
             raise ChatWorkspaceMismatch(
                 f"conversation {record.id} belongs to workspace "
