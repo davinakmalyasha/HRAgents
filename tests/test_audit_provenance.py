@@ -21,12 +21,17 @@ value loaded from storage would assert something the code never checked.
 
 from __future__ import annotations
 
+import importlib
+import inspect
+import pkgutil
 from datetime import date, timedelta
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from hr_agents.api.deps import ActorDep  # noqa: F401  (import guard: deps must load)
+from hr_agents.api import routers
+from hr_agents.api.deps import ActorDep
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.main import create_app
 from hr_agents.models import ActorProvenance, ActorType, ApprovalSubject, ApproverRole
@@ -239,3 +244,101 @@ def test_the_named_human_gate_is_reachable_only_where_an_actor_can_be_non_human(
     ):
         with pytest.raises(ApprovalError):
             engine.decide(request.id, actor=actor, approve=True)
+
+
+NO_ACTOR_WRITE_ROUTES = frozenset(
+    {
+        # A candidate submitting a form is an external, unauthenticated party.
+        # The entry is filed as `application.received` under a system actor, which
+        # is at least an honest description: we cannot name a person, so we do
+        # not pretend to. Making candidates authenticated principals is a design
+        # question this codebase has deliberately not answered yet.
+        "/v1/applications",
+        "/v1/applications/batch",
+        # Chat takes the principal directly rather than an `ActorRef` -- it needs
+        # the role as well as the id, to pick the agent's tools. The conversation
+        # owner is recorded from that principal, so these are authenticated; they
+        # are listed here only because the parameter is not named `actor`.
+        "/v1/chat",
+        "/v1/chat/handoffs",
+    }
+)
+"""Mutating routes with no ``actor`` parameter, and why each is acceptable."""
+
+
+def _actor_annotation(route: APIRoute) -> object | None:
+    """The resolved ``actor`` annotation for a route, or ``None`` if it has none.
+
+    Every module here uses ``from __future__ import annotations``, so a signature
+    read naively yields the *string* ``"ActorDep"`` and comparing it to the alias
+    would fail on every route while looking like a real finding. ``eval_str``
+    resolves in the endpoint's own module globals, which is where the alias is
+    imported.
+    """
+    parameters = inspect.signature(route.endpoint, eval_str=True).parameters
+    return parameters["actor"].annotation if "actor" in parameters else None
+
+
+def _write_routes() -> list[APIRoute]:
+    """Every mutating route, collected from the routers themselves.
+
+    ``app.routes`` is not usable here: this FastAPI version represents an
+    included router as a lazy wrapper with no ``path`` and no ``methods``, so the
+    endpoints are only reachable by walking framework internals that a version
+    bump would move. The ``APIRouter`` each module exports is public API, and it
+    is the same object the application includes.
+    """
+    routes: list[APIRoute] = []
+    for module in pkgutil.iter_modules(routers.__path__):
+        loaded = importlib.import_module(f"{routers.__name__}.{module.name}")
+        router = getattr(loaded, "router", None)
+        if router is None:
+            continue
+        routes.extend(
+            route
+            for route in router.routes
+            if hasattr(route, "methods") and route.methods & {"POST", "PUT", "PATCH", "DELETE"}
+        )
+    return routes
+
+
+def test_write_routes_declare_their_actor_as_a_dependency() -> None:
+    """No route may source its actor from anywhere but ``ActorDep``.
+
+    The provenance bugs this file fences all had one shape: a service received a
+    string, or nothing, where an ``ActorRef`` belonged. A route that sourced its
+    actor some other way -- from a body, a query parameter, or left to default to
+    a system actor -- would reopen that hole while every service-level test
+    stayed green, because a service cannot tell how it was called.
+
+    So this asserts the wiring itself: wherever a write route takes an actor, the
+    annotation is ``ActorDep`` and not a bare ``ActorRef`` a caller could have
+    satisfied by hand.
+    """
+    actors: dict[str, object] = {
+        route.path: annotation
+        for route in _write_routes()
+        if (annotation := _actor_annotation(route)) is not None
+    }
+
+    assert len(actors) >= 80, f"only {len(actors)} write routes take an actor; did the API shrink?"
+    wrong = {path: annotation for path, annotation in actors.items() if annotation != ActorDep}
+    assert not wrong, f"actor must come from ActorDep: {wrong}"
+
+
+def test_every_write_route_takes_an_actor() -> None:
+    """A mutating route with no actor at all is the shape of the original bug.
+
+    Every write below POST is expected to name who did it. Listing the exceptions
+    is deliberate: a bare count cannot tell you *which* route regressed, and a
+    silently dropped ``ActorDep`` is exactly how an audit entry ends up stamped
+    with a system actor because nobody was around to press the button.
+
+    This is the check that caught ``POST /v1/growth/reminders/run``, which created
+    system reminder tasks under a hardcoded ``system:scheduler`` actor even when
+    an operator triggered the sweep by hand -- the same defect the approval
+    escalation sweep had.
+    """
+    without_actor = {route.path for route in _write_routes() if _actor_annotation(route) is None}
+
+    assert without_actor == set(NO_ACTOR_WRITE_ROUTES)
