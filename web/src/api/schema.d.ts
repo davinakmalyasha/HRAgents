@@ -145,6 +145,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/approvals/escalate-overdue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Escalate Overdue
+         * @description Run the SLA escalation sweep now, on top of the scheduler.
+         *
+         *     This route used to be declared as ``/{approval_id}/escalate-overdue`` while
+         *     the handler took no such parameter. FastAPI ignores an unmatched path
+         *     parameter, so the id was decorative: any caller holding ``approvals:read``
+         *     could pass a random UUID and escalate *every* overdue approval in the tenant,
+         *     including a finance-assigned payroll sign-off. And because the handler had no
+         *     actor, the chain recorded the mutations as ``system:approval-engine`` -- so the
+         *     audit trail said a timer had expired an approval that a person had triggered.
+         *
+         *     Two things changed: the route is what it always meant to be (a global sweep,
+         *     no fake id), and the caller is recorded as the caller.
+         */
+        post: operations["escalate_overdue_v1_approvals_escalate_overdue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/approvals/{approval_id}/decide": {
         parameters: {
             query?: never;
@@ -156,26 +187,6 @@ export interface paths {
         put?: never;
         /** Decide Approval */
         post: operations["decide_approval_v1_approvals__approval_id__decide_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/approvals/{approval_id}/escalate-overdue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Escalate Overdue
-         * @description Ops endpoint: run the SLA escalation sweep (also driven by a scheduler).
-         */
-        post: operations["escalate_overdue_v1_approvals__approval_id__escalate_overdue_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -315,7 +326,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Conversation history */
+        /**
+         * Conversation history
+         * @description Conversation history, if this caller is allowed to read it.
+         *
+         *     A conversation belongs to whoever opened it. Before the owner was recorded,
+         *     this was an IDOR guarded by nothing but the UUID.
+         */
         get: operations["get_conversation_v1_chat_conversations__conversation_id__get"];
         put?: never;
         post?: never;
@@ -617,7 +634,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sync Erasure Decision */
+        /**
+         * Sync Erasure Decision
+         * @description Land a decided approval's outcome on the erasure request.
+         */
         post: operations["sync_erasure_decision_v1_compliance_erasures_approvals__approval_id__sync_post"];
         delete?: never;
         options?: never;
@@ -2227,7 +2247,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sync Decision */
+        /**
+         * Sync Decision
+         * @description Land a decided approval's outcome on the payroll run.
+         */
         post: operations["sync_decision_v1_payroll_approvals__approval_id__sync_post"];
         delete?: never;
         options?: never;
@@ -4752,17 +4775,23 @@ export interface components {
             status: components["schemas"]["BreachStatus"];
             step: components["schemas"]["hr_agents__api__compliance_schemas__StepView"];
         };
-        /** OverrideCreate */
+        /**
+         * OverrideCreate
+         * @description A human sign-off on a gated decision.
+         *
+         *     There is no ``reviewer_id``. It used to be here, and one caller could sign
+         *     the chain with a name that had never authenticated -- on the one endpoint
+         *     whose whole purpose is a named-human sign-off. The reviewer is whoever holds
+         *     the API key; what the caller states is which authority they are signing
+         *     under, and that has to be a real role.
+         */
         OverrideCreate: {
             /** Notes */
             notes?: string | null;
             override_decision: components["schemas"]["PolicyDecision"];
             /** Reason Code */
             reason_code: string;
-            /** Reviewer Id */
-            reviewer_id: string;
-            /** Reviewer Role */
-            reviewer_role: string;
+            reviewer_role: components["schemas"]["ApproverRole"];
         };
         /** OverrideView */
         OverrideView: {
@@ -6540,6 +6569,26 @@ export interface operations {
             };
         };
     };
+    escalate_overdue_v1_approvals_escalate_overdue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalView"][];
+                };
+            };
+        };
+    };
     decide_approval_v1_approvals__approval_id__decide_post: {
         parameters: {
             query?: never;
@@ -6571,26 +6620,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    escalate_overdue_v1_approvals__approval_id__escalate_overdue_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ApprovalView"][];
                 };
             };
         };

@@ -5831,6 +5831,7 @@
       },
       "OverrideCreate": {
         "additionalProperties": false,
+        "description": "A human sign-off on a gated decision.\n\nThere is no ``reviewer_id``. It used to be here, and one caller could sign\nthe chain with a name that had never authenticated -- on the one endpoint\nwhose whole purpose is a named-human sign-off. The reviewer is whoever holds\nthe API key; what the caller states is which authority they are signing\nunder, and that has to be a real role.",
         "properties": {
           "notes": {
             "anyOf": [
@@ -5853,21 +5854,11 @@
             "title": "Reason Code",
             "type": "string"
           },
-          "reviewer_id": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Reviewer Id",
-            "type": "string"
-          },
           "reviewer_role": {
-            "maxLength": 60,
-            "minLength": 1,
-            "title": "Reviewer Role",
-            "type": "string"
+            "$ref": "#/components/schemas/ApproverRole"
           }
         },
         "required": [
-          "reviewer_id",
           "reviewer_role",
           "override_decision",
           "reason_code"
@@ -10231,6 +10222,32 @@
         ]
       }
     },
+    "/v1/approvals/escalate-overdue": {
+      "post": {
+        "description": "Run the SLA escalation sweep now, on top of the scheduler.\n\nThis route used to be declared as ``/{approval_id}/escalate-overdue`` while\nthe handler took no such parameter. FastAPI ignores an unmatched path\nparameter, so the id was decorative: any caller holding ``approvals:read``\ncould pass a random UUID and escalate *every* overdue approval in the tenant,\nincluding a finance-assigned payroll sign-off. And because the handler had no\nactor, the chain recorded the mutations as ``system:approval-engine`` -- so the\naudit trail said a timer had expired an approval that a person had triggered.\n\nTwo things changed: the route is what it always meant to be (a global sweep,\nno fake id), and the caller is recorded as the caller.",
+        "operationId": "escalate_overdue_v1_approvals_escalate_overdue_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApprovalView"
+                  },
+                  "title": "Response Escalate Overdue V1 Approvals Escalate Overdue Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Escalate Overdue",
+        "tags": [
+          "approvals"
+        ]
+      }
+    },
     "/v1/approvals/{approval_id}/decide": {
       "post": {
         "operationId": "decide_approval_v1_approvals__approval_id__decide_post",
@@ -10279,32 +10296,6 @@
           }
         },
         "summary": "Decide Approval",
-        "tags": [
-          "approvals"
-        ]
-      }
-    },
-    "/v1/approvals/{approval_id}/escalate-overdue": {
-      "post": {
-        "description": "Ops endpoint: run the SLA escalation sweep (also driven by a scheduler).",
-        "operationId": "escalate_overdue_v1_approvals__approval_id__escalate_overdue_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ApprovalView"
-                  },
-                  "title": "Response Escalate Overdue V1 Approvals  Approval Id  Escalate Overdue Post",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Escalate Overdue",
         "tags": [
           "approvals"
         ]
@@ -10661,6 +10652,7 @@
     },
     "/v1/chat/conversations/{conversation_id}": {
       "get": {
+        "description": "Conversation history, if this caller is allowed to read it.\n\nA conversation belongs to whoever opened it. Before the owner was recorded,\nthis was an IDOR guarded by nothing but the UUID.",
         "operationId": "get_conversation_v1_chat_conversations__conversation_id__get",
         "parameters": [
           {
@@ -11622,6 +11614,7 @@
     },
     "/v1/compliance/erasures/approvals/{approval_id}/sync": {
       "post": {
+        "description": "Land a decided approval's outcome on the erasure request.",
         "operationId": "sync_erasure_decision_v1_compliance_erasures_approvals__approval_id__sync_post",
         "parameters": [
           {
@@ -17109,6 +17102,7 @@
     },
     "/v1/payroll/approvals/{approval_id}/sync": {
       "post": {
+        "description": "Land a decided approval's outcome on the payroll run.",
         "operationId": "sync_decision_v1_payroll_approvals__approval_id__sync_post",
         "parameters": [
           {
