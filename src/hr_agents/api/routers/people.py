@@ -368,10 +368,26 @@ def decide_approval(
     )
 
 
-@approvals_router.post("/{approval_id}/escalate-overdue", response_model=list[ApprovalView])
-def escalate_overdue(people: PeopleDep) -> list[ApprovalView]:
-    """Ops endpoint: run the SLA escalation sweep (also driven by a scheduler)."""
-    changed = people.approvals.escalate_overdue()
+@approvals_router.post(
+    "/escalate-overdue",
+    response_model=list[ApprovalView],
+    dependencies=[Depends(require_permission(Permission.APPROVALS_DECIDE))],
+)
+def escalate_overdue(people: PeopleDep, actor: ActorDep) -> list[ApprovalView]:
+    """Run the SLA escalation sweep now, on top of the scheduler.
+
+    This route used to be declared as ``/{approval_id}/escalate-overdue`` while
+    the handler took no such parameter. FastAPI ignores an unmatched path
+    parameter, so the id was decorative: any caller holding ``approvals:read``
+    could pass a random UUID and escalate *every* overdue approval in the tenant,
+    including a finance-assigned payroll sign-off. And because the handler had no
+    actor, the chain recorded the mutations as ``system:approval-engine`` -- so the
+    audit trail said a timer had expired an approval that a person had triggered.
+
+    Two things changed: the route is what it always meant to be (a global sweep,
+    no fake id), and the caller is recorded as the caller.
+    """
+    changed = people.approvals.escalate_overdue(actor=actor)
     return [ApprovalView.from_model(request) for request in changed]
 
 
