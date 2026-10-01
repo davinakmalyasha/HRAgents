@@ -39,7 +39,12 @@ def _not_found(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
-@router.post("/runs", status_code=status.HTTP_201_CREATED, response_model=RunView)
+@router.post(
+    "/runs",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+)
 def create_run(payload: RunCreate, payroll: PayrollDep, actor: ActorDep) -> RunView:
     try:
         run = payroll.create_run(
@@ -66,7 +71,11 @@ def get_run(run_id: UUID, payroll: PayrollDep) -> RunView:
         raise _not_found(str(exc)) from exc
 
 
-@router.put("/runs/{run_id}/inputs", response_model=RunView)
+@router.put(
+    "/runs/{run_id}/inputs",
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+)
 def set_inputs(run_id: UUID, payload: InputsSet, payroll: PayrollDep, actor: ActorDep) -> RunView:
     try:
         run = payroll.set_inputs(
@@ -77,7 +86,11 @@ def set_inputs(run_id: UUID, payload: InputsSet, payroll: PayrollDep, actor: Act
     return RunView.from_model(run)
 
 
-@router.post("/runs/{run_id}/compute", response_model=RunView)
+@router.post(
+    "/runs/{run_id}/compute",
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+)
 def compute_run(run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: ActorDep) -> RunView:
     try:
         run = payroll.compute(run_id, actor=actor)
@@ -86,7 +99,11 @@ def compute_run(run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: Ac
     return RunView.from_model(run)
 
 
-@router.post("/runs/{run_id}/submit", response_model=RunView)
+@router.post(
+    "/runs/{run_id}/submit",
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+)
 def submit_for_signoff(
     run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: ActorDep
 ) -> RunView:
@@ -140,7 +157,11 @@ def download_packet(run_id: UUID, payroll: PayrollDep) -> Response:
     )
 
 
-@router.post("/runs/{run_id}/cancel", response_model=RunView)
+@router.post(
+    "/runs/{run_id}/cancel",
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+)
 def cancel_run(run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: ActorDep) -> RunView:
     if not payload.reason:
         raise HTTPException(

@@ -74,7 +74,12 @@ def _raise(exc: Exception) -> HTTPException:
 # --- consent ----------------------------------------------------------------
 
 
-@router.post("/consents", status_code=status.HTTP_201_CREATED, response_model=ConsentView)
+@router.post(
+    "/consents",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ConsentView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def record_consent(
     payload: ConsentCreate, compliance: ComplianceDep, actor: ActorDep
 ) -> ConsentView:
@@ -118,7 +123,11 @@ def consent_status(
     )
 
 
-@router.post("/consents/{consent_id}/revoke", response_model=ConsentView)
+@router.post(
+    "/consents/{consent_id}/revoke",
+    response_model=ConsentView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def revoke_consent(
     consent_id: UUID,
     payload: ConsentRevoke,
@@ -135,7 +144,11 @@ def revoke_consent(
 # --- retention --------------------------------------------------------------
 
 
-@router.put("/retention/policies", response_model=PolicyView)
+@router.put(
+    "/retention/policies",
+    response_model=PolicyView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def set_policy(payload: PolicySet, compliance: ComplianceDep, actor: ActorDep) -> PolicyView:
     try:
         policy = compliance.set_policy(
@@ -158,7 +171,12 @@ def list_policies(compliance: ComplianceDep) -> list[PolicyView]:
     return [PolicyView.from_model(item) for item in compliance.list_policies()]
 
 
-@router.post("/retention/records", status_code=status.HTTP_201_CREATED, response_model=RecordView)
+@router.post(
+    "/retention/records",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RecordView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def track_record(payload: RecordTrack, compliance: ComplianceDep, actor: ActorDep) -> RecordView:
     record = compliance.track_record(
         entity=payload.entity,
@@ -189,7 +207,11 @@ def list_records(
     return [RecordView.from_model(item) for item in records]
 
 
-@router.post("/retention/records/{record_id}/hold", response_model=RecordView)
+@router.post(
+    "/retention/records/{record_id}/hold",
+    response_model=RecordView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def set_legal_hold(
     record_id: UUID,
     payload: LegalHoldRequest,
@@ -228,7 +250,12 @@ def execute_purge(
 # --- erasure ----------------------------------------------------------------
 
 
-@router.post("/erasures", status_code=status.HTTP_201_CREATED, response_model=ErasureView)
+@router.post(
+    "/erasures",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ErasureView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def create_erasure(
     payload: ErasureCreate, compliance: ComplianceDep, actor: ActorDep
 ) -> ErasureView:
@@ -255,7 +282,11 @@ def get_erasure(request_id: UUID, compliance: ComplianceDep) -> ErasureView:
         raise _not_found(str(exc)) from exc
 
 
-@router.post("/erasures/{request_id}/verify", response_model=ErasureView)
+@router.post(
+    "/erasures/{request_id}/verify",
+    response_model=ErasureView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def verify_erasure_identity(
     request_id: UUID,
     payload: ErasureVerify,
@@ -269,7 +300,11 @@ def verify_erasure_identity(
     return ErasureView.from_model(request)
 
 
-@router.post("/erasures/{request_id}/submit", response_model=ErasureView)
+@router.post(
+    "/erasures/{request_id}/submit",
+    response_model=ErasureView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def submit_erasure(
     request_id: UUID,
     payload: ErasureAction,
@@ -283,7 +318,11 @@ def submit_erasure(
     return ErasureView.from_model(request)
 
 
-@router.post("/erasures/approvals/{approval_id}/sync", response_model=ErasureView)
+@router.post(
+    "/erasures/approvals/{approval_id}/sync",
+    response_model=ErasureView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def sync_erasure_decision(
     approval_id: UUID, compliance: ComplianceDep, actor: ActorDep
 ) -> ErasureView:
@@ -321,7 +360,12 @@ def breach_template() -> BreachTemplateView:
     return BreachTemplateView.from_model(default_breach_template())
 
 
-@router.post("/breaches", status_code=status.HTTP_201_CREATED, response_model=BreachView)
+@router.post(
+    "/breaches",
+    status_code=status.HTTP_201_CREATED,
+    response_model=BreachView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def create_breach(payload: BreachCreate, compliance: ComplianceDep, actor: ActorDep) -> BreachView:
     incident = compliance.create_incident(
         title=payload.title,
@@ -353,7 +397,11 @@ def get_breach(incident_id: UUID, compliance: ComplianceDep) -> BreachView:
         raise _not_found(str(exc)) from exc
 
 
-@router.post("/breaches/{incident_id}/steps/{step_key}/complete", response_model=BreachView)
+@router.post(
+    "/breaches/{incident_id}/steps/{step_key}/complete",
+    response_model=BreachView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def complete_breach_step(
     incident_id: UUID,
     step_key: str,
@@ -370,7 +418,11 @@ def complete_breach_step(
     return BreachView.from_model(incident)
 
 
-@router.post("/breaches/{incident_id}/notifications", response_model=BreachView)
+@router.post(
+    "/breaches/{incident_id}/notifications",
+    response_model=BreachView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def record_breach_notification(
     incident_id: UUID,
     payload: NotificationCreate,
@@ -391,7 +443,11 @@ def record_breach_notification(
     return BreachView.from_model(incident)
 
 
-@router.post("/breaches/{incident_id}/status", response_model=BreachView)
+@router.post(
+    "/breaches/{incident_id}/status",
+    response_model=BreachView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def transition_breach(
     incident_id: UUID,
     payload: BreachTransition,
