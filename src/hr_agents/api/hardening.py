@@ -19,8 +19,10 @@ from typing import Any
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, Response
+from starlette.datastructures import Headers
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+from starlette.requests import ClientDisconnect
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from hr_agents.api.auth import AuthenticationMiddleware
 from hr_agents.api.metrics import record_http_request
@@ -91,20 +93,23 @@ class RateLimiter:
 
 
 def client_key(request: Request) -> str:
-    """Bucket by authenticated actor, then API key, then client address.
+    """Bucket by authenticated actor, falling back to the client address.
 
-    ``X-Forwarded-For`` is honoured only when the operator declares a trusted
-    proxy in front of the app. Trusting it unconditionally lets any caller mint
-    a fresh rate-limit bucket per request simply by varying the header, which
-    defeats the limit entirely on the unauthenticated path — the default in a
-    fresh install.
+    The fallback is deliberately the address and nothing else. There was a
+    middle case that bucketed by a hash of the presented API key, which looked
+    safer than the address and was strictly worse: on a request that *failed*
+    to authenticate, the key is attacker-controlled, so every guess minted a
+    fresh bucket. Rotating ``X-API-Key`` turned the limiter off completely, and
+    the limiter is the only thing standing between an attacker and online key
+    guessing -- every one of those requests came back 401, so nothing downstream
+    was stopping them.
+
+    The same trap applies to ``X-Forwarded-For``, which is honoured only when the
+    operator declares a trusted proxy in front of the app.
     """
     actor = getattr(request.state, "actor_id", None)
     if isinstance(actor, str) and actor:
         return f"actor:{actor}"
-    api_key = request.headers.get("X-API-Key")
-    if api_key:
-        return f"key:{hash(api_key)}"
     if get_settings().trust_proxy_headers:
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:
@@ -157,28 +162,79 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-class BodySizeLimitMiddleware(BaseHTTPMiddleware):
-    """Refuse oversized bodies before they are buffered."""
+@dataclass
+class _BodyCounter:
+    """Per-request byte tally, readable by the error path."""
+
+    limit: int
+    received: int = 0
+    exceeded: bool = False
+
+
+class BodySizeLimitMiddleware:
+    """Refuse oversized bodies while they stream in, not after.
+
+    Checking the ``Content-Length`` header alone is advisory: a client sending
+    ``Transfer-Encoding: chunked`` sends no ``Content-Length`` at all, so the
+    body was accepted with no bound and buffered in full before anything looked
+    at it. This wraps the ASGI ``receive`` channel and counts the bytes as they
+    arrive, which is the only place a chunked upload can be stopped. A declared
+    length is still checked first, so an oversized declared body is refused
+    without reading a byte of it.
+    """
 
     def __init__(self, app: ASGIApp, *, max_bytes: int = DEFAULT_MAX_BODY_BYTES) -> None:
-        super().__init__(app)
+        self._app = app
         self._max_bytes = max_bytes
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
-        declared = request.headers.get("content-length")
+    def _too_large(self, path: str) -> JSONResponse:
+        return JSONResponse(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            content={
+                "type": "about:blank",
+                "title": f"request body exceeds {self._max_bytes} bytes",
+                "status": status.HTTP_413_CONTENT_TOO_LARGE,
+                "instance": path,
+            },
+        )
+
+    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+        response = self._too_large(scope.get("path", ""))
+        await response(scope, receive, send)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+
+        headers = Headers(scope=scope)
+        declared = headers.get("content-length")
         if declared is not None and declared.isdigit() and int(declared) > self._max_bytes:
-            return JSONResponse(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                content={
-                    "type": "about:blank",
-                    "title": f"request body exceeds {self._max_bytes} bytes",
-                    "status": status.HTTP_413_CONTENT_TOO_LARGE,
-                    "instance": request.url.path,
-                },
-            )
-        return await call_next(request)
+            await self._reject(scope, receive, send)
+            return
+
+        limit = self._max_bytes
+        state = _BodyCounter(limit)
+
+        async def counted_receive() -> Message:
+            message = await receive()
+            if message["type"] == "http.request":
+                state.received += len(message.get("body", b""))
+                if state.received > limit:
+                    # Stop the upload rather than draining it: a hostile client
+                    # would otherwise keep writing while we keep reading.
+                    state.exceeded = True
+                    message = {"type": "http.disconnect"}
+            return message
+
+        scope.setdefault("state", {})["body_counter"] = state
+        try:
+            await self._app(scope, counted_receive, send)
+        except ClientDisconnect:
+            if state.exceeded:
+                await self._reject(scope, receive, send)
+                return
+            raise
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

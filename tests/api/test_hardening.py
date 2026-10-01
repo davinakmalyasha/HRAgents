@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from typing import cast
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from hr_agents.api.hardening import (
@@ -31,7 +31,7 @@ def started_client() -> Iterator[TestClient]:
     """A client whose application lifespan has run.
 
     Readiness is only meaningful once startup has resolved the agents, the queue,
-    and the chat — the plain ``client`` fixture deliberately skips the lifespan so
+    and the chat â€” the plain ``client`` fixture deliberately skips the lifespan so
     the middleware tests stay independent of it.
     """
     with TestClient(create_app()) as started:
@@ -117,6 +117,91 @@ def test_body_under_the_ceiling_passes() -> None:
         return payload
 
     assert TestClient(app).post("/echo", json={"value": 1}).status_code == 200
+
+
+def test_chunked_body_without_content_length_is_still_capped() -> None:
+    """A chunked upload declares no length, so the header check cannot see it.
+
+    The ceiling used to be a ``Content-Length`` comparison only. A client that
+    sent ``Transfer-Encoding: chunked`` therefore had no bound at all on how much
+    it could push: the header was absent, so nothing refused it and the body was
+    buffered in full. The bytes are now counted as they stream.
+    """
+
+    app = FastAPI()
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=64)
+
+    arrived: list[int] = []
+
+    @app.post("/sink")
+    async def sink(request: Request) -> dict[str, int]:
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+        arrived.append(size)
+        return {"length": size}
+
+    response = TestClient(app).post(
+        "/sink",
+        content=iter([b"x" * 32, b"x" * 32, b"x" * 512]),
+        headers={"transfer-encoding": "chunked"},
+    )
+
+    assert response.status_code == 413
+    assert "exceeds 64 bytes" in response.json()["title"]
+    # The upload was cut off rather than drained: the handler never saw the
+    # 512-byte tail.
+    assert sum(arrived) <= 64
+
+
+def test_chunked_body_under_the_ceiling_is_delivered_whole() -> None:
+    """The counter must not truncate a legitimate chunked upload."""
+
+    app = FastAPI()
+    app.add_middleware(BodySizeLimitMiddleware, max_bytes=64)
+
+    @app.post("/sink")
+    async def sink(request: Request) -> dict[str, int]:
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+        return {"length": size}
+
+    response = TestClient(app).post(
+        "/sink",
+        content=iter([b"x" * 16, b"x" * 16]),
+        headers={"transfer-encoding": "chunked"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"length": 32}
+
+
+def test_rate_limit_key_ignores_the_api_key_header() -> None:
+    """A caller must not be able to mint a fresh bucket per request.
+
+    The bucket key used to fall back to the ``X-API-Key`` header when no
+    principal was resolved. That header is entirely under the caller's control,
+    so varying it gave every request its own allowance and the limiter protected
+    nothing -- an unauthenticated flood, one bucket at a time.
+    """
+    from fastapi import FastAPI
+    from fastapi.responses import PlainTextResponse
+
+    app = FastAPI()
+    limiter = RateLimiter(limit=1, window_seconds=60.0)
+    app.add_middleware(RateLimitMiddleware, limiter=limiter)
+
+    @app.get("/ping")
+    def ping() -> PlainTextResponse:
+        return PlainTextResponse("pong")
+
+    test_client = TestClient(app)
+    first = test_client.get("/ping", headers={"x-api-key": "one"})
+    second = test_client.get("/ping", headers={"x-api-key": "two"})
+
+    assert first.status_code == 200
+    assert second.status_code == 429
 
 
 # --- rate limiting ------------------------------------------------------------

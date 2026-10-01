@@ -110,6 +110,25 @@ def test_unauthenticated_requests_fall_back_to_the_key_bucket() -> None:
     assert second != first
 
 
+def test_bucket_does_not_follow_the_api_key_header() -> None:
+    """Varying the presented key must not mint a fresh allowance.
+
+    The unauthenticated fallback used to key on the ``X-API-Key`` header. That
+    header is entirely caller-controlled, so rotating it gave every request its
+    own bucket and the limiter stopped limiting anything -- a flood, one
+    invented key at a time. The fallback is now the peer address.
+    """
+    app = make_app(Settings.model_construct(api_principals=PRINCIPALS))
+    with TestClient(app) as client:
+        buckets = {
+            client.get("/bucket", headers={"X-API-Key": f"guess-{index}"}).json()["bucket"]
+            for index in range(5)
+        }
+
+    assert len(buckets) == 1, "the bucket key is still attacker-controlled"
+    assert next(iter(buckets)).startswith("ip:")
+
+
 def test_key_is_resolved_once_per_request() -> None:
     """Two guards on one request must not scan the configured keys twice.
 
