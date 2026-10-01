@@ -7,10 +7,11 @@ against PostgreSQL in CI (see the ``postgres`` marker).
 
 from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import Engine, event, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import tables as t
@@ -675,3 +676,76 @@ def test_offer_adapter_records_and_revisions(factory: sessionmaker[Session]) -> 
     assert loaded.revisions[0].terms.salary_amount == 25_000_000.0
     assert [item.id for item in fresh.list_all()] == [created.id]
     assert audit.verify() == -1
+
+
+def test_listing_offers_batches_their_revisions(factory: sessionmaker[Session]) -> None:
+    """Reading every offer must not ask for revisions one offer at a time.
+
+    ``_iter`` issued a revision query per offer, so the expiry sweep paid 201
+    statements to inspect 100 offers, and paid it again on every run. Revisions
+    are small and always needed alongside the offer, so they are fetched once and
+    grouped.
+
+    The bound is a statement count rather than a timing, so it is exact and does
+    not depend on the machine.
+    """
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id),
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    communications = DbCommunicationService(
+        evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
+    )
+    offers = DbOfferService(
+        evaluations=evaluations,
+        communications=communications,
+        session_factory=factory,
+        audit=audit,
+        applications=applications,
+    )
+    terms = OfferTerms(
+        position_title=job.title,
+        employment_type=ContractType.PKWTT,
+        start_date=date(2026, 11, 1),
+        salary_amount=25_000_000.0,
+        salary_currency="IDR",
+    )
+    created = offers.create(record.id, terms, actor=ActorRef.legacy("hr-admin"))
+    offers.revise(
+        created.id,
+        terms.model_copy(update={"salary_amount": 26_000_000.0}),
+        actor=ActorRef.legacy("hr-admin"),
+        note="negotiated",
+    )
+
+    engine: Engine = factory.kw["bind"]
+    issued: list[str] = []
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def _record(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        issued.append(" ".join(statement.split()))
+
+    try:
+        batched = list(offers._iter())
+    finally:
+        event.remove(engine, "before_cursor_execute", _record)
+
+    selects = [sql for sql in issued if sql.upper().startswith("SELECT")]
+    assert len(batched) == 1
+    # One read for the offers, one for all their revisions.
+    assert len(selects) == 2, f"expected 2 SELECTs, got {len(selects)}: {selects}"
+    # And the grouped read still produces the same history as the single-offer one.
+    assert [item.revision_index for item in batched[0].revisions] == [1, 2]
