@@ -1020,7 +1020,10 @@ class ComplianceService:
         intact = first_invalid == -1
         return AuditVerificationReport(
             intact=intact,
-            entry_count=len(self._audit.entries),
+            # `verify()` above already streamed the whole chain. Asking the
+            # `entries` property for a length would stream it a second time and
+            # materialize every row to do it.
+            entry_count=self._audit.entry_count(),
             first_invalid_seq=None if intact else first_invalid,
             head_hash=self._audit.last_hash,
             checked_by=actor.actor_id,

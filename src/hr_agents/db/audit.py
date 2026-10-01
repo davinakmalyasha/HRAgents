@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import UTC
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.session import sync_session_scope
@@ -90,6 +90,17 @@ class DbAuditChain(AuditChain):
         with sync_session_scope(self._session_factory) as session:
             rows = session.execute(select(AuditLog).order_by(AuditLog.seq)).scalars().all()
             return tuple(self._to_entry(row) for row in rows)
+
+    def entry_count(self) -> int:
+        """Count the chain with a single aggregate, never a full read.
+
+        ``entries`` selects and validates every row. Using it for a count turned
+        a Prometheus scrape into 20,000 ORM loads, and turned an audit
+        verification report into a second full pass over the log after ``verify()``
+        had already streamed it.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            return session.execute(select(func.count()).select_from(AuditLog)).scalar_one()
 
     @property
     def last_hash(self) -> str | None:

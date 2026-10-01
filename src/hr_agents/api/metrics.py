@@ -136,13 +136,16 @@ def render(app: Any) -> str:
 
     store = getattr(app.state, "store", None)
     if store is not None:
-        for status_value, count in sorted(queued_application_counts(store).items()):
+        by_status = queued_application_counts(store)
+        for status_value, count in sorted(by_status.items()):
             lines.append(f'hragents_applications_by_status{{status="{status_value}"}} {count}')
-        lines.append(f"hragents_applications_stuck_queued {stuck_queued_count(store)}")
+        # Reuse the counts just computed. `stuck_queued_count` re-derives them,
+        # which walked the whole applications store a second time on every scrape.
+        lines.append(f"hragents_applications_stuck_queued {by_status.get('queued', 0)}")
 
     audit = getattr(app.state, "audit", None)
     if audit is not None:
         with suppress(Exception):
-            lines.append(f"hragents_audit_chain_entries {len(audit.entries)}")
+            lines.append(f"hragents_audit_chain_entries {audit.entry_count()}")
 
     return "\n".join(lines) + "\n"

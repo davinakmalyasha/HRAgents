@@ -23,7 +23,9 @@ def main() -> int:
         chain = DbAuditChain(create_sync_session_factory(engine))
         invalid_seq = chain.verify()
         if invalid_seq == -1:
-            print(f"audit chain intact ({len(chain.entries)} entries)")
+            # `verify()` already streamed the whole chain; `entries` would select
+            # and validate every row a second time just to print a count.
+            print(f"audit chain intact ({chain.entry_count()} entries)")
             return 0
         print(f"AUDIT CHAIN BROKEN at seq {invalid_seq}")
         return 1

@@ -70,6 +70,16 @@ class AuditChain:
     def last_hash(self) -> str | None:
         return self._entries[-1].entry_hash if self._entries else None
 
+    def entry_count(self) -> int:
+        """How many entries the chain holds.
+
+        A method rather than ``len(self.entries)`` because the ``entries``
+        property copies the whole chain, and the persisted implementation of it
+        *selects every row*. Callers that want a number for a metrics gauge or a
+        verification report were paying a full materialization to take a length.
+        """
+        return len(self._entries)
+
     def append(
         self,
         *,

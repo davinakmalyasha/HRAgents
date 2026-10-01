@@ -113,7 +113,7 @@ def verify_backup(dump: Path, scratch_database: str) -> int:
         print(
             f"audit chain: {'intact' if first_invalid == -1 else f'BROKEN at seq {first_invalid}'}"
         )
-        print(f"entries: {len(chain.entries)}")
+        print(f"entries: {chain.entry_count()}")
         return first_invalid
     finally:
         _run(["dropdb", "--if-exists", scratch_database], env=_psql_env("postgres"))
