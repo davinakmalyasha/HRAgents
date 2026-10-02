@@ -68,3 +68,10 @@ yarn-error.log*
 web/coverage/
 web/*.tsbuildinfo
 web/.vite/
+
+# --- Working notes ---
+# The final-sweep write-up is a working document for this branch, not part of
+# the project's documentation. It names findings that are fixed, decisions that
+# are still open, and numbers that will be wrong the moment anything moves, so
+# it is deliberately not published. The durable record is the commit history.
+docs/FINAL-SWEEP.md
