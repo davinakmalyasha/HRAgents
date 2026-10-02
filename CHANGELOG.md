@@ -1,5 +1,123 @@
 # Changelog
 
+## 0.1.0 (2026-10-02)
+
+
+### Features
+
+* **api:** hardening middleware with readiness probe and rate limits ([6d9fd72](https://github.com/davinakmalyasha/HRAgents/commit/6d9fd72a1ad0a7fa69a74cc96fc2190a443cb378))
+* **api:** recipient capture, dispatch evidence, and candidate replies endpoint ([75ea6af](https://github.com/davinakmalyasha/HRAgents/commit/75ea6afb0b3bf090abb6fa2cf770d93bdb844a80))
+* **api:** wa.me dispatch-link endpoint for queued WhatsApp messages ([caa4c42](https://github.com/davinakmalyasha/HRAgents/commit/caa4c42360f8c82ec1a7b397d0cb9f15a364c9d0))
+* **auth:** ActorRef, one authentication per request, and an approver-role table ([77cbe96](https://github.com/davinakmalyasha/HRAgents/commit/77cbe96e71c62993dcf7d28622df37a829478407))
+* **auth:** an employee can finally act on their own records ([3412fa7](https://github.com/davinakmalyasha/HRAgents/commit/3412fa77b4c8649bc3bceabd1ef260fca1ceabd2))
+* **auth:** no request body in the API names the actor ([2ce1f9b](https://github.com/davinakmalyasha/HRAgents/commit/2ce1f9b637f27a017da228a72088113352958eaa))
+* **auth:** the override reviewer is the API key, not a request field ([7899210](https://github.com/davinakmalyasha/HRAgents/commit/7899210b735d11479a4b7eb3c6e7045be10cc905))
+* **chat:** front-door routing and Ask HR chat API ([#5](https://github.com/davinakmalyasha/HRAgents/issues/5)) ([66be43a](https://github.com/davinakmalyasha/HRAgents/commit/66be43ab36a024cb18b225045445b5890414eddb))
+* **cli:** run_messaging sends the outbox and polls replies ([45a5cf0](https://github.com/davinakmalyasha/HRAgents/commit/45a5cf0b8e64c1c6eca238a1b0df1ad38c5e85c9))
+* **communications:** pre-queue preview of a rejection message ([4734deb](https://github.com/davinakmalyasha/HRAgents/commit/4734deb05bbc87dff9aa5f40f1dd44f8835a47ea))
+* **db:** candidate replies and transport columns (migration 0010) ([8a736c9](https://github.com/davinakmalyasha/HRAgents/commit/8a736c9e1043014392028289c5861e4b177b1575))
+* **db:** durable persistence and pipeline seam (W0) ([#2](https://github.com/davinakmalyasha/HRAgents/issues/2)) ([6edb707](https://github.com/davinakmalyasha/HRAgents/commit/6edb7076a5358de784a1b5577b1a38355bec4567))
+* **messaging:** live WhatsApp manual-links transport ([79c5ee9](https://github.com/davinakmalyasha/HRAgents/commit/79c5ee9406aff4127ae2d2337b1c5cff3538f95a))
+* **messaging:** outbox dispatcher and reply ingestion ([eae546d](https://github.com/davinakmalyasha/HRAgents/commit/eae546d27f02a50d577ca139eeaa7c7bcbbb42d2))
+* **messaging:** sandbox-safe transport resolution wired into the app ([a3a75cf](https://github.com/davinakmalyasha/HRAgents/commit/a3a75cf3747b93b0757d145ce8bbc1b7bb45d13e))
+* **messaging:** transport ports with live SMTP and IMAP adapters ([ad056c5](https://github.com/davinakmalyasha/HRAgents/commit/ad056c50e76145b4e078098784679d9ff774b1b2))
+* **onboarding:** starter-template endpoint and a live flow smoke script ([2c4f98d](https://github.com/davinakmalyasha/HRAgents/commit/2c4f98de8427ee8b4002d79841825a19a9336806))
+* **ops:** reply-SLA job flagging unanswered dispatches ([e45cec8](https://github.com/davinakmalyasha/HRAgents/commit/e45cec831747defe71e546985233ae2451e8ae18))
+* **ops:** run_scheduler CLI with dry-run and JSON output ([614fa16](https://github.com/davinakmalyasha/HRAgents/commit/614fa1696d5618b5586f8bcc4d3e32e8ac23486f))
+* **ops:** scheduled job runner calling existing engines ([7af1d21](https://github.com/davinakmalyasha/HRAgents/commit/7af1d213ddb3fcd84e9ed677a7a98bf261bd9f56))
+* **ops:** self-host image, compose stack, and a verified backup drill ([2903f90](https://github.com/davinakmalyasha/HRAgents/commit/2903f9033ccc72280231e4f46bdbf759ffeb1ede))
+* **people:** employee document list endpoint ([3fca1bc](https://github.com/davinakmalyasha/HRAgents/commit/3fca1bc9ec7b942e2e2b318fbad495db3c67b0f3))
+* **people:** the people workspace takes its actor from the principal too ([a1e2767](https://github.com/davinakmalyasha/HRAgents/commit/a1e27676c2c510055c5a641605d2891f6db49a0d))
+* **rbac:** department packs and permission enforcement ([#4](https://github.com/davinakmalyasha/HRAgents/issues/4)) ([cc43e21](https://github.com/davinakmalyasha/HRAgents/commit/cc43e21e157c4766f0fdbcf398290cbb61d4ab19))
+* **records:** document vault, org units, and verification API ([61a0ebc](https://github.com/davinakmalyasha/HRAgents/commit/61a0ebcf5a686d756995c859878c414897374da0))
+* **recruiting:** decide scheduling proposals through the shared approval engine ([04b91a3](https://github.com/davinakmalyasha/HRAgents/commit/04b91a3b446212b212885130f363429653cacb01))
+* **recruiting:** dispatch evidence on queued communications ([e3b9eeb](https://github.com/davinakmalyasha/HRAgents/commit/e3b9eebb7087a0490cfa1a4babe8f621a003803a))
+* **recruiting:** expose score evidence on evaluation views ([0891241](https://github.com/davinakmalyasha/HRAgents/commit/0891241ee9c652c3340c2f98b532d732b6ae4fc6))
+* **recruiting:** full offer records behind the approval gate ([f8397e0](https://github.com/davinakmalyasha/HRAgents/commit/f8397e0025738e0ee35883f0c2a19911722c836d))
+* **recruiting:** gate candidate communication behind recorded decisions and named humans ([0b1d850](https://github.com/davinakmalyasha/HRAgents/commit/0b1d850248209f4272667b12cbeb31899458aef1))
+* **recruiting:** gate manual application stage moves behind named humans ([caf05de](https://github.com/davinakmalyasha/HRAgents/commit/caf05debb0cf44feca8c0d345a6caf125e0a86fa))
+* **recruiting:** the actor comes from the API key, not the request body ([3de0ddc](https://github.com/davinakmalyasha/HRAgents/commit/3de0ddc32e0bc52fa7768f436e346436755524de))
+* **recruiting:** WhatsApp recipient and manual-link dispatch gate (migration 0011) ([a65d55f](https://github.com/davinakmalyasha/HRAgents/commit/a65d55f7402f317fcb25dd4c3e7b3a173c88e7eb))
+* **tenancy:** tenant_id on all tables with forced row-level security ([#6](https://github.com/davinakmalyasha/HRAgents/issues/6)) ([11acd5b](https://github.com/davinakmalyasha/HRAgents/commit/11acd5b1da25ccf440fc09c92ef537772711e4a2))
+* **tools:** destructive tool calls need a named human decision ([c40157b](https://github.com/davinakmalyasha/HRAgents/commit/c40157b5544ece54eb39bc9a77e1bb2b9c9c31f1))
+* **web:** candidate communication panel for offers and rejections ([4b0da04](https://github.com/davinakmalyasha/HRAgents/commit/4b0da04939fa310b3eb8003d930ce510211c145e))
+* **web:** confirm, cancel, and reschedule scheduling proposals ([3416463](https://github.com/davinakmalyasha/HRAgents/commit/3416463af8874f571cba090a6bf3df76b1c16b16))
+* **web:** dashboard scaffold with locked design tokens, shell, i18n, and /app serving ([#8](https://github.com/davinakmalyasha/HRAgents/issues/8)) ([496d862](https://github.com/davinakmalyasha/HRAgents/commit/496d862ff4ecca2302b7103ae87757c71c4ce6bd))
+* **web:** draggable pipeline board with gated stage moves ([6acf8a9](https://github.com/davinakmalyasha/HRAgents/commit/6acf8a9f72ae57175a8a0b3f9a72e4f4fa59568d))
+* **web:** hiring pipeline board and candidate detail ([#12](https://github.com/davinakmalyasha/HRAgents/issues/12)) ([693604c](https://github.com/davinakmalyasha/HRAgents/commit/693604c4ea1e4110822808386294b652713258b1))
+* **web:** HITL review queue with named-reviewer sign-off and audit receipts ([#13](https://github.com/davinakmalyasha/HRAgents/issues/13)) ([d8791a0](https://github.com/davinakmalyasha/HRAgents/commit/d8791a09dcdee7e32bfdb12a0d37bd4372a885ee))
+* **web:** inspectable score formula and per-dimension evidence ([8a22c16](https://github.com/davinakmalyasha/HRAgents/commit/8a22c16e4e7c3cae15f22e473d0152e93eea215f))
+* **web:** interview scheduling view with policy gates ([e111336](https://github.com/davinakmalyasha/HRAgents/commit/e111336ec901b2da5fc699bb98067e56b98af807))
+* **web:** job management with guarded status lifecycle ([1af4cfa](https://github.com/davinakmalyasha/HRAgents/commit/1af4cfae11d1f87eedcde3df2332ad8093848446))
+* **web:** link an on-file document to an onboarding step ([5db482f](https://github.com/davinakmalyasha/HRAgents/commit/5db482fb1cb5e7e0576aad5136e5f4b6d06219c9))
+* **web:** offer records panel with approval, messaging, and acceptance ([8becdf6](https://github.com/davinakmalyasha/HRAgents/commit/8becdf6ce21c31197a0c7d11c09828e002b1b647))
+* **web:** offer the server starter checklist when no template exists ([3bd4feb](https://github.com/davinakmalyasha/HRAgents/commit/3bd4feb2919b27b408952783aaef60fef30d37c0))
+* **web:** onboarding checklist with named-actor completion and waivers ([5ea5621](https://github.com/davinakmalyasha/HRAgents/commit/5ea56212ccf3552a6ac06a1b38d02c54662c03c2))
+* **web:** onboarding data layer with ordering and progress helpers ([7f6029f](https://github.com/davinakmalyasha/HRAgents/commit/7f6029f4564ad7d916b89a428c11cf4a4bb2f8ac))
+* **web:** onboarding plan board and start-plan flow ([8a21aba](https://github.com/davinakmalyasha/HRAgents/commit/8a21aba0ede5b91dc4ebfbeddea6e0ba8f33cfc9))
+* **web:** PWA offline shell and CSV batch import with CV uploads ([#14](https://github.com/davinakmalyasha/HRAgents/issues/14)) ([d46028e](https://github.com/davinakmalyasha/HRAgents/commit/d46028e5910e1286337046f3a2acfbab318a4483))
+* **web:** records workspace with org chart, directory, and expiry vault ([9bcf34b](https://github.com/davinakmalyasha/HRAgents/commit/9bcf34bc1abc82114994215860f104415c062b5c))
+* **web:** show dispatch attempts and captured replies in the communication panel ([2aaa480](https://github.com/davinakmalyasha/HRAgents/commit/2aaa480af520da8dc2126661b5035861825fe540))
+* **web:** WhatsApp link composer in the communication panel ([c481438](https://github.com/davinakmalyasha/HRAgents/commit/c4814385e16ffe18039f557f1999ef8e281723c7))
+* **web:** wire the attention-first home to real queues and fix datetime API contracts ([#11](https://github.com/davinakmalyasha/HRAgents/issues/11)) ([eddb386](https://github.com/davinakmalyasha/HRAgents/commit/eddb3866f05ae00d51c411ffe3a093a1b66748f2))
+* **web:** wire the onboarding workspace into the shell with EN/ID copy ([5db6b10](https://github.com/davinakmalyasha/HRAgents/commit/5db6b10176df418a8c388660c7cfd36029581183))
+* **web:** workspace metadata API and Ask HR chat with citations and handoffs ([#10](https://github.com/davinakmalyasha/HRAgents/issues/10)) ([4275200](https://github.com/davinakmalyasha/HRAgents/commit/427520093adad0e9c46fb8bdc77ade3309116991))
+* **workspaces:** scope agent tools to the routed workspace and add handoff queue ([#7](https://github.com/davinakmalyasha/HRAgents/issues/7)) ([4402f95](https://github.com/davinakmalyasha/HRAgents/commit/4402f954c3ac6592de573a8f35239929fae4afc1))
+
+
+### Bug Fixes
+
+* **auth:** 18 write routes were authorized by a read permission ([1354093](https://github.com/davinakmalyasha/HRAgents/commit/1354093f37cde06149897649df2f0d4bd9effbec))
+* **auth:** a reviewer could file another reviewer's performance form ([edc2695](https://github.com/davinakmalyasha/HRAgents/commit/edc26956aaec3dbbb3db6a04c94747133e324058))
+* **auth:** four sync endpoints mutated state with no actor ([e53b842](https://github.com/davinakmalyasha/HRAgents/commit/e53b842f6f7924b65b90b1a0860019f4a2362b80))
+* **auth:** one employee could read another's HR chat thread ([12b8539](https://github.com/davinakmalyasha/HRAgents/commit/12b85395dab405dd04ebefceb1a8fe8f3924687e))
+* **auth:** people administration is authorized by people:write, not people:read ([a595aa1](https://github.com/davinakmalyasha/HRAgents/commit/a595aa1eb5d5aca11294b24d41f6962a7a96550d))
+* **auth:** the chain was losing provenance and role in three services ([9f8c99f](https://github.com/davinakmalyasha/HRAgents/commit/9f8c99f8a05743e9c41063225cd44e61cdfe624f))
+* **auth:** the reminder sweep recorded its caller as the scheduler ([f17fad9](https://github.com/davinakmalyasha/HRAgents/commit/f17fad92a3d8100ad8683b3064f468838b1fc802))
+* **auth:** the requester could sign off their own request ([a07dfb6](https://github.com/davinakmalyasha/HRAgents/commit/a07dfb6afb223bc0542ba408565b9dfc9276176a))
+* **identity:** one actor classification and one named-human gate ([dafc9f6](https://github.com/davinakmalyasha/HRAgents/commit/dafc9f6bb81a8c8fa664a07d71d32a937f9cc30d))
+* **onboarding:** refuse agent actors with 403 and document waiver semantics ([3cb1f22](https://github.com/davinakmalyasha/HRAgents/commit/3cb1f22c0eac9f021d4fa3f6a105bbd84086b650))
+* **platform:** make rate tables, erasure, and ops honest ([efbe472](https://github.com/davinakmalyasha/HRAgents/commit/efbe4729e684191f5973ce7e049b70398c6d81d3))
+* **security:** the escalation sweep ignored its id and named no actor ([2493a8e](https://github.com/davinakmalyasha/HRAgents/commit/2493a8e1aa2fd258bcae26b080edba0d1b7b05be))
+* **security:** two ceilings a caller could simply walk around ([f5a9610](https://github.com/davinakmalyasha/HRAgents/commit/f5a9610619f7f8a87943c307360026b1a27088be))
+* **web:** two features still asked for a name the server now refuses ([6ab2ab5](https://github.com/davinakmalyasha/HRAgents/commit/6ab2ab509554884a9107f6dccf97326a8392f02e))
+* **worker:** run the evaluation pipeline end to end ([2ff8c56](https://github.com/davinakmalyasha/HRAgents/commit/2ff8c5665c5bec8952d5a7be0345d4e05cbb8b99))
+
+
+### Performance Improvements
+
+* **audit:** counting entries no longer reads them ([567cead](https://github.com/davinakmalyasha/HRAgents/commit/567cead3265cfda5471871187357553495da5c6d))
+* **audit:** stream chain verification and lock appends against races ([9522911](https://github.com/davinakmalyasha/HRAgents/commit/952291158ce9563d3487d42dc9ec485a162b9243))
+* **offers:** revisions are fetched once, not once per offer ([b792911](https://github.com/davinakmalyasha/HRAgents/commit/b7929114a0c2f806614c796422d0a0406c0cf014))
+* **people:** one employee's documents is one query, not one per employee ([e3aa0fb](https://github.com/davinakmalyasha/HRAgents/commit/e3aa0fbc478167f60a7762be0ecaeae9225097d1))
+* **recruiting:** a candidate lookup no longer scans the whole pipeline ([baad111](https://github.com/davinakmalyasha/HRAgents/commit/baad111f6fe075b5cb9949e5a70cb2fed076b775))
+* **recruiting:** push communication read filters into SQL with indexes ([cadbb0b](https://github.com/davinakmalyasha/HRAgents/commit/cadbb0b6e4e3a856c1bf570ed3d069aeb5137a23))
+* **tasks:** the reminder sweep asks the store once, not per review form ([1bb5430](https://github.com/davinakmalyasha/HRAgents/commit/1bb5430e571987c501299ea96ed73638b0af6195))
+
+
+### Documentation
+
+* **architecture:** define board stage transition policy ([389a319](https://github.com/davinakmalyasha/HRAgents/commit/389a319cff46900409151edb54a830b3e20eba0f))
+* **architecture:** document candidate communication automation bounds ([0796785](https://github.com/davinakmalyasha/HRAgents/commit/07967851fb0f8e1a7d734989088239a7d9e221fe))
+* correct the claims that had drifted from the code ([107235f](https://github.com/davinakmalyasha/HRAgents/commit/107235fed13b8d39e5e98fc39497de7bc33f8382))
+* deployment runbook and ops status ([94ac7ed](https://github.com/davinakmalyasha/HRAgents/commit/94ac7ed54a2380745d20a63e48d11e6dd061b59c))
+* destructive tool gate shipped, 1069 backend tests ([28bd066](https://github.com/davinakmalyasha/HRAgents/commit/28bd066e0bc26c77b0f57bebfe4d419b17e2378a))
+* document the scheduler runner ([6099bd2](https://github.com/davinakmalyasha/HRAgents/commit/6099bd280e8ebc22c7681b39e9d9292a70bc2bdd))
+* one identity module, 1150 backend tests ([a02a8a5](https://github.com/davinakmalyasha/HRAgents/commit/a02a8a58d071d3c45444d61914f930a9d547e2fe))
+* pre-queue preview shipped, 1053 backend tests ([243b100](https://github.com/davinakmalyasha/HRAgents/commit/243b100f866adf2fe2739883d1800709dd52cfda))
+* record hiring workspace progress in build plans and README ([1ddee18](https://github.com/davinakmalyasha/HRAgents/commit/1ddee18cfa4bcdc28dc9903c6cff43212b623422))
+* record the email transport bridge ([1c0edfe](https://github.com/davinakmalyasha/HRAgents/commit/1c0edfe13ff372a4177ee4cf6bb24671e2c57da9))
+* record the transport state in the hiring dashboard ([629bbcd](https://github.com/davinakmalyasha/HRAgents/commit/629bbcd8dd6cc69e09063fc8ceb71d7470e853aa))
+* record WhatsApp manual links and reply SLA timers ([59c984b](https://github.com/davinakmalyasha/HRAgents/commit/59c984baba10803bfd7e8dabd5eabea54ab87aea))
+* records workspace shipped, 1050 backend tests ([23e37f3](https://github.com/davinakmalyasha/HRAgents/commit/23e37f32c8a63c2982eb74b77edb0a6584384d18))
+* the pipeline runs, 1101 backend tests ([aef4557](https://github.com/davinakmalyasha/HRAgents/commit/aef455750e28d07faa4ddd915add4c016bbafc22))
+* tick board transition items in build plans ([962c37c](https://github.com/davinakmalyasha/HRAgents/commit/962c37cb6f414aaf5333e4df3c7bb9d8749771b6))
+* tick offer records in build plans ([dd2f78b](https://github.com/davinakmalyasha/HRAgents/commit/dd2f78ba6c228339eb4b5a67bcf98329316217ef))
+* tick scheduling decision items in build plans ([515f552](https://github.com/davinakmalyasha/HRAgents/commit/515f55229b0edaa91e8b5e2f7724dc7ffe28fce7))
+* tick the onboarding workspace and refresh test counts ([f056e80](https://github.com/davinakmalyasha/HRAgents/commit/f056e8089c0873da75a1f9f48f0b145f4e93cf63))
+
+## Changelog
+
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
