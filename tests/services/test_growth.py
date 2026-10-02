@@ -8,6 +8,7 @@ from hr_agents.models import (
     ActorType,
     ApproverRole,
     AssignmentStatus,
+    Goal,
     GoalStatus,
     ReviewAssignment,
     ReviewCycle,
@@ -16,15 +17,18 @@ from hr_agents.models import (
     SummaryStatus,
     TaskSource,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services import (
     ApprovalEngine,
     ApprovalStore,
+    EmployeeStore,
     GrowthError,
     GrowthService,
     TaskEngine,
     TaskStore,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.employees import EmployeeService
 
 TODAY = date.today()
 
@@ -45,8 +49,13 @@ def approvals(audit: AuditChain) -> ApprovalEngine:
 
 
 @pytest.fixture
-def service(tasks: TaskEngine, audit: AuditChain) -> GrowthService:
-    return GrowthService(tasks=tasks, audit=audit)
+def employees(audit: AuditChain, approvals: ApprovalEngine) -> EmployeeService:
+    return EmployeeService(EmployeeStore(), audit=audit, approvals=approvals)
+
+
+@pytest.fixture
+def service(tasks: TaskEngine, audit: AuditChain, employees: EmployeeService) -> GrowthService:
+    return GrowthService(tasks=tasks, audit=audit, employees=employees)
 
 
 def make_cycle(service: GrowthService, **overrides: object) -> ReviewCycle:
@@ -54,7 +63,7 @@ def make_cycle(service: GrowthService, **overrides: object) -> ReviewCycle:
         "name": "2026 H1 Review",
         "period_start": TODAY - timedelta(days=180),
         "period_end": TODAY,
-        "actor": ActorRef.legacy("hr-admin"),
+        "actor": hr_admin(),
         "kind": ReviewCycleKind.MID_YEAR,
         "submission_due_on": TODAY + timedelta(days=3),
     }
@@ -62,7 +71,7 @@ def make_cycle(service: GrowthService, **overrides: object) -> ReviewCycle:
     return service.create_cycle(**defaults)  # type: ignore[arg-type]
 
 
-def hr_admin(actor_id: str) -> ActorRef:
+def hr_admin(actor_id: str = "Rina") -> ActorRef:
     """An authenticated principal carrying the HR admin role.
 
     ``submit_assignment`` compares the caller against the assigned reviewer, so
@@ -77,6 +86,38 @@ def hr_admin(actor_id: str) -> ActorRef:
     )
 
 
+def signed_in_employee(actor_id: str, employee_id: UUID, role: str) -> ActorRef:
+    """A principal the operator bound to an employee record.
+
+    Ownership checks read ``employee_id``, which only ``from_principal`` can set
+    and only from a configured binding. A test that means "the person this goal
+    belongs to" has to say so the way a deployment would, or it ends up
+    asserting against an actor production cannot produce.
+    """
+    return ActorRef(
+        actor_id=actor_id,
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=role,
+        employee_id=employee_id,
+    )
+
+
+def as_employee(service: EmployeeService, name: str = "Sari Dewi") -> tuple[UUID, ActorRef]:
+    """Create an employee and the plain employee principal bound to them.
+
+    Deliberately *not* an admin role: ``people:write`` would let this actor
+    administer every record, which is the opposite of what the ownership tests
+    are checking.
+    """
+    employee = service.create(
+        full_name=name, actor=hr_admin(), hire_date=TODAY - timedelta(days=400)
+    )
+    return employee.id, signed_in_employee(
+        name.split()[0].lower(), employee.id, RoleId.EMPLOYEE.value
+    )
+
+
 def make_assignment(
     service: GrowthService, cycle_id: UUID, *, reviewer_id: str = "lead-1"
 ) -> ReviewAssignment:
@@ -84,7 +125,7 @@ def make_assignment(
         cycle_id,
         employee_id=_EMPLOYEE,
         reviewer_id=reviewer_id,
-        actor=ActorRef.legacy("hr-admin"),
+        actor=hr_admin(),
     )
 
 
@@ -100,7 +141,7 @@ def test_create_cycle_requires_human(service: GrowthService) -> None:
 
     cycle = make_cycle(service)
     assert cycle.status is ReviewCycleStatus.DRAFT
-    assert cycle.created_by == "hr-admin"
+    assert cycle.created_by == "Rina"
 
 
 def test_cycle_requires_valid_period_and_scale(service: GrowthService) -> None:
@@ -113,10 +154,10 @@ def test_cycle_requires_valid_period_and_scale(service: GrowthService) -> None:
 def test_activate_requires_assignment(service: GrowthService) -> None:
     cycle = make_cycle(service)
     with pytest.raises(GrowthError, match="at least one assignment"):
-        service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+        service.activate_cycle(cycle.id, actor=hr_admin())
 
     make_assignment(service, cycle.id)
-    activated = service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    activated = service.activate_cycle(cycle.id, actor=hr_admin())
     assert activated.status is ReviewCycleStatus.ACTIVE
 
 
@@ -130,11 +171,11 @@ def test_duplicate_assignment_rejected(service: GrowthService) -> None:
 def test_assignment_closed_after_reviewing(service: GrowthService) -> None:
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
     service.submit_assignment(
         assignment.id, actor=ActorRef.legacy("lead-1"), ratings={"delivery": 4.0}
     )
-    service.advance_to_reviewing(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.advance_to_reviewing(cycle.id, actor=hr_admin())
 
     with pytest.raises(GrowthError, match="assignments are closed"):
         make_assignment(service, cycle.id, reviewer_id="lead-2")
@@ -146,7 +187,7 @@ def test_assignment_closed_after_reviewing(service: GrowthService) -> None:
 def test_submission_validates_ratings_against_scale(service: GrowthService) -> None:
     cycle = make_cycle(service, rating_scale_min=1.0, rating_scale_max=5.0)
     assignment = make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     with pytest.raises(GrowthError, match=r"scale is 1\.0-5\.0"):
         service.submit_assignment(
@@ -167,7 +208,7 @@ def test_submission_validates_ratings_against_scale(service: GrowthService) -> N
 def test_agents_cannot_submit(service: GrowthService) -> None:
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     with pytest.raises(GrowthError, match="named human"):
         service.submit_assignment(
@@ -186,7 +227,7 @@ def test_only_the_assigned_reviewer_may_file_the_form(service: GrowthService) ->
     """
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id, reviewer_id="lead-1")
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     with pytest.raises(GrowthError, match="only the assigned reviewer"):
         service.submit_assignment(
@@ -209,7 +250,7 @@ def test_an_hr_admin_may_file_a_reviewers_form_for_them(service: GrowthService) 
     """
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id, reviewer_id="lead-1")
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     submitted = service.submit_assignment(
         assignment.id, actor=hr_admin("Rina"), ratings={"delivery": 3.0}
@@ -233,31 +274,29 @@ def test_submission_requires_active_cycle(service: GrowthService) -> None:
 def test_skip_requires_human_and_reason(service: GrowthService) -> None:
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     with pytest.raises(GrowthError, match="named human"):
         service.skip_assignment(assignment.id, actor=ActorRef.agent("x"), reason="left")
     with pytest.raises(GrowthError, match="requires a reason"):
-        service.skip_assignment(assignment.id, actor=ActorRef.legacy("hr-admin"), reason=" ")
+        service.skip_assignment(assignment.id, actor=hr_admin(), reason=" ")
 
-    skipped = service.skip_assignment(
-        assignment.id, actor=ActorRef.legacy("hr-admin"), reason="reviewer left"
-    )
+    skipped = service.skip_assignment(assignment.id, actor=hr_admin(), reason="reviewer left")
     assert skipped.status is AssignmentStatus.SKIPPED
 
 
 def test_advance_to_reviewing_requires_no_pending(service: GrowthService) -> None:
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     with pytest.raises(GrowthError, match="assignments still pending"):
-        service.advance_to_reviewing(cycle.id, actor=ActorRef.legacy("hr-admin"))
+        service.advance_to_reviewing(cycle.id, actor=hr_admin())
 
     service.submit_assignment(
         assignment.id, actor=ActorRef.legacy("lead-1"), ratings={"delivery": 4.0}
     )
-    advanced = service.advance_to_reviewing(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    advanced = service.advance_to_reviewing(cycle.id, actor=hr_admin())
     assert advanced.status is ReviewCycleStatus.REVIEWING
 
 
@@ -267,7 +306,7 @@ def test_advance_to_reviewing_requires_no_pending(service: GrowthService) -> Non
 def make_submitted_assignment(service: GrowthService) -> tuple[ReviewCycle, ReviewAssignment]:
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
     service.submit_assignment(
         assignment.id,
         actor=ActorRef.legacy("lead-1"),
@@ -279,7 +318,7 @@ def make_submitted_assignment(service: GrowthService) -> tuple[ReviewCycle, Revi
 def test_draft_requires_submitted_forms(service: GrowthService) -> None:
     cycle = make_cycle(service)
     make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
     with pytest.raises(GrowthError, match="grounded in them"):
         service.draft_summary(
             cycle.id, _EMPLOYEE, draft_text="draft", actor=ActorRef.agent("feedback_writer")
@@ -326,14 +365,14 @@ def test_finalize_is_human_only_and_terminal(service: GrowthService) -> None:
         )
 
     finalized = service.finalize_summary(
-        summary.id, actor=ActorRef.legacy("hr-admin"), final_text="Final human-edited text."
+        summary.id, actor=hr_admin(), final_text="Final human-edited text."
     )
     assert finalized.status is SummaryStatus.FINALIZED
-    assert finalized.finalized_by == "hr-admin"
+    assert finalized.finalized_by == "Rina"
     assert finalized.finalized_at is not None
 
     with pytest.raises(GrowthError, match="already finalized"):
-        service.finalize_summary(summary.id, actor=ActorRef.legacy("hr-admin"), final_text="again")
+        service.finalize_summary(summary.id, actor=hr_admin(), final_text="again")
     with pytest.raises(GrowthError, match="can no longer be re-drafted"):
         service.draft_summary(
             cycle.id, _EMPLOYEE, draft_text="new", actor=ActorRef.agent("feedback_writer")
@@ -342,16 +381,16 @@ def test_finalize_is_human_only_and_terminal(service: GrowthService) -> None:
 
 def test_close_cycle_requires_finalized_summaries(service: GrowthService) -> None:
     cycle, _ = make_submitted_assignment(service)
-    service.advance_to_reviewing(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.advance_to_reviewing(cycle.id, actor=hr_admin())
     summary = service.draft_summary(
         cycle.id, _EMPLOYEE, draft_text="draft", actor=ActorRef.agent("feedback_writer")
     )
 
     with pytest.raises(GrowthError, match="await human finalization"):
-        service.close_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+        service.close_cycle(cycle.id, actor=hr_admin())
 
-    service.finalize_summary(summary.id, actor=ActorRef.legacy("hr-admin"), final_text="done")
-    closed = service.close_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.finalize_summary(summary.id, actor=hr_admin(), final_text="done")
+    closed = service.close_cycle(cycle.id, actor=hr_admin())
     assert closed.status is ReviewCycleStatus.COMPLETED
 
 
@@ -359,21 +398,19 @@ def test_cancel_cycle_requires_reason(service: GrowthService) -> None:
     cycle = make_cycle(service)
     make_assignment(service, cycle.id)
     with pytest.raises(GrowthError, match="requires a reason"):
-        service.cancel_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"), reason="")
+        service.cancel_cycle(cycle.id, actor=hr_admin(), reason="")
 
-    cancelled = service.cancel_cycle(
-        cycle.id, actor=ActorRef.legacy("hr-admin"), reason="merged with H2"
-    )
+    cancelled = service.cancel_cycle(cycle.id, actor=hr_admin(), reason="merged with H2")
     assert cancelled.status is ReviewCycleStatus.CANCELLED
     with pytest.raises(GrowthError, match="cannot move cycle"):
-        service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+        service.activate_cycle(cycle.id, actor=hr_admin())
 
 
 def test_submitted_ratings_collected_per_dimension(service: GrowthService) -> None:
     cycle = make_cycle(service)
     first = make_assignment(service, cycle.id, reviewer_id="lead-1")
     second = make_assignment(service, cycle.id, reviewer_id="lead-2")
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
     service.submit_assignment(first.id, actor=ActorRef.legacy("lead-1"), ratings={"delivery": 4.0})
     service.submit_assignment(second.id, actor=ActorRef.legacy("lead-2"), ratings={"delivery": 5.0})
 
@@ -386,7 +423,7 @@ def test_submitted_ratings_collected_per_dimension(service: GrowthService) -> No
 def test_reminders_create_tasks_and_deduplicate(service: GrowthService, tasks: TaskEngine) -> None:
     cycle = make_cycle(service, submission_due_on=TODAY + timedelta(days=1))
     assignment = make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     first_run = service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY)
     assert len(first_run) == 1
@@ -406,14 +443,14 @@ def test_reminders_create_tasks_and_deduplicate(service: GrowthService, tasks: T
 def test_reminders_skip_far_future_assignments(service: GrowthService) -> None:
     cycle = make_cycle(service, submission_due_on=TODAY + timedelta(days=30))
     make_assignment(service, cycle.id)
-    service.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.activate_cycle(cycle.id, actor=hr_admin())
 
     assert service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY) == []
 
 
 def test_reminders_cover_unfinalized_summaries(service: GrowthService) -> None:
     cycle, _ = make_submitted_assignment(service)
-    service.advance_to_reviewing(cycle.id, actor=ActorRef.legacy("hr-admin"))
+    service.advance_to_reviewing(cycle.id, actor=hr_admin())
     summary = service.draft_summary(
         cycle.id, _EMPLOYEE, draft_text="draft", actor=ActorRef.agent("feedback_writer")
     )
@@ -427,7 +464,7 @@ def test_reminders_cover_unfinalized_summaries(service: GrowthService) -> None:
 def test_reminders_ignore_cancelled_cycles(service: GrowthService) -> None:
     cycle = make_cycle(service, submission_due_on=TODAY)
     make_assignment(service, cycle.id)
-    service.cancel_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"), reason="nope")
+    service.cancel_cycle(cycle.id, actor=hr_admin(), reason="nope")
 
     assert service.run_reminders(actor=hr_admin("Rina"), as_of=TODAY) == []
 
@@ -439,7 +476,7 @@ def test_goal_lifecycle(service: GrowthService) -> None:
     goal = service.create_goal(
         employee_id=_EMPLOYEE,
         title="Ship onboarding v2",
-        actor=ActorRef.legacy("hr-admin"),
+        actor=hr_admin(),
         metric="launch by Q3",
         due_on=TODAY + timedelta(days=60),
     )
@@ -448,45 +485,41 @@ def test_goal_lifecycle(service: GrowthService) -> None:
     with pytest.raises(GrowthError, match="named human"):
         service.activate_goal(goal.id, actor=ActorRef.agent("planner"))
 
-    active = service.activate_goal(goal.id, actor=ActorRef.legacy("hr-admin"))
+    active = service.activate_goal(goal.id, actor=hr_admin())
     assert active.status is GoalStatus.ACTIVE
 
-    updated = service.update_progress(
-        goal.id, percent=40.0, actor=ActorRef.legacy("hr-admin"), note="beta done"
-    )
+    updated = service.update_progress(goal.id, percent=40.0, actor=hr_admin(), note="beta done")
     assert updated.progress_percent == 40.0
     assert len(updated.updates) == 1
-    assert updated.updates[0].by == "hr-admin"
+    assert updated.updates[0].by == "Rina"
 
-    completed = service.complete_goal(goal.id, actor=ActorRef.legacy("hr-admin"), note="shipped")
+    completed = service.complete_goal(goal.id, actor=hr_admin(), note="shipped")
     assert completed.status is GoalStatus.COMPLETED
     assert completed.progress_percent == 100.0
     assert len(completed.updates) == 2
 
     with pytest.raises(GrowthError, match="cannot update progress"):
-        service.update_progress(goal.id, percent=50.0, actor=ActorRef.legacy("hr-admin"))
+        service.update_progress(goal.id, percent=50.0, actor=hr_admin())
 
 
 def test_goal_progress_can_activate_draft(service: GrowthService) -> None:
-    goal = service.create_goal(employee_id=_EMPLOYEE, title="X", actor=ActorRef.legacy("hr-admin"))
-    updated = service.update_progress(goal.id, percent=10.0, actor=ActorRef.legacy("hr-admin"))
+    goal = service.create_goal(employee_id=_EMPLOYEE, title="X", actor=hr_admin())
+    updated = service.update_progress(goal.id, percent=10.0, actor=hr_admin())
     assert updated.status is GoalStatus.ACTIVE
 
 
 def test_goal_progress_bounds(service: GrowthService) -> None:
-    goal = service.create_goal(employee_id=_EMPLOYEE, title="X", actor=ActorRef.legacy("hr-admin"))
+    goal = service.create_goal(employee_id=_EMPLOYEE, title="X", actor=hr_admin())
     with pytest.raises(GrowthError, match="between 0 and 100"):
-        service.update_progress(goal.id, percent=101.0, actor=ActorRef.legacy("hr-admin"))
+        service.update_progress(goal.id, percent=101.0, actor=hr_admin())
 
 
 def test_cancel_goal_requires_reason(service: GrowthService) -> None:
-    goal = service.create_goal(employee_id=_EMPLOYEE, title="X", actor=ActorRef.legacy("hr-admin"))
+    goal = service.create_goal(employee_id=_EMPLOYEE, title="X", actor=hr_admin())
     with pytest.raises(GrowthError, match="requires a reason"):
-        service.cancel_goal(goal.id, actor=ActorRef.legacy("hr-admin"), reason="")
+        service.cancel_goal(goal.id, actor=hr_admin(), reason="")
 
-    cancelled = service.cancel_goal(
-        goal.id, actor=ActorRef.legacy("hr-admin"), reason="deprioritized"
-    )
+    cancelled = service.cancel_goal(goal.id, actor=hr_admin(), reason="deprioritized")
     assert cancelled.status is GoalStatus.CANCELLED
 
 
@@ -494,13 +527,13 @@ def test_overdue_goals(service: GrowthService) -> None:
     overdue = service.create_goal(
         employee_id=_EMPLOYEE,
         title="Late goal",
-        actor=ActorRef.legacy("hr-admin"),
+        actor=hr_admin(),
         due_on=TODAY - timedelta(days=1),
     )
     service.create_goal(
         employee_id=_EMPLOYEE,
         title="Future goal",
-        actor=ActorRef.legacy("hr-admin"),
+        actor=hr_admin(),
         due_on=TODAY + timedelta(days=30),
     )
 
@@ -512,7 +545,7 @@ def test_goal_cycle_link_validated(service: GrowthService) -> None:
         service.create_goal(
             employee_id=_EMPLOYEE,
             title="X",
-            actor=ActorRef.legacy("hr-admin"),
+            actor=hr_admin(),
             cycle_id=uuid4(),
         )
 
@@ -534,3 +567,145 @@ def test_reviewer_role_defaults_to_manager(service: GrowthService) -> None:
     cycle = make_cycle(service)
     assignment = make_assignment(service, cycle.id)
     assert assignment.reviewer_role is ApproverRole.MANAGER
+
+
+# --- goal ownership ------------------------------------------------------------
+#
+# The four goal transitions each took any `goal_id` they were handed and only
+# recorded who did it. That was safe while only people who could *create* goals
+# could reach them, and it stops being safe the moment an employee can move their
+# own goal along: "act on a goal" becomes an operation against someone else's
+# record by naming their id.
+
+
+def _goal_for(service: GrowthService, employee_id: UUID) -> Goal:
+    return service.create_goal(
+        employee_id=employee_id, title="Ship onboarding v2", actor=hr_admin()
+    )
+
+
+def test_the_goal_owner_can_move_their_own_goal(
+    service: GrowthService, employees: EmployeeService
+) -> None:
+    employee_id, actor = as_employee(employees)
+    goal = _goal_for(service, employee_id)
+
+    active = service.activate_goal(goal.id, actor=actor)
+    updated = service.update_progress(goal.id, percent=40.0, actor=actor, note="beta done")
+    completed = service.complete_goal(goal.id, actor=actor, note="shipped")
+
+    assert active.status is GoalStatus.ACTIVE
+    assert updated.progress_percent == 40.0
+    assert completed.status is GoalStatus.COMPLETED
+
+
+def test_an_employee_cannot_move_somebody_elses_goal(
+    service: GrowthService, employees: EmployeeService
+) -> None:
+    sari_id, _sari = as_employee(employees, "Sari Dewi")
+    _budi_id, budi = as_employee(employees, "Budi Santoso")
+    goal = _goal_for(service, sari_id)
+
+    with pytest.raises(GrowthError, match="cannot update goal progress for employee"):
+        service.update_progress(goal.id, percent=40.0, actor=budi)
+    with pytest.raises(GrowthError, match="cannot cancel a goal for employee"):
+        service.cancel_goal(goal.id, actor=budi, reason="not mine")
+    with pytest.raises(GrowthError, match="cannot activate a goal for employee"):
+        service.activate_goal(goal.id, actor=budi)
+
+    unchanged = service.get_goal(goal.id)
+    assert unchanged.status is GoalStatus.DRAFT
+    assert unchanged.updates == []
+
+
+def test_a_bare_string_actor_cannot_reach_a_goal(
+    service: GrowthService, employees: EmployeeService
+) -> None:
+    """`ActorRef.legacy` owns nothing, so it reaches nothing.
+
+    This is the case that decides whether the suite's old legacy actors keep
+    working: they cannot, and they should not.
+    """
+    employee_id, _actor = as_employee(employees)
+    goal = _goal_for(service, employee_id)
+
+    with pytest.raises(GrowthError, match="cannot activate a goal for employee"):
+        service.activate_goal(goal.id, actor=ActorRef.legacy("Rina"))
+
+
+def test_an_unbound_principal_cannot_reach_a_goal(
+    service: GrowthService, employees: EmployeeService
+) -> None:
+    """Authenticating is not the same as being somebody.
+
+    A principal the operator never bound to an employee record has a role and an
+    actor id, and is still nobody in the directory.
+    """
+    employee_id, _actor = as_employee(employees)
+    goal = _goal_for(service, employee_id)
+    unbound = ActorRef(
+        actor_id="Nadia",
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=RoleId.EMPLOYEE.value,
+    )
+
+    with pytest.raises(GrowthError, match="cannot update goal progress for employee"):
+        service.update_progress(goal.id, percent=50.0, actor=unbound)
+
+
+def test_a_people_administrator_can_move_any_goal(
+    service: GrowthService, employees: EmployeeService
+) -> None:
+    employee_id, _actor = as_employee(employees)
+    goal = _goal_for(service, employee_id)
+
+    updated = service.update_progress(goal.id, percent=75.0, actor=hr_admin())
+
+    assert updated.progress_percent == 75.0
+
+
+def test_a_goals_manager_can_move_it(service: GrowthService, employees: EmployeeService) -> None:
+    """The reporting line is what makes a manager's access to a goal possible.
+
+    Without reading `Employee.manager_id`, a manager could neither progress a
+    report's goal nor close one out, so the manager would have to be HR.
+    """
+    manager_id = employees.create(
+        full_name="Budi Santoso", actor=hr_admin(), hire_date=TODAY - timedelta(days=900)
+    ).id
+    report_id = employees.create(
+        full_name="Sari Dewi",
+        actor=hr_admin(),
+        hire_date=TODAY - timedelta(days=400),
+        manager_id=manager_id,
+    ).id
+    manager_actor = ActorRef(
+        actor_id="Budi",
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=RoleId.MANAGER.value,
+        employee_id=manager_id,
+    )
+    goal = _goal_for(service, report_id)
+
+    updated = service.update_progress(goal.id, percent=60.0, actor=manager_actor)
+
+    assert updated.progress_percent == 60.0
+
+
+def test_a_goal_whose_owner_is_gone_is_not_broadened_by_that(
+    service: GrowthService, employees: EmployeeService
+) -> None:
+    """An unknown owner has no manager, which narrows access rather than widening it.
+
+    The reporting line is looked up in a directory that may not have the record
+    any more. A missing lookup must fall back to "self or people:write", never to
+    "allow", or a deleted employee would silently hand the goal to whoever asks.
+    """
+    orphan_id = uuid4()
+    goal = _goal_for(service, orphan_id)
+    _stranger_id, stranger = as_employee(employees, "Budi Santoso")
+
+    with pytest.raises(GrowthError, match="cannot update goal progress for employee"):
+        service.update_progress(goal.id, percent=30.0, actor=stranger)

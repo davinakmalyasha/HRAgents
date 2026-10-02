@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from enum import StrEnum
+from uuid import UUID
 
 from pydantic import Field
 
@@ -40,6 +41,7 @@ class Permission(StrEnum):
     COMPLIANCE_EXECUTE = "compliance:execute"
     APPROVALS_DECIDE = "approvals:decide"
     TASKS_WRITE = "tasks:write"
+    SELF_SERVICE = "self_service"
     CHAT_USE = "chat:use"
     AUDIT_READ = "audit:read"
 
@@ -79,10 +81,15 @@ ROLE_PERMISSIONS: dict[RoleId, frozenset[Permission]] = {
             Permission.PEOPLE_READ,
             Permission.APPROVALS_DECIDE,
             Permission.TASKS_WRITE,
+            # A manager is also a person with their own leave and goals, and is
+            # frequently the reporting line for somebody else's. The permission
+            # is deliberately narrow; what they may act on is settled per record
+            # by `ActorRef.may_act_for`, not by holding this.
+            Permission.SELF_SERVICE,
             Permission.CHAT_USE,
         }
     ),
-    RoleId.EMPLOYEE: frozenset({Permission.CHAT_USE}),
+    RoleId.EMPLOYEE: frozenset({Permission.SELF_SERVICE, Permission.CHAT_USE}),
 }
 
 
@@ -91,6 +98,12 @@ class Principal(StrictModel):
 
     actor_id: str = Field(min_length=1, max_length=200)
     role: RoleId
+    employee_id: UUID | None = Field(
+        default=None,
+        description="The employee this principal acts as, when it acts for itself. "
+        "None for a principal the operator never bound to a record -- an unbound "
+        "key is ineligible for self-service rather than assumed to own what it names.",
+    )
     api_key: bool = Field(
         default=False,
         description="True when the principal came from an unbound key rather than a "

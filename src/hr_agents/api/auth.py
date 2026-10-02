@@ -54,7 +54,9 @@ def lookup_principal(api_key: str | None, settings: Settings) -> Principal | Non
             return None
         for entry in settings.api_principals:
             if secrets_module.compare_digest(entry.key.get_secret_value(), api_key):
-                return Principal(actor_id=entry.actor_id, role=entry.role)
+                return Principal(
+                    actor_id=entry.actor_id, role=entry.role, employee_id=entry.employee_id
+                )
         return None
 
     if not settings.api_keys:

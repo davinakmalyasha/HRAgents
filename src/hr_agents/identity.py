@@ -31,9 +31,15 @@ records, and which callers are refused before they can act.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 from hr_agents.models import ActorProvenance, ActorType, AuditActor
-from hr_agents.rbac import Principal
+from hr_agents.rbac import (
+    ROLE_PERMISSIONS,
+    Permission,
+    Principal,
+    RoleId,
+)
 
 AGENT_ACTOR_PREFIX = "agent:"
 SYSTEM_ACTOR_PREFIX = "system:"
@@ -130,6 +136,14 @@ class ActorRef:
     actor_type: ActorType
     provenance: ActorProvenance
     role: str | None = None
+    employee_id: UUID | None = None
+    """The employee this actor acts as, or ``None`` when it is not bound to one.
+
+    Only ``from_principal`` can set this, and only from a principal the operator
+    bound to a record. A system job, an agent tool and a bare legacy string have
+    no employee, which is what makes them ineligible for self-service rather than
+    treated as owning whatever they name.
+    """
 
     @classmethod
     def from_principal(cls, principal: Principal) -> ActorRef:
@@ -139,7 +153,74 @@ class ActorRef:
             actor_type=classify_actor(principal.actor_id),
             provenance=ActorProvenance.AUTHENTICATED,
             role=principal.role.value,
+            employee_id=principal.employee_id,
         )
+
+    def owns(self, owner_id: UUID) -> bool:
+        """Whether this actor *is* the employee behind ``owner_id``."""
+        return self.employee_id is not None and self.employee_id == owner_id
+
+    def administers_people_records(self) -> bool:
+        """Whether this actor may act on any employee's record.
+
+        Answered from ``ROLE_PERMISSIONS`` rather than by naming roles here, so
+        the authority lives in one table. That matters because a role list
+        duplicated into a service is a list that drifts.
+        """
+        if self.role is None:
+            return False
+        try:
+            granted = ROLE_PERMISSIONS[RoleId(self.role)]
+        except ValueError:
+            return False
+        return Permission.PEOPLE_WRITE in granted
+
+    def may_act_for(self, owner_id: UUID, *, owner_manager_id: UUID | None = None) -> bool:
+        """Whether this actor may act on ``owner_id``'s record.
+
+        Three relationships, and no fourth:
+
+        - the employee themself,
+        - the employee's manager, because a manager progressing a report's goal
+          or filing leave on their behalf is the normal case rather than an
+          escalation,
+        - a holder of ``people:write``, which is the HR-administration path and
+          the only one that crosses the whole org.
+
+        A bare string, an agent tool and a scheduled job own nothing and administer
+        nothing, so all three are refused. That is the point: an actor with no
+        verifiable identity must not be able to reach somebody's record by naming
+        it.
+        """
+        if self.owns(owner_id):
+            return True
+        if self.administers_people_records():
+            return True
+        return (
+            self.employee_id is not None
+            and owner_manager_id is not None
+            and owner_manager_id == self.employee_id
+        )
+
+    def require_may_act_for(
+        self,
+        owner_id: UUID,
+        action: str,
+        error: type[Exception],
+        *,
+        owner_manager_id: UUID | None = None,
+    ) -> None:
+        """``may_act_for``, as a named refusal.
+
+        The message names the record and what was asked, because "permission
+        denied" without either is useless to the person reading the 403.
+        """
+        if not self.may_act_for(owner_id, owner_manager_id=owner_manager_id):
+            raise error(
+                f"{self.actor_id} cannot {action} for employee {owner_id}: "
+                "a self-service action needs the caller bound to that employee, "
+                "to be their manager, or to hold people:write"
+            )
 
     @classmethod
     def system(cls, job: str) -> ActorRef:

@@ -29,6 +29,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.employees import EmployeeService
 from hr_agents.services.people_store import GrowthStore
 from hr_agents.services.tasks import TaskEngine
 
@@ -46,10 +47,20 @@ class GrowthService:
         self,
         store: GrowthStore | None = None,
         *,
+        employees: EmployeeService,
         tasks: TaskEngine,
         audit: AuditChain | None = None,
     ) -> None:
+        """``employees`` is required, not optional.
+
+        Goals belong to an employee and the reporting line decides who may act on
+        one, so a growth service with no view of the employee directory could only
+        ever say "the owner or HR". Making it optional would mean a wiring mistake
+        silently enforces less than intended, which is the failure mode an
+        authorization check must not have.
+        """
         self._store = store or GrowthStore()
+        self._employees = employees
         self._tasks = tasks
         self._audit = audit or AuditChain()
 
@@ -578,7 +589,7 @@ class GrowthService:
 
     def activate_goal(self, goal_id: UUID, *, actor: ActorRef) -> Goal:
         actor.require_human("activate a goal", GrowthError)
-        goal = self.get_goal(goal_id)
+        goal = self._owned_goal(goal_id, actor, "activate a goal")
         if goal.status is not GoalStatus.DRAFT:
             raise GrowthError(f"goal is {goal.status.value}; cannot activate")
         updated = goal.model_copy(update={"status": GoalStatus.ACTIVE, "updated_at": utc_now()})
@@ -590,7 +601,7 @@ class GrowthService:
         self, goal_id: UUID, *, percent: float, actor: ActorRef, note: str = ""
     ) -> Goal:
         actor.require_human("update goal progress", GrowthError)
-        goal = self.get_goal(goal_id)
+        goal = self._owned_goal(goal_id, actor, "update goal progress")
         if not goal.open:
             raise GrowthError(f"goal is {goal.status.value}; cannot update progress")
         if not 0.0 <= percent <= 100.0:
@@ -618,7 +629,7 @@ class GrowthService:
 
     def complete_goal(self, goal_id: UUID, *, actor: ActorRef, note: str = "") -> Goal:
         actor.require_human("complete a goal", GrowthError)
-        goal = self.get_goal(goal_id)
+        goal = self._owned_goal(goal_id, actor, "complete a goal")
         if not goal.open:
             raise GrowthError(f"goal is {goal.status.value}; cannot complete")
         updates = [*goal.updates, GoalUpdate(progress_percent=100.0, note=note, by=actor.actor_id)]
@@ -638,7 +649,7 @@ class GrowthService:
         actor.require_human("cancel a goal", GrowthError)
         if not reason.strip():
             raise GrowthError("cancelling a goal requires a reason")
-        goal = self.get_goal(goal_id)
+        goal = self._owned_goal(goal_id, actor, "cancel a goal")
         if not goal.open:
             raise GrowthError(f"goal is {goal.status.value}; cannot cancel")
         updated = goal.model_copy(update={"status": GoalStatus.CANCELLED, "updated_at": utc_now()})
@@ -652,6 +663,32 @@ class GrowthService:
         return [goal for goal in self._store.list_goals() if goal.is_overdue(as_of=as_of)]
 
     # --- internals -----------------------------------------------------------
+
+    def _owned_goal(self, goal_id: UUID, actor: ActorRef, action: str) -> Goal:
+        """Load a goal the caller is allowed to act on.
+
+        The four goal transitions each took any ``goal_id`` they were handed.
+        That was safe while only people who could create goals could reach them,
+        and it stops being safe the moment an employee can move their own goal
+        along: with self-service open, "act on a goal" becomes an operation
+        against someone else's record by choosing their id.
+
+        The reporting line is consulted rather than assumed, which is why this
+        service needs the employee directory.
+        """
+        goal = self.get_goal(goal_id)
+        manager_id: UUID | None = None
+        try:
+            manager_id = self._employees.get(goal.employee_id).manager_id
+        except Exception:
+            # The owner may have been deleted while the goal remains. That is not
+            # a reason to widen access, so an unknown owner simply has no manager
+            # and the self-or-people:write rule applies.
+            manager_id = None
+        actor.require_may_act_for(
+            goal.employee_id, action, GrowthError, owner_manager_id=manager_id
+        )
+        return goal
 
     def _require_human(self, actor: str, action: str) -> str:
         return require_named_human(actor, action, GrowthError)

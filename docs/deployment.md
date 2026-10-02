@@ -58,6 +58,32 @@ HRAGENTS_MESSAGING_SANDBOX=false                  # only after you configure a r
 
 Never commit `.env`; `.dockerignore` keeps it out of the image.
 
+### Binding a key to an employee
+
+`role` decides what a principal may do across the whole org. `employee_id`
+decides whose records they may act on individually, and the self-service routes
+need it: an employee requesting their own leave, or moving their own goal along,
+is refused without it. A key with no `employee_id` is not a weaker form of an
+employee key, it is ineligible for those routes.
+
+```bash
+HRAGENTS_API_PRINCIPALS=[
+  {"key":"...","role":"employee","actor_id":"sari","employee_id":"<uuid>"},
+  {"key":"...","role":"manager","actor_id":"budi","employee_id":"<uuid>"}
+]
+```
+
+Take the UUID from the employee record. A manager additionally needs
+`employee_id` set to *their own* record, not their reports': the reporting line
+comes from each employee's `manager_id`, so the manager's own binding is what
+identifies them as the manager. `hr_admin` and `recruiter` hold `people:write`
+and need no binding to act on any record.
+
+Identity is bound by configuration rather than inferred from an email address,
+because an email is a nullable, changeable, shareable field, and a permission
+that depends on one is not a permission. An unbound principal is refused rather
+than assumed to own whatever it names.
+
 > **Authentication is a documented limitation, not a recommendation.** With no
 > keys configured, every request is accepted as a local development principal
 > with full admin rights — appropriate for `localhost`, not for a server. With

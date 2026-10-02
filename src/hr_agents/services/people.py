@@ -140,7 +140,9 @@ class PeopleServices:
         )
         self.compliance = ComplianceService(compliance_store, approvals=approvals, audit=self.audit)
         self._register_purge_handlers(compliance_store)
-        self.growth = GrowthService(growth_store, tasks=tasks, audit=self.audit)
+        self.growth = GrowthService(
+            growth_store, employees=self.employees, tasks=tasks, audit=self.audit
+        )
         self.offboarding = OffboardingService(
             offboarding_store,
             employees=self.employees,

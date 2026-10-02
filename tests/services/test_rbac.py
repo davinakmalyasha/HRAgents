@@ -44,8 +44,24 @@ def test_hr_admin_has_every_permission() -> None:
         assert has_permission(principal, permission)
 
 
-def test_employee_can_only_chat() -> None:
-    assert ROLE_PERMISSIONS[RoleId.EMPLOYEE] == frozenset({Permission.CHAT_USE})
+def test_employee_chats_and_acts_on_their_own_records() -> None:
+    """An employee's reach is self-service, and nothing else.
+
+    This role used to hold ``chat:use`` alone, which meant an employee could not
+    request their own leave -- the capability the whole product exists to
+    provide. ``self_service`` is what they gained, and it is deliberately narrow:
+    what they may act on is settled per record by ``ActorRef.may_act_for``, not by
+    holding this. They still see no employee directory and touch nobody else's.
+    """
+    assert ROLE_PERMISSIONS[RoleId.EMPLOYEE] == frozenset(
+        {Permission.CHAT_USE, Permission.SELF_SERVICE}
+    )
+
+    employee = Principal(actor_id="sari", role=RoleId.EMPLOYEE)
+    assert not has_permission(employee, Permission.PEOPLE_READ)
+    assert not has_permission(employee, Permission.PEOPLE_WRITE)
+    assert not has_permission(employee, Permission.RECRUITING_READ)
+    assert not has_permission(employee, Permission.PAYROLL_READ)
 
 
 def test_recruiter_can_override_but_not_payroll() -> None:

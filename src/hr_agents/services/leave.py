@@ -190,6 +190,13 @@ class LeaveService:
     def balance(
         self, employee_id: UUID, leave_type: LeaveType, *, year: int | None = None
     ) -> LeaveBalance:
+        """An employee's entitlement. A read, so it carries no actor and no gate.
+
+        ``request`` checks that the caller may act for this employee before it
+        calls this; the router's ``people:read`` governs who may look. Putting an
+        ownership check here would gate a read on the same rule as the write that
+        consults it.
+        """
         employee = self._require_employee(employee_id)
         policy = self.get_policy(leave_type)
         target_year = year or date.today().year
@@ -272,8 +279,20 @@ class LeaveService:
         reason: str | None = None,
         document_id: UUID | None = None,
     ) -> LeaveRequest:
-        """Submit a leave request and route it to the approver."""
+        """Submit a leave request and route it to the approver.
+
+        ``employee_id`` used to be taken on trust: any caller could file leave
+        for any employee, which is harmless while only HR can reach this method
+        and not harmless the moment employees can request their own. The caller
+        must now be that employee, their manager, or hold ``people:write``.
+        """
         employee = self._require_employee(employee_id)
+        actor.require_may_act_for(
+            employee_id,
+            "request leave",
+            LeaveError,
+            owner_manager_id=employee.manager_id,
+        )
         policy = self.get_policy(leave_type)
 
         days = self.count_days(policy, start_date, end_date)
@@ -409,6 +428,15 @@ class LeaveService:
 
     def cancel(self, request_id: UUID, *, actor: ActorRef) -> LeaveRequest:
         request = self._require_request(request_id)
+        # Cancelling somebody else's leave is as consequential as filing it, and
+        # this took no ownership check at all: the caller only had to know the id.
+        owner = self._require_employee(request.employee_id)
+        actor.require_may_act_for(
+            request.employee_id,
+            "cancel a leave request",
+            LeaveError,
+            owner_manager_id=owner.manager_id,
+        )
         if request.status not in {RequestStatus.PENDING, RequestStatus.DRAFT}:
             raise LeaveError(f"request {request_id} is {request.status.value}; cannot cancel")
         if request.approval_id is not None:

@@ -194,7 +194,11 @@ def assignments_for_reviewer(
     ]
 
 
-@router.post("/assignments/{assignment_id}/submit", response_model=AssignmentView)
+@router.post(
+    "/assignments/{assignment_id}/submit",
+    response_model=AssignmentView,
+    dependencies=[Depends(require_permission(Permission.SELF_SERVICE))],
+)
 def submit_assignment(
     assignment_id: UUID,
     payload: AssignmentSubmit,
@@ -322,7 +326,11 @@ def get_goal(goal_id: UUID, growth: GrowthDep) -> GoalView:
         raise _not_found(str(exc)) from exc
 
 
-@router.post("/goals/{goal_id}/activate", response_model=GoalView)
+@router.post(
+    "/goals/{goal_id}/activate",
+    response_model=GoalView,
+    dependencies=[Depends(require_permission(Permission.SELF_SERVICE))],
+)
 def activate_goal(goal_id: UUID, payload: ByActor, growth: GrowthDep, actor: ActorDep) -> GoalView:
     try:
         goal = growth.activate_goal(goal_id, actor=actor)
@@ -331,7 +339,11 @@ def activate_goal(goal_id: UUID, payload: ByActor, growth: GrowthDep, actor: Act
     return GoalView.from_model(goal)
 
 
-@router.post("/goals/{goal_id}/progress", response_model=GoalView)
+@router.post(
+    "/goals/{goal_id}/progress",
+    response_model=GoalView,
+    dependencies=[Depends(require_permission(Permission.SELF_SERVICE))],
+)
 def update_goal_progress(
     goal_id: UUID, payload: GoalProgress, growth: GrowthDep, actor: ActorDep
 ) -> GoalView:
@@ -344,7 +356,11 @@ def update_goal_progress(
     return GoalView.from_model(goal)
 
 
-@router.post("/goals/{goal_id}/complete", response_model=GoalView)
+@router.post(
+    "/goals/{goal_id}/complete",
+    response_model=GoalView,
+    dependencies=[Depends(require_permission(Permission.SELF_SERVICE))],
+)
 def complete_goal(
     goal_id: UUID, payload: GoalAction, growth: GrowthDep, actor: ActorDep
 ) -> GoalView:
@@ -355,7 +371,11 @@ def complete_goal(
     return GoalView.from_model(goal)
 
 
-@router.post("/goals/{goal_id}/cancel", response_model=GoalView)
+@router.post(
+    "/goals/{goal_id}/cancel",
+    response_model=GoalView,
+    dependencies=[Depends(require_permission(Permission.SELF_SERVICE))],
+)
 def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep, actor: ActorDep) -> GoalView:
     if not payload.reason:
         raise HTTPException(

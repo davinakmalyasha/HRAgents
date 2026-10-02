@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,6 +25,18 @@ class ApiPrincipalSettings(BaseModel):
     key: SecretStr
     role: RoleId = RoleId.HR_ADMIN
     actor_id: str = Field(default="api-key", min_length=1, max_length=200)
+    employee_id: UUID | None = Field(
+        default=None,
+        description="The employee record this key acts as, when it acts for itself.\n\n"
+        "Self-service routes -- requesting leave, moving a goal along -- need to know "
+        "which employee the caller is, and a principal carries no other identity. "
+        "Leaving this unset does not grant the read: it makes the principal ineligible "
+        "for self-service, so an unbound key is refused rather than assumed to own "
+        "whatever it names.\n\n"
+        "Configured by the operator rather than inferred, because inference from an "
+        "email address would make identity depend on a nullable, changeable, "
+        "shareable field.",
+    )
 
 
 class Settings(BaseSettings):

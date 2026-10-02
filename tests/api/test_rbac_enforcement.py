@@ -172,34 +172,17 @@ def _read_guarded_write_routes() -> set[str]:
     }
 
 
-READ_ONLY_WRITE_ROUTES = frozenset(
-    {
-        # These seven are the caller's own business: submitting a leave request,
-        # cancelling it, moving their own goal along, and filing the review form
-        # they were assigned. They want a `self_service` permission rather than
-        # `people:write`, because an employee should be able to request their own
-        # leave and today cannot.
-        #
-        # They are still on `people:read` because granting `self_service` before
-        # the services verify ownership would hand every employee write access to
-        # everyone's leave and goals: `LeaveService.request` takes an arbitrary
-        # `employee_id`, `cancel` does not check the requester, and none of the
-        # four goal transitions check whose goal it is. The permission is waiting
-        # on the principal-to-employee binding.
-        "/v1/leave",
-        "/v1/leave/requests/{request_id}/cancel",
-        "/v1/growth/assignments/{assignment_id}/submit",
-        "/v1/growth/goals/{goal_id}/activate",
-        "/v1/growth/goals/{goal_id}/progress",
-        "/v1/growth/goals/{goal_id}/complete",
-        "/v1/growth/goals/{goal_id}/cancel",
-    }
-)
-"""Mutating routes still authorized by a read permission alone.
+READ_ONLY_WRITE_ROUTES: frozenset[str] = frozenset()
+"""Mutating routes authorized by a read permission alone. Empty, and it stays empty.
 
-Payroll, compliance and the people-administration routes are no longer in this
-list. Every remaining entry is self-service and blocked on the same prerequisite,
-so deleting them is how that work records its progress."""
+The sweep that got here was 58 routes: 5 payroll, 13 compliance, 33 people
+administration, 7 self-service. Each name now carries the permission that
+describes it, and this set is what stops a new route being added without one.
+
+A count could not do this job. ``len(read_only) == 0`` passes just as happily
+against the wrong seven; asserting the exact set names the route that regressed
+and says which permission it should have had.
+"""
 
 
 @pytest.mark.parametrize(

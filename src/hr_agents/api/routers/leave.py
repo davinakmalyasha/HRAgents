@@ -135,7 +135,12 @@ def adjust_balance(
 # --- requests ----------------------------------------------------------------
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=LeaveRequestView)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=LeaveRequestView,
+    dependencies=[Depends(require_permission(Permission.SELF_SERVICE))],
+)
 def submit_request(
     payload: LeaveRequestCreate, leave: LeaveDep, actor: ActorDep
 ) -> LeaveRequestView:
@@ -177,7 +182,11 @@ def get_request(request_id: UUID, leave: LeaveDep) -> LeaveRequestView:
         raise _not_found(str(exc)) from exc
 
 
-@router.post("/requests/{request_id}/cancel", response_model=LeaveRequestView)
+@router.post(
+    "/requests/{request_id}/cancel",
+    response_model=LeaveRequestView,
+    dependencies=[Depends(require_permission(Permission.SELF_SERVICE))],
+)
 def cancel_request(
     request_id: UUID, payload: RequestAction, leave: LeaveDep, actor: ActorDep
 ) -> LeaveRequestView:
