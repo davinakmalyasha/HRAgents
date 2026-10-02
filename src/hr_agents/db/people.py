@@ -23,7 +23,9 @@ from hr_agents.models import (
     OrgUnit,
     RateTable,
     TaskItem,
+    TaskStatus,
 )
+from hr_agents.models.tasks import TERMINAL_STATUSES
 from hr_agents.services.people_store import (
     ApprovalStore,
     ContractStore,
@@ -163,6 +165,30 @@ class DbTaskStore(TaskStore):
     def list_all(self) -> list[TaskItem]:
         tasks = list_models(self._session_factory, TaskItem, pt.TaskRecord)
         return sorted(tasks, key=lambda item: item.created_at)
+
+    def list_open_by_subject(self, related_subject: str) -> list[TaskItem]:
+        """One filtered read, rather than a full table read per lookup.
+
+        ``is_open`` is derived from a stored status, so the predicate is pushed
+        into SQL. Filtering the loaded rows in Python would have kept the query
+        count flat but still read the whole table on every call, which is the
+        cost this exists to remove.
+        """
+        open_statuses = [status.value for status in TaskStatus if status not in TERMINAL_STATUSES]
+        with sync_session_scope(self._session_factory) as session:
+            rows = (
+                session.execute(
+                    select(pt.TaskRecord)
+                    .where(
+                        pt.TaskRecord.related_subject == related_subject,
+                        pt.TaskRecord.status.in_(open_statuses),
+                    )
+                    .order_by(pt.TaskRecord.created_at)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(TaskItem, row) for row in rows]
 
 
 class DbRateTableStore(RateTableStore):

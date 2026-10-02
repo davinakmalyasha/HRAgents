@@ -195,14 +195,29 @@ class TaskEngine:
         return [task for task in self.open_tasks() if task.assignee_role is role]
 
     def open_for_related(self, *, related_subject: str, related_id: str) -> list[TaskItem]:
-        """Open tasks linked to one related object (used for reminder dedup)."""
+        """Open tasks linked to one related object."""
         return [
             task
-            for task in self._store.list_all()
-            if task.is_open
-            and task.related_subject == related_subject
-            and task.related_id == related_id
+            for task in self._store.list_open_by_subject(related_subject)
+            if task.related_id == related_id
         ]
+
+    def open_related_ids(self, *, related_subject: str) -> set[str]:
+        """Every related id that already has an open task of this kind.
+
+        For a caller walking a batch -- the reminder sweep checks every review
+        assignment in the org -- this is one read instead of one per item, and
+        the sweep is the only thing that asks.
+
+        A task with no ``related_id`` is skipped rather than filed under ``None``:
+        it cannot match anything, and folding it into the set as the string
+        ``"None"`` would let it collide with a real id.
+        """
+        return {
+            task.related_id
+            for task in self._store.list_open_by_subject(related_subject)
+            if task.related_id is not None
+        }
 
     # --- internals ------------------------------------------------------
 

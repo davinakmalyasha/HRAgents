@@ -468,6 +468,11 @@ class GrowthService:
         horizon = moment + timedelta(days=window_days)
         created: list[GrowthReminder] = []
 
+        # Read the existing reminder tasks once. Asking per assignment meant a
+        # full task-table read for every review form in the org, so the sweep
+        # grew linearly with the size of the company on a path that runs daily.
+        already_reminded = self._tasks.open_related_ids(related_subject="review_assignment")
+
         for cycle in self.list_cycles():
             if cycle.status is not ReviewCycleStatus.ACTIVE:
                 continue
@@ -476,9 +481,7 @@ class GrowthService:
                     continue
                 if assignment.due_on > horizon:
                     continue
-                if self._tasks.open_for_related(
-                    related_subject="review_assignment", related_id=str(assignment.id)
-                ):
+                if str(assignment.id) in already_reminded:
                     continue
                 task = self._tasks.create(
                     title=f"[Review] Submit form for {cycle.name}",
@@ -502,15 +505,15 @@ class GrowthService:
                     )
                 )
 
+        awaiting_finalize = self._tasks.open_related_ids(related_subject="review_summary")
+
         for cycle in self.list_cycles():
             if cycle.status not in {ReviewCycleStatus.ACTIVE, ReviewCycleStatus.REVIEWING}:
                 continue
             for summary in self.list_summaries(cycle.id):
                 if summary.status is not SummaryStatus.PENDING_REVIEW:
                     continue
-                if self._tasks.open_for_related(
-                    related_subject="review_summary", related_id=str(summary.id)
-                ):
+                if str(summary.id) in awaiting_finalize:
                     continue
                 task = self._tasks.create(
                     title=f"[Review] Finalize summary for {cycle.name}",

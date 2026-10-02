@@ -153,6 +153,20 @@ class TaskStore:
     def list_all(self) -> list[TaskItem]:
         return sorted(self._tasks.values(), key=lambda item: item.created_at)
 
+    def list_open_by_subject(self, related_subject: str) -> list[TaskItem]:
+        """Open tasks linked to one kind of related object.
+
+        Added so a caller checking a whole batch of assignments asks the store
+        once instead of once per assignment. Each of those calls used to read the
+        entire task table, so the reminder sweep cost one full read per review
+        form in the org -- 410 statements for a hundred of them.
+        """
+        return [
+            task
+            for task in self._tasks.values()
+            if task.is_open and task.related_subject == related_subject
+        ]
+
 
 class RateTableStore:
     def __init__(self) -> None:
