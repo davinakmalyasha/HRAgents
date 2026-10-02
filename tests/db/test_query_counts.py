@@ -34,6 +34,10 @@ from hr_agents.models import (
     DocumentKind,
     Employee,
     EmployeeDocument,
+    Recommendation,
+    ScoreVector,
+    ScoringRun,
+    TechnicalEvaluation,
 )
 from hr_agents.services.people_store import EmployeeStore
 
@@ -219,3 +223,182 @@ def test_both_stores_return_the_same_document_order() -> None:
 
     from_memory = [doc.kind for doc in memory.list_documents(memory_owner)]
     assert from_memory == expected
+
+
+# --- task reminder reads -----------------------------------------------------
+
+
+def test_reading_open_tasks_for_one_subject_is_one_query(
+    factory: sessionmaker[Session], counter: dict[str, int]
+) -> None:
+    """The sweep's dedup read must not scale with the org.
+
+    `run_reminders` asked "is there already a task for this assignment?" once per
+    review form, and each of those questions re-read the whole task table. A
+    hundred pending forms cost a hundred full reads on a path that runs daily.
+    """
+    from hr_agents.db.people import DbTaskStore
+    from hr_agents.models import TaskItem, TaskSource, TaskStatus
+    from hr_agents.models.tasks import ApproverRole
+
+    store = DbTaskStore(factory)
+    for index in range(60):
+        store.add(
+            TaskItem(
+                title=f"review form {index}",
+                description="",
+                assignee_role=ApproverRole.MANAGER,
+                source=TaskSource.SYSTEM,
+                status=TaskStatus.OPEN,
+                related_subject="review_assignment",
+                related_id=str(uuid4()),
+            )
+        )
+    # Unrelated subjects and closed tasks must not be mistaken for reminders.
+    store.add(
+        TaskItem(
+            title="leave",
+            description="",
+            assignee_role=ApproverRole.MANAGER,
+            source=TaskSource.SYSTEM,
+            status=TaskStatus.OPEN,
+            related_subject="leave_request",
+            related_id=str(uuid4()),
+        )
+    )
+
+    before = counter["n"]
+    found = store.list_open_by_subject("review_assignment")
+    issued = counter["n"] - before
+
+    assert len(found) == 60
+    assert {task.related_subject for task in found} == {"review_assignment"}
+    assert issued == 1, "the dedup read must not scale with the number of tasks"
+
+
+def test_a_closed_task_does_not_count_as_an_open_reminder(
+    factory: sessionmaker[Session], counter: dict[str, int]
+) -> None:
+    """Deduplication is about open work; a finished one should be re-reminded.
+
+    If the status predicate were dropped from the SQL the sweep would silently
+    stop reminding anyone whose previous reminder was completed, and the count
+    test above would still pass.
+    """
+    from hr_agents.db.people import DbTaskStore
+    from hr_agents.models import TaskItem, TaskSource, TaskStatus
+    from hr_agents.models.tasks import ApproverRole
+
+    store = DbTaskStore(factory)
+    related_id = str(uuid4())
+    for status in (TaskStatus.OPEN, TaskStatus.IN_PROGRESS):
+        store.add(
+            TaskItem(
+                title="done already",
+                description="",
+                assignee_role=ApproverRole.MANAGER,
+                source=TaskSource.SYSTEM,
+                status=status,
+                related_subject="review_assignment",
+                related_id=related_id,
+            )
+        )
+    store.add(
+        TaskItem(
+            title="finished",
+            description="",
+            assignee_role=ApproverRole.MANAGER,
+            source=TaskSource.SYSTEM,
+            status=TaskStatus.DONE,
+            related_subject="review_assignment",
+            related_id=related_id,
+        )
+    )
+
+    open_ids = {task.related_id for task in store.list_open_by_subject("review_assignment")}
+
+    assert related_id in open_ids
+
+
+# --- evaluation lookups ------------------------------------------------------
+
+
+def test_finding_a_evaluation_by_candidate_is_one_query(
+    factory: sessionmaker[Session], counter: dict[str, int]
+) -> None:
+    """Candidate lookup is the entry point for rejection, offer and scheduling.
+
+    It used to scan every evaluation the service had loaded, so each candidate
+    interaction cost the size of the pipeline -- and five call sites reach it.
+    """
+    from hr_agents.db.recruiting import DbEvaluationService
+
+    evaluations = DbEvaluationService(session_factory=factory, audit=DbAuditChain(factory))
+    job_id = uuid4()
+    wanted = uuid4()
+    for index in range(30):
+        evaluations.register(
+            application_id=uuid4(),
+            evaluation=_technical_evaluation(wanted if index == 17 else uuid4(), job_id),
+            candidate_name=f"Candidate {index}",
+            job_title="Backend Engineer",
+        )
+
+    before = counter["n"]
+    found = evaluations.get_by_candidate(wanted)
+    issued = counter["n"] - before
+
+    assert found.candidate_id == wanted
+    assert issued == 1, "a candidate lookup must not scan the whole pipeline"
+
+
+def test_finding_a_evaluation_by_application_is_one_query(
+    factory: sessionmaker[Session], counter: dict[str, int]
+) -> None:
+    """`application_id` had no index at all before ``0013_evaluation_lookup_indexes``."""
+    from hr_agents.db.recruiting import DbEvaluationService
+
+    evaluations = DbEvaluationService(session_factory=factory, audit=DbAuditChain(factory))
+    job_id = uuid4()
+    wanted = uuid4()
+    for index in range(30):
+        evaluations.register(
+            application_id=wanted if index == 5 else uuid4(),
+            evaluation=_technical_evaluation(uuid4(), job_id),
+            candidate_name=f"Candidate {index}",
+            job_title="Backend Engineer",
+        )
+
+    before = counter["n"]
+    found = evaluations.get_by_application(wanted)
+    issued = counter["n"] - before
+
+    assert found.application_id == wanted
+    assert issued == 1
+
+
+def _technical_evaluation(candidate_id: UUID, job_id: UUID) -> TechnicalEvaluation:
+    """A minimal two-run evaluation.
+
+    Two runs because a single sample makes the sigma estimate meaningless, which
+    the pipeline floors at two -- so a one-run evaluation is not something the
+    scoring path would ever produce.
+    """
+    vector = ScoreVector(
+        technical_depth=0.9,
+        stack_alignment=0.9,
+        systems_literacy=0.9,
+        verifiable_certifications=0.9,
+    )
+    return TechnicalEvaluation(
+        candidate_id=candidate_id,
+        job_id=job_id,
+        runs=[
+            ScoringRun(run_index=0, extraction_id=uuid4(), vector=vector),
+            ScoringRun(run_index=1, extraction_id=uuid4(), vector=vector),
+        ],
+        mean_vector=vector,
+        s_tech=0.9,
+        sigma=0.0,
+        recommendation=Recommendation.AUTO_SCHEDULE,
+    )
