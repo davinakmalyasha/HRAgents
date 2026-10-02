@@ -408,6 +408,8 @@ class EvaluationService:
         applications: ApplicationStore | None = None,
     ) -> None:
         self._records: dict[UUID, EvaluationRecord] = {}  # evaluation id → record
+        self._by_candidate: dict[UUID, EvaluationRecord] = {}  # candidate id → record
+        self._by_application: dict[UUID, EvaluationRecord] = {}  # application id → record
         self._overrides: dict[UUID, list[HitlOverride]] = {}  # evaluation id → overrides
         self._feedback: dict[UUID, FeedbackReport] = {}  # candidate id → stored report
         self._audit = audit or AuditChain()
@@ -421,8 +423,23 @@ class EvaluationService:
     def _iter_records(self) -> Iterator[EvaluationRecord]:
         return iter(self._records.values())
 
+    def _record_for_candidate(self, candidate_id: UUID) -> EvaluationRecord | None:
+        return self._by_candidate.get(candidate_id)
+
+    def _record_for_application(self, application_id: UUID) -> EvaluationRecord | None:
+        return self._by_application.get(application_id)
+
     def _persist_record(self, record: EvaluationRecord) -> None:
-        self._records[record.evaluation.id] = record
+        evaluation_id = record.evaluation.id
+        # Registration refuses a duplicate, but drop any stale mapping first so
+        # the secondary indexes cannot outlive the record they point at.
+        for index in (self._by_candidate, self._by_application):
+            for key, existing in list(index.items()):
+                if existing.evaluation.id == evaluation_id:
+                    del index[key]
+        self._records[evaluation_id] = record
+        self._by_candidate[record.candidate_id] = record
+        self._by_application[record.application_id] = record
 
     def _load_overrides(self, evaluation_id: UUID) -> list[HitlOverride]:
         return list(self._overrides.get(evaluation_id, []))
@@ -495,16 +512,27 @@ class EvaluationService:
         return record
 
     def get_by_application(self, application_id: UUID) -> EvaluationRecord:
-        for record in self._iter_records():
-            if record.application_id == application_id:
-                return record
-        raise RecruitingError(f"no evaluation for application {application_id}")
+        """The evaluation for an application.
+
+        Five call sites reach this, several of them from inside loops over
+        candidates, so a scan of every evaluation was a cost paid per candidate.
+        """
+        record = self._record_for_application(application_id)
+        if record is None:
+            raise RecruitingError(f"no evaluation for application {application_id}")
+        return record
 
     def get_by_candidate(self, candidate_id: UUID) -> EvaluationRecord:
-        for record in self._iter_records():
-            if record.candidate_id == candidate_id:
-                return record
-        raise RecruitingError(f"no evaluation for candidate {candidate_id}")
+        """The evaluation for a candidate.
+
+        Same reason as ``get_by_application``: the rejection, offer and scheduling
+        paths all start here, so a linear scan made every candidate interaction
+        cost the size of the pipeline.
+        """
+        record = self._record_for_candidate(candidate_id)
+        if record is None:
+            raise RecruitingError(f"no evaluation for candidate {candidate_id}")
+        return record
 
     # overrides
 

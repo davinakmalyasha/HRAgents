@@ -114,6 +114,7 @@ class Evaluation(TenantScoped, Base):
     __table_args__ = (
         Index("ix_evaluations_candidate_job", "candidate_id", "job_id"),
         Index("ix_evaluations_recommendation", "recommendation"),
+        Index("ix_evaluations_application", "application_id"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)

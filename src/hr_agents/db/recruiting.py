@@ -184,6 +184,36 @@ class DbEvaluationService(EvaluationService):
             rows = session.execute(select(t.Evaluation)).scalars().all()
             return iter([self._to_record(row) for row in rows])
 
+    def _record_for_candidate(self, candidate_id: UUID) -> EvaluationRecord | None:
+        """One indexed read.
+
+        The index was already there; the base class used to answer this by
+        scanning every row it had loaded, which meant the whole pipeline was
+        re-read for each candidate the rejection and scheduling paths touched.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            row = (
+                session.execute(
+                    select(t.Evaluation).where(t.Evaluation.candidate_id == candidate_id).limit(1)
+                )
+                .scalars()
+                .first()
+            )
+            return None if row is None else self._to_record(row)
+
+    def _record_for_application(self, application_id: UUID) -> EvaluationRecord | None:
+        with sync_session_scope(self._session_factory) as session:
+            row = (
+                session.execute(
+                    select(t.Evaluation)
+                    .where(t.Evaluation.application_id == application_id)
+                    .limit(1)
+                )
+                .scalars()
+                .first()
+            )
+            return None if row is None else self._to_record(row)
+
     def _persist_record(self, record: EvaluationRecord) -> None:
         evaluation = record.evaluation
         with sync_session_scope(self._session_factory) as session:
