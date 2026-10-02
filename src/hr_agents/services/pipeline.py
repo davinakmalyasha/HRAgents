@@ -103,10 +103,25 @@ class PipelineResult(StrictModel):
 
 
 def _recommendation_for(decision: PolicyDecision) -> Recommendation:
+    """Translate a policy decision into what the pipeline recommends.
+
+    Nothing here recommends `REJECT`. That is the point of the change: the
+    sub-floor band used to map straight to `Recommendation.REJECT`, so the
+    application was written to the store as `REJECTED` before anyone had looked
+    at it, and a rejection message was communicable on that record alone. It is
+    also the least evidenced decision the engine can reach -- a score below the
+    floor, with no human in the loop -- which made asserting it most confident
+    exactly where the evidence was weakest.
+
+    A recommendation to reject still arrives; it just carries
+    `REJECT_REQUIRES_SIGNOFF`, which is the same request the in-band soft
+    rejection has always made. `Recommendation.REJECT` now means only "a person
+    already rejected this", written after their recorded override.
+    """
     if decision is PolicyDecision.AUTO_SCHEDULE:
         return Recommendation.AUTO_SCHEDULE
     if decision is PolicyDecision.REJECT_AUTO:
-        return Recommendation.REJECT
+        return Recommendation.REJECT_REQUIRES_SIGNOFF
     if decision is PolicyDecision.HITL_SOFT_REJECTION:
         return Recommendation.REJECT_REQUIRES_SIGNOFF
     return Recommendation.HUMAN_REVIEW

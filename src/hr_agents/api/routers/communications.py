@@ -28,7 +28,11 @@ from hr_agents.api.recruitment_schemas import (
 from hr_agents.messaging.store import ReplyStore
 from hr_agents.messaging.whatsapp import ManualWhatsappLinks, WhatsappLinkError
 from hr_agents.rbac import Permission
-from hr_agents.services.recruiting import CommunicationService, RecruitingError
+from hr_agents.services.recruiting import (
+    CommunicationService,
+    HumanConfirmationRequiredError,
+    RecruitingError,
+)
 
 router = APIRouter(
     prefix="/v1",
@@ -111,6 +115,12 @@ def queue_rejection(
         message = str(exc)
         if message.startswith("no evaluation"):
             raise _not_found(message) from exc
+        if isinstance(exc, HumanConfirmationRequiredError):
+            # Branched on the type, not on the words. The message used to be
+            # sniffed for "named human", which conflates "the caller is not a
+            # person" with "a person has not decided yet" -- so rewording this
+            # sentence once silently moved the status from 409 to 403.
+            raise _conflict(exc) from exc
         if "named human" in message:
             raise _forbidden(message) from exc
         raise _conflict(exc) from exc

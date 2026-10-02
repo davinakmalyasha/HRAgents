@@ -115,6 +115,22 @@ def register(
 # --- rejection queueing ----------------------------------------------------------
 
 
+def _record_rejection(evaluations: EvaluationService, record: EvaluationRecord) -> None:
+    """A named human deciding to reject, which is what the queue now requires.
+
+    ``REJECT_AUTO`` is the decision a reviewer records; it means "having looked
+    at this candidate, reject them". It is not something the scorer can do on its
+    own -- see ``test_rejection_below_the_floor_still_needs_a_recorded_decision``.
+    """
+    evaluations.record_override(
+        record.evaluation.id,
+        actor=signed_in("Rina", ApproverRole.RECRUITER_LEAD),
+        reviewer_role=ApproverRole.RECRUITER_LEAD,
+        override_decision=PolicyDecision.REJECT_AUTO,
+        reason_code="below_bar_after_review",
+    )
+
+
 def test_rejection_requires_a_recorded_decision(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
@@ -151,10 +167,35 @@ def test_rejection_after_override_queues_a_grounded_message(
     assert any(entry.action == "communication.queued" for entry in audit.entries)
 
 
-def test_documented_auto_rejection_queues_without_an_override(
+def test_rejection_below_the_floor_still_needs_a_recorded_decision(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
+    """A sub-floor score is a reason to ask, not authority to tell.
+
+    This used to be `test_documented_auto_rejection_queues_without_an_override`,
+    and it asserted the opposite: that a candidate scoring 0.50 could be told
+    they would not be hired with nobody deciding to tell them. The engine's
+    `_require_rejection_proof` had an early return for ``REJECT_AUTO`` that made
+    the score sufficient authority, and this test existed to keep that path
+    working.
+
+    The threshold still does its job -- it routes the candidate to a person --
+    but a threshold is not a decision. Anyone reading this as "documented
+    auto-rejection is a supported flow" should look at
+    ``REJECTION_DECISIONS`` and ``record_override`` instead.
+    """
     register(evaluations, s_tech=0.50)
+
+    with pytest.raises(RecruitingError, match="recorded rejection decision"):
+        communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
+
+
+def test_a_rejection_below_the_floor_queues_once_a_person_records_it(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    """Same candidate, same score, one human decision later it goes through."""
+    record = register(evaluations, s_tech=0.50)
+    _record_rejection(evaluations, record)
 
     item = communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
 
@@ -181,7 +222,8 @@ def test_rejection_requires_an_evaluation(communications: CommunicationService) 
 def test_duplicate_active_rejection_is_blocked(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
-    register(evaluations, s_tech=0.50)
+    record = register(evaluations, s_tech=0.50)
+    _record_rejection(evaluations, record)
     communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(RecruitingError, match="already exists"):
@@ -270,8 +312,10 @@ def test_list_for_filters_by_candidate(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
     other = uuid4()
-    register(evaluations, s_tech=0.50)
-    register(evaluations, candidate_id=other, s_tech=0.50)
+    mine_record = register(evaluations, s_tech=0.50)
+    theirs_record = register(evaluations, candidate_id=other, s_tech=0.50)
+    _record_rejection(evaluations, mine_record)
+    _record_rejection(evaluations, theirs_record)
     mine = communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"))
     communications.queue_rejection(other, actor=ActorRef.legacy("hr-admin"))
 

@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from hr_agents.agents.runtime import AgentRuntime
 from hr_agents.agentset import build_agent_set
 from hr_agents.main import create_app
+from hr_agents.models import Recommendation
 from hr_agents.providers.queue import MemoryQueueBackend
 from hr_agents.queue import resolve_queue_backend
 from hr_agents.services.dispatch import EvaluationDispatcher
@@ -130,7 +131,16 @@ def test_a_submitted_application_is_actually_evaluated(client: TestClient, job: 
     evaluation = client.get(f"/v1/applications/{application_id}/evaluation")
     assert evaluation.status_code == 200, evaluation.text
     body = evaluation.json()
-    assert body["recommendation"] in {"auto_schedule", "human_review", "reject", "reject_signoff"}
+    # The literal set here read "reject_signoff", which has never been a
+    # Recommendation value -- the enum spells it "reject_requires_signoff". The
+    # assertion passed only because this fixture happened to land on
+    # auto_schedule or human_review, so the typo sat unnoticed until a candidate
+    # was routed to the rejection band. Derived from the enum now so it cannot
+    # drift again.
+    assert body["recommendation"] in {value.value for value in Recommendation}
+    # Nothing the pipeline decides on its own may be a bare rejection; only a
+    # recorded human override writes that.
+    assert body["recommendation"] != Recommendation.REJECT.value
     assert body["policy"]["decision"]
     # Every dimension is present and weighted — the score is inspectable.
     assert set(body["mean_vector"]) == {

@@ -74,7 +74,15 @@ def register_evaluation(
             for dimension in ScoreDimension
         ],
         flags=[],
-        recommendation=Recommendation.REJECT if s_tech < 0.70 else Recommendation.AUTO_SCHEDULE,
+        # A sub-floor score is routed to a person, not asserted as a rejection.
+        # The pipeline stopped recommending a bare REJECT for this band; a fixture
+        # that still writes one is asserting an outcome the product no longer
+        # reaches on its own.
+        recommendation=(
+            Recommendation.REJECT_REQUIRES_SIGNOFF
+            if s_tech < 0.70
+            else Recommendation.AUTO_SCHEDULE
+        ),
     )
     client.app.state.recruiting.evaluations.register(  # type: ignore[attr-defined]
         application_id=UUID(application_id),
@@ -101,17 +109,36 @@ def rejection_payload(by: str | None = None, **extra: object) -> dict:
 # --- rejection -------------------------------------------------------------------
 
 
+def record_rejection_override(client: TestClient, evaluation_id: str) -> None:
+    """A named human deciding to reject, through the public API.
+
+    Every rejection now needs one, including for a candidate who scored below the
+    floor. `REJECT_AUTO` is what a reviewer records after looking -- it is not
+    something the scorer may do on its own.
+    """
+    response = client.post(
+        f"/v1/evaluations/{evaluation_id}/overrides",
+        json={
+            "reviewer_role": "engineering_lead",
+            "override_decision": "reject_auto",
+            "reason_code": "below_bar_after_review",
+        },
+    )
+    assert response.status_code == 201, response.text
+
+
 def test_rejection_flow_queues_and_records_dispatch() -> None:
     with make_client() as client:
         job = create_job(client)
         application = submit_application(client, job["id"])
-        register_evaluation(
+        evaluation = register_evaluation(
             client,
             application_id=application["application_id"],
             candidate_id=application["candidate_id"],
             job_id=job["id"],
             s_tech=0.50,
         )
+        record_rejection_override(client, str(evaluation.id))
 
         queued = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/rejection",
@@ -210,13 +237,14 @@ def test_rejection_preview_renders_the_message_without_queueing_anything() -> No
     with make_client() as client:
         job = create_job(client)
         application = submit_application(client, job["id"])
-        register_evaluation(
+        evaluation = register_evaluation(
             client,
             application_id=application["application_id"],
             candidate_id=application["candidate_id"],
             job_id=job["id"],
             s_tech=0.50,
         )
+        record_rejection_override(client, str(evaluation.id))
         candidate_id = application["candidate_id"]
 
         preview = client.post(
@@ -360,13 +388,14 @@ def test_duplicate_active_rejection_is_409() -> None:
     with make_client() as client:
         job = create_job(client)
         application = submit_application(client, job["id"])
-        register_evaluation(
+        evaluation = register_evaluation(
             client,
             application_id=application["application_id"],
             candidate_id=application["candidate_id"],
             job_id=job["id"],
             s_tech=0.50,
         )
+        record_rejection_override(client, str(evaluation.id))
         first = client.post(
             f"/v1/candidates/{application['candidate_id']}/communications/rejection",
             json=rejection_payload(),

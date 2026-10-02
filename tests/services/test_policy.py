@@ -1,5 +1,31 @@
-from hr_agents.models import EvaluationFlag, PolicyDecision
+from hr_agents.models import EvaluationFlag, PolicyDecision, Recommendation
+from hr_agents.services.pipeline import _recommendation_for
 from hr_agents.services.policy import evaluate_policy
+
+
+def test_no_decision_the_engine_reaches_recommends_a_bare_rejection() -> None:
+    """`Recommendation.REJECT` is now only ever written by a person.
+
+    The sub-floor band used to map straight to `REJECT`, which wrote the
+    application to the store as `REJECTED` before anyone had looked and made a
+    rejection message communicable on that record alone. It was also the least
+    evidenced decision available, so it was asserted most confidently exactly
+    where the evidence was weakest.
+
+    Both rejection bands now carry `REJECT_REQUIRES_SIGNOFF`, which is the same
+    request a human has always been asked to make.
+    """
+    for decision in PolicyDecision:
+        recommendation = _recommendation_for(decision)
+        assert recommendation is not Recommendation.REJECT, (
+            f"{decision.value} must not recommend a rejection on its own"
+        )
+    assert _recommendation_for(PolicyDecision.REJECT_AUTO) is (
+        Recommendation.REJECT_REQUIRES_SIGNOFF
+    )
+    assert _recommendation_for(PolicyDecision.HITL_SOFT_REJECTION) is (
+        Recommendation.REJECT_REQUIRES_SIGNOFF
+    )
 
 
 def test_consent_inactive_halts() -> None:

@@ -461,17 +461,34 @@ def test_scheduling_adapter_availability_and_proposal(factory: sessionmaker[Sess
     assert audit.verify() == -1
 
 
+def _record_rejection(evaluations: DbEvaluationService, evaluation_id: UUID) -> None:
+    """A named human rejecting, which the queue requires even below the floor.
+
+    The adapter tests queue a rejection for a candidate scoring 0.50. That used
+    to be self-authorising; it is not any more, so each one records the decision
+    first, exactly as an operator would.
+    """
+    evaluations.record_override(
+        evaluation_id,
+        actor=signed_in("Rina", ApproverRole.RECRUITER_LEAD),
+        reviewer_role=ApproverRole.RECRUITER_LEAD,
+        override_decision=PolicyDecision.REJECT_AUTO,
+        reason_code="below_bar_after_review",
+    )
+
+
 def test_communication_adapter_queue_and_sent(factory: sessionmaker[Session]) -> None:
     audit, job, applications, record = _seeded(factory)
     evaluations = DbEvaluationService(
         session_factory=factory, audit=audit, applications=applications
     )
-    evaluations.register(
+    registered = evaluations.register(
         application_id=record.id,
         evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id, s_tech=0.50),
         candidate_name="Sari Dewi",
         job_title=job.title,
     )
+    _record_rejection(evaluations, registered.evaluation.id)
     communications = DbCommunicationService(
         evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
     )
@@ -499,12 +516,13 @@ def test_communication_adapter_persists_transport_evidence(
     evaluations = DbEvaluationService(
         session_factory=factory, audit=audit, applications=applications
     )
-    evaluations.register(
+    registered = evaluations.register(
         application_id=record.id,
         evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id, s_tech=0.50),
         candidate_name="Sari Dewi",
         job_title=job.title,
     )
+    _record_rejection(evaluations, registered.evaluation.id)
     communications = DbCommunicationService(
         evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
     )

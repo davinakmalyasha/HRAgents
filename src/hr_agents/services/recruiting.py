@@ -133,6 +133,18 @@ class DocumentTooLargeError(RecruitingError):
     """Raised when an upload exceeds the configured size ceiling."""
 
 
+class HumanConfirmationRequiredError(RecruitingError):
+    """Raised when an action needs a human decision that has not been recorded.
+
+    Separate from ``RecruitingError`` because the routers map error *kinds* to
+    status codes, and this one used to be distinguished by sniffing its own
+    message for the words "named human". That is two meanings in one phrase --
+    "the caller is not a person" and "a person has not decided yet" -- so any
+    rewording silently moved the HTTP status. The submission below tripped it
+    exactly that way, turning a 409 into a 403.
+    """
+
+
 # --- documents ----------------------------------------------------------------
 
 
@@ -1217,16 +1229,29 @@ class CommunicationService:
                 )
 
     def _require_rejection_proof(self, record: EvaluationRecord) -> None:
-        if record.policy.decision is PolicyDecision.REJECT_AUTO:
-            return
+        """A rejection may only go out on a human's recorded decision.
+
+        ``REJECT_AUTO`` used to return early here, which made a sub-floor score
+        sufficient authority to message a candidate: the one path in the product
+        where a person is told they will not be hired without anyone deciding to
+        tell them that. It is now treated like every other rejection.
+
+        The floor is still useful -- it is what routes a candidate to a person --
+        but a threshold is not authority. An unreviewed auto-rejection also
+        depended on a calibration the product does not document and cannot
+        currently meet: with the shipped weights a well-matched senior engineer
+        with no open-source evidence lands around 0.61, well under the 0.70
+        floor. Making the floor authoritative would make that number a rejection
+        policy by accident.
+        """
         overrides = self._evaluations.list_overrides(record.evaluation.id)
         if overrides:
             latest = max(overrides, key=lambda item: item.decided_at)
             if latest.override_decision in REJECTION_DECISIONS:
                 return
-        raise RecruitingError(
+        raise HumanConfirmationRequiredError(
             "rejection communication requires a recorded rejection decision "
-            "(a human override or a documented automatic rejection)"
+            "from the person who reviewed the candidate"
         )
 
     def _require_queued(self, communication_id: UUID) -> CandidateCommunication:
