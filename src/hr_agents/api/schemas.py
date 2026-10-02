@@ -1,4 +1,4 @@
-"""Request/response schemas for the public API (mirrors docs/api/openapi.yaml)."""
+"""Request/response schemas for the public API (mirrors docs/api/openapi.json)."""
 
 from __future__ import annotations
 

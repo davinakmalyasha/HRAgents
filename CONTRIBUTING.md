@@ -71,7 +71,7 @@ end-to-end without any API keys; live-model tests are opt-in scripts, not part o
 ## Docs
 
 - Behavior changes update the docs that describe them (`docs/`, README,
-  `docs/api/openapi.yaml`).
+    `docs/api/openapi.json`).
 - When you complete a plan item, tick it in `docs/plan/master-build-plan.md`; open work
   lives in `docs/plan/remaining-work.md`.
 - Hard-to-reverse decisions get an ADR in `docs/adr/`.

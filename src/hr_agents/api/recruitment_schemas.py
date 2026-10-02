@@ -1,6 +1,6 @@
 """Request/response schemas for the recruitment API surface.
 
-Mirrors the contracts in ``docs/api/openapi.yaml`` for documents, jobs,
+Mirrors the contracts in ``docs/api/openapi.json`` for documents, jobs,
 evaluations, HITL overrides, feedback, and scheduling.
 """
 

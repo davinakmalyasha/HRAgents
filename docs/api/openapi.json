@@ -14135,6 +14135,7 @@
     },
     "/v1/growth/reminders/run": {
       "post": {
+        "description": "Run the reminder sweep now, on top of the daily scheduler.\n\nThe reminders themselves are system-sourced: a missed review form is not the\nreviewer's fault, and the task says so. But somebody pressed this button, and\nthe chain used to say ``system:scheduler`` for that -- the same defect the\napproval escalation sweep had, where a human action was filed as a timer.",
         "operationId": "run_reminders_v1_growth_reminders_run_post",
         "requestBody": {
           "content": {

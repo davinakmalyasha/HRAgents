@@ -258,7 +258,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tailwind CSS + shadcn/ui component library (Tailwind v4 CSS-first tokens, `cn` merge package)
 - [x] TanStack Query (server state) + Zustand (workspace/UI state)
 - [x] API client generated from the live OpenAPI schema (`scripts/export_openapi.py` →
-      `docs/api/openapi.json` → `openapi-typescript`/`openapi-fetch`; `docs/api/openapi.yaml` legacy)
+      `docs/api/openapi.json` → `openapi-typescript`/`openapi-fetch`; the hand-maintained
+      YAML fragment that used to sit beside it is gone — it described 12 of 148 paths)
 - [x] ESLint + Prettier + `tsc --noEmit` gate in CI (`web` job, drift-checked generated types)
 - [x] Static build served by FastAPI (`/app`) in self-host image; SPA fallback routing (`_mount_web_app`)
 

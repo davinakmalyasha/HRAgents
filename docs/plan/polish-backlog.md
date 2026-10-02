@@ -121,8 +121,6 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 ## Docs & developer experience
 
 - [ ] Docs site (mkdocs-material + Pages) with versioned API reference
-- [ ] Sync `docs/api/openapi.yaml` with the Phase 5 surfaces (chat, handoffs, RBAC/tenancy
-      headers); keep the live `/openapi.json` as the executable contract
 - [ ] Postgres adapters for `ConversationStore` and `WorkspaceRequestStore` (in-memory
       primitives today; land with the dashboard so queues survive restarts)
 - [ ] Operator runbooks: provider failures, incident response, upgrade playbook

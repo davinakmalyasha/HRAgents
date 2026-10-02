@@ -1,8 +1,10 @@
 """Export the live FastAPI OpenAPI schema for the web client.
 
-The FastAPI app is the executable API contract; ``docs/api/openapi.yaml`` is
-legacy hand-maintained documentation. ``--check`` verifies the checked-in JSON
-is current (CI drift gate).
+The FastAPI app is the executable API contract, and the checked-in JSON is the
+only copy of it -- ``docs/api/openapi.yaml`` used to sit beside this as
+hand-maintained documentation, but it described 12 of the 148 paths and would
+have drifted further with every change. ``--check`` verifies the JSON is
+current (CI drift gate).
 """
 
 from __future__ import annotations

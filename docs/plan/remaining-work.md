@@ -9,7 +9,7 @@ reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A l
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 `sigma` gate. Block B is complete: **authentication happens once per request**, `ActorRef` carries
 the actor together with its provenance, and **no request body in the API names the actor at all**.
-**1183 tests (1179 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
+**1263 tests (1259 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -20,9 +20,18 @@ the actor together with its provenance, and **no request body in the API names t
 > named-human gate accepted `system`, so a caller could decide an approval as `system`. All fixed
 > and regression-tested. Block B then closed the trust boundary from the outside in: the actor is
 > resolved from the API key in middleware, before routing, and **no request body names it** — the
-> dashboard's "type your name here" fields are all deleted rather than quietly ignored. What is left
-> is not attribution but *authority*: who may decide, which lands with the B3 authorization work.
-> and **scoring generalization** (a qualified accountant is auto-rejected today). The
+> dashboard's "type your name here" fields are all deleted rather than quietly ignored.
+>
+> What was left was not attribution but **authority**: who may decide, and who may change which
+> records. B3 has now landed. All 58 mutating routes that were authorized by a *read* permission
+> name a write or self-service one, and the fence is a structural test that asserts the exact set
+> rather than a count. Closing it needed a principal-to-employee binding, because "your own leave"
+> is not expressible without one, and ownership checks in the services — a permission alone would
+> have let any employee file leave for anyone by naming their id.
+>
+> Two things remain before this is finished: the **authorization matrix for managers and finance**
+> (they read the employee directory but do not administer it, which is a decision to revisit per
+> deployment), and **scoring generalization** (a qualified accountant is auto-rejected today). The
 > measured defect list is `docs/plan/master-build-plan.md` Appendix C.
 
 This file is the detailed checklist for everything **not yet done**, in build order. The master
@@ -285,7 +294,7 @@ documented.
 - [x] `web/` — Vite + React 19 + TypeScript, Tailwind, shadcn/ui themed to the locked tokens
 - [x] TanStack Query (server state) + Zustand (workspace/UI state)
 - [x] API client generated from the live OpenAPI document (`scripts/export_openapi.py` →
-      `docs/api/openapi.json`, `docs/api/openapi.yaml` kept as legacy docs)
+      `docs/api/openapi.json`; the legacy YAML fragment is removed)
 - [x] ESLint + Prettier + `tsc --noEmit` CI gate (`web` job); static build served by FastAPI at `/app`
 - [x] Design tokens exactly per `product-concept.md` §7 (cool-gray ramp, single accent `#2563EB`,
       amber/red/green ≤5% pixels with icon+label, dark mode = token swap, hex-literal guard test)

@@ -1353,7 +1353,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Run Reminders */
+        /**
+         * Run Reminders
+         * @description Run the reminder sweep now, on top of the daily scheduler.
+         *
+         *     The reminders themselves are system-sourced: a missed review form is not the
+         *     reviewer's fault, and the task says so. But somebody pressed this button, and
+         *     the chain used to say ``system:scheduler`` for that -- the same defect the
+         *     approval escalation sweep had, where a human action was filed as a timer.
+         */
         post: operations["run_reminders_v1_growth_reminders_run_post"];
         delete?: never;
         options?: never;

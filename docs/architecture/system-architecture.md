@@ -265,4 +265,4 @@ erDiagram
 
 - Automation boundaries and thresholds: `docs/architecture/hitl-bounds.md`
 - Evidence and design rationale: `docs/research/literature-review.md`
-- API contract: `docs/api/openapi.yaml`
+- API contract: `docs/api/openapi.json` (generated from the live app; drift-checked in CI)

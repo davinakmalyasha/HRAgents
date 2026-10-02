@@ -14,9 +14,9 @@ technical work — see [Work with the author](#work-with-the-author).
 
 **Status:** active development. The platform core, all five agents, the recruitment
 API surface, and all Wave-1 department engines are operational and wired into a
-running worker (1150 tests, 92% coverage). The hiring dashboard workspaces run
-end to end. Still open: the remaining dashboard workspaces, authentication
-screens, and the MCP layer. No public release yet — see the
+running worker (1263 tests, coverage enforced at 90% in CI). The hiring dashboard
+workspaces run end to end. Still open: the remaining dashboard workspaces,
+authentication screens, and the MCP layer. No public release yet - see the
 [remaining work plan](docs/plan/remaining-work.md).
 
 ---
@@ -31,9 +31,11 @@ cd HRAgents
 docker compose up --build -d
 ```
 
-Then open **<http://localhost:8000/app>**. Six containers come up: postgres, redis,
-minio, mailpit, and the API plus a **worker** that evaluates submitted
-applications. Migrations run automatically before the API serves.
+Then open **<http://localhost:8000/app>**. Nine containers come up: postgres, redis,
+minio, mailpit, `migrate`, the API, plus a **worker** that evaluates submitted
+applications, a **scheduler** for the daily department chores, and a **messaging**
+process that drains the outbound queue. Migrations run automatically before the
+API serves.
 
 Verify the pipeline is actually running before you trust anything you see:
 
@@ -113,16 +115,17 @@ earliest submission.
 **Automation gates** — auto-schedule iff `S_tech ≥ 0.85 ∧ σ ≤ 0.05`; mandatory human
 review for `S_tech ≥ 0.70` rejections.
 
-## The plan: one HR person, eight workspaces
+## The plan: one HR person, nine workspaces
 
 | Workspace | Wave | Agents do | Humans gate |
 |---|---|---|---|
 | **Hiring** | 1 (building) | Extract, score, coordinate, draft | Every rejection, every offer |
 | **Ask HR** (front door) | 1 | Intent routing, cited policy Q&A | Anything consequential |
-| **Onboarding** | 1–2 | Checklists, document chasing | Contracts, signatures |
+| **Compliance** | 1-2 | Consent registry, retention, erasure, breach workflow | Identity verification, every erasure, every purge |
+| **Onboarding** | 1-2 | Checklists, document chasing | Contracts, signatures |
 | **People** | 2 | Records, expiry alerts, retention | Corrections, sensitive fields |
 | **Leave** | 2 | Balance math, policy Q&A, routing | Every approval |
-| **Payroll** | 3 | Assemble, calculate, flag, export | **Everything — no payment is ever executed** |
+| **Payroll** | 3 | Assemble, calculate, flag, export | **Everything - no payment is ever executed** |
 | **Growth** | 3 | Reminders, collection, draft summaries | Every review outcome |
 | **Offboarding** | 3 | Checklists, scheduling, tracking | Final pay, anything legal |
 
