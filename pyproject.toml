@@ -77,6 +77,11 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
 filterwarnings = ["error::DeprecationWarning:hr_agents.*"]
+# The repository root, so tests can import the calibration corpus in `evals/`
+# as `evals.scoring_calibration`. mypy already resolves it from here; pytest's
+# prepend import mode only adds each test directory, so without this the
+# collection would fail on import.
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100

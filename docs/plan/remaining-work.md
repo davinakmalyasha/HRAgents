@@ -9,7 +9,7 @@ reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A l
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 `sigma` gate. Block B is complete: **authentication happens once per request**, `ActorRef` carries
 the actor together with its provenance, and **no request body in the API names the actor at all**.
-**1263 tests (1259 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
+**1287 tests (1283 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -200,15 +200,37 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 > **The single most commercially damaging defect, and it is silent.** The four
 > dimensions are a backend-engineer rubric promoted to a universal schema. Worked
 > example with the code as written: an 8-year accountant with an ACCA membership
-> applying for a Finance Supervisor role scores `S_tech ≈ 0.58` → `REJECT_AUTO`
-> with no human in the loop and no sign-off required. `systems_literacy` matches
-> only `{database, devops, cloud, systems, data}` and 15 engineering keywords;
-> `publications` is 0.0 for every non-research role; the seniority tiers are
-> engineering words, so "Accounting Supervisor" matches none.
+> applying for a Finance Supervisor role scores `S_tech ≈ 0.58` → the sub-floor
+> band. `systems_literacy` matches only `{database, devops, cloud, systems, data}`
+> and 15 engineering keywords; the seniority tiers are engineering words, so
+> "Accounting Supervisor" matches none.
 >
 > The name-swap fairness harness **cannot** catch this: swapping a candidate's
 > name does not change the shape of the score distribution. It proves the
 > arithmetic is invariant; the risk is in the *extraction* and the *rubric*.
+>
+> **What has changed.** The sub-floor band no longer auto-rejects. `REJECT_AUTO`
+> now maps to `Recommendation.REJECT_REQUIRES_SIGNOFF`, and
+> `RecruitingService._require_rejection_proof` refuses to emit rejection
+> communications until a named human has recorded a decision. The rubric is still
+> wrong for non-engineering roles — the damage is now a human being handed a bad
+> recommendation instead of the candidate being discarded unattended.
+>
+> **Measured baseline** (`evals/scoring_calibration.py`, synthetic, four
+> occupations × strong/adequate/weak plus a tenured misfit each). `S_tech`:
+> strong `0.777`–`0.830`, adequate `0.614`–`0.659`, weak `0.023`–`0.083`.
+> Two things worth reading before touching any threshold:
+>
+> - **`AUTO_SCHEDULE` (`S_tech ≥ 0.85`) is a dead band.** The best matched profile
+>   in the corpus reaches `0.830`. Nothing in the corpus, or in any plausible
+>   profile, crosses it, so in practice every candidate is either routed to a
+>   person or flagged. This is safe now that the floor prompts for sign-off, but
+>   the automation the product describes does not fire.
+> - **Tenure can outweigh fit.** For teaching, a tenured misfit (`0.732`) scores
+>   *above* an adequate match (`0.614`). `technical_depth` now puts `0.4375` of a
+>   dimension on tenure, so a long history in the wrong field is still rewarded.
+>   Only per-family dimension templates fix this; do not paper over it with a
+>   global weight tweak.
 
 - [ ] **`DimensionTemplate` as data, not code**: `{job_family, dimensions: [{key, weight, scorer,
       evidence_requirement}], thresholds}` — versioned, audited, and snapshotted into every

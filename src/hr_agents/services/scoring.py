@@ -80,7 +80,32 @@ _SENIORITY_TIERS: tuple[tuple[frozenset[str], float], ...] = (
 )
 
 # Internal dimension composition weights (fixed by design, auditable).
-_TECH_W = {"tenure": 0.40, "breadth": 0.30, "projects": 0.15, "publications": 0.15}
+#
+# ``publications`` was 0.15 here, which capped ``technical_depth`` at exactly 0.85
+# for anyone who had not published three papers: tenure + breadth + projects sum to
+# 0.85, so a non-publisher could not score full marks on this dimension no matter
+# how deep their work actually was. That measures proximity to academia, applied to
+# every occupation -- including teaching, finance and sales, where it is not
+# evidence of anything.
+#
+# Halved rather than removed, because research output genuinely does signal depth
+# for some roles. The freed 0.15 is split evenly to tenure and breadth, which every
+# occupation has evidence for, lifting the non-publisher ceiling to 0.925.
+# 0.4375 / 0.3375 are exactly "half of publications, split in two" rather than
+# round numbers chosen to hit a target.
+#
+# What this does and does not do, measured against evals/scoring_calibration.py: it
+# raises every non-publisher's score by roughly +0.025 and moves no corpus case
+# across a decision boundary -- strong candidates already cleared the 0.70
+# soft-rejection floor under the old weights. The change removes a structural
+# ceiling; it does not rescue any specific candidate. See
+# tests/services/test_scoring_calibration.py for the fences.
+_TECH_W = {
+    "tenure": 0.4375,
+    "breadth": 0.3375,
+    "projects": 0.15,
+    "publications": 0.075,
+}
 _SYSTEMS_W = {"categories": 0.50, "keywords": 0.30, "seniority": 0.20}
 
 _SYSTEMS_CATEGORIES = frozenset({"database", "devops", "cloud", "systems", "data"})

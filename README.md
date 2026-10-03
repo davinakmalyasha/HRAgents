@@ -14,7 +14,7 @@ technical work — see [Work with the author](#work-with-the-author).
 
 **Status:** active development. The platform core, all five agents, the recruitment
 API surface, and all Wave-1 department engines are operational and wired into a
-running worker (1263 tests, coverage enforced at 90% in CI). The hiring dashboard
+running worker (1287 tests, coverage enforced at 90% in CI). The hiring dashboard
 workspaces run end to end. Still open: the remaining dashboard workspaces,
 authentication screens, and the MCP layer. No public release yet - see the
 [remaining work plan](docs/plan/remaining-work.md).
