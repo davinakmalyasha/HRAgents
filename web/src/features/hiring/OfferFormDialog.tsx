@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { detailText, problemMessage, type ProblemDetail } from '@/lib/problem'
 
 import { createOffer, reviseOffer } from './offerApi'
 import type { OfferTerms, OfferView } from './offer'
@@ -104,20 +105,19 @@ export function OfferFormDialog({
     return problems
   }
 
-  function errorFor(status: number, detail?: string): string {
-    if (status === 409) {
-      if (detail?.includes('draft')) {
-        return t('offer.errors.draftOnly')
-      }
-      return t('offer.errors.conflict')
-    }
-    if (status === 403) {
-      return t('offer.errors.forbidden')
-    }
-    if (status === 404) {
-      return t('offer.errors.notFound')
-    }
-    return t('offer.errors.failed')
+  function errorFor(status: number, detail?: ProblemDetail): string {
+    return problemMessage(status, detail, t, 'offer', {
+      overrides: (code, body) => {
+        if (code !== 409) {
+          return null
+        }
+        const prose = detailText(body) ?? ''
+        if (prose.includes('draft')) {
+          return t('offer.errors.draftOnly')
+        }
+        return null
+      },
+    })
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -154,7 +154,7 @@ export function OfferFormDialog({
       close(false)
       return
     }
-    setProblem(errorFor(result.status, result.detail))
+    setProblem(errorFor(result.status, result.problem))
   }
 
   return (

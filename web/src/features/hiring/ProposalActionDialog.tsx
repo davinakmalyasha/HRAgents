@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { detailText, problemMessage, type ProblemDetail } from '@/lib/problem'
 
 import { decideProposal } from './schedulingApi'
 import { shortId } from './pipeline'
@@ -52,23 +53,25 @@ export function ProposalActionDialog({
     onOpenChange(next)
   }
 
-  function errorFor(status: number, detail?: string): string {
-    if (status === 409) {
-      if (detail?.includes('reason is required')) {
-        return t('scheduling.errors.reasonRequired')
-      }
-      if (detail?.includes('was rejected')) {
-        return t('scheduling.errors.approvalRejected')
-      }
-      return t('scheduling.errors.conflict')
-    }
-    if (status === 403) {
-      return t('scheduling.errors.forbidden')
-    }
-    if (status === 404) {
-      return t('scheduling.errors.notFound')
-    }
-    return t('scheduling.errors.failed')
+  function errorFor(status: number, detail?: ProblemDetail): string {
+    return problemMessage(status, detail, t, 'scheduling', {
+      // The server's own refusal text, matched in one place per dialog rather
+      // than duplicated in nine. Prefers a machine `code` when the API sends
+      // one -- see `lib/problem.ts`.
+      overrides: (code, body) => {
+        if (code !== 409) {
+          return null
+        }
+        const prose = detailText(body) ?? ''
+        if (prose.includes('reason is required')) {
+          return t('scheduling.errors.reasonRequired')
+        }
+        if (prose.includes('was rejected')) {
+          return t('scheduling.errors.approvalRejected')
+        }
+        return null
+      },
+    })
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -91,7 +94,7 @@ export function ProposalActionDialog({
       close(false)
       return
     }
-    setProblem(errorFor(result.status, result.detail))
+    setProblem(errorFor(result.status, result.problem))
   }
 
   return (

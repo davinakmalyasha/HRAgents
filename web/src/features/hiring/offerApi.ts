@@ -1,4 +1,5 @@
 import { api } from '@/lib/api'
+import type { ProblemDetail } from '@/lib/problem'
 import type { components } from '@/api/schema'
 
 import type { OfferView } from './offer'
@@ -12,12 +13,16 @@ export type OfferAcceptanceRequest = components['schemas']['OfferAcceptanceReque
 export interface OfferResult {
   status: number
   offer?: OfferView
-  detail?: string
+  problem?: ProblemDetail
 }
 
 function toResult(response: Response, data: OfferView | undefined, error: unknown): OfferResult {
   const problem = error as { title?: string } | null | undefined
-  return { status: response.status, offer: data, detail: problem?.title }
+  return {
+    status: response.status,
+    offer: data,
+    problem: (problem ?? undefined) as ProblemDetail | undefined,
+  }
 }
 
 export async function createOffer(body: OfferCreateRequest): Promise<OfferResult> {

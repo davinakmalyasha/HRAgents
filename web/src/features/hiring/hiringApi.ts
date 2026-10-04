@@ -1,4 +1,5 @@
 import { api } from '@/lib/api'
+import type { ProblemDetail } from '@/lib/problem'
 import type { components } from '@/api/schema'
 
 export type AuditReceipt = components['schemas']['AuditReceipt']
@@ -23,7 +24,7 @@ export async function recordOverride(
 
 export interface StageMoveResult {
   status: number
-  detail?: string
+  problem?: ProblemDetail
 }
 
 export async function moveStage(
@@ -37,6 +38,5 @@ export async function moveStage(
     params: { path: { application_id: applicationId } },
     body,
   })
-  const problem = error as { title?: string } | null | undefined
-  return { status: response.status, detail: problem?.title }
+  return { status: response.status, problem: (error ?? undefined) as ProblemDetail | undefined }
 }

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useCallback, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import { NETWORK_FAILURE, detailText, problemMessage, type ProblemDetail } from '@/lib/problem'
 
 import { OverrideDialog } from './OverrideDialog'
 import { moveStage } from './hiringApi'
@@ -75,30 +76,35 @@ export function StageMoveDialog({
     onOpenChange(next)
   }
 
-  function errorFor(status: number, detail?: string): string {
-    if (status === 409) {
-      if (detail?.includes('rejection sign-off')) {
-        return t('board.errors.needSignoff')
-      }
-      if (detail?.includes('scheduling is gated')) {
-        return t('board.errors.needScheduling')
-      }
-      if (detail?.includes('worker') || detail?.includes('system-owned')) {
-        return t('board.systemOwned')
-      }
-      if (detail?.includes('already')) {
-        return t('board.errors.noop')
-      }
-      return t('board.errors.conflict')
-    }
-    if (status === 403) {
-      return t('board.errors.forbidden')
-    }
-    if (status === 404) {
-      return t('board.errors.notFound')
-    }
-    return t('board.errors.failed')
-  }
+  const problemFor = useCallback(
+    (status: number, detail?: ProblemDetail): string =>
+      problemMessage(status, detail, t, 'board', {
+        // Every reason the server refuses a stage move is a policy, not a
+        // fault, and each one names the action that would unblock it. The
+        // server's prose is matched here rather than in nine dialogs so that
+        // this is the single place to retire it once `code` is sent.
+        overrides: (code, body) => {
+          if (code !== 409) {
+            return null
+          }
+          const prose = detailText(body) ?? ''
+          if (prose.includes('rejection sign-off')) {
+            return t('board.errors.needSignoff')
+          }
+          if (prose.includes('scheduling is gated')) {
+            return t('board.errors.needScheduling')
+          }
+          if (prose.includes('worker') || prose.includes('system-owned')) {
+            return t('board.systemOwned')
+          }
+          if (prose.includes('already')) {
+            return t('board.errors.noop')
+          }
+          return null
+        },
+      }),
+    [t],
+  )
 
   function validate(): boolean {
     const problems: string[] = []
@@ -118,17 +124,25 @@ export function StageMoveDialog({
     }
     setProblem(null)
     setBusy(true)
-    const result = await moveStage(application.application_id, {
-      target: nextTarget,
-      reason: reason.trim(),
-    })
-    setBusy(false)
-    if (result.status === 200) {
-      await queryClient.invalidateQueries({ queryKey: ['applications'] })
-      close(false)
-      return
+    try {
+      const result = await moveStage(application.application_id, {
+        target: nextTarget,
+        reason: reason.trim(),
+      })
+      if (result.status === 200) {
+        await queryClient.invalidateQueries({ queryKey: ['applications'] })
+        close(false)
+        return
+      }
+      setProblem(problemFor(result.status, result.problem))
+    } catch {
+      // A rejected promise here used to escape as an unhandled rejection and
+      // leave the dialog stuck disabled, because `setBusy(false)` only ran on
+      // the success path.
+      setProblem(problemFor(NETWORK_FAILURE))
+    } finally {
+      setBusy(false)
     }
-    setProblem(errorFor(result.status, result.detail))
   }
 
   function startSignoff() {

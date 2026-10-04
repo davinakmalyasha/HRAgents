@@ -130,7 +130,7 @@ describe('OfferActionDialog', () => {
   it('maps a rejected linked approval to its guidance', async () => {
     decideMock.mockResolvedValue({
       status: 409,
-      detail: 'the linked offer approval was rejected; create a new offer instead',
+      problem: { title: 'the linked offer approval was rejected; create a new offer instead' },
     })
     renderDialog('approve')
 

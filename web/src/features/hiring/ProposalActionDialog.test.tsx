@@ -107,7 +107,9 @@ describe('ProposalActionDialog', () => {
   it('maps a rejected linked approval to its guidance', async () => {
     decideMock.mockResolvedValue({
       status: 409,
-      detail: 'the linked scheduling approval was rejected; create a new proposal instead',
+      problem: {
+        title: 'the linked scheduling approval was rejected; create a new proposal instead',
+      },
     })
     renderDialog('cancel')
 

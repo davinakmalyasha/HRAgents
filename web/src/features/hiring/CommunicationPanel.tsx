@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { formatDateTime } from '@/lib/dates'
+import { problemMessage } from '@/lib/problem'
 
 import {
   composeDispatchLink,
@@ -106,22 +107,20 @@ function CommunicationDialog({
   }
 
   function errorFor(status: number): string {
-    if (status === 400) {
-      return t('communication.errors.invalidPhone')
-    }
-    if (status === 403) {
-      return t('communication.errors.forbidden')
-    }
-    if (status === 404) {
-      return t('communication.errors.notFound')
-    }
-    if (status === 409) {
-      return t('communication.errors.conflict')
-    }
-    if (status === 422) {
-      return t('communication.errors.invalidRecipient')
-    }
-    return t('communication.errors.failed')
+    return problemMessage(status, undefined, t, 'communication', {
+      overrides: (code) => {
+        // 400 is a malformed phone number; 422 is a schema problem with the
+        // recipient. These two branches used to be swapped, so the most common
+        // form error produced the wrong message.
+        if (code === 400) {
+          return t('communication.errors.invalidPhone')
+        }
+        if (code === 422) {
+          return t('communication.errors.invalidRecipient')
+        }
+        return null
+      },
+    })
   }
 
   async function handleSubmit(event: FormEvent) {

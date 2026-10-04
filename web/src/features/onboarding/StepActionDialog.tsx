@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { problemMessage } from '@/lib/problem'
 
 import { completeStep, waiveStep, type PlanResult } from './onboardingApi'
 import type { OnboardingStep } from './onboarding'
@@ -19,16 +20,9 @@ import type { OnboardingStep } from './onboarding'
 export type StepActionMode = 'complete' | 'waive'
 
 function errorFor(status: number, t: (key: string) => string): string {
-  if (status === 403) {
-    return t('onboarding.errors.forbidden')
-  }
-  if (status === 404) {
-    return t('onboarding.errors.planNotFound')
-  }
-  if (status === 409) {
-    return t('onboarding.errors.conflict')
-  }
-  return t('onboarding.errors.failed')
+  return problemMessage(status, undefined, t, 'onboarding', {
+    overrides: (code) => (code === 404 ? t('onboarding.errors.planNotFound') : null),
+  })
 }
 
 /**

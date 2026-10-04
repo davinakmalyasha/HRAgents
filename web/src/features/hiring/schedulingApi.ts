@@ -1,4 +1,5 @@
 import { api } from '@/lib/api'
+import type { ProblemDetail } from '@/lib/problem'
 import type { components } from '@/api/schema'
 
 import type { SchedulingProposal } from './scheduling'
@@ -9,7 +10,7 @@ export interface ProposalDecisionResult {
   status: number
   proposal?: SchedulingProposal
   replacement?: SchedulingProposal | null
-  detail?: string
+  problem?: ProblemDetail
 }
 
 export async function decideProposal(
@@ -28,6 +29,6 @@ export async function decideProposal(
     status: response.status,
     proposal: data?.proposal,
     replacement: data?.replacement ?? null,
-    detail: problem?.title,
+    problem: (problem ?? undefined) as ProblemDetail | undefined,
   }
 }

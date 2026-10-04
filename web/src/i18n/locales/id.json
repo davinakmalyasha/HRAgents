@@ -516,7 +516,11 @@
   "common": {
     "language": "Bahasa",
     "toggleTheme": "Ubah tema warna",
-    "changeLanguage": "Ubah bahasa"
+    "changeLanguage": "Ubah bahasa",
+    "errors": {
+      "network": "Tidak dapat menghubungi server. Periksa koneksi Anda lalu coba lagi.",
+      "failed": "Terjadi kesalahan."
+    }
   },
   "onboarding": {
     "plansTitle": "Rencana onboarding",

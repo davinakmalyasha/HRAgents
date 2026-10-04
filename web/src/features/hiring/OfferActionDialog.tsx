@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { detailText, problemMessage, type ProblemDetail } from '@/lib/problem'
 
 import {
   decideOffer,
@@ -71,23 +72,22 @@ export function OfferActionDialog({
     onOpenChange(next)
   }
 
-  function errorFor(status: number, detail?: string): string {
-    if (status === 409) {
-      if (detail?.includes('reason is required')) {
-        return t('offer.errors.reasonRequired')
-      }
-      if (detail?.includes('was rejected')) {
-        return t('offer.errors.approvalRejected')
-      }
-      return t('offer.errors.conflict')
-    }
-    if (status === 403) {
-      return t('offer.errors.forbidden')
-    }
-    if (status === 404) {
-      return t('offer.errors.notFound')
-    }
-    return t('offer.errors.failed')
+  function errorFor(status: number, detail?: ProblemDetail): string {
+    return problemMessage(status, detail, t, 'offer', {
+      overrides: (code, body) => {
+        if (code !== 409) {
+          return null
+        }
+        const prose = detailText(body) ?? ''
+        if (prose.includes('reason is required')) {
+          return t('offer.errors.reasonRequired')
+        }
+        if (prose.includes('was rejected')) {
+          return t('offer.errors.approvalRejected')
+        }
+        return null
+      },
+    })
   }
 
   async function perform(): Promise<OfferResult> {
@@ -141,7 +141,7 @@ export function OfferActionDialog({
       close(false)
       return
     }
-    setProblem(errorFor(result.status, result.detail))
+    setProblem(errorFor(result.status, result.problem))
   }
 
   return (

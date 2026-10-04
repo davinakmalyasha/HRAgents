@@ -516,7 +516,11 @@
   "common": {
     "language": "Language",
     "toggleTheme": "Toggle color theme",
-    "changeLanguage": "Change language"
+    "changeLanguage": "Change language",
+    "errors": {
+      "network": "Could not reach the server. Check your connection and try again.",
+      "failed": "Something went wrong."
+    }
   },
   "onboarding": {
     "plansTitle": "Onboarding plans",

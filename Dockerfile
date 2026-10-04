@@ -5,7 +5,11 @@
 # non-root user. No dev dependencies, no source maps, no toolchain.
 
 # --- stage 1: build the dashboard -------------------------------------------------
-FROM node:22-bookworm-slim AS web
+# Pinned to the same major that CI lints, typechecks, tests and builds with
+# (`web/.nvmrc`, consumed by the `web` job's `node-version-file`). Building the
+# shipped bundle on a different toolchain than the one under test means nothing
+# ever validated the artifact that actually ships.
+FROM node:26-bookworm-slim AS web
 
 WORKDIR /build/web
 COPY web/package.json web/package-lock.json* ./
@@ -37,7 +41,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.14 /uv /usr/local/bin/uv
 WORKDIR /app
 
 # Dependency layer first so code edits do not reinstall the world.
-COPY pyproject.toml uv.lock README.md ./
+# LICENSE is here because pyproject declares `license-files = ["LICENSE"]`, and
+# PEP 639 requires a build tool to error on a pattern that matches no file.
+COPY pyproject.toml uv.lock README.md LICENSE ./
 RUN uv sync --locked --no-dev --no-install-project
 
 COPY src/ ./src/

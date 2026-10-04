@@ -40,6 +40,11 @@ function application(overrides: Partial<ApplicationSummary> = {}): ApplicationSu
 beforeEach(() => {
   evaluationState.data = null
   moveStageMock.mockReset()
+  // A default so every test satisfies the mock's return contract. Without it a
+  // test that reaches `moveStage` but does not stub it resolves `undefined`,
+  // which threw a TypeError inside the async handler and escaped as an
+  // unhandled rejection -- vitest reported 192 passing tests and still exited 1.
+  moveStageMock.mockResolvedValue({ status: 200 })
 })
 
 function renderDialog(
@@ -104,7 +109,7 @@ describe('StageMoveDialog', () => {
   it('maps a scheduling refusal to its hint', async () => {
     moveStageMock.mockResolvedValue({
       status: 409,
-      detail: 'scheduling is gated: create a proposal or record an approved override',
+      problem: { title: 'scheduling is gated: create a proposal or record an approved override' },
     })
     renderDialog({ target: 'scheduled', targetStage: 'interview' })
 
@@ -112,6 +117,22 @@ describe('StageMoveDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirm') }))
 
     expect(screen.getByText(i18n.t('board.errors.needScheduling'))).toBeInTheDocument()
+  })
+
+  it('says the server was unreachable instead of "conflict" when the request never lands', async () => {
+    // A dropped connection used to reject out of the async handler: the
+    // dialog stayed disabled forever, `setBusy(false)` never ran, and the
+    // promise became an unhandled rejection.
+    moveStageMock.mockRejectedValue(new TypeError('Failed to fetch'))
+    const { onOpenChange } = renderDialog()
+
+    await userEvent.type(screen.getByLabelText(i18n.t('board.reason')), 'pulled for review')
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('board.confirm') }))
+
+    expect(await screen.findByText(i18n.t('common.errors.network'))).toBeInTheDocument()
+    // The dialog must stay usable: the retry button is enabled again.
+    expect(screen.getByRole('button', { name: i18n.t('board.confirm') })).toBeEnabled()
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 
   it('withdraws the candidate from the close choice with a reason', async () => {

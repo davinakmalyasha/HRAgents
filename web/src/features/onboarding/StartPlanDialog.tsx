@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { problemMessage } from '@/lib/problem'
 
 import { createEmployee, createTemplate, startPlan } from './onboardingApi'
 import { useEmployees, useOnboardingTemplates, useStarterTemplate } from './useOnboarding'
@@ -25,19 +26,14 @@ function today(): string {
 }
 
 function errorFor(status: number, t: (key: string) => string): string {
-  if (status === 403) {
-    return t('onboarding.errors.forbidden')
-  }
-  if (status === 404) {
-    return t('onboarding.errors.employeeNotFound')
-  }
-  if (status === 409) {
-    return t('onboarding.errors.conflict')
-  }
-  if (status === 422) {
-    return t('onboarding.errors.invalid')
-  }
-  return t('onboarding.errors.failed')
+  return problemMessage(status, undefined, t, 'onboarding', {
+    overrides: (code) => {
+      if (code === 404) {
+        return t('onboarding.errors.employeeNotFound')
+      }
+      return null
+    },
+  })
 }
 
 /**

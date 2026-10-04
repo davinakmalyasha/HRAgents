@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { problemMessage } from '@/lib/problem'
 
 import { recordOverride, type AuditReceipt, type PolicyDecision } from './hiringApi'
 import { DECISIONS, REVIEWER_ROLES, type ReviewerRole } from './review'
@@ -94,16 +95,7 @@ export function OverrideDialog({
   }
 
   function errorFor(status: number): string {
-    if (status === 403) {
-      return t('review.errors.forbidden')
-    }
-    if (status === 404) {
-      return t('review.errors.notFound')
-    }
-    if (status === 409) {
-      return t('review.errors.conflict')
-    }
-    return t('review.errors.failed')
+    return problemMessage(status, undefined, t, 'review')
   }
 
   async function handleSubmit(event: FormEvent) {

@@ -70,5 +70,11 @@ export default defineConfig({
     // worker" or 15s timeouts rather than as a real test failure.
     maxWorkers: 3,
     fileParallelism: true,
+    // One jsdom environment per test file cost 107s of a 76s wall clock and was
+    // the reason a CI run once finished only 21 of 33 files before exhausting
+    // memory. `vmThreads` still gives each file its own globals -- which the
+    // tests rely on, since they mutate module-level state such as the i18n
+    // language -- but reuses the realm.
+    pool: 'vmThreads',
   },
 })

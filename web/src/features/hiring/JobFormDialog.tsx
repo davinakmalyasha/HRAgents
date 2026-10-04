@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { problemMessage } from '@/lib/problem'
 
 import { createJob, updateJob } from './jobApi'
 import {
@@ -83,13 +84,14 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
   }
 
   function errorFor(status: number): string {
-    if (status === 403) {
-      return t('jobs.errors.forbidden')
-    }
-    if (status === 409) {
-      return t('jobs.errors.conflict')
-    }
-    return t('jobs.errors.failed')
+    return problemMessage(status, undefined, t, 'jobs', {
+      overrides: (code) => {
+        if (code === 422) {
+          return t('jobs.errors.weightsNumber')
+        }
+        return null
+      },
+    })
   }
 
   async function handleSubmit(event: FormEvent) {
