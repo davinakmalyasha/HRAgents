@@ -22,7 +22,7 @@ from hr_agents.models import (
     Urgency,
     utc_now,
 )
-from hr_agents.rbac import RoleId
+from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ApprovalStore
 
@@ -93,7 +93,12 @@ class ApprovalEngine:
         approve: bool,
         reason: str | None = None,
     ) -> ApprovalDecision:
-        """Record a human decision. Agents can never decide."""
+        """Record a human decision, by someone entitled to make this one.
+
+        Three gates, all of which have to pass. The actor is a person; the actor
+        did not raise it; and the actor holds the authority the approval is
+        assigned to.
+        """
         request = self._require(request_id)
         if not request.active:
             raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot decide")
@@ -109,6 +114,7 @@ class ApprovalEngine:
                 f"approval {request_id} was raised by {actor.actor_id}; "
                 "you cannot decide what you raised"
             )
+        self._require_authority(request, actor, "a decision")
 
         action = "approved" if approve else "rejected"
         decided = request.model_copy(
@@ -124,12 +130,66 @@ class ApprovalEngine:
         self._record(decided, action=f"approval.{action}", actor=actor)
         return ApprovalDecision(request=decided, action=action)
 
+    def _require_authority(
+        self,
+        request: ApprovalRequest,
+        actor: ActorRef,
+        what: str,
+        *,
+        allow_requester: bool = False,
+    ) -> None:
+        """Refuse ``actor`` unless they hold the role this approval is assigned to.
+
+        `RoleId.MANAGER` holds `APPROVALS_DECIDE`, and so does `RoleId.FINANCE`.
+        Without this check either could decide an approval assigned to a role they
+        do not hold -- a `finance`-assigned payroll sign-off, or a
+        `data_protection`-assigned erasure request, which at this deployment means
+        `HR_ADMIN` alone.
+
+        The predicate already existed and was already unit-tested: `rbac.may_decide_for`,
+        over the `APPROVER_ROLE_HOLDERS` table that `validate_approver_coverage`
+        checks at startup so an undecidable approver role fails loudly instead of
+        producing a stuck queue. It had no production call site, which is the
+        shape this repository keeps hitting -- the table exists, the startup check
+        runs, and the enforcement point never asks.
+
+        An actor with no role claim cannot demonstrate the authority, so it is
+        refused. In production every decision arrives through `ActorDep`, which
+        resolves the role from the API key, so this only refuses callers that
+        never crossed the trust boundary.
+
+        ``allow_requester`` is for withdrawal only. Withdrawing is not a decision:
+        it takes an item out of someone's queue rather than exercising authority
+        over it, and the person a request was raised for must be able to withdraw
+        it without holding an approver role. Otherwise "I no longer need those
+        three days" is impossible for the employee the request is about.
+        """
+        if allow_requester and request.requested_by == actor.actor_id:
+            return
+        if actor.role is None:
+            raise ApprovalError(
+                f"approval {request.id} is assigned to {request.assignee_role.value} "
+                f"and {actor.actor_id} carries no role; {what} needs an authenticated "
+                "principal that holds that authority"
+            )
+        assignee = request.assignee_role.value
+        role = RoleId(actor.role)
+        if not may_decide_for(Principal(actor_id=actor.actor_id, role=role), assignee):
+            holders = ", ".join(sorted(item.value for item in approver_holders(assignee)))
+            raise ApprovalError(
+                f"approval {request.id} is assigned to {assignee}; {actor.actor_id} is "
+                f"{role.value} and may not make {what} on it. "
+                f"That authority is held by: {holders or 'nobody'}"
+            )
+
     def withdraw(
         self, request_id: UUID, *, actor: ActorRef, reason: str | None = None
     ) -> ApprovalRequest:
         request = self._require(request_id)
         if not request.active:
             raise ApprovalError(f"approval {request_id} is {request.status.value}; cannot withdraw")
+        actor.require_human("withdrawing an approval", ApprovalError)
+        self._require_authority(request, actor, "a withdrawal", allow_requester=True)
         updated = request.model_copy(
             update={
                 "status": ApprovalStatus.WITHDRAWN,
@@ -240,16 +300,32 @@ class ApprovalEngine:
                 self._record(escalated, action="approval.escalated")
         return expired
 
-    def requeue_escalated(self, request_id: UUID) -> ApprovalRequest:
-        """Put an escalated request back into the pending queue."""
+    def requeue_escalated(self, request_id: UUID, *, actor: ActorRef) -> ApprovalRequest:
+        """Put an escalated request back into the pending queue, on the record.
+
+        Takes an actor and requires a person because this is the one transition
+        that walks an SLA backwards. It used to take neither: `_record` fell back
+        to `ActorRef.system("approval-engine")`, so an operator who requeued an
+        approval by hand was recorded on the tamper-evident chain as the engine
+        having done it, and an agent could do it at all.
+
+        That matters more than the audit line. An approval that escalated twice
+        and then expired has exhausted `max_escalations`; requeueing it returns it
+        to `pending` with `escalation_count` still at the cap, so the very next
+        sweep expires it again -- and in the meantime it is back in a human's
+        queue with an SLA it has already blown. A person does that deliberately,
+        with their name on it.
+        """
         request = self._require(request_id)
         if request.status is not ApprovalStatus.ESCALATED:
             raise ApprovalError(f"approval {request_id} is not escalated")
+        actor.require_human("requeueing an approval", ApprovalError)
+        self._require_authority(request, actor, "a requeue")
         updated = request.model_copy(
             update={"status": ApprovalStatus.PENDING, "updated_at": utc_now()}
         )
         self._store.save(updated)
-        self._record(updated, action="approval.requeued")
+        self._record(updated, action="approval.requeued", actor=actor)
         return updated
 
     # --- queries --------------------------------------------------------

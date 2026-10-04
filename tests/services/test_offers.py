@@ -219,9 +219,7 @@ def test_approve_refuses_when_the_linked_approval_was_rejected() -> None:
     world.offers.submit(offer.id, actor=admin())
     approval = world.approvals.find_by_subject(ApprovalSubject.OFFER, str(offer.id))
     assert approval is not None
-    world.approvals.decide(
-        approval.id, actor=ActorRef.legacy("lead-1"), approve=False, reason="budget"
-    )
+    world.approvals.decide(approval.id, actor=admin("lead-1"), approve=False, reason="budget")
 
     with pytest.raises(OfferError, match="was rejected"):
         world.offers.decide(offer.id, decision="approve", actor=admin())

@@ -6,11 +6,11 @@ policy values. Requests flow through the approval engine (humans decide).
 
 from __future__ import annotations
 
-import contextlib
 from datetime import date, timedelta
 from uuid import UUID
 
 from hr_agents.identity import ActorRef, deciding_actor
+from hr_agents.logging import get_logger
 from hr_agents.models import (
     AccrualMethod,
     ApprovalSubject,
@@ -22,9 +22,11 @@ from hr_agents.models import (
     RequestStatus,
     utc_now,
 )
-from hr_agents.services.approvals import ApprovalEngine
+from hr_agents.services.approvals import ApprovalEngine, ApprovalError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
+
+logger = get_logger(__name__)
 
 
 class LeaveError(RuntimeError):
@@ -440,10 +442,29 @@ class LeaveService:
         if request.status not in {RequestStatus.PENDING, RequestStatus.DRAFT}:
             raise LeaveError(f"request {request_id} is {request.status.value}; cannot cancel")
         if request.approval_id is not None:
-            with contextlib.suppress(Exception):
-                # Approval may already be terminal; cancellation still proceeds.
+            try:
                 self._approvals.withdraw(
                     request.approval_id, actor=actor, reason="request cancelled"
+                )
+            except ApprovalError as exc:
+                # Only an already-terminal approval is an expected outcome here:
+                # cancelling after a decision landed is a no-op, not a failure.
+                # Anything else used to disappear into `suppress(Exception)`, which
+                # meant an authority refusal left the approval pending and
+                # unrecorded while the request showed as cancelled -- two rows
+                # disagreeing with no audit entry explaining why.
+                self._record(
+                    action="leave.approval_not_withdrawn",
+                    subject_type="leave_request",
+                    subject_id=str(request.id),
+                    actor=actor,
+                    payload={"approval_id": str(request.approval_id), "reason": str(exc)},
+                )
+                logger.warning(
+                    "leave_approval_not_withdrawn",
+                    request_id=str(request.id),
+                    approval_id=str(request.approval_id),
+                    reason=str(exc),
                 )
         updated = request.model_copy(
             update={"status": RequestStatus.CANCELLED, "updated_at": utc_now()}
@@ -454,7 +475,7 @@ class LeaveService:
             subject_type="leave_request",
             subject_id=str(updated.id),
             actor=actor,
-            payload={},
+            payload={"approval_id": str(request.approval_id) if request.approval_id else None},
         )
         return updated
 

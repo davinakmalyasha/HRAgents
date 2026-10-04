@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from tests.actors import data_protection
 
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
@@ -507,7 +508,7 @@ def test_erasure_full_flow_purges_and_revokes(service: ComplianceService) -> Non
     with pytest.raises(ComplianceError, match="approval required first"):
         service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
 
-    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
+    service._approvals.decide(approval.id, actor=data_protection("dpo-nadia"), approve=True)
     synced = service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
     assert synced.status is ErasureStatus.APPROVED
     assert synced.decided_by == "dpo-nadia"
@@ -536,7 +537,7 @@ def test_erasure_execution_is_human_only(service: ComplianceService) -> None:
     submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(service, submitted)
     assert approval is not None
-    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
+    service._approvals.decide(approval.id, actor=data_protection("dpo-nadia"), approve=True)
     service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(ComplianceError, match="named human"):
@@ -557,7 +558,7 @@ def test_erasure_denial_blocks_execution(service: ComplianceService) -> None:
     assert approval is not None
     service._approvals.decide(
         approval.id,
-        actor=ActorRef.legacy("dpo-nadia"),
+        actor=data_protection("dpo-nadia"),
         approve=False,
         reason="legal obligation to retain",
     )
@@ -588,7 +589,7 @@ def test_erasure_policy_action_delete(service: ComplianceService) -> None:
     submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(service, submitted)
     assert approval is not None
-    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
+    service._approvals.decide(approval.id, actor=data_protection("dpo-nadia"), approve=True)
     service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
 
     executed = service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
@@ -626,7 +627,7 @@ def test_an_erasure_that_removed_nothing_is_partial_not_executed(
     submitted = bare.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(bare, submitted)
     assert approval is not None
-    bare._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
+    bare._approvals.decide(approval.id, actor=data_protection("dpo-nadia"), approve=True)
     bare.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
 
     executed = bare.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
@@ -664,7 +665,7 @@ def test_a_fully_executed_erasure_is_still_executed(service: ComplianceService) 
     submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
     approval = approval_for(service, submitted)
     assert approval is not None
-    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
+    service._approvals.decide(approval.id, actor=data_protection("dpo-nadia"), approve=True)
     service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
 
     executed = service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))

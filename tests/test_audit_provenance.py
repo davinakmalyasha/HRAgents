@@ -27,6 +27,7 @@ from datetime import date, timedelta
 import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
+from tests.actors import finance as finance_principal
 from tests.route_probe import write_routes
 
 from hr_agents.api.deps import ActorDep
@@ -177,7 +178,7 @@ def test_the_approval_engine_records_the_deciding_actor_not_the_engine() -> None
         assignee_role=ApproverRole.FINANCE,
         actor=ActorRef.legacy("sari"),
     )
-    decision = engine.decide(request.id, actor=ActorRef.legacy("finance-lead"), approve=True)
+    decision = engine.decide(request.id, actor=finance_principal("finance-lead"), approve=True)
     assert decision.request.decided_by == "finance-lead"
 
     decided = [entry for entry in engine.audit.entries if entry.action == "approval.approved"]

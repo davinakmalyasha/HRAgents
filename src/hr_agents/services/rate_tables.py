@@ -83,10 +83,20 @@ class RateTableService:
 
         Certification is the ``verified`` gate behind the statutory rates: one
         named human enters the numbers, records where they came from, and
-        confirms them. This method does not yet insist on that person being a
-        person -- it is the one gap left, and it closes with the authorization
-        work rather than here.
+        confirms them. So it insists on that person being a person -- which it did
+        not, and which was the one gap left in this module.
+
+        The route was already behind `RATES_VERIFY`, held by `FINANCE` and
+        `HR_ADMIN`, so an HTTP caller could not reach this with an agent actor.
+        But the gate belongs here: `RateTableService` is constructed in
+        `PeopleServices` and reachable in-process by the worker, the scheduler and
+        any tool, and the other twelve consequential operations in this codebase
+        all check at the service layer for exactly that reason. A principal
+        configured as ``agent:hr_bot`` with `RATES_VERIFY` could otherwise certify
+        a BPJS or PPh21 table, and the audit entry would name an agent as the
+        person who confirmed the figures.
         """
+        actor.require_human("verifying a statutory rate table", RateTableError)
         table = self._require(table_id)
         if not table.entries:
             raise RateTableError("cannot verify an empty rate table")

@@ -2,6 +2,7 @@ from datetime import date
 from uuid import uuid4
 
 import pytest
+from tests.actors import finance as finance_principal
 
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
@@ -343,13 +344,13 @@ def test_signoff_flow_approve_and_export(
 
     approval_id = submitted.approval_id
     assert approval_id is not None
-    approvals.decide(approval_id, actor=ActorRef.legacy("finance-lead"), approve=True)
+    approvals.decide(approval_id, actor=finance_principal("finance-lead"), approve=True)
     approved = service.apply_decision(approval_id, actor=ActorRef.legacy("hr-admin"))
 
     assert approved.status is PayrollRunStatus.APPROVED
     assert approved.signed_off_by == "finance-lead"
 
-    exported = service.mark_exported(run.id, actor=ActorRef.legacy("finance-lead"))
+    exported = service.mark_exported(run.id, actor=finance_principal("finance-lead"))
     assert exported.status is PayrollRunStatus.EXPORTED
 
 
@@ -414,7 +415,7 @@ def test_cannot_edit_after_signoff(
     submitted = service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
     approval_id = submitted.approval_id
     assert approval_id is not None
-    approvals.decide(approval_id, actor=ActorRef.legacy("finance"), approve=True)
+    approvals.decide(approval_id, actor=finance_principal("finance"), approve=True)
     service.apply_decision(approval_id, actor=ActorRef.legacy("hr-admin"))
 
     with pytest.raises(PayrollError, match="no longer be edited"):
@@ -446,7 +447,7 @@ def test_rejected_run_returns_to_review_state(
     approval_id = submitted.approval_id
     assert approval_id is not None
     approvals.decide(
-        approval_id, actor=ActorRef.legacy("finance"), approve=False, reason="wrong period"
+        approval_id, actor=finance_principal("finance"), approve=False, reason="wrong period"
     )
     rejected = service.apply_decision(approval_id, actor=ActorRef.legacy("hr-admin"))
     assert rejected.status is PayrollRunStatus.REJECTED

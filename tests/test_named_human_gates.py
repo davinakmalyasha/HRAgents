@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
+from tests.actors import finance as finance_principal
 
 from hr_agents.identity import ActorError, ActorRef
 from hr_agents.models import (
@@ -330,7 +331,7 @@ def test_approval_decisions_refuse_system_actors() -> None:
             )
 
     decision = approvals.decide(
-        request.id, actor=ActorRef.legacy("dpo-nadia"), approve=True, reason="ok"
+        request.id, actor=finance_principal("dpo-nadia"), approve=True, reason="ok"
     )
     assert decision.action == "approved"
     assert decision.request.decided_by == "dpo-nadia"
