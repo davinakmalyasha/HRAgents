@@ -1,5 +1,6 @@
 import pytest
 
+from hr_agents.identity import ActorProvenance, ActorType
 from hr_agents.services.audit import AuditChain
 from hr_agents.tools import (
     ToolDefinition,
@@ -130,7 +131,13 @@ async def test_calls_are_audited_with_hashed_arguments() -> None:
 
     entry = audit.entries[-1]
     assert entry.action == "tool.alpha"
-    assert entry.actor.actor_id == "agent_a"
+    # The id carries the `agent:` prefix, so `classify_actor` reads it as an
+    # agent rather than as a person. The direct `AuditActor(actor_type=AGENT,
+    # actor_id="agent_a")` this replaced produced an unprefixed id beside an AGENT
+    # type -- the id and the type disagreed.
+    assert entry.actor.actor_id == "agent:agent_a"
+    assert entry.actor.actor_type is ActorType.AGENT
+    assert entry.actor.provenance is ActorProvenance.AGENT_TOOL
     assert entry.payload["outcome"] == "ok"
     assert "candidate_email" not in entry.payload
     assert len(entry.payload["arguments_hash"]) == 64

@@ -24,11 +24,9 @@ from uuid import UUID
 
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
-    ActorType,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
-    AuditActor,
     Urgency,
     payload_digest,
 )
@@ -294,7 +292,9 @@ class DestructiveToolGate:
         arguments_hash: str,
     ) -> None:
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.AGENT, actor_id=agent_name),
+            # `AGENT_TOOL` provenance rather than the `LEGACY_STRING` default, so
+            # a gate decision reads on the chain as the agent it was.
+            actor=ActorRef.agent(agent_name).audit_actor(),
             action=action,
             subject_type="tool_approval",
             subject_id=str(request_id),

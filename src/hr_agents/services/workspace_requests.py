@@ -14,7 +14,8 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from hr_agents.models import ActorType, AuditActor, StrictModel, UtcDateTime, utc_now
+from hr_agents.identity import ActorRef
+from hr_agents.models import StrictModel, UtcDateTime, utc_now
 from hr_agents.rbac import Principal
 from hr_agents.services.audit import AuditChain
 from hr_agents.workspaces import WorkspaceId, WorkspaceRegistry
@@ -104,7 +105,12 @@ class HandoffService:
         )
         self._store._persist(record)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.HUMAN, actor_id=principal.actor_id),
+            # Through `ActorRef` so the entry records `AUTHENTICATED` and the
+            # principal's role. Constructing `AuditActor` directly defaulted
+            # `provenance` to `LEGACY_STRING` and hardcoded `ActorType.HUMAN`, so
+            # a handoff raised from an API key read on the chain like a name
+            # typed into a body.
+            actor=ActorRef.from_principal(principal).audit_actor(),
             action="handoff.requested",
             subject_type="workspace_request",
             subject_id=str(record.id),

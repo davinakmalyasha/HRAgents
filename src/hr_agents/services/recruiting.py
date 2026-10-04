@@ -35,7 +35,6 @@ from pydantic import EmailStr, Field
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     TERMINAL_PROPOSAL_STATUSES,
-    ActorType,
     ApprovalRequest,
     ApprovalStatus,
     ApprovalSubject,
@@ -1046,7 +1045,10 @@ class CommunicationService:
         )
         self._persist(updated)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id=f"transport:{provider}"),
+            # \SYSTEM_JOB\ provenance: an unattended outbound send, not a person.
+            # The direct \AuditActor(...)\ construction defaulted \provenance\ to
+            # \LEGACY_STRING\, the weakest claim in the enum.
+            actor=ActorRef.system(f"transport:{provider}").audit_actor(),
             action="communication.dispatched",
             subject_type="candidate_communication",
             subject_id=str(updated.id),
@@ -1078,7 +1080,10 @@ class CommunicationService:
         )
         self._persist(updated)
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id=f"transport:{provider}"),
+            # \SYSTEM_JOB\ provenance: an unattended outbound send, not a person.
+            # The direct \AuditActor(...)\ construction defaulted \provenance\ to
+            # \LEGACY_STRING\, the weakest claim in the enum.
+            actor=ActorRef.system(f"transport:{provider}").audit_actor(),
             action="communication.dispatch_failed",
             subject_type="candidate_communication",
             subject_id=str(updated.id),

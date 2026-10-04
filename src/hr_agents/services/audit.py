@@ -11,7 +11,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from hr_agents.models import ActorType, AuditActor, AuditEntry
+from hr_agents.identity import ActorRef
+from hr_agents.models import AuditActor, AuditEntry
 
 
 class AuditChainError(RuntimeError):
@@ -113,8 +114,16 @@ class AuditChain:
         payload: dict[str, Any] | None = None,
         actor_id: str = "system",
     ) -> AuditEntry:
+        """Append an entry attributed to an unattended job.
+
+        Routed through `ActorRef.system` so the entry records `SYSTEM_JOB`
+        provenance. The direct `AuditActor(...)` construction defaulted
+        `provenance` to `LEGACY_STRING` -- the weakest claim in the enum -- on
+        eight production call sites, which is exactly backwards for an entry whose
+        whole point is that nobody was present to make it.
+        """
         return self.append(
-            actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id=actor_id),
+            actor=ActorRef.system(actor_id).audit_actor(),
             action=action,
             subject_type=subject_type,
             subject_id=subject_id,

@@ -15,7 +15,8 @@ from pydantic import Field
 
 from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.policy_assistant import PolicyResult, validate_policy_answer
-from hr_agents.models import ActorType, AuditActor, StrictModel, UtcDateTime, utc_now
+from hr_agents.identity import ActorRef
+from hr_agents.models import AuditActor, StrictModel, UtcDateTime, utc_now
 from hr_agents.rbac import Principal, RoleId
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.front_door import FrontDoor, RouteDecision, RouteReason
@@ -217,4 +218,17 @@ class ChatService:
 
     @staticmethod
     def _actor(principal: Principal) -> AuditActor:
-        return AuditActor(actor_type=ActorType.HUMAN, actor_id=principal.actor_id)
+        """The principal as an audit actor, with its provenance and role.
+
+        This used to build `AuditActor(actor_type=ActorType.HUMAN,
+        actor_id=principal.actor_id)` directly, which left `provenance` at its
+        default of `LEGACY_STRING` and `role` at `None` -- so a chain entry
+        produced from an authenticated API key read, to anyone auditing it later,
+        exactly like a name typed into a request body. The service comment above
+        this method even claimed the opposite.
+
+        `ActorType` was also hardcoded to `HUMAN`, so a principal configured as
+        `agent:hr_bot` was recorded as a person answering an HR question.
+        `from_principal` classifies instead of asserting, and carries the role.
+        """
+        return ActorRef.from_principal(principal).audit_actor()

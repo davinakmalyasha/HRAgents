@@ -14,7 +14,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
 
-from hr_agents.models import ActorType, ApproverRole, AuditActor, AuditEntry, payload_digest
+from hr_agents.identity import ActorRef
+from hr_agents.models import ApproverRole, AuditActor, AuditEntry, payload_digest
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle only matters for typing
     from hr_agents.tools.gating import DestructiveToolGate
@@ -280,7 +281,14 @@ class ToolRegistry:
         if reason is not None:
             payload["reason"] = reason
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.AGENT, actor_id=agent_name),
+            # `AGENT_TOOL` provenance, via `ActorRef`. Building `AuditActor`
+            # directly defaulted `provenance` to `LEGACY_STRING`, so every agent
+            # tool call in the system wrote the weakest possible claim onto the
+            # tamper-evident chain -- indistinguishable, to a later auditor, from
+            # a bare string. It also passed `agent_name` through unprefixed, so
+            # `classify_actor` would read the id as HUMAN while the row claimed
+            # AGENT.
+            actor=ActorRef.agent(agent_name).audit_actor(),
             action=f"tool.{tool_name}",
             subject_type="agent",
             subject_id=agent_name,

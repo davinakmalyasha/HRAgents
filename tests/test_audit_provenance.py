@@ -21,21 +21,27 @@ value loaded from storage would assert something the code never checked.
 
 from __future__ import annotations
 
+import ast
 import inspect
 from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from tests.actors import finance as finance_principal
+from tests.app_state import install_fixed_chat, install_handoffs
 from tests.route_probe import write_routes
 
 from hr_agents.api.deps import ActorDep
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.main import create_app
 from hr_agents.models import ActorProvenance, ActorType, ApprovalSubject, ApproverRole
+from hr_agents.rbac import RoleId
 from hr_agents.services import ApprovalEngine, ApprovalError
 from hr_agents.services.people_store import ApprovalStore
+
+SOURCE_ROOT = Path(__file__).resolve().parent.parent / "src"
 
 TODAY = date.today()
 
@@ -68,6 +74,15 @@ def test_every_authenticated_surface_records_provenance_not_a_bare_string() -> N
     API and asserts that nothing degrades to ``legacy_string`` -- the value a
     body field used to produce, and therefore the signature of exactly the bug
     this module exists to prevent.
+
+    It reaches ``/v1/chat`` and ``/v1/chat/handoffs`` too. Those two routes are in
+    ``NO_ACTOR_WRITE_ROUTES`` because they take a ``PrincipalDep`` rather than an
+    ``actor`` parameter, and the exemption was justified by a comment claiming the
+    service already recorded them as authenticated. It did not:
+    ``ChatService._actor`` built ``AuditActor(actor_type=HUMAN, actor_id=...)``
+    directly, which leaves ``provenance`` at its default of ``LEGACY_STRING``.
+    The exemption was therefore resting on an unverified claim, and the sweep
+    that would have caught it did not make the call.
     """
     app = create_app()
     with TestClient(app) as client:
@@ -103,6 +118,20 @@ def test_every_authenticated_surface_records_provenance_not_a_bare_string() -> N
         )
         assert policy.status_code == 200
 
+        install_fixed_chat(app)
+        install_handoffs(app)
+        asked = client.post("/v1/chat", json={"message": "berapa saldo cuti saya?"})
+        assert asked.status_code == 200, asked.text
+        handoff = client.post(
+            "/v1/chat/handoffs",
+            json={
+                "message": "June run is ready for sign-off",
+                "source_workspace": "leave",
+                "target_workspace": "payroll",
+            },
+        )
+        assert handoff.status_code == 201, handoff.text
+
     degraded = [
         (entry.action, entry.actor.actor_id, entry.actor.provenance.value)
         for entry in app.state.audit.entries
@@ -112,6 +141,63 @@ def test_every_authenticated_surface_records_provenance_not_a_bare_string() -> N
         "these entries recorded a bare actor string instead of the ActorRef that "
         f"produced them: {degraded}"
     )
+
+    chat_entries = [e for e in app.state.audit.entries if e.action == "chat.answered"]
+    assert chat_entries, "the sweep did not reach /v1/chat; it is not testing what it claims"
+    assert chat_entries[-1].actor.provenance is ActorProvenance.AUTHENTICATED
+    assert chat_entries[-1].actor.role == RoleId.HR_ADMIN.value
+
+
+def test_no_module_builds_an_audit_actor_by_hand() -> None:
+    """The structural fence for the whole class, not just the eight known sites.
+
+    Eight production sites constructed `AuditActor(...)` directly instead of going
+    through `ActorRef`. Because `AuditActor.provenance` defaults to
+    `LEGACY_STRING`, each one silently wrote the weakest possible claim onto the
+    tamper-evident chain -- including every agent tool invocation in the system,
+    and two paths reached from an authenticated API key. Two of them also
+    hardcoded `ActorType.HUMAN`, so a principal named `agent:hr_bot` was recorded
+    as a person.
+
+    The runtime sweep in the test above only covers the routes it thinks to walk,
+    which is how two of these survived it. This one cannot be walked past: the only
+    sanctioned way to produce an `AuditActor` is `ActorRef.audit_actor()`, so the
+    constructor is called in exactly one place.
+
+    Parsed with `ast` rather than matched as text, because four of the fixed files
+    now *mention* `AuditActor(...)` in the comment explaining what they stopped
+    doing -- and a grep-based version of this test fails on its own fix.
+    """
+    allowed = {Path("hr_agents") / "identity.py"}
+    offenders: list[str] = []
+    for path in sorted((SOURCE_ROOT / "hr_agents").rglob("*.py")):
+        relative = path.relative_to(SOURCE_ROOT)
+        if relative in allowed:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "AuditActor"
+            ):
+                offenders.append(f"{relative}:{node.lineno}")
+
+    assert not offenders, (
+        "build audit actors through ActorRef so provenance and role are recorded; "
+        f"these construct one directly: {offenders}"
+    )
+
+
+def test_the_sanctioned_constructor_is_still_the_only_one() -> None:
+    """Guard the exemption itself: `identity.py` may, and it must still exist.
+
+    Otherwise deleting `ActorRef.audit_actor()` would satisfy the fence above by
+    removing the only correct path rather than by routing callers to it.
+    """
+    source = (SOURCE_ROOT / "hr_agents" / "identity.py").read_text(encoding="utf-8")
+    assert "def audit_actor(" in source
+    assert "provenance=self.provenance" in source or "provenance=" in source
 
 
 def test_a_scheduler_sweep_records_a_system_job_not_a_person() -> None:
@@ -255,9 +341,14 @@ NO_ACTOR_WRITE_ROUTES = frozenset(
         "/v1/applications",
         "/v1/applications/batch",
         # Chat takes the principal directly rather than an `ActorRef` -- it needs
-        # the role as well as the id, to pick the agent's tools. The conversation
-        # owner is recorded from that principal, so these are authenticated; they
-        # are listed here only because the parameter is not named `actor`.
+        # the role as well as the id, to pick the agent's tools. `ChatService` now
+        # routes that principal through `ActorRef.from_principal`, so the chain entry
+        # carries `AUTHENTICATED` and the role. This comment used to claim that was
+        # already true of the service, and it was not: `ChatService._actor` built
+        # `AuditActor(actor_type=HUMAN, actor_id=...)` directly, which left
+        # `provenance` at `LEGACY_STRING` -- exactly the claim this exemption was
+        # justifying. `test_every_authenticated_surface_records_provenance_not_a_bare_string`
+        # now reaches these routes so the claim is checked rather than asserted.
         "/v1/chat",
         "/v1/chat/handoffs",
     }

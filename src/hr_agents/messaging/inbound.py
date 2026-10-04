@@ -15,12 +15,11 @@ from uuid import UUID
 
 from pydantic import Field
 
+from hr_agents.identity import ActorRef
 from hr_agents.messaging.base import InboundEmail
 from hr_agents.messaging.contacts import CandidateDirectory
 from hr_agents.messaging.store import ReplyStore, reply_dedup_key
 from hr_agents.models import (
-    ActorType,
-    AuditActor,
     CandidateCommunication,
     CandidateReply,
     StrictModel,
@@ -134,7 +133,11 @@ class ReplyIngestor:
             )
         )
         self._audit.append(
-            actor=AuditActor(actor_type=ActorType.SYSTEM, actor_id=f"transport:{message.provider}"),
+            # `SYSTEM_JOB` provenance: an unattended transport poll, not a person.
+            # The direct `AuditActor(...)` construction defaulted `provenance` to
+            # `LEGACY_STRING`, the weakest claim in the enum, which is the
+            # opposite of what a machine-originated entry should say about itself.
+            actor=ActorRef.system(f"transport:{message.provider}").audit_actor(),
             action="communication.reply_received",
             subject_type="candidate_reply",
             subject_id=str(reply.id),

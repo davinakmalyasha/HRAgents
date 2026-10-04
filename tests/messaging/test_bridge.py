@@ -540,4 +540,10 @@ def test_reply_ingest_audit_actor_is_the_transport(
 
     entry = next(e for e in audit.entries if e.action == "communication.reply_received")
     assert entry.actor.actor_type is ActorType.SYSTEM
-    assert entry.actor.actor_id == "transport:email.imap_poll"
+    # Prefixed, so `classify_actor` agrees with the type: a bare
+    # `AuditActor(actor_type=SYSTEM, actor_id="transport:...")` left the id and
+    # the type telling an auditor different stories, and defaulted `provenance`
+    # to `LEGACY_STRING` -- the weakest claim -- for an entry nobody was present
+    # to make.
+    assert entry.actor.actor_id == "system:transport:email.imap_poll"
+    assert entry.actor.provenance is ActorProvenance.SYSTEM_JOB
