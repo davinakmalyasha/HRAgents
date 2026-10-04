@@ -1,16 +1,18 @@
 """API-level RBAC: role-bound keys gate router access."""
 
-import importlib
-import pkgutil
 from datetime import date
 from uuid import uuid4
 
 import pytest
-from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from tests.route_probe import (
+    read_guarded_write_routes,
+    route,
+    route_permissions,
+    write_routes,
+)
 
-from hr_agents.api import routers
 from hr_agents.config import ApiPrincipalSettings, Settings
 from hr_agents.main import create_app
 from hr_agents.rbac import Permission, Principal, RoleId, has_permission
@@ -85,6 +87,111 @@ def test_manager_can_decide_approvals_but_not_payroll() -> None:
         assert approvals.status_code == 403
 
 
+def _manager_settings() -> Settings:
+    return Settings.model_construct(
+        api_keys=[],
+        api_principals=[
+            ApiPrincipalSettings(key=SecretStr("mgr-key"), role=RoleId.MANAGER, actor_id="mgr-1"),
+            ApiPrincipalSettings(key=SecretStr("fin-key"), role=RoleId.FINANCE, actor_id="fin-1"),
+            ApiPrincipalSettings(key=SecretStr("adm-key"), role=RoleId.HR_ADMIN, actor_id="adm-1"),
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("path", "payload", "refused_key"),
+    [
+        ("/v1/employees", {"full_name": "A", "hire_date": "2026-01-05"}, "mgr-key"),
+        ("/v1/org-units", {"name": "Engineering"}, "mgr-key"),
+        ("/v1/contracts", {"employee_id": str(uuid4()), "start_date": "2026-01-05"}, "mgr-key"),
+        (f"/v1/employees/{uuid4()}/transition", {"target": "offboarded"}, "mgr-key"),
+    ],
+)
+def test_reading_the_directory_does_not_authorize_writing_it(
+    path: str, payload: dict, refused_key: str
+) -> None:
+    """A manager reads people records; a manager does not get to write them.
+
+    `MANAGER` holds `people:read` because a review needs the directory. It is
+    not an HR administrator, so it may not create an employee, an org unit or a
+    contract, nor drive an employment status transition.
+
+    These routes were guarded by exactly that read permission until the
+    structural fence was widened to see `people.py` -- which is to say until it
+    could see it at all. The structural tests assert the *declared* permission;
+    this asserts the request is actually refused, because a declared requirement
+    that nothing exercises is the same defect one level down.
+    """
+    app = create_app(_manager_settings())
+    with TestClient(app) as client:
+        response = client.post(path, json=payload, headers={"X-API-Key": refused_key})
+        assert response.status_code == 403, f"{refused_key} was allowed to {path}"
+
+
+def test_drafting_a_statutory_rate_table_names_payroll_write() -> None:
+    """The rate-table writes are declared `payroll:write`, and no role is read-only here yet.
+
+    `POST /v1/rate-tables` and `PUT /v1/rate-tables/{id}/entries` used to be
+    guarded by `payroll:read` alone. They now declare `payroll:write`, which is
+    the honest requirement -- `PUT` resets `verified` and halts payroll, so it is
+    not a read.
+
+    There is deliberately no HTTP negative test to pair with that: `FINANCE`
+    holds `payroll:read` and `payroll:write` together, so no configured role can
+    demonstrate the difference over HTTP today. The declaration is asserted
+    structurally in `test_route_inventory.py` instead, and this test records that
+    the absence is a property of the role table rather than an oversight. When a
+    read-only role is ever added, it becomes a 403 case here.
+    """
+    write_roles = [
+        role
+        for role in RoleId
+        if has_permission(Principal(actor_id="x", role=role), Permission.PAYROLL_READ)
+        and not has_permission(Principal(actor_id="x", role=role), Permission.PAYROLL_WRITE)
+    ]
+    assert write_roles == [], f"a payroll-read-only role exists; add the 403 case: {write_roles}"
+
+
+def test_a_manager_may_not_certify_a_legal_document() -> None:
+    """Verifying a passport is a compliance judgement, not directory access.
+
+    `HR_ADMIN` is the only role holding `compliance:write`, so this is the route
+    that most clearly must not fall back to `people:read`.
+    """
+    app = create_app(_manager_settings())
+    with TestClient(app) as client:
+        response = client.post(
+            f"/v1/documents/{uuid4()}/verify",
+            json={"status": "verified", "note": "looks right"},
+            headers={"X-API-Key": "mgr-key"},
+        )
+        assert response.status_code == 403
+
+
+def test_a_manager_may_not_manufacture_the_sign_off_it_wants_to_decide() -> None:
+    """Creation is a weaker permission than `approvals:decide`, on purpose.
+
+    `MANAGER` and `FINANCE` both hold `approvals:decide`. If raising an approval
+    were also gated on that, either could create a request assigned to a role it
+    controls and then approve it -- the separation of duties in
+    `ApprovalEngine.decide` would still catch the self-approval, but only because
+    it compares against `requested_by`, and only for the actor that created it.
+    """
+    app = create_app(_manager_settings())
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/approvals",
+            json={
+                "subject": "leave_request",
+                "subject_id": str(uuid4()),
+                "title": "Sign off the June leave run",
+                "assignee_role": "manager",
+            },
+            headers={"X-API-Key": "mgr-key"},
+        )
+        assert response.status_code == 403
+
+
 def test_missing_or_wrong_key_is_401() -> None:
     app = create_app(_settings())
     with TestClient(app) as client:
@@ -117,59 +224,10 @@ def test_unconfigured_auth_allows_local_admin() -> None:
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
-
-def _write_routes() -> list[APIRoute]:
-    """Every mutating route, from the routers rather than from ``app.routes``.
-
-    See ``tests/test_audit_provenance.py`` for why the included-router wrapper
-    this FastAPI version builds is not a usable place to look.
-    """
-    routes: list[APIRoute] = []
-    for module in pkgutil.iter_modules(routers.__path__):
-        loaded = importlib.import_module(f"{routers.__name__}.{module.name}")
-        router = getattr(loaded, "router", None)
-        if router is None:
-            continue
-        routes.extend(
-            route
-            for route in router.routes
-            if hasattr(route, "methods") and route.methods & WRITE_METHODS
-        )
-    return routes
-
-
-def _route_permissions(route: APIRoute) -> set[Permission]:
-    """The permissions a route requires, router-level ones included.
-
-    ``require_permission`` closes over its ``Permission``, so the value is read
-    out of the closure cell. That is reaching into an implementation detail, but
-    it is the only place the requirement is recorded -- FastAPI does not expose
-    it, and reading the closure is strictly better than asserting a count.
-    """
-    required: set[Permission] = set()
-    for dependency in list(getattr(route, "dependencies", None) or []):
-        closure = getattr(getattr(dependency, "dependency", None), "__closure__", None)
-        for cell in closure or ():
-            if isinstance(cell.cell_contents, Permission):
-                required.add(cell.cell_contents)
-    return required
-
-
-def _route(path: str) -> APIRoute:
-    """The one route with this path, or a failure naming what was found."""
-    matches = [route for route in _write_routes() if route.path == path]
-    if len(matches) != 1:
-        raise AssertionError(f"expected exactly one write route at {path}, found {len(matches)}")
-    return matches[0]
-
-
-def _read_guarded_write_routes() -> set[str]:
-    return {
-        route.path
-        for route in _write_routes()
-        if _route_permissions(route)
-        and all(p.value.endswith(":read") for p in _route_permissions(route))
-    }
+_write_routes = write_routes
+_route_permissions = route_permissions
+_route = route
+_read_guarded_write_routes = read_guarded_write_routes
 
 
 READ_ONLY_WRITE_ROUTES: frozenset[str] = frozenset()

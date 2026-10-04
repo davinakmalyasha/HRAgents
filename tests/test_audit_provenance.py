@@ -21,16 +21,14 @@ value loaded from storage would assert something the code never checked.
 
 from __future__ import annotations
 
-import importlib
 import inspect
-import pkgutil
 from datetime import date, timedelta
 
 import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
+from tests.route_probe import write_routes
 
-from hr_agents.api import routers
 from hr_agents.api.deps import ActorDep
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.main import create_app
@@ -282,24 +280,10 @@ def _actor_annotation(route: APIRoute) -> object | None:
 def _write_routes() -> list[APIRoute]:
     """Every mutating route, collected from the routers themselves.
 
-    ``app.routes`` is not usable here: this FastAPI version represents an
-    included router as a lazy wrapper with no ``path`` and no ``methods``, so the
-    endpoints are only reachable by walking framework internals that a version
-    bump would move. The ``APIRouter`` each module exports is public API, and it
-    is the same object the application includes.
+    The walk lives in ``tests/route_probe.py`` because ``test_rbac_enforcement``
+    needs the identical view, and it used to be a 17-line copy in each file.
     """
-    routes: list[APIRoute] = []
-    for module in pkgutil.iter_modules(routers.__path__):
-        loaded = importlib.import_module(f"{routers.__name__}.{module.name}")
-        router = getattr(loaded, "router", None)
-        if router is None:
-            continue
-        routes.extend(
-            route
-            for route in router.routes
-            if hasattr(route, "methods") and route.methods & {"POST", "PUT", "PATCH", "DELETE"}
-        )
-    return routes
+    return write_routes()
 
 
 def test_write_routes_declare_their_actor_as_a_dependency() -> None:

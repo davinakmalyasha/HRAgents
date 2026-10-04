@@ -59,6 +59,11 @@ def get_people(request: Request) -> PeopleServices:
 
 PeopleDep = Annotated[PeopleServices, Depends(get_people)]
 
+# The routers below declare only a *read* permission, because reading the
+# employee directory is what a manager or a finance key legitimately needs.
+# Every mutating route therefore also names the write it actually performs --
+# see `tests/route_probe.py` for why the structural fence that asserts this
+# could not see these seven routers at all until recently.
 employees_router = APIRouter(
     prefix="/v1/employees",
     tags=["employees"],
@@ -107,7 +112,12 @@ def _conflict(exc: Exception) -> HTTPException:
 # --- employees ---------------------------------------------------------------
 
 
-@employees_router.post("", status_code=status.HTTP_201_CREATED, response_model=EmployeeView)
+@employees_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=EmployeeView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_employee(payload: EmployeeCreate, people: PeopleDep, actor: ActorDep) -> EmployeeView:
     try:
         employee = people.employees.create(actor=actor, **payload.model_dump())
@@ -135,7 +145,11 @@ def get_employee(employee_id: UUID, people: PeopleDep) -> EmployeeView:
         raise _not_found(str(exc)) from exc
 
 
-@employees_router.post("/{employee_id}/transition", response_model=EmployeeView)
+@employees_router.post(
+    "/{employee_id}/transition",
+    response_model=EmployeeView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def transition_employee(
     employee_id: UUID, payload: EmployeeTransitionRequest, people: PeopleDep, actor: ActorDep
 ) -> EmployeeView:
@@ -156,6 +170,7 @@ def transition_employee(
     "/{employee_id}/documents",
     status_code=status.HTTP_201_CREATED,
     response_model=DocumentView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
 )
 def add_document(
     employee_id: UUID, payload: DocumentCreate, people: PeopleDep, actor: ActorDep
@@ -202,7 +217,13 @@ def list_documents(
     return [DocumentView.from_model(document) for document in documents]
 
 
-@documents_router.post("/{document_id}/verify", response_model=DocumentView)
+@documents_router.post(
+    "/{document_id}/verify",
+    response_model=DocumentView,
+    # Certifying a passport or NPWP is a compliance judgement, not directory
+    # access, so it names compliance:write rather than people:write.
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
 def verify_document(
     document_id: UUID,
     payload: DocumentVerifyRequest,
@@ -241,7 +262,12 @@ def list_org_units(people: PeopleDep) -> list[OrgUnitView]:
     return [OrgUnitView.from_model(unit, headcount=headcount.get(unit.id, 0)) for unit in units]
 
 
-@org_units_router.post("", status_code=status.HTTP_201_CREATED, response_model=OrgUnitView)
+@org_units_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=OrgUnitView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_org_unit(payload: OrgUnitCreate, people: PeopleDep, actor: ActorDep) -> OrgUnitView:
     try:
         unit = people.employees.create_org_unit(
@@ -258,7 +284,12 @@ def create_org_unit(payload: OrgUnitCreate, people: PeopleDep, actor: ActorDep) 
 # --- contracts ---------------------------------------------------------------
 
 
-@contracts_router.post("", status_code=status.HTTP_201_CREATED, response_model=ContractView)
+@contracts_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ContractView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_contract(payload: ContractCreate, people: PeopleDep, actor: ActorDep) -> ContractView:
     try:
         contract = people.contracts.create(actor=actor, **payload.model_dump())
@@ -288,7 +319,11 @@ def get_contract(contract_id: UUID, people: PeopleDep) -> ContractView:
         raise _not_found(str(exc)) from exc
 
 
-@contracts_router.post("/{contract_id}/activate", response_model=ContractView)
+@contracts_router.post(
+    "/{contract_id}/activate",
+    response_model=ContractView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def activate_contract(
     contract_id: UUID, payload: ContractActionRequest, people: PeopleDep, actor: ActorDep
 ) -> ContractView:
@@ -299,7 +334,11 @@ def activate_contract(
     return ContractView.from_model(contract)
 
 
-@contracts_router.post("/{contract_id}/terminate", response_model=ContractView)
+@contracts_router.post(
+    "/{contract_id}/terminate",
+    response_model=ContractView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def terminate_contract(
     contract_id: UUID, payload: ContractActionRequest, people: PeopleDep, actor: ActorDep
 ) -> ContractView:
@@ -318,7 +357,24 @@ def terminate_contract(
 # --- approvals ---------------------------------------------------------------
 
 
-@approvals_router.post("", status_code=status.HTTP_201_CREATED, response_model=ApprovalView)
+@approvals_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ApprovalView,
+    # Raising an approval is not the same authority as deciding one, so this
+    # does not reuse `approvals:decide`. `MANAGER` and `FINANCE` both hold that,
+    # and if they could also manufacture a request assigned to a role they
+    # control they could approve their own request through the assignee check.
+    #
+    # `people:write` (hr_admin, recruiter) is the honest requirement here: the
+    # generic approval surface spans leave, payroll, retention and erasure, all
+    # of which are people records. The domain flows -- a payroll submit, a leave
+    # request -- do not come through here; they create their own approvals from
+    # the service layer, under whatever authorization that service already
+    # requires. If this route ever grows a non-people subject it wants a
+    # dedicated `approvals:request` permission rather than a broader reuse.
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
 def create_approval(payload: ApprovalCreate, people: PeopleDep, actor: ActorDep) -> ApprovalView:
     try:
         request = people.approvals.create(actor=actor, **payload.model_dump())
@@ -428,7 +484,14 @@ def complete_task(
 # able to look at a rate is not the same authority as being able to certify one.
 
 
-@rate_tables_router.post("", status_code=status.HTTP_201_CREATED, response_model=RateTableView)
+@rate_tables_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RateTableView,
+    # Drafting a table is not certifying it, so this is payroll:write while
+    # "/verify" below stays behind RATES_VERIFY.
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+)
 def create_rate_table(
     payload: RateTableCreate, people: PeopleDep, actor: ActorDep
 ) -> RateTableView:
@@ -455,7 +518,11 @@ def get_rate_table(table_id: UUID, people: PeopleDep) -> RateTableView:
     return RateTableView.from_model(table)
 
 
-@rate_tables_router.put("/{table_id}/entries", response_model=RateTableView)
+@rate_tables_router.put(
+    "/{table_id}/entries",
+    response_model=RateTableView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+)
 def set_rate_table_entries(
     table_id: UUID,
     payload: RateTableEntriesUpdate,
