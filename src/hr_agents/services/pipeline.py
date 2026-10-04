@@ -92,14 +92,27 @@ class InMemoryStorage:
 
 
 class PipelineResult(StrictModel):
-    """Everything the pipeline produced for one application, auditable."""
+    """Everything the pipeline produced for one application, auditable.
 
-    profile: CandidateProfile
-    evaluation: TechnicalEvaluation
+    ``profile`` and ``evaluation`` are optional for exactly one reason: when there
+    is no active consent, nothing was extracted, and neither model can represent
+    "nothing" honestly. `TechnicalEvaluation.runs` requires at least two entries so
+    sigma can never be computed from a single extraction, and
+    `CandidateProfile.full_name` requires at least one character -- so a halt is not
+    a zero score with a blank name, it is the absence of both, and fabricating
+    either would put a record on the chain implying a candidate was assessed.
+
+    ``consent_halted`` says which it is. Consumers must check it before reading
+    the other two.
+    """
+
+    profile: CandidateProfile | None = None
+    evaluation: TechnicalEvaluation | None = None
     policy: PolicyEvaluation
     recommendation: Recommendation
     flags: list[EvaluationFlag] = Field(default_factory=list)
     audit_actions: list[str] = Field(default_factory=list)
+    consent_halted: bool = False
 
 
 def _recommendation_for(decision: PolicyDecision) -> Recommendation:
@@ -159,8 +172,29 @@ class ApplicationPipeline:
         application_id: str,
         resume_text: str,
         job: JobSpecification,
+        consent_active: bool,
         config: PipelineConfig | None = None,
     ) -> PipelineResult:
+        """Extract, score, and route one application.
+
+        ``consent_active`` is required rather than defaulted. The policy engine has
+        always had a consent gate -- ``evaluate_policy`` returns ``HITL_MANUAL``
+        with "processing halted pending lawful basis" when it is false -- and this
+        call passed ``True`` unconditionally, so the gate could not fire and
+        ``ComplianceService.has_active_consent`` had no call site at all.
+
+        Checking it *here*, before the first extraction, is the point rather than
+        the routing. By the time the policy decision is computed the résumé has
+        already been read, split into k concurrent extraction calls, and sent to
+        whichever model the operator configured. Routing it to a human afterwards
+        is not a lawful-basis check; it is a filing error. UU PDP 27/2022 makes
+        processing personal data without consent the thing being regulated, and
+        the data in question is a candidate's name, NIK, address and employment
+        history.
+
+        Making it a required keyword means a new caller cannot forget it, which is
+        how the previous version shipped.
+        """
         config = config or self._config or PipelineConfig.from_settings()
         reference_date = config.reference_date or date.today()
         actions: list[str] = []
@@ -172,6 +206,40 @@ class ApplicationPipeline:
             payload={"job_id": str(job.id), "scoring_runs": config.scoring_runs},
         )
         actions.append("pipeline.started")
+
+        if not consent_active:
+            self._audit.append_system(
+                action="pipeline.halted_no_consent",
+                subject_type="application",
+                subject_id=application_id,
+                payload={
+                    "job_id": str(job.id),
+                    "reason": "no active consent for recruitment_evaluation; "
+                    "the document was not read and no model was called",
+                },
+            )
+            policy = evaluate_policy(
+                s_tech=0.0,
+                sigma=0.0,
+                flags=[EvaluationFlag.CONSENT_MISSING],
+                mutual_slots=config.mutual_slots,
+                consent_active=False,
+            )
+            # No profile and no evaluation. `runs` requires at least two
+            # extractions so sigma can never come from a single pass, and
+            # `full_name` requires at least one character -- so "the document was
+            # not read" is not expressible as a zero score with a blank name, and
+            # should not be: the record says nothing was evaluated rather than
+            # implying an assessment happened.
+            return PipelineResult(
+                profile=None,
+                evaluation=None,
+                policy=policy,
+                recommendation=_recommendation_for(policy.decision),
+                flags=[EvaluationFlag.CONSENT_MISSING],
+                audit_actions=[*actions, "pipeline.halted_no_consent"],
+                consent_halted=True,
+            )
 
         # 1. Extraction: k independent passes for variance measurement. The runs
         #    are independent by construction, so they run concurrently — k
@@ -242,7 +310,7 @@ class ApplicationPipeline:
             sigma=sigma,
             flags=evaluation.flags,
             mutual_slots=config.mutual_slots,
-            consent_active=True,
+            consent_active=consent_active,
         )
         recommendation = _recommendation_for(policy.decision)
         evaluation = evaluation.model_copy(update={"recommendation": recommendation})

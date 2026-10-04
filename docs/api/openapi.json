@@ -3565,7 +3565,8 @@
           "inconsistent_runs",
           "certification_mismatch",
           "injection_suspected",
-          "calendar_constraint"
+          "calendar_constraint",
+          "consent_missing"
         ],
         "title": "EvaluationFlag",
         "type": "string"

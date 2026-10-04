@@ -38,6 +38,7 @@ from hr_agents.models import (
     ScoringRun,
     TechnicalEvaluation,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services import AuditChain
 from hr_agents.services.recruiting import (
     CommunicationService,
@@ -114,7 +115,7 @@ def audit() -> AuditChain:
     return AuditChain()
 
 
-def signed_in(actor_id: str, role: ApproverRole) -> ActorRef:
+def signed_in(actor_id: str, role: RoleId) -> ActorRef:
     """An authenticated principal, shaped the way ``from_principal`` builds one.
 
     ``ActorRef`` has no ``human`` constructor on purpose: being a person is a
@@ -382,7 +383,7 @@ def test_rejection_approval_still_gates_dispatch(
         )
     evaluations.record_override(
         record.evaluation.id,
-        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        actor=signed_in("lead-1", RoleId.MANAGER),
         reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_SOFT_REJECTION,
         reason_code="below_bar_after_review",

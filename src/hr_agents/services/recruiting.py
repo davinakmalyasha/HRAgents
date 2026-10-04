@@ -65,6 +65,7 @@ from hr_agents.models import (
     TimeSlot,
     utc_now,
 )
+from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
 from hr_agents.services.approvals import ApprovalError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
@@ -567,21 +568,45 @@ class EvaluationService:
         sign-off.
 
         ``reviewer_role`` stays a claim, because a principal's role cannot supply
-        it: ``RoleId`` has no lead roles, so deriving one would mean inventing
-        the whole approval-authority model. Instead the claim is permitted-set
-        checked and the authenticated role is written beside it, so a body that
-        says "engineering_lead" from a recruiter principal is visible rather than
-        silent.
+        it: ``RoleId`` has no lead roles. But it is no longer an unchecked claim.
+        ``rbac.APPROVER_ROLE_HOLDERS`` maps each override role to the principal
+        roles that hold that authority -- ``engineering_lead`` to ``MANAGER`` and
+        ``HR_ADMIN``, ``recruiter_lead`` to ``RECRUITER``, ``MANAGER`` and
+        ``HR_ADMIN`` -- and ``may_decide_for`` is the same predicate
+        ``ApprovalEngine.decide`` uses. So a recruiter claiming
+        ``engineering_lead`` is refused, and the refusal names who does hold it.
+
+        When this was written the table did not exist yet, and the comment said so:
+        deriving an authority from ``RoleId`` "would mean inventing the whole
+        approval-authority model". The model exists now, so the claim is checked
+        against it. That a body field is still the *source* of the claim is a
+        separate question, answered by recording ``authenticated_role`` beside it
+        so the two are comparable in the chain.
         """
-        record = self.get(evaluation_id)
         actor.require_human("record a human override", RecruitingError)
         if reviewer_role not in OVERRIDE_REVIEWER_ROLES:
             raise RecruitingError(
                 f"role {reviewer_role.value!r} cannot override; expected one of "
                 + ", ".join(sorted(role.value for role in OVERRIDE_REVIEWER_ROLES))
             )
+        if actor.role is None:
+            raise RecruitingError(
+                f"signing as {reviewer_role.value} requires an authenticated principal "
+                f"that holds that authority; {actor.actor_id} carries no role"
+            )
+        if not may_decide_for(
+            Principal(actor_id=actor.actor_id, role=RoleId(actor.role)), reviewer_role.value
+        ):
+            holders = ", ".join(
+                sorted(item.value for item in approver_holders(reviewer_role.value))
+            )
+            raise RecruitingError(
+                f"{actor.actor_id} is {actor.role} and cannot sign an override as "
+                f"{reviewer_role.value}; that authority is held by: {holders}"
+            )
         if not reason_code.strip():
             raise RecruitingError("an override requires a reason code")
+        record = self.get(evaluation_id)
 
         override = HitlOverride(
             evaluation_id=str(evaluation_id),

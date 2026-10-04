@@ -9,7 +9,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from hr_agents.tools.registry import ToolDefinition
+from hr_agents.models import ApproverRole
+from hr_agents.tools.registry import ToolDefinition, ToolImpact
 
 _SCREENING_AGENTS = frozenset({"screening_coordinator"})
 
@@ -20,7 +21,26 @@ ProfileLookup = Callable[[str], dict[str, Any] | None]
 
 
 def make_capture_consent_tool(recorder: ConsentRecorder) -> ToolDefinition:
-    """Record consent state for a candidate (never assumed — only recorded)."""
+    """Record consent state for a candidate (never assumed — only recorded).
+
+    Marked ``DESTRUCTIVE`` rather than ``WRITE``, which is the point of the
+    change. ``WRITE`` means "changes state inside HRAgents"; consent is not that.
+    It is the lawful basis for processing a person's data under UU PDP 27/2022,
+    and ``ApplicationPipeline`` now refuses to read a document without one -- so a
+    tool that flips this boolean is deciding whether the system may handle
+    someone's NIK, address and employment history at all.
+
+    The `granted` value used to come straight from the model, and the only thing
+    standing between it and the ledger was the tool description's "use only after
+    the candidate clearly states their choice" -- a prompt instruction, not an
+    enforcement. ``DESTRUCTIVE`` means the call is blocked until a named human
+    approves this exact invocation, with the arguments hashed into the approval so
+    they cannot be swapped afterwards.
+
+    The recorder should still verify the statement against the raw inbound
+    message. This gate makes the decision attributable and reversible-by-a-human;
+    it does not make a language model's reading of consent correct.
+    """
 
     def capture_consent(candidate_id: str, granted: bool) -> dict[str, object]:
         """Record whether the candidate granted consent for evaluation."""
@@ -34,7 +54,9 @@ def make_capture_consent_tool(recorder: ConsentRecorder) -> ToolDefinition:
         ),
         allowed_agents=_SCREENING_AGENTS,
         handler=capture_consent,
-        tags=frozenset({"screening", "write"}),
+        tags=frozenset({"screening", "write", "destructive"}),
+        impact=ToolImpact.DESTRUCTIVE,
+        approver_role=ApproverRole.DATA_PROTECTION,
     )
 
 

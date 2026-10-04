@@ -20,6 +20,7 @@ from hr_agents.models import (
     TechnicalEvaluation,
     TimeSlot,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionInput
 from hr_agents.services.recruiting import (
     MAX_DOCUMENT_BYTES,
@@ -38,13 +39,21 @@ APPLICATION_ID = uuid4()
 BASE_SLOT = datetime(2026, 10, 1, 1, 0, tzinfo=UTC)
 
 
-def signed_in(actor_id: str, role: ApproverRole) -> ActorRef:
+def signed_in(actor_id: str, role: RoleId) -> ActorRef:
     """An authenticated principal, shaped the way ``from_principal`` builds one.
 
     ``ActorRef`` has no ``human`` constructor on purpose: being a person is a
     property of how the actor arrived, and only the auth layer can assert that.
     Tests that need one go through this, so a test cannot accidentally model a
     human as a bare string.
+
+    The role is a ``RoleId``, not an ``ApproverRole``. Those are different
+    namespaces and the distinction is the whole point of an override: the caller
+    is a principal holding some operator-configured role, and separately *claims*
+    the authority to be signing as. ``record_override`` checks the claim against
+    ``APPROVER_ROLE_HOLDERS``. This helper used to accept an ``ApproverRole`` and
+    drop it into the ``role`` field, which happened to work only because nothing
+    read it.
     """
     return ActorRef(
         actor_id=actor_id,
@@ -291,14 +300,14 @@ def test_override_is_append_only_with_audit_receipt(evaluations: EvaluationServi
 
     first = evaluations.record_override(
         evaluation.id,
-        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        actor=signed_in("lead-1", RoleId.MANAGER),
         reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_SOFT_REJECTION,
         reason_code="confirm_review",
     )
     second = evaluations.record_override(
         evaluation.id,
-        actor=signed_in("recruiter-2", ApproverRole.RECRUITER_LEAD),
+        actor=signed_in("recruiter-2", RoleId.RECRUITER),
         reviewer_role=ApproverRole.RECRUITER_LEAD,
         override_decision=PolicyDecision.REJECT_AUTO,
         reason_code="below_bar_after_review",
@@ -334,7 +343,7 @@ def test_override_requires_named_human_and_permitted_role(
     with pytest.raises(RecruitingError, match="cannot override"):
         evaluations.record_override(
             evaluation.id,
-            actor=signed_in("someone", ApproverRole.MANAGER),
+            actor=signed_in("someone", RoleId.MANAGER),
             reviewer_role=ApproverRole.MANAGER,
             override_decision=PolicyDecision.REJECT_AUTO,
             reason_code="x",
@@ -342,10 +351,73 @@ def test_override_requires_named_human_and_permitted_role(
     with pytest.raises(RecruitingError, match="reason code"):
         evaluations.record_override(
             evaluation.id,
-            actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+            actor=signed_in("lead-1", RoleId.MANAGER),
             reviewer_role=ApproverRole.ENGINEERING_LEAD,
             override_decision=PolicyDecision.REJECT_AUTO,
             reason_code="  ",
+        )
+
+
+def test_a_recruiter_cannot_sign_an_override_as_the_engineering_lead(
+    evaluations: EvaluationService,
+) -> None:
+    """The claimed authority is checked against the caller's real role.
+
+    `reviewer_role` arrives in the request body, and this used to be a permitted-set
+    check and nothing more -- so a principal holding only
+    `PERMISSION.RECRUITING_OVERRIDE` could claim `engineering_lead` and the chain
+    recorded an engineering-lead sign-off it had no standing to make. The method's
+    own docstring explained why: deriving an authority from `RoleId` "would mean
+    inventing the whole approval-authority model".
+
+    The model exists now. `APPROVER_ROLE_HOLDERS` maps `engineering_lead` to
+    `MANAGER` and `HR_ADMIN`, and `may_decide_for` is the predicate
+    `ApprovalEngine.decide` already uses for the same question.
+    """
+    evaluation = make_evaluation()
+    evaluations.register(
+        application_id=APPLICATION_ID,
+        evaluation=evaluation,
+        candidate_name="Budi",
+        job_title="Engineer",
+    )
+
+    with pytest.raises(RecruitingError, match="cannot sign an override as engineering_lead"):
+        evaluations.record_override(
+            evaluation.id,
+            actor=signed_in("rec-1", RoleId.RECRUITER),
+            reviewer_role=ApproverRole.ENGINEERING_LEAD,
+            override_decision=PolicyDecision.REJECT_AUTO,
+            reason_code="below_bar_after_review",
+        )
+
+    assert evaluations.list_overrides(evaluation.id) == [], "a refused override left a record"
+
+
+def test_an_override_signed_without_a_role_cannot_be_attributed(
+    evaluations: EvaluationService,
+) -> None:
+    """`ActorRef.legacy` cannot demonstrate authority, same rule as `decide`.
+
+    Without this, the role check could be sidestepped by arriving with no role at
+    all -- and `record_override` is the endpoint whose entire purpose is a
+    named-human sign-off.
+    """
+    evaluation = make_evaluation()
+    evaluations.register(
+        application_id=APPLICATION_ID,
+        evaluation=evaluation,
+        candidate_name="Budi",
+        job_title="Engineer",
+    )
+
+    with pytest.raises(RecruitingError, match="carries no role"):
+        evaluations.record_override(
+            evaluation.id,
+            actor=ActorRef.legacy("lead-1"),
+            reviewer_role=ApproverRole.ENGINEERING_LEAD,
+            override_decision=PolicyDecision.REJECT_AUTO,
+            reason_code="below_bar_after_review",
         )
 
 
@@ -366,7 +438,7 @@ def test_override_reviewer_is_the_authenticated_actor(evaluations: EvaluationSer
 
     outcome = evaluations.record_override(
         evaluation.id,
-        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        actor=signed_in("lead-1", RoleId.MANAGER),
         reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.REJECT_AUTO,
         reason_code="below_bar_after_review",
@@ -400,7 +472,7 @@ def test_override_syncs_application_status(audit: AuditChain) -> None:
 
     service.record_override(
         evaluation.id,
-        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        actor=signed_in("lead-1", RoleId.MANAGER),
         reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_MANUAL,
         reason_code="reconsider",

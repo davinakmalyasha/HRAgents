@@ -25,6 +25,7 @@ from hr_agents.models import (
     ScoringRun,
     TechnicalEvaluation,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services import AuditChain
 from hr_agents.services.recruiting import (
     CommunicationService,
@@ -74,11 +75,15 @@ def audit() -> AuditChain:
     return AuditChain()
 
 
-def signed_in(actor_id: str, role: ApproverRole) -> ActorRef:
+def signed_in(actor_id: str, role: RoleId) -> ActorRef:
     """An authenticated principal, shaped the way ``from_principal`` builds one.
 
     ``ActorRef`` has no ``human`` constructor on purpose: being a person is a
     property of how the actor arrived, and only the auth layer can assert that.
+
+    The role is a ``RoleId``. An override names the *authority* it is signing
+    under separately, and ``record_override`` checks that claim against
+    ``APPROVER_ROLE_HOLDERS`` -- so the two must not be the same value.
     """
     return ActorRef(
         actor_id=actor_id,
@@ -124,7 +129,7 @@ def _record_rejection(evaluations: EvaluationService, record: EvaluationRecord) 
     """
     evaluations.record_override(
         record.evaluation.id,
-        actor=signed_in("Rina", ApproverRole.RECRUITER_LEAD),
+        actor=signed_in("Rina", RoleId.RECRUITER),
         reviewer_role=ApproverRole.RECRUITER_LEAD,
         override_decision=PolicyDecision.REJECT_AUTO,
         reason_code="below_bar_after_review",
@@ -146,7 +151,7 @@ def test_rejection_after_override_queues_a_grounded_message(
     record = register(evaluations, s_tech=0.80)
     evaluations.record_override(
         record.evaluation.id,
-        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        actor=signed_in("lead-1", RoleId.MANAGER),
         reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_SOFT_REJECTION,
         reason_code="below_bar_after_review",

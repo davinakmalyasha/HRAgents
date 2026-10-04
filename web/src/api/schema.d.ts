@@ -3926,7 +3926,7 @@ export interface components {
          * @description Signals that route an evaluation to a human, regardless of score.
          * @enum {string}
          */
-        EvaluationFlag: "anomaly_experience_format" | "low_confidence_extraction" | "inconsistent_runs" | "certification_mismatch" | "injection_suspected" | "calendar_constraint";
+        EvaluationFlag: "anomaly_experience_format" | "low_confidence_extraction" | "inconsistent_runs" | "certification_mismatch" | "injection_suspected" | "calendar_constraint" | "consent_missing";
         /** EvaluationView */
         EvaluationView: {
             /**

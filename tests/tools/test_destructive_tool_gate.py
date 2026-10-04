@@ -302,3 +302,69 @@ def test_narrowing_a_workspace_view_never_drops_the_human_gate() -> None:
 
     assert view.names() == ["mcp.hris.delete_employee"]
     assert view.approval_gate is gate
+
+
+def test_capture_consent_is_behind_the_gate_not_barely_tagged_as_a_write() -> None:
+    """Consent is the lawful basis, so flipping it cannot be an agent's say-so.
+
+    `make_capture_consent_tool` declared no `impact`, which defaults to
+    `ToolImpact.READ` -- so `DestructiveToolGate` never fired and the handler
+    ran. The only thing between the model and the consent ledger was the tool
+    description's "use only after the candidate clearly states their choice", which
+    is a prompt instruction rather than an enforcement.
+
+    It is now `DESTRUCTIVE` with `approver_role=DATA_PROTECTION`, which means a
+    human approves this exact invocation before the ledger changes.
+    """
+    from hr_agents.tools import make_capture_consent_tool
+
+    recorded: list[tuple[str, bool]] = []
+
+    def _record(candidate_id: str, granted: bool) -> dict[str, object]:
+        recorded.append((candidate_id, granted))
+        return {"recorded": True}
+
+    tool = make_capture_consent_tool(_record)
+
+    assert tool.impact is ToolImpact.DESTRUCTIVE
+    assert tool.approver_role is ApproverRole.DATA_PROTECTION
+    assert tool.requires_approval() is True
+    # A destructive tool must be previewable, or there is nothing for the human
+    # to read before approving -- 	est_destructive_tool_must_be_dry_run_safe
+    # refuses to construct one that is not.
+    assert tool.dry_run_safe is True
+
+
+async def test_capture_consent_cannot_execute_without_a_human_decision() -> None:
+    """The end-to-end shape: the call is blocked, and the refusal is on the chain."""
+    from hr_agents.tools import make_capture_consent_tool
+
+    recorded: list[tuple[str, bool]] = []
+
+    def _record(candidate_id: str, granted: bool) -> dict[str, object]:
+        recorded.append((candidate_id, granted))
+        return {"recorded": True}
+
+    tool = make_capture_consent_tool(_record)
+
+    # One chain for both: the gate records through the approval engine, so a
+    # registry-only chain would show an empty log and the assertion below would
+    # pass for the wrong reason.
+    audit = AuditChain()
+    gate = DestructiveToolGate(ApprovalEngine(ApprovalStore(), audit=audit))
+    registry = ToolRegistry(audit=audit)
+    registry.register(tool)
+    registry = registry.with_approval_gate(gate)
+
+    with pytest.raises(ToolApprovalRequired):
+        await registry.execute(
+            agent_name="screening_coordinator",
+            tool_name="capture_consent",
+            arguments={"candidate_id": "cand-1", "granted": True},
+        )
+
+    assert recorded == [], "the consent ledger was written without a human"
+    # The refusal itself is on the chain, and no approval ticket exists yet: the
+    # gate blocks at the registry boundary, before an agent can even ask for one.
+    assert [entry.action for entry in audit.entries] == ["tool.capture_consent"]
+    assert audit.entries[0].actor.actor_id == "agent:screening_coordinator"

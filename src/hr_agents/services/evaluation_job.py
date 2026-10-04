@@ -62,9 +62,15 @@ class EvaluationJobHandler:
         resume_text = str(message.payload["resume_text"])
         candidate_name = str(message.payload.get("candidate_name", ""))
 
-        if self._applications.get(application_id) is None:
+        application = self._applications.get(application_id)
+        if application is None:
             raise ValueError(f"unknown application {application_id}")
         job = self._jobs.get(job_id)
+
+        # Read the consent captured with the submission, not a default. The
+        # pipeline refuses to read the document without it, so this is the only
+        # thing standing between an unconsented résumé and an LLM.
+        consent_active = bool(application.consent.granted)
 
         self._applications.set_status(
             application_id, ApplicationStatus.PROCESSING, event="worker.processing"
@@ -73,7 +79,11 @@ class EvaluationJobHandler:
             action="worker.processing",
             subject_type="application",
             subject_id=str(application_id),
-            payload={"topic": message.topic, "attempt": message.attempts},
+            payload={
+                "topic": message.topic,
+                "attempt": message.attempts,
+                "consent_active": consent_active,
+            },
         )
 
         try:
@@ -81,6 +91,7 @@ class EvaluationJobHandler:
                 application_id=str(application_id),
                 resume_text=resume_text,
                 job=job,
+                consent_active=consent_active,
                 config=self._config,
             )
         except Exception as exc:
@@ -92,6 +103,28 @@ class EvaluationJobHandler:
             )
             raise
 
+        if result.consent_halted:
+            # No evaluation exists and none should: the document was never read.
+            # The application goes back to a human-visible state with the reason
+            # on the chain, rather than being recorded as a candidate who scored
+            # zero -- which is what a missing lawful basis is not.
+            self._applications.set_status(
+                application_id,
+                ApplicationStatus.GATED,
+                event="worker.halted_no_consent",
+            )
+            self._audit.append_system(
+                action="worker.halted_no_consent",
+                subject_type="application",
+                subject_id=str(application_id),
+                payload={
+                    "reasons": list(result.policy.reasons),
+                    "flags": [flag.value for flag in result.flags],
+                },
+            )
+            return
+
+        assert result.evaluation is not None, "a non-halted result must carry an evaluation"
         self._evaluations.register(
             application_id=application_id,
             evaluation=result.evaluation,

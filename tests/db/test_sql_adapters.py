@@ -60,6 +60,7 @@ from hr_agents.models import (
     TechnicalEvaluation,
     TimeSlot,
 )
+from hr_agents.rbac import RoleId
 from hr_agents.services.ingestion import (
     ApplicationRecord,
     ApplicationStatus,
@@ -85,11 +86,15 @@ def _actor(actor_id: str = "hr-admin") -> AuditActor:
     return AuditActor(actor_type=ActorType.HUMAN, actor_id=actor_id)
 
 
-def signed_in(actor_id: str, role: ApproverRole) -> ActorRef:
+def signed_in(actor_id: str, role: RoleId) -> ActorRef:
     """An authenticated principal, shaped the way ``from_principal`` builds one.
 
     ``ActorRef`` has no ``human`` constructor on purpose: being a person is a
     property of how the actor arrived, and only the auth layer can assert that.
+
+    The role is a ``RoleId``, not an ``ApproverRole``: those are different
+    namespaces, and an override names the authority it is signing under
+    separately from the principal role that gets checked against it.
     """
     return ActorRef(
         actor_id=actor_id,
@@ -388,7 +393,7 @@ def test_evaluation_adapter_registration_and_overrides(factory: sessionmaker[Ses
 
     outcome = fresh.record_override(
         evaluation.id,
-        actor=signed_in("lead-1", ApproverRole.ENGINEERING_LEAD),
+        actor=signed_in("lead-1", RoleId.MANAGER),
         reviewer_role=ApproverRole.ENGINEERING_LEAD,
         override_decision=PolicyDecision.HITL_SOFT_REJECTION,
         reason_code="evidence_insufficient",
@@ -470,7 +475,7 @@ def _record_rejection(evaluations: DbEvaluationService, evaluation_id: UUID) -> 
     """
     evaluations.record_override(
         evaluation_id,
-        actor=signed_in("Rina", ApproverRole.RECRUITER_LEAD),
+        actor=signed_in("Rina", RoleId.RECRUITER),
         reviewer_role=ApproverRole.RECRUITER_LEAD,
         override_decision=PolicyDecision.REJECT_AUTO,
         reason_code="below_bar_after_review",

@@ -12,12 +12,14 @@ from hr_agents.models import (
     JobSpecification,
     PolicyDecision,
     Recommendation,
+    TechnicalEvaluation,
 )
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.pipeline import (
     ApplicationPipeline,
     InMemoryStorage,
     PipelineConfig,
+    PipelineResult,
 )
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.skills import SkillRegistry, load_library
@@ -73,14 +75,66 @@ def config(**overrides: object) -> PipelineConfig:
     return PipelineConfig(**defaults)  # type: ignore[arg-type]
 
 
-async def test_pipeline_end_to_end(pipeline: ApplicationPipeline) -> None:
+def evaluated(result: PipelineResult) -> TechnicalEvaluation:
+    """The evaluation, asserting the pipeline was not consent-halted.
+
+    `PipelineResult.evaluation` is optional for exactly one reason: a halt produces
+    no evaluation, because zero extraction runs cannot be expressed in a model
+    whose `runs` field requires at least two. Every test here that reads an
+    evaluation supplies `consent_active=True`, so this assertion documents that
+    rather than papering over the optional.
+    """
+    assert result.consent_halted is False, result.audit_actions
+    assert result.evaluation is not None
+    return result.evaluation
+
+
+async def test_no_consent_means_the_document_is_never_read(
+    pipeline: ApplicationPipeline,
+) -> None:
+    """The gate fires before the first extraction, not after the score is known.
+
+    `evaluate_policy` has always had a consent branch -- it returns `HITL_MANUAL`
+    with "processing halted pending lawful basis" -- and `process` passed
+    `consent_active=True` unconditionally, so it could not fire.
+    `ComplianceService.has_active_consent` had no call site at all.
+
+    Routing a zero score to a human is not a lawful-basis check. By the time a
+    policy decision exists the document has been read and sent to k concurrent
+    model calls, and its contents -- name, NIK, address, employment history --
+    have left the process. So these assertions are about calls made and records
+    written, not about the decision.
+    """
+    storage: InMemoryStorage = pipeline._storage  # type: ignore[assignment]
     result = await pipeline.process(
-        application_id="app-1", resume_text=RESUME, job=make_job(), config=config()
+        application_id="app-noconsent",
+        resume_text=RESUME,
+        job=make_job(),
+        consent_active=False,
     )
 
-    assert result.profile.full_name
-    assert 0.0 <= result.evaluation.s_tech <= 1.0
-    assert result.evaluation.sigma == 0.0  # single run
+    assert result.consent_halted is True
+    assert result.evaluation is None, "no evaluation may be fabricated from zero runs"
+    assert result.profile is None, "a profile was extracted from the document"
+    assert result.flags == [EvaluationFlag.CONSENT_MISSING]
+    assert result.policy.decision is PolicyDecision.HITL_MANUAL
+    assert any("consent" in reason for reason in result.policy.reasons)
+    assert "pipeline.halted_no_consent" in result.audit_actions
+    assert "app-noconsent" not in storage.saved, "nothing was persisted to be evaluated"
+
+
+async def test_pipeline_end_to_end(pipeline: ApplicationPipeline) -> None:
+    result = await pipeline.process(
+        application_id="app-1",
+        resume_text=RESUME,
+        consent_active=True,
+        job=make_job(),
+        config=config(),
+    )
+
+    assert result.profile is not None and result.profile.full_name
+    assert 0.0 <= evaluated(result).s_tech <= 1.0
+    assert evaluated(result).sigma == 0.0  # single run
     assert result.policy.decision in set(PolicyDecision)
     assert result.recommendation in set(Recommendation)
     assert "pipeline.started" in result.audit_actions
@@ -91,7 +145,11 @@ async def test_pipeline_end_to_end(pipeline: ApplicationPipeline) -> None:
 
 async def test_pipeline_persists_output(pipeline: ApplicationPipeline) -> None:
     await pipeline.process(
-        application_id="app-2", resume_text=RESUME, job=make_job(), config=config()
+        application_id="app-2",
+        resume_text=RESUME,
+        consent_active=True,
+        job=make_job(),
+        config=config(),
     )
     storage: InMemoryStorage = pipeline._storage  # type: ignore[assignment]
     assert "app-2" in storage.saved
@@ -102,7 +160,11 @@ async def test_pipeline_persists_output(pipeline: ApplicationPipeline) -> None:
 
 async def test_injection_flags_route_to_human(pipeline: ApplicationPipeline) -> None:
     result = await pipeline.process(
-        application_id="app-3", resume_text=INJECTED, job=make_job(), config=config()
+        application_id="app-3",
+        resume_text=INJECTED,
+        consent_active=True,
+        job=make_job(),
+        config=config(),
     )
 
     assert EvaluationFlag.INJECTION_SUSPECTED in result.flags
@@ -115,12 +177,13 @@ async def test_multi_run_variance_is_measured(pipeline: ApplicationPipeline) -> 
     result = await pipeline.process(
         application_id="app-4",
         resume_text=RESUME,
+        consent_active=True,
         job=make_job(),
         config=config(scoring_runs=3),
     )
-    assert len(result.evaluation.runs) == 3
+    assert len(evaluated(result).runs) == 3
     # TestModel is deterministic for the same output shape, so sigma is 0.
-    assert result.evaluation.sigma >= 0.0
+    assert evaluated(result).sigma >= 0.0
 
 
 async def test_high_sigma_flags_inconsistent_runs(pipeline: ApplicationPipeline) -> None:
@@ -132,7 +195,11 @@ async def test_high_sigma_flags_inconsistent_runs(pipeline: ApplicationPipeline)
 
 async def test_audit_chain_records_decisions(pipeline: ApplicationPipeline) -> None:
     await pipeline.process(
-        application_id="app-5", resume_text=RESUME, job=make_job(), config=config()
+        application_id="app-5",
+        resume_text=RESUME,
+        consent_active=True,
+        job=make_job(),
+        config=config(),
     )
     audit: AuditChain = pipeline._audit
     actions = [entry.action for entry in audit.entries]

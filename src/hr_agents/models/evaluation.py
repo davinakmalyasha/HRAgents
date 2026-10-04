@@ -96,6 +96,16 @@ class EvaluationFlag(StrEnum):
     CERTIFICATION_MISMATCH = "certification_mismatch"
     INJECTION_SUSPECTED = "injection_suspected"
     CALENDAR_CONSTRAINT = "calendar_constraint"
+    CONSENT_MISSING = "consent_missing"
+    """No active consent for the purpose, so nothing was evaluated.
+
+    Distinct from a low score on purpose. Every other flag means "the model ran
+    and this is worth a person's attention"; this one means the model did not run,
+    because there is no lawful basis to send the document anywhere. Routing it to
+    a human is the correct outcome, but it must be legible as a data-protection
+    event rather than as a weak candidate -- otherwise the queue fills with
+    consent failures that look like rejections.
+    """
 
 
 class Recommendation(StrEnum):
