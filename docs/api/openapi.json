@@ -3361,6 +3361,7 @@
           "pending_approval",
           "denied",
           "approved",
+          "partial",
           "executed"
         ],
         "title": "ErasureStatus",

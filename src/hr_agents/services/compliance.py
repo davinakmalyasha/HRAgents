@@ -773,9 +773,24 @@ class ComplianceService:
             )
             revoked += 1
 
+        removed = sum(
+            1
+            for item in dispositions
+            if item.action in (DispositionAction.DELETED, DispositionAction.ANONYMIZED)
+        )
+        not_executed = sum(
+            1 for item in dispositions if item.action is DispositionAction.NOT_EXECUTED
+        )
+        retained = sum(
+            1 for item in dispositions if item.action is DispositionAction.RETAINED_LEGAL_HOLD
+        )
+
         updated = request.model_copy(
             update={
-                "status": ErasureStatus.EXECUTED,
+                # A request that removed nothing has not been executed. Reporting
+                # `EXECUTED` for it is the same lie as reporting `purged: 7` with
+                # seven `not_executed` rows, just one field further out.
+                "status": ErasureStatus.PARTIAL if not_executed else ErasureStatus.EXECUTED,
                 "executed_at": utc_now(),
                 "executed_by": actor.actor_id,
                 "dispositions": dispositions,
@@ -790,13 +805,16 @@ class ComplianceService:
             subject_id=str(updated.id),
             actor=actor,
             payload={
-                "purged": len(dispositions),
-                "retained_legal_hold": sum(
-                    1
-                    for item in dispositions
-                    if item.action is DispositionAction.RETAINED_LEGAL_HOLD
-                ),
+                # Only what a handler actually removed. The old total was
+                # `len(dispositions)`, which also counted records that were
+                # skipped for want of a handler and records held under legal
+                # hold -- so a chain entry could claim seven deletions while the
+                # audit recorded seven `not_executed` dispositions beside it.
+                "removed": removed,
+                "not_executed": not_executed,
+                "retained_legal_hold": retained,
                 "consents_revoked": revoked,
+                "status": updated.status.value,
             },
         )
         return updated

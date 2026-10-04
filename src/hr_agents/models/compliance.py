@@ -232,7 +232,21 @@ class ErasureStatus(StrEnum):
     PENDING_APPROVAL = "pending_approval"
     DENIED = "denied"
     APPROVED = "approved"
+    PARTIAL = "partial"
+    """Some records were removed and some were not.
+
+    A request whose only tracked records belong to entities with no registered
+    purge handler lands here rather than in ``EXECUTED``. Before this existed,
+    `execute_erasure` set ``EXECUTED`` unconditionally, so a request that deleted
+    zero bytes reported the same status as one that deleted everything -- and the
+    audit entry counted the skipped records in its ``purged`` total.
+    """
     EXECUTED = "executed"
+    """Every record either way: removed, anonymized, or deliberately retained.
+
+    Retention under legal hold is a correct outcome, not a shortfall, so it does
+    not make a request partial.
+    """
 
 
 class DispositionAction(StrEnum):

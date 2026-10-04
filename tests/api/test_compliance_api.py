@@ -292,7 +292,11 @@ def test_erasure_end_to_end_requires_human_approval() -> None:
         executed = client.post(f"/v1/compliance/erasures/{request_id}/execute", json={})
         assert executed.status_code == 200, executed.text
         body = executed.json()
-        assert body["status"] == "executed"
+        # `partial`, not `executed`: a candidate record has no registered store
+        # purge handler, so nothing was removed for it. This assertion used to be
+        # `"executed"` on the same body that reported a `not_executed`
+        # disposition -- the status field was the last place the lie survived.
+        assert body["status"] == "partial"
         assert body["consents_revoked"] == 1
         actions = {item["action"] for item in body["dispositions"]}
         # A candidate record has no registered store purge handler, so its

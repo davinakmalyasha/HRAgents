@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import compliance_tables as ct
@@ -56,6 +56,42 @@ class DbComplianceStore(ComplianceStore):
     def list_consents(self) -> list[ConsentGrant]:
         consents = list_models(self._session_factory, ConsentGrant, ct.ConsentRecordTable)
         return sorted(consents, key=lambda item: item.granted_at)
+
+    def delete_consent(self, consent_id: UUID) -> bool:
+        """Issue the DELETE. Without this the inherited dict version reported False.
+
+        The erasure workflow counts this return value and reads the handler's
+        detail string as proof the store was mutated, so a `False` here became a
+        `DELETED` disposition on the audit chain with the row still present.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            present = session.execute(
+                select(ct.ConsentRecordTable.id).where(ct.ConsentRecordTable.id == consent_id)
+            ).scalar_one_or_none()
+            if present is None:
+                return False
+            session.execute(
+                delete(ct.ConsentRecordTable).where(ct.ConsentRecordTable.id == consent_id)
+            )
+            return True
+
+    def redact_consent(self, consent_id: UUID) -> ConsentGrant | None:
+        """Blank the capture evidence in the database and return what was stored.
+
+        Kept as one write rather than a read-modify-write so the two backends
+        cannot drift on which fields count as evidence.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            session.execute(
+                update(ct.ConsentRecordTable)
+                .where(ct.ConsentRecordTable.id == consent_id)
+                .values(
+                    note="redacted on erasure",
+                    capture_method="redacted",
+                    captured_by="redacted",
+                )
+            )
+        return self.get_consent(consent_id)
 
     # retention policies (one active policy per entity)
     def save_policy(self, policy: RetentionPolicy) -> None:

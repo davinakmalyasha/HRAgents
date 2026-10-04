@@ -34,6 +34,89 @@ from hr_agents.models.offboarding import (
     OffboardingTemplate,
     OffboardingTemplateStep,
 )
+from hr_agents.services.people_store import ComplianceStore
+
+
+def _consent(subject_id: str = "cand-purge") -> ConsentGrant:
+    return ConsentGrant(
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id=subject_id,
+        purpose="recruitment_evaluation",
+        captured_by="hr-admin",
+        note="signed the paper form, kept in the filing cabinet",
+    )
+
+
+def test_the_postgres_store_can_delete_a_consent_grant(factory: sessionmaker[Session]) -> None:
+    """`delete_consent` must reach the database, not the inherited empty dict.
+
+    `DbComplianceStore` overrides `add_consent`, `save_consent`, `get_consent` and
+    `list_consents`, but not `delete_consent`. It therefore inherited the
+    in-memory implementation, which pops from `self._consents` -- a dict that
+    stays empty on this backend, because `add_consent` writes SQL.
+
+    So under Postgres the method returned `False` for a grant that existed. The
+    erasure handler counts the returns, and `_apply_purge` reads a non-empty
+    detail string as proof the store was mutated. The chain recorded `DELETED`
+    and the consent row survived: a data-protection workflow reporting success
+    on data it did not touch, in the one backend the shipped compose stack uses.
+    """
+    store = DbComplianceStore(factory)
+    consent = _consent()
+    store.add_consent(consent)
+
+    assert DbComplianceStore(factory).delete_consent(consent.id) is True
+    assert DbComplianceStore(factory).get_consent(consent.id) is None
+    assert [item.id for item in DbComplianceStore(factory).list_consents()] == []
+    # Deleting again is honestly False, not a second "success".
+    assert DbComplianceStore(factory).delete_consent(consent.id) is False
+
+
+def test_the_postgres_store_can_redact_a_consent_grant(factory: sessionmaker[Session]) -> None:
+    """Anonymize keeps the grant on record and blanks only the capture evidence.
+
+    Same inheritance bug as the delete above, and worse: `redact_consent`
+    returned `None`, the handler counted zero, and the retention record was
+    marked purged with the personal data still readable in the note field.
+    """
+    store = DbComplianceStore(factory)
+    consent = _consent("cand-anonymize")
+    store.add_consent(consent)
+
+    redacted = DbComplianceStore(factory).redact_consent(consent.id)
+    assert redacted is not None
+    assert redacted.note == "redacted on erasure"
+    assert redacted.captured_by == "redacted"
+    assert redacted.capture_method == "redacted"
+
+    stored = DbComplianceStore(factory).get_consent(consent.id)
+    assert stored is not None, "anonymize must keep the grant so the ledger still shows it"
+    assert stored.note == "redacted on erasure"
+    assert stored.subject_id == "cand-anonymize"
+
+
+def test_the_two_backends_agree_on_whether_a_consent_was_removed(
+    factory: sessionmaker[Session],
+) -> None:
+    """Both stores return the same answers, which is the property that mattered.
+
+    `docs/architecture/data-storage.md` treats the in-memory implementation as the
+    definition of the port and the Postgres adapter as an implementation of it.
+    These two methods disagreed on exactly one question -- did anything get
+    removed -- and the erasure workflow trusted the answer.
+    """
+    memory = ComplianceStore()
+    sql = DbComplianceStore(factory)
+
+    for store in (memory, sql):
+        store.add_consent(_consent("cand-parity"))
+
+    assert memory.delete_consent(memory.list_consents()[0].id) is True
+    assert sql.delete_consent(sql.list_consents()[0].id) is True
+    assert memory.list_consents() == []
+    assert sql.list_consents() == []
+    assert memory.redact_consent(uuid4()) is None
+    assert sql.redact_consent(uuid4()) is None
 
 
 def test_compliance_store_round_trip(factory: sessionmaker[Session]) -> None:

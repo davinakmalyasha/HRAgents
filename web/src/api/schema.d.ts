@@ -3870,7 +3870,7 @@ export interface components {
          * ErasureStatus
          * @enum {string}
          */
-        ErasureStatus: "received" | "pending_approval" | "denied" | "approved" | "executed";
+        ErasureStatus: "received" | "pending_approval" | "denied" | "approved" | "partial" | "executed";
         /** ErasureVerify */
         ErasureVerify: {
             /** Method */

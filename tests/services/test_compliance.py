@@ -597,6 +597,82 @@ def test_erasure_policy_action_delete(service: ComplianceService) -> None:
     assert service.get_record(record.id).purge_action is PurgeAction.DELETE
 
 
+def test_an_erasure_that_removed_nothing_is_partial_not_executed(
+    approvals: ApprovalEngine, audit: AuditChain
+) -> None:
+    """A candidate record has no purge handler, so nothing is removed for it.
+
+    `execute_erasure` set `status = EXECUTED` unconditionally and reported
+    `purged = len(dispositions)`. For a request whose only tracked record was a
+    candidate, that produced `{"status": "executed", "purged": 1}` on the
+    tamper-evident chain while the disposition beside it said `not_executed` and
+    the underlying record was still readable. The status and the count were the
+    two places the lie survived after the disposition itself became honest.
+
+    This builds its own service rather than using the `service` fixture, because
+    that fixture registers a recording handler for every entity -- which is not
+    the deployment's state. `PeopleServices.__post_init__` registers exactly one,
+    for `CONSENT`.
+    """
+    bare = ComplianceService(approvals=approvals, audit=audit)
+    track_candidate(bare, subject_id="cand-partial")
+    request = bare.create_erasure_request(
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id="cand-partial",
+        reason="subject request",
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    bare.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email")
+    submitted = bare.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
+    approval = approval_for(bare, submitted)
+    assert approval is not None
+    bare._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
+    bare.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
+
+    executed = bare.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert [item.action for item in executed.dispositions] == [DispositionAction.NOT_EXECUTED]
+    assert executed.status is ErasureStatus.PARTIAL
+
+    entry = next(item for item in audit.entries if item.action == "compliance.erasure_executed")
+    assert entry.payload["removed"] == 0
+    assert entry.payload["not_executed"] == 1
+    assert entry.payload["retained_legal_hold"] == 0
+    assert entry.payload["status"] == "partial"
+    assert "purged" not in entry.payload, (
+        "`purged` counted skipped and retained records; it must not come back"
+    )
+
+
+def test_a_fully_executed_erasure_is_still_executed(service: ComplianceService) -> None:
+    """Legal-hold retention is a correct outcome, so it does not make it partial."""
+    consent = service.record_consent(
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id="cand-clean",
+        purpose="recruitment_evaluation",
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    assert consent.granted is True
+
+    request = service.create_erasure_request(
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id="cand-clean",
+        reason="subject request",
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    service.verify_identity(request.id, actor=ActorRef.legacy("hr-admin"), method="email")
+    submitted = service.submit_for_decision(request.id, actor=ActorRef.legacy("hr-admin"))
+    approval = approval_for(service, submitted)
+    assert approval is not None
+    service._approvals.decide(approval.id, actor=ActorRef.legacy("dpo-nadia"), approve=True)
+    service.apply_decision(approval.id, actor=ActorRef.legacy("hr-admin"))
+
+    executed = service.execute_erasure(request.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert executed.status is ErasureStatus.EXECUTED
+    assert executed.consents_revoked == 1
+
+
 def test_agents_can_open_erasure_requests(service: ComplianceService) -> None:
     request = service.create_erasure_request(
         subject_kind=SubjectKind.CANDIDATE,
