@@ -26,8 +26,12 @@ from hr_agents.db import (  # noqa: F401
     tables,
     workspace_tables,
 )
-from hr_agents.db.base import Base
+from hr_agents.db.base import Base, ensure_tenant_indexes
 from hr_agents.db.rls import enable_tenant_rls_sql
+
+# The tenant indexes are attached by a hook on mapper configuration rather than
+# declared per table, so `create_all` below has to ask for them explicitly.
+ensure_tenant_indexes()
 
 TEST_DB_URL = os.environ.get("HRAGENTS_TEST_DB_URL")
 

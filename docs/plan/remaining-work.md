@@ -226,10 +226,10 @@ public holiday as a working day. Nothing reports either.
 
 Remaining in this area:
 
-- [ ] **Tenant indexes on the 41 pre-existing RLS tables.** The eight tables added in
-      `0014`–`0017` lead with `tenant_id`; the older ones still do not, so every
-      tenant-scoped read of them is a sequential scan and the isolation layer remains the
-      performance floor for most of the schema.
+- [x] **Tenant indexes on every RLS table.** All 45 tables now index `tenant_id`, and the
+      index is attached by `db.base.ensure_tenant_indexes()` as the mappers configure rather
+      than declared per table, so a table added later cannot miss it. Migration `0018`
+      brought the 35 older tables into line; `tests/db/test_tenant_indexes.py` is the guard.
 - [ ] **Payroll runs are not immutable.** A computed run can be recomputed in place, so
       `rate_table_ids` and the figures change after a human has seen them. A re-run should
       supersede the run, not rewrite it.

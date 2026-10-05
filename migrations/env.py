@@ -23,7 +23,12 @@ from hr_agents.db import (  # noqa: F401
     tables,
     workspace_tables,
 )
-from hr_agents.db.base import Base
+from hr_agents.db.base import Base, ensure_tenant_indexes
+
+# The tenant indexes are attached by a hook rather than declared per table, so the
+# metadata has to be final before Alembic compares it against the database -- which is
+# what `alembic check` does in CI.
+ensure_tenant_indexes()
 
 config = context.config
 
