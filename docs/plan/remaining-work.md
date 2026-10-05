@@ -174,9 +174,13 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 > transition + step audits), the API→worker→evaluation seam test,
 > `get_evaluation_breakdown` tool, and `scripts/verify_audit.py`.
 
-- [x] **Postgres-backed persistence for the new surfaces.** Every in-memory store has a
+- [~] **Postgres-backed persistence for the new surfaces.** Most in-memory stores have a
       Postgres adapter behind the same interface, selected by `HRAGENTS_STORE_BACKEND`;
-      the adapter suite runs on SQLite locally and PostgreSQL in CI.
+      the adapter suite runs on SQLite locally and PostgreSQL in CI. This item was
+      previously ticked `[x]` on the claim that *every* store had an adapter. That was
+      false: five services still hold their state only in a Python dict, so a restart
+      loses leave requests, payroll runs, onboarding templates and plans, the Ask HR
+      chat transcript, and cross-workspace requests. See §0.3.
 - [x] **Audit-chain persistence.** The chain is persisted in `audit_log` with identical
       hash semantics (`DbAuditChain`, tamper-detection tested) and verified by
       `scripts/verify_audit.py` (exit 1 on the first broken sequence). The ops scheduler
@@ -192,6 +196,40 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [x] **Application status transitions on worker processing.** `EvaluationJobHandler`
       marks `processing` on claim, audits `worker.processing`/`worker.failed`/
       `worker.completed`, and evaluation registration syncs the terminal status.
+
+---
+
+## 0.3 Persistence for the five stateful services (was claimed done; is not)
+
+> **Why this is next.** The dashboards for leave, payroll, offboarding and Ask HR all read
+> these stores. A container restart, a worker recycle or a second replica silently empties
+> them, and the product's central promise -- every decision reconstructible -- does not
+> survive a deploy. This is data loss, not a missing feature.
+
+Found by reading the services rather than the docs. Each has an in-process dict and no
+Postgres adapter, so the `HRAGENTS_STORE_BACKEND` switch does nothing for them:
+
+| Service | Lost on restart | Blast radius |
+|---|---|---|
+| `LeaveService._requests` | leave requests, approvals, balances | employee loses an approved request; manager re-approves |
+| `PayrollService._runs` | computed payslips, anomalies, sign-off state | **a payroll is recomputed from different rate tables** |
+| `OnboardingService._templates`/`_plans` | checklist templates and per-hire progress | offboarding steps silently un-waived |
+| `ChatService._items` | the Ask HR transcript | an answer the employee was given cannot be shown again |
+| `WorkspaceRequestStore._items` | cross-workspace handoffs | a handoff vanishes mid-workflow |
+
+Also open alongside these:
+
+- [ ] **No tenant index on any of the 35 RLS tables.** Row-level security filters every
+      query by tenant, but with no index on the tenant column each one is a sequential
+      scan of the whole table, so the security layer is also the performance floor.
+- [ ] **Payroll runs are not immutable.** A computed run can be recomputed in place, so
+      `rate_table_ids` and the figures change after a human has seen them. A re-run should
+      supersede the run, not rewrite it.
+- [ ] **No pagination on 43 of 45 list endpoints**, and most DB lists are
+      `select(Table)` with no `LIMIT` followed by a Python `sorted`.
+- [ ] **No optimistic concurrency.** `db/mapping.py` read-modify-writes with no version
+      predicate, so two concurrent `complete_step` calls lose one; a mid-loop erasure
+      failure leaves a half-erased state.
 
 ---
 

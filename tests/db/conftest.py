@@ -21,6 +21,7 @@ from hr_agents.db import (  # noqa: F401
     offers_tables,
     people_tables,
     tables,
+    workspace_tables,
 )
 from hr_agents.db.base import Base
 from hr_agents.db.rls import enable_tenant_rls_sql

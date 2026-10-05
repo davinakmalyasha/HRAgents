@@ -607,8 +607,27 @@ not a style opinion.
    dead code (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`,
    `AUDIT_READ`, `ADMIN_MANAGE`). A `manager` can waive offboarding steps and finalize an
    employee exit.
-5. **`money` is `float` with banker's rounding**; `round(0.125, 2) == 0.12`. A rupiah can
-   be lost, and the XLSX totals row can disagree with the sum of its own lines.
+5. ~~**`money` is `float` with banker's rounding**; `round(0.125, 2) == 0.12`. A rupiah can
+   be lost, and the XLSX totals row can disagree with the sum of its own lines.~~ **Fixed, and
+   the audit underneath it was worse than the rounding.** `models/money.py` makes money a
+   `Decimal` quantised to two places, `ROUND_HALF_UP`, serialising back to a JSON number so the
+   wire format is unchanged; `PayrollLine.check_invariants()` asserts gross, deductions, net and
+   employer cost against their components, and the XLSX exporter stopped re-summing employer cost
+   with `round()`. Fixing the arithmetic exposed six further payroll defects, all now fixed:
+   **TER was not progressive** (one bracket's rate applied to the whole gross -- Rp 17,880,000 per
+   employee per year on a Rp 20,000,000 monthly gross) and **returned `0.0` above the top bracket**,
+   silently exempting the highest earners; **`absence_days` was collected, validated, persisted and
+   exposed in OpenAPI but never read**; **overtime's 1.5x tier was one hour per month instead of per
+   day** (UU 13/2003 Pasal 56(2)); **rate tables were selected by taking the last of a list sorted by
+   name**, so back-running a period used current rates and recorded them as provenance; **`RateEntry.key`
+   was never read**, so a keyed BPJS JKK table charged its first row to everyone. The audit also found
+   **`PayrollRunKind.THR` had no arithmetic behind it at all** -- a THR run produced an identical
+   monthly payslip labelled as a termination payout -- plus **PTKP never applied** and **`minimum_wage`
+   never read**, both of which the enum had carried since the start. THR, PTKP and minimum wage are
+   now implemented against verified tables, and the hardcoded constants (`HOURLY_DIVISOR = 173`, the
+   1.5/2.0 overtime multipliers) are gone with no fallback: a missing rate-table row blocks. The one
+   deliberate gap left is BPJS treatment of THR, which is not derivable from the monthly tables and
+   raises a blocking `thr_bpjs_unmodelled` anomaly for a named human to settle.
 6. **No `CHECK` constraint exists anywhere in 35 tables** and 8 tables have no foreign
    keys, so a direct write or a restore can produce states the domain cannot represent.
 7. **43 of 45 list endpoints are unpaginated**, and nearly every DB list is

@@ -18,6 +18,7 @@ from hr_agents.db import (  # noqa: F401
     offers_tables,
     people,
     tables,
+    workspace_tables,
 )
 from hr_agents.db.base import Base
 

@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents import __version__
 from hr_agents.agents.runtime import AgentRuntime
@@ -44,18 +45,19 @@ from hr_agents.db import create_sync_engine, create_sync_session_factory
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.messaging import candidate_directory, reply_store
+from hr_agents.db.workspace import DbConversationStore, DbWorkspaceRequestStore
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
 from hr_agents.models import ApproverRole
 from hr_agents.queue import QueueUnavailableError, resolve_queue_backend
 from hr_agents.rbac import validate_approver_coverage
 from hr_agents.services import ApplicationStore, AuditChain
-from hr_agents.services.chat import ChatService
+from hr_agents.services.chat import ChatService, ConversationStore
 from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
 from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.recruiting import RecruitingServices
-from hr_agents.services.workspace_requests import HandoffService
+from hr_agents.services.workspace_requests import HandoffService, WorkspaceRequestStore
 from hr_agents.workspaces import default_registry
 
 logger = get_logger(__name__)
@@ -97,13 +99,23 @@ async def _build_chat(app: FastAPI, agents: AgentSet | None) -> None:
         return
     try:
         registry = default_registry()
+        session_factory: sessionmaker[Session] | None = getattr(app.state, "session_factory", None)
+        if session_factory is None:
+            conversations: ConversationStore = ConversationStore()
+            requests: WorkspaceRequestStore = WorkspaceRequestStore()
+        else:
+            conversations = DbConversationStore(session_factory)
+            requests = DbWorkspaceRequestStore(session_factory)
         app.state.chat = ChatService(
             front_door=FrontDoor(registry),
             responder=agents.policy,
             audit=app.state.audit,
             tools=agents.tools,
+            conversations=conversations,
         )
-        app.state.handoffs = HandoffService(registry=registry, audit=app.state.audit)
+        app.state.handoffs = HandoffService(
+            registry=registry, audit=app.state.audit, store=requests
+        )
         logger.info("chat_ready", workspaces=len(registry.list_all()))
     except Exception as exc:
         logger.warning("chat_unavailable", error=type(exc).__name__, detail=str(exc))
@@ -227,6 +239,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         session_factory = None
         audit = AuditChain()
         store = ApplicationStore()
+    # Published so the chat/handoff stores, which are built later in the lifespan,
+    # can reach the same factory. Without it they had no way to be durable: they
+    # held their state in dicts and a restart emptied the Ask HR transcript.
+    app.state.session_factory = session_factory
 
     app.state.store = store
     app.state.audit = audit
