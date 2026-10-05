@@ -10,7 +10,7 @@ import os
 from collections.abc import Iterator
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -67,6 +67,16 @@ def factory(pg_factory: sessionmaker[Session] | None) -> Iterator[sessionmaker[S
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+
+    # SQLite ignores foreign keys unless this pragma is set per connection, so an
+    # adapter that inserted a row pointing at an in-memory id passed locally and
+    # failed on Postgres in CI. Turning it on makes the local run match the database
+    # the code actually runs against, which is the whole point of running the same
+    # suite on both.
+    @event.listens_for(engine, "connect")
+    def _enforce_foreign_keys(dbapi_connection: object, _record: object) -> None:
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")  # type: ignore[attr-defined]
+
     Base.metadata.create_all(engine)
     yield sessionmaker(engine, expire_on_commit=False, autoflush=False)
     engine.dispose()

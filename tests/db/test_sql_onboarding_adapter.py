@@ -14,6 +14,7 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.onboarding import DbOnboardingService
+from hr_agents.db.people import DbEmployeeStore
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ContractType,
@@ -28,7 +29,7 @@ from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.onboarding import OnboardingError
-from hr_agents.services.people_store import ApprovalStore, EmployeeStore, TaskStore
+from hr_agents.services.people_store import ApprovalStore, TaskStore
 from hr_agents.services.tasks import TaskEngine
 
 TODAY = date.today()
@@ -38,7 +39,9 @@ ACTOR = ActorRef.legacy("hr-admin")
 def _service(factory: sessionmaker[Session]) -> DbOnboardingService:
     audit = AuditChain()
     approvals = ApprovalEngine(ApprovalStore(), audit=audit)
-    employees = EmployeeService(EmployeeStore(), audit=audit, approvals=approvals)
+    # onboarding_plans.employee_id is a foreign key, so the employee has to be a
+    # real row: SQLite does not enforce foreign keys unless asked to.
+    employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     tasks = TaskEngine(TaskStore(), audit=audit)
     return DbOnboardingService(factory, employees=employees, tasks=tasks, audit=audit)
 

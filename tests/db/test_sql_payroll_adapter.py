@@ -16,6 +16,7 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.payroll import DbPayrollService
+from hr_agents.db.people import DbEmployeeStore
 from hr_agents.identity import ActorRef
 from hr_agents.models import Employee, PayrollRunKind, PayrollRunStatus, RateEntry, RateTableKind
 from hr_agents.models.money import money
@@ -24,7 +25,7 @@ from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.payroll import PayrollError
-from hr_agents.services.people_store import ApprovalStore, EmployeeStore, RateTableStore
+from hr_agents.services.people_store import ApprovalStore, RateTableStore
 from hr_agents.services.rate_tables import RateTableService
 
 TODAY = date.today()
@@ -38,7 +39,9 @@ def _parts(
 ) -> tuple[DbPayrollService, EmployeeService, RateTableService]:
     audit = AuditChain()
     approvals = ApprovalEngine(ApprovalStore(), audit=audit)
-    employees = EmployeeService(EmployeeStore(), audit=audit, approvals=approvals)
+    # payroll_lines.employee_id is a foreign key, so the employee has to be a real
+    # row rather than an in-memory one: SQLite does not enforce FKs unless asked.
+    employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     rates = RateTableService(RateTableStore(), audit=audit)
     return (
         DbPayrollService(

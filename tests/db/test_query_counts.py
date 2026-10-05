@@ -323,6 +323,57 @@ def test_a_closed_task_does_not_count_as_an_open_reminder(
 # --- evaluation lookups ------------------------------------------------------
 
 
+def _seed_parents(
+    factory: sessionmaker[Session],
+    candidate_ids: list[UUID],
+    job_id: UUID,
+    application_ids: list[UUID],
+) -> None:
+    """Insert the ``candidates``/``jobs``/``applications`` rows the evaluations point at.
+
+    ``evaluations`` has real foreign keys to all three. These tests only ever counted
+    statements, so they registered evaluations against random ids with no parent rows --
+    which SQLite allowed, because it ignores foreign keys unless ``PRAGMA
+    foreign_keys=ON``, and PostgreSQL rejected. The pragma is now on, so the parents
+    exist and the row counts under test are unchanged.
+    """
+    from hr_agents.db.session import sync_session_scope
+    from hr_agents.db.tables import Application, Candidate, Job
+    from hr_agents.models import ConsentRecord
+
+    consent = ConsentRecord(granted=True).model_dump(mode="json")
+    with sync_session_scope(factory) as session:
+        session.add_all(
+            [
+                Candidate(
+                    id=candidate_id,
+                    full_name=f"Candidate {index}",
+                    consent=consent,
+                    profile={},
+                    field_confidence={},
+                )
+                for index, candidate_id in enumerate(candidate_ids)
+            ]
+        )
+        session.add(
+            Job(id=job_id, title="Backend Engineer", seniority="mid", status="open", spec={})
+        )
+        # Every application hangs off the first candidate; the evaluations point at
+        # the application ids, which is what this test counts a lookup for.
+        session.add_all(
+            [
+                Application(
+                    id=application_id,
+                    candidate_id=candidate_ids[0],
+                    job_id=job_id,
+                    status="received",
+                    source_channel="direct",
+                )
+                for application_id in application_ids
+            ]
+        )
+
+
 def test_finding_a_evaluation_by_candidate_is_one_query(
     factory: sessionmaker[Session], counter: dict[str, int]
 ) -> None:
@@ -336,10 +387,13 @@ def test_finding_a_evaluation_by_candidate_is_one_query(
     evaluations = DbEvaluationService(session_factory=factory, audit=DbAuditChain(factory))
     job_id = uuid4()
     wanted = uuid4()
-    for index in range(30):
+    candidate_ids = [wanted if index == 17 else uuid4() for index in range(30)]
+    application_ids = [uuid4() for _ in range(30)]
+    _seed_parents(factory, candidate_ids, job_id, application_ids)
+    for index, candidate_id in enumerate(candidate_ids):
         evaluations.register(
-            application_id=uuid4(),
-            evaluation=_technical_evaluation(wanted if index == 17 else uuid4(), job_id),
+            application_id=application_ids[index],
+            evaluation=_technical_evaluation(candidate_id, job_id),
             candidate_name=f"Candidate {index}",
             job_title="Backend Engineer",
         )
@@ -361,10 +415,13 @@ def test_finding_a_evaluation_by_application_is_one_query(
     evaluations = DbEvaluationService(session_factory=factory, audit=DbAuditChain(factory))
     job_id = uuid4()
     wanted = uuid4()
-    for index in range(30):
+    candidate_ids = [uuid4() for _ in range(30)]
+    application_ids = [wanted if index == 5 else uuid4() for index in range(30)]
+    _seed_parents(factory, candidate_ids, job_id, application_ids)
+    for index, candidate_id in enumerate(candidate_ids):
         evaluations.register(
-            application_id=wanted if index == 5 else uuid4(),
-            evaluation=_technical_evaluation(uuid4(), job_id),
+            application_id=application_ids[index],
+            evaluation=_technical_evaluation(candidate_id, job_id),
             candidate_name=f"Candidate {index}",
             job_title="Backend Engineer",
         )

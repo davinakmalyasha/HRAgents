@@ -134,7 +134,15 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("day", sa.Date(), nullable=False),
         sa.Column("note", sa.Text(), nullable=True),
-        *_timestamps(),
+        # `created_at` only. `set_holidays` replaces the whole calendar, so a
+        # holiday row is never updated in place and there is no `updated_at` to keep
+        # honest -- one less column to drift out of sync with the model.
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.Column(
             "tenant_id",
             sa.Uuid(),

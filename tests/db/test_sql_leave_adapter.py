@@ -15,6 +15,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.leave import DbLeaveService
+from hr_agents.db.people import DbEmployeeStore
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     AccrualMethod,
@@ -27,7 +28,7 @@ from hr_agents.models import (
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
-from hr_agents.services.people_store import ApprovalStore, EmployeeStore
+from hr_agents.services.people_store import ApprovalStore
 
 TODAY = date.today()
 ACTOR = ActorRef.legacy("hr-admin")
@@ -37,7 +38,10 @@ YEAR = TODAY.year
 def _service(factory: sessionmaker[Session]) -> DbLeaveService:
     audit = AuditChain()
     approvals = ApprovalEngine(ApprovalStore(), audit=audit)
-    employees = EmployeeService(EmployeeStore(), audit=audit, approvals=approvals)
+    # The employee must be a real row: leave_requests.employee_id is a foreign
+    # key, and SQLite does not enforce foreign keys unless asked to -- so an
+    # in-memory employee passed locally and failed on Postgres in CI.
+    employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     return DbLeaveService(factory, employees=employees, approvals=approvals, audit=audit)
 
 
