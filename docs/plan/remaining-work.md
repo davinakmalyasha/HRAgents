@@ -263,12 +263,26 @@ Remaining in this area:
 > name does not change the shape of the score distribution. It proves the
 > arithmetic is invariant; the risk is in the *extraction* and the *rubric*.
 >
-> **What has changed.** The sub-floor band no longer auto-rejects. `REJECT_AUTO`
-> now maps to `Recommendation.REJECT_REQUIRES_SIGNOFF`, and
-> `RecruitingService._require_rejection_proof` refuses to emit rejection
-> communications until a named human has recorded a decision. The rubric is still
-> wrong for non-engineering roles — the damage is now a human being handed a bad
-> recommendation instead of the candidate being discarded unattended.
+> **What has changed.** Two things, and they are different.
+>
+> The sub-floor band no longer auto-rejects. `REJECT_AUTO` now maps to
+> `Recommendation.REJECT_REQUIRES_SIGNOFF`, and `RecruitingService._require_rejection_proof`
+> refuses to emit rejection communications until a named human has recorded a decision.
+>
+> The **rubric** is now per-family. `services/dimensions.py` holds a `DimensionTemplate` for each
+> `JobFamily` (engineering, finance, education, healthcare, legal, operations, sales, general),
+> selected by `JobSpecification.job_family`, which defaults to `ENGINEERING` so every job created
+> before the field existed is scored exactly as it was. The measured failure profile — an eight-year
+> accounting supervisor matching 4/4 stated requirements, `systems_literacy` **0.000**, `S_tech`
+> 0.5425 → `REJECT_AUTO` — now scores 0.737 and is routed to a person.
+> `tests/services/test_scoring_families.py` is the guard, built on realistic per-occupation evidence
+> that the calibration corpus does not contain; the corpus and the exact-arithmetic assertions in
+> `test_scoring.py` are the guard that engineering did not move.
+>
+> **What is deliberately unchanged.** The axes are still S ∈ [0,1]^4. A template varies *which evidence
+> counts*, not how many dimensions there are, because those four names are persisted in `evaluations`,
+> published in the OpenAPI document, rendered in the dashboard and translated in two locales. Turning
+> the dimension *list* into data is still open below.
 >
 > **Measured baseline** (`evals/scoring_calibration.py`, synthetic, four
 > occupations × strong/adequate/weak plus a tenured misfit each). `S_tech`:
@@ -281,18 +295,30 @@ Remaining in this area:
 >   person or flagged. This is safe now that the floor prompts for sign-off, but
 >   the automation the product describes does not fire.
 > - **Tenure can outweigh fit.** For teaching, a tenured misfit (`0.732`) scores
->   *above* an adequate match (`0.614`). `technical_depth` now puts `0.4375` of a
->   dimension on tenure, so a long history in the wrong field is still rewarded.
->   Only per-family dimension templates fix this; do not paper over it with a
->   global weight tweak.
+>   *above* an adequate match (`0.614`). The education template now puts `0.65` of its depth weight
+>   on tenure and zeroes `projects` and `publications`, which *increases* the risk rather than
+>   removing it: for a family with no rich evidence model of its own, tenure is the only signal
+>   available. This is the open problem below, and it is not solved by per-family templates.
 
+- [x] **`DimensionTemplate` registry keyed by job family** — `services/dimensions.py`, eight families,
+      selected by `JobSpecification.job_family`. Every family declares its competency areas, signal
+      keywords, title ladder, depth vocabulary, breadth saturation and internal weights; `JobFamily` is
+      checked against the registry at import so a family cannot fall back silently.
 - [ ] **`DimensionTemplate` as data, not code**: `{job_family, dimensions: [{key, weight, scorer,
       evidence_requirement}], thresholds}` — versioned, audited, and snapshotted into every
       evaluation. The scorer stays deterministic; only the dimension list becomes data.
+- [ ] **Version and snapshot the rubric on the evaluation.** `evaluations` records which rate tables
+      a payroll used; it records nothing about which rubric scored a candidate. A template edited next
+      month makes last month's `S_tech` unreproducible, which is the same failure the payroll rate-table
+      provenance work fixed for money.
 - [ ] **Composable primitive scorers with per-family taxonomies**: `evidence_count`,
       `evidence_density(taxonomy)`, `tenure_saturation(cap)`, `credential_registry(family)`,
       `title_seniority_tiers(family)`. A single per-family keyword taxonomy is the change that makes
       the model general.
+- [ ] **Tenure must not outweigh fit.** The remaining construct-validity problem: with no rich evidence
+      model for a family, tenure becomes the default answer. Needs a role-specific sufficiency test
+      ("has this person actually done this job") scored independently of how long they have been
+      employed.
 - [ ] **Evidence-first scoring**: a dimension contributes nothing without at least one `EvidenceRef`
       above a confidence floor. Structurally kills a whole class of extraction-failure silent passes.
 - [ ] **Real credential registries per family** (BNSP, AWS/Google/Azure, ACCA/CPA/CFA). Today

@@ -24,6 +24,14 @@ from hr_agents.models import (
     StrictModel,
     VerificationStatus,
 )
+from hr_agents.services.dimensions import (
+    CERT_COUNT_SATURATION,
+    PROJECT_SATURATION,
+    PUBLICATION_SATURATION,
+    TENURE_SATURATION_MONTHS,
+    DimensionTemplate,
+    template_for,
+)
 
 # --- Skill normalization -------------------------------------------------------
 
@@ -52,70 +60,11 @@ _ALIASES: dict[str, str] = {
     "llms": "llm",
 }
 
-_ARCHITECTURE_KEYWORDS = (
-    "api",
-    "distributed",
-    "queue",
-    "cache",
-    "scaling",
-    "microservice",
-    "kubernetes",
-    "docker",
-    "ci/cd",
-    "observability",
-    "latency",
-    "throughput",
-    "postgres",
-    "redis",
-    "kafka",
-    "event-driven",
-)
-
-_SENIORITY_TIERS: tuple[tuple[frozenset[str], float], ...] = (
-    (frozenset({"principal", "architect", "head", "director", "vp"}), 1.0),
-    (frozenset({"lead", "staff"}), 0.9),
-    (frozenset({"senior", "sr"}), 0.8),
-    (frozenset({"engineer", "developer", "programmer"}), 0.6),
-    (frozenset({"junior", "jr", "intern", "trainee"}), 0.3),
-)
-
-# Internal dimension composition weights (fixed by design, auditable).
-#
-# ``publications`` was 0.15 here, which capped ``technical_depth`` at exactly 0.85
-# for anyone who had not published three papers: tenure + breadth + projects sum to
-# 0.85, so a non-publisher could not score full marks on this dimension no matter
-# how deep their work actually was. That measures proximity to academia, applied to
-# every occupation -- including teaching, finance and sales, where it is not
-# evidence of anything.
-#
-# Halved rather than removed, because research output genuinely does signal depth
-# for some roles. The freed 0.15 is split evenly to tenure and breadth, which every
-# occupation has evidence for, lifting the non-publisher ceiling to 0.925.
-# 0.4375 / 0.3375 are exactly "half of publications, split in two" rather than
-# round numbers chosen to hit a target.
-#
-# What this does and does not do, measured against evals/scoring_calibration.py: it
-# raises every non-publisher's score by roughly +0.025 and moves no corpus case
-# across a decision boundary -- strong candidates already cleared the 0.70
-# soft-rejection floor under the old weights. The change removes a structural
-# ceiling; it does not rescue any specific candidate. See
-# tests/services/test_scoring_calibration.py for the fences.
-_TECH_W = {
-    "tenure": 0.4375,
-    "breadth": 0.3375,
-    "projects": 0.15,
-    "publications": 0.075,
-}
-_SYSTEMS_W = {"categories": 0.50, "keywords": 0.30, "seniority": 0.20}
-
-_SYSTEMS_CATEGORIES = frozenset({"database", "devops", "cloud", "systems", "data"})
-
-_TENURE_SATURATION_MONTHS = 60.0
-_BREADTH_SATURATION_SKILLS = 12.0
-_PROJECT_SATURATION = 3.0
-_PUBLICATION_SATURATION = 3.0
-_KEYWORD_SATURATION = 6
-_CERT_COUNT_SATURATION = 3.0
+# The engineering vocabulary -- architecture keywords, title tiers, the competency-area
+# list and the four depth weights -- now lives in ``dimensions.ENGINEERING``, with a
+# template per other occupation family. The saturation points are shared, in
+# ``dimensions``, because "how much evidence is enough" is a property of the evidence
+# rather than of the occupation.
 
 
 class ScoringResult(StrictModel):
@@ -161,6 +110,21 @@ def _candidate_terms(profile: CandidateProfile) -> set[str]:
     return terms
 
 
+def _breadth_terms(profile: CandidateProfile, template: DimensionTemplate) -> set[str]:
+    """What counts as breadth for this occupation.
+
+    Every term the candidate presents, when the template has no vocabulary -- which is
+    engineering, and must stay `len(_candidate_terms(...))` exactly. When the template
+    *does* have one, breadth is the intersection with it, so that a finance candidate is
+    measured on accounting standards they have worked in rather than on how many tools
+    they have touched.
+    """
+    terms = _candidate_terms(profile)
+    if not template.breadth_vocabulary:
+        return terms
+    return terms & template.breadth_vocabulary
+
+
 def _coverage(required: set[str], available: set[str]) -> float:
     if not required:
         return 0.0
@@ -182,24 +146,28 @@ def _evidence_pool(profile: CandidateProfile) -> list[EvidenceRef]:
     return pool[:10]
 
 
-def _technical_depth(profile: CandidateProfile, reference_date: date) -> DimensionScore:
+def _technical_depth(
+    profile: CandidateProfile, reference_date: date, template: DimensionTemplate
+) -> DimensionScore:
     months = _experience_months(profile, reference_date)
-    terms = _candidate_terms(profile)
+    terms = _breadth_terms(profile, template)
 
-    tenure = min(months / _TENURE_SATURATION_MONTHS, 1.0)
-    breadth = min(len(terms) / _BREADTH_SATURATION_SKILLS, 1.0)
-    projects = min(len(profile.projects) / _PROJECT_SATURATION, 1.0)
-    publications = min(len(profile.publications) / _PUBLICATION_SATURATION, 1.0)
+    tenure = min(months / float(TENURE_SATURATION_MONTHS), 1.0)
+    breadth = min(len(terms) / float(template.breadth_saturation), 1.0)
+    projects = min(len(profile.projects) / float(PROJECT_SATURATION), 1.0)
+    publications = min(len(profile.publications) / float(PUBLICATION_SATURATION), 1.0)
 
+    weights = template.depth_weights
     score = (
-        _TECH_W["tenure"] * tenure
-        + _TECH_W["breadth"] * breadth
-        + _TECH_W["projects"] * projects
-        + _TECH_W["publications"] * publications
+        float(weights["tenure"]) * tenure
+        + float(weights["breadth"]) * breadth
+        + float(weights["projects"]) * projects
+        + float(weights["publications"]) * publications
     )
+    unit = "distinct technologies" if not template.breadth_vocabulary else "domain areas"
     rationale = (
         f"{months} months experience (tenure {tenure:.2f}; saturates at "
-        f"{int(_TENURE_SATURATION_MONTHS)}), {len(terms)} distinct technologies "
+        f"{int(TENURE_SATURATION_MONTHS)}), {len(terms)} {unit} "
         f"(breadth {breadth:.2f}), {len(profile.projects)} projects, "
         f"{len(profile.publications)} publications"
     )
@@ -253,33 +221,35 @@ def _stack_alignment(profile: CandidateProfile, job: JobSpecification) -> Dimens
     )
 
 
-def _systems_literacy(profile: CandidateProfile) -> DimensionScore:
+def _systems_literacy(profile: CandidateProfile, template: DimensionTemplate) -> DimensionScore:
+    """The professional dimension: evidence this candidate understands their field whole.
+
+    Every input here is the occupation's, via the template. It previously read a
+    software-only skill-category list, sixteen architecture keywords and a title-tier
+    list made of software words, which combined to score a career accountant **exactly
+    zero** -- not low, zero -- and put them below the automatic-rejection floor.
+    """
     categories = {skill.category for skill in profile.skills}
-    category_hits = len(categories & _SYSTEMS_CATEGORIES)
-    category_component = category_hits / len(_SYSTEMS_CATEGORIES)
+    hits = categories & template.professional_categories
+    category_component = len(hits) / len(template.professional_categories)
 
     highlights = " ".join(h.lower() for entry in profile.experience for h in entry.highlights)
-    keyword_hits = sum(1 for keyword in _ARCHITECTURE_KEYWORDS if keyword in highlights)
-    keyword_component = min(keyword_hits / _KEYWORD_SATURATION, 1.0)
+    keyword_hits = sum(1 for keyword in template.signal_keywords if keyword in highlights)
+    keyword_component = min(keyword_hits / template.signal_saturation, 1.0)
 
     titles = " ".join(entry.title.lower() for entry in profile.experience)
-    seniority_component = 0.0
-    matched_tier = "unranked"
-    for tokens, value in _SENIORITY_TIERS:
-        if any(token in titles for token in tokens):
-            seniority_component = value
-            matched_tier = sorted(tokens)[0]
-            break
+    seniority_component, matched_tier = template.tier_for(titles)
 
+    weights = template.systems_weights
     score = (
-        _SYSTEMS_W["categories"] * category_component
-        + _SYSTEMS_W["keywords"] * keyword_component
-        + _SYSTEMS_W["seniority"] * seniority_component
+        float(weights["categories"]) * category_component
+        + float(weights["keywords"]) * keyword_component
+        + float(weights["seniority"]) * seniority_component
     )
     rationale = (
-        f"{category_hits}/{len(_SYSTEMS_CATEGORIES)} systems categories present, "
-        f"{keyword_hits} architecture signals (saturates at {_KEYWORD_SATURATION}), "
-        f"seniority signal: {matched_tier}"
+        f"{len(hits)}/{len(template.professional_categories)} {template.family.value} "
+        f"competency areas present, {keyword_hits} professional signals "
+        f"(saturates at {template.signal_saturation}), seniority signal: {matched_tier}"
     )
     return DimensionScore(
         dimension=ScoreDimension.SYSTEMS_LITERACY,
@@ -305,7 +275,7 @@ def _verifiable_certifications(profile: CandidateProfile) -> DimensionScore:
     expired = sum(1 for cert in claims if cert.status is VerificationStatus.EXPIRED)
     failed = sum(1 for cert in claims if cert.status is VerificationStatus.FAILED)
     verified_fraction = verified / len(claims)
-    count_component = min(len(claims) / _CERT_COUNT_SATURATION, 1.0)
+    count_component = min(len(claims) / float(CERT_COUNT_SATURATION), 1.0)
 
     score = 0.7 * verified_fraction + 0.3 * count_component
     rationale = (
@@ -336,14 +306,18 @@ def score_candidate(
 
     ``reference_date`` is required for reproducibility of tenure math for
     candidates with ongoing roles; tests must pass a fixed date.
+
+    The rubric comes from ``job.job_family``. It defaults to engineering, so every job
+    created before that field existed is scored exactly as it was.
     """
     ref = reference_date or date.today()
     weights = job.effective_weights()
+    template = template_for(job.job_family)
 
     breakdown = [
-        _technical_depth(profile, ref),
+        _technical_depth(profile, ref, template),
         _stack_alignment(profile, job),
-        _systems_literacy(profile),
+        _systems_literacy(profile, template),
         _verifiable_certifications(profile),
     ]
 

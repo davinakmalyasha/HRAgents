@@ -4275,6 +4275,8 @@ export interface components {
             dimension_weights?: {
                 [key: string]: number;
             } | null;
+            /** @default engineering */
+            job_family: components["schemas"]["JobFamily"];
             /**
              * Min Years Experience
              * @default 0
@@ -4296,6 +4298,19 @@ export interface components {
             title: string;
         };
         /**
+         * JobFamily
+         * @description The occupation a role belongs to, which selects the scoring rubric.
+         *
+         *     This is a property of the *role*, not of the workspace. `WorkspaceId` decides which
+         *     agents and tools a department sees; `JobFamily` decides what counts as evidence of
+         *     competence. They are different things and are named differently on purpose.
+         *
+         *     `ENGINEERING` is the default so every job created before this field existed is scored
+         *     by exactly the rubric it was always scored by. The calibration corpus pins that.
+         * @enum {string}
+         */
+        JobFamily: "engineering" | "finance" | "education" | "healthcare" | "legal" | "operations" | "sales" | "general";
+        /**
          * JobStatus
          * @enum {string}
          */
@@ -4312,6 +4327,7 @@ export interface components {
             dimension_weights?: {
                 [key: string]: number;
             } | null;
+            job_family?: components["schemas"]["JobFamily"] | null;
             /** Min Years Experience */
             min_years_experience?: number | null;
             /** Must Have Skills */
@@ -4346,6 +4362,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            job_family: components["schemas"]["JobFamily"];
             location: components["schemas"]["Location"] | null;
             /** Min Years Experience */
             min_years_experience: number;

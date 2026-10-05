@@ -4,6 +4,7 @@ export type JobView = components['schemas']['JobView']
 export type JobStatus = components['schemas']['JobStatus']
 export type ScoreDimension = components['schemas']['ScoreDimension']
 export type Seniority = components['schemas']['Seniority']
+export type JobFamily = components['schemas']['JobFamily']
 
 export const JOB_STATUSES = [
   'draft',
@@ -20,6 +21,26 @@ export const SENIORITIES = [
   'lead',
   'principal',
 ] as const satisfies readonly Seniority[]
+
+/**
+ * Occupation families, which select the scoring rubric on the server.
+ *
+ * Every value here has a `DimensionTemplate` (`services/dimensions.py`), so a family
+ * cannot be picked in the UI and then score by evidence it has no vocabulary for. The
+ * server rejects an unknown family outright rather than falling back.
+ */
+export const JOB_FAMILIES = [
+  'engineering',
+  'finance',
+  'education',
+  'healthcare',
+  'legal',
+  'operations',
+  'sales',
+  'general',
+] as const satisfies readonly JobFamily[]
+
+export const DEFAULT_JOB_FAMILY: JobFamily = 'engineering'
 
 export const DIMENSIONS = [
   'technical_depth',

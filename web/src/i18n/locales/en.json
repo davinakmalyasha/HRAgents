@@ -154,7 +154,9 @@
       "actions": "Actions",
       "weights": "Dimension weights",
       "weightsHelp": "Non-negative, summing to 1.0; recorded per job for reproducible scoring.",
-      "savedBy": "Saved by"
+      "savedBy": "Saved by",
+      "jobFamily": "Occupation family",
+      "jobFamilyHint": "Selects the scoring rubric. Candidates are measured against the evidence their own field produces."
     },
     "weightsTotal": "Total: {{total}}",
     "status": {
@@ -195,6 +197,16 @@
       "conflict": "The job changed elsewhere or is closed — reload and try again.",
       "failed": "Could not save the job. Please try again.",
       "transitionFailed": "Could not change the status. Please try again."
+    },
+    "family": {
+      "engineering": "Engineering",
+      "finance": "Finance & Accounting",
+      "education": "Education",
+      "healthcare": "Healthcare",
+      "legal": "Legal",
+      "operations": "Operations & Supply Chain",
+      "sales": "Sales & Commercial",
+      "general": "General / Other"
     }
   },
   "offer": {

@@ -26,6 +26,7 @@ from hr_agents.models import (
     EvidenceRef,
     FeedbackReport,
     HitlOverride,
+    JobFamily,
     JobSpecification,
     JobStatus,
     Location,
@@ -74,6 +75,13 @@ class JobCreate(StrictModel):
     stack: list[str] = Field(default_factory=list)
     min_years_experience: int = Field(default=0, ge=0, le=60)
     dimension_weights: dict[ScoreDimension, float] | None = None
+    job_family: JobFamily = JobFamily.ENGINEERING
+    """Occupation family, which selects the scoring rubric.
+
+    Defaults to engineering, which is the rubric every job was scored by before this
+    field existed. An operator who sets inance gets the finance rubric; leaving it
+    unset changes nothing.
+    """
     status: JobStatus = JobStatus.DRAFT
 
 
@@ -87,6 +95,7 @@ class JobUpdate(StrictModel):
     stack: list[str] | None = None
     min_years_experience: int | None = Field(default=None, ge=0, le=60)
     dimension_weights: dict[ScoreDimension, float] | None = None
+    job_family: JobFamily | None = None
 
 
 class JobStatusChange(StrictModel):
@@ -105,6 +114,7 @@ class JobView(StrictModel):
     min_years_experience: int
     location: Location | None
     dimension_weights: dict[ScoreDimension, float] | None
+    job_family: JobFamily
     status: JobStatus
     created_at: datetime
     updated_at: datetime

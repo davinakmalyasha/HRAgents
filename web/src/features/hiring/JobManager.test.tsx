@@ -38,6 +38,7 @@ function job(overrides: Partial<JobView> = {}): JobView {
     nice_to_have_skills: [],
     stack: [],
     location: null,
+    job_family: 'engineering',
     dimension_weights: null,
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',

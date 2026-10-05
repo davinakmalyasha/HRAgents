@@ -596,13 +596,30 @@ not a style opinion.
    sites recording `agent:` as `ActorType.HUMAN` (`contracts`, `employees`, `rate_tables`) now route
    through the shared classifier, as do the four that matched only the exact string `"system"`.
    Regression-tested in `tests/test_named_human_gates.py`.
-3. **The scoring dimensions are engineering-shaped.** An 8-year ACCA accountant for a Finance
-   Supervisor role scores `S_tech ≈ 0.58` → `REJECT_AUTO` with no human in the loop:
-   `systems_literacy` matches only `{database,devops,cloud,systems,data}` and 15 engineering
-   keywords, `publications` is 0.0 for every non-research role, and the seniority tiers are all
-   engineering words. This is a construct-validity failure, and the name-swap fairness harness
-   **cannot** catch it — swapping a name does not change the distribution's shape. Fix:
-   `DimensionTemplate` registry keyed by job family.
+3. ~~**The scoring dimensions are engineering-shaped.**~~ **Fixed.** An 8-year ACCA accountant for a Finance
+   Supervisor role scored `S_tech = 0.5425` → `REJECT_AUTO` with no human in the loop. Measured on a
+   realistic profile before the fix: `technical_depth 0.606`, `stack_alignment 1.000` (a perfect match on
+   every stated requirement), `systems_literacy **0.000**`, `S_tech 0.5425` against a 0.70 floor.
+   `systems_literacy` was not *low*, it was **zero**: it intersected `Skill.category`, whose enum was
+   entirely software, so every accounting skill was `OTHER`; and its architecture keywords and title
+   tiers were software words, so "Accounting Supervisor" matched no tier. Two further signals were also
+   software-shaped: `projects` carried 0.15 of `technical_depth` for every occupation (a field no
+   accountant fills in), and breadth saturated at *twelve distinct technologies*.
+   `services/dimensions.py` now holds a `DimensionTemplate` per `JobFamily` (engineering, finance,
+   education, healthcare, legal, operations, sales, general) supplying each family's vocabulary, tier
+   ladder, breadth vocabulary and saturation. `JobSpecification.job_family` selects it and defaults to
+   `ENGINEERING`, so every pre-existing job is scored exactly as before — the calibration corpus and the
+   exact-arithmetic assertions in `test_scoring.py` are the guard that it stayed that way. The same
+   accountant now scores `S_tech = 0.737` and is routed to a person. A template varies *which evidence
+   counts*, not the axes: `ScoreVector` is still S ∈ [0,1]^4 because those names are persisted,
+   published in the OpenAPI document, rendered in the dashboard and translated in two locales.
+   `SkillCategory` gained non-software values so "does this candidate have finance skills" has an answer
+   other than no. Two side fixes fell out: title tiers are now matched on **words** rather than
+   substrings, so "Resource Manager" no longer scored as senior for containing the letters `sr`; and
+   the rationale text now names the family instead of always saying "systems categories".
+   The name-swap fairness harness still cannot catch this class of defect — swapping a name does not
+   change the distribution's shape. `tests/services/test_scoring_families.py` is the new guard, built on
+   realistic per-occupation evidence the calibration corpus does not contain.
 4. **68 write endpoints are guarded by a READ permission**, and 6 of 17 permissions are
    dead code (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`,
    `AUDIT_READ`, `ADMIN_MANAGE`). A `manager` can waive offboarding steps and finalize an

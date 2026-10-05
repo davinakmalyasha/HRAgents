@@ -154,7 +154,9 @@
       "actions": "Tindakan",
       "weights": "Bobot dimensi",
       "weightsHelp": "Non-negatif dan berjumlah 1,0; tercatat per lowongan untuk skor yang dapat direproduksi.",
-      "savedBy": "Disimpan oleh"
+      "savedBy": "Disimpan oleh",
+      "jobFamily": "Bidang profesi",
+      "jobFamilyHint": "Menentukan rubrik penilaian. Kandidat dinilai berdasarkan bukti di bidang profesi yang relevan, bukan bidang lain."
     },
     "weightsTotal": "Total: {{total}}",
     "status": {
@@ -195,6 +197,16 @@
       "conflict": "Lowongan berubah di tempat lain atau sudah ditutup — muat ulang dan coba lagi.",
       "failed": "Gagal menyimpan lowongan. Silakan coba lagi.",
       "transitionFailed": "Gagal mengubah status. Silakan coba lagi."
+    },
+    "family": {
+      "engineering": "Teknologi",
+      "finance": "Keuangan & Akuntansi",
+      "education": "Pendidikan",
+      "healthcare": "Kesehatan",
+      "legal": "Hukum",
+      "operations": "Operasional & Rantai Pasok",
+      "sales": "Penjualan & Komersial",
+      "general": "Umum / Lainnya"
     }
   },
   "offer": {

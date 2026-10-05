@@ -50,6 +50,7 @@ from hr_agents.models import (
     FeedbackReport,
     FeedbackStrength,
     HitlOverride,
+    JobFamily,
     JobSpecification,
     JobStatus,
     PolicyDecision,
@@ -280,6 +281,7 @@ class JobService:
         stack: list[str] | None = None,
         min_years_experience: int = 0,
         dimension_weights: dict[ScoreDimension, float] | None = None,
+        job_family: JobFamily = JobFamily.ENGINEERING,
         status: JobStatus = JobStatus.DRAFT,
     ) -> JobSpecification:
         job = JobSpecification(
@@ -292,6 +294,7 @@ class JobService:
             stack=stack or [],
             min_years_experience=min_years_experience,
             dimension_weights=dimension_weights,
+            job_family=job_family,
             status=status,
             created_by=actor.actor_id,
         )
@@ -331,6 +334,7 @@ class JobService:
         stack: list[str] | None = None,
         min_years_experience: int | None = None,
         dimension_weights: dict[ScoreDimension, float] | None = None,
+        job_family: JobFamily | None = None,
     ) -> JobSpecification:
         job = self.get(job_id)
         if job.status is JobStatus.CLOSED:
@@ -347,6 +351,7 @@ class JobService:
             "stack": stack,
             "min_years_experience": min_years_experience,
             "dimension_weights": dimension_weights,
+            "job_family": job_family,
         }.items():
             if value is not None:
                 updates[name] = value

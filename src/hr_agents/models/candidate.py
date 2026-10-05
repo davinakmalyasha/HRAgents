@@ -23,6 +23,19 @@ NonEmptyStr = Annotated[str, Field(min_length=1)]
 
 
 class SkillCategory(StrEnum):
+    """What kind of thing a skill is.
+
+    The first eight values are software-specific and predate every other occupation.
+    They were the *only* values for a long time, which made `Skill.category`
+    uninformative for anyone who was not a software candidate: a finance supervisor's
+    skills were all `OTHER`, so `systems_literacy` -- which intersects this enum --
+    scored exactly zero for them regardless of their experience.
+
+    The non-software values exist so a rubric can ask "does this candidate have finance
+    skills" and get an answer other than "no". A value here identifies the domain of a
+    skill; it is not a judgement about the candidate.
+    """
+
     LANGUAGE = "language"
     FRAMEWORK = "framework"
     DATABASE = "database"
@@ -31,6 +44,17 @@ class SkillCategory(StrEnum):
     ML_AI = "ml_ai"
     SYSTEMS = "systems"
     DATA = "data"
+
+    FINANCE = "finance"
+    EDUCATION = "education"
+    HEALTHCARE = "healthcare"
+    LEGAL = "legal"
+    OPERATIONS = "operations"
+    SALES = "sales"
+    """Commercial and customer-facing work."""
+    GENERAL = "general"
+    """Not domain-specific: management, communication, project delivery."""
+
     OTHER = "other"
 
 

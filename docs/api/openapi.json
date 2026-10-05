@@ -4394,6 +4394,10 @@
             ],
             "title": "Dimension Weights"
           },
+          "job_family": {
+            "$ref": "#/components/schemas/JobFamily",
+            "default": "engineering"
+          },
           "min_years_experience": {
             "default": 0,
             "maximum": 60.0,
@@ -4450,6 +4454,21 @@
         "title": "JobCreate",
         "type": "object"
       },
+      "JobFamily": {
+        "description": "The occupation a role belongs to, which selects the scoring rubric.\n\nThis is a property of the *role*, not of the workspace. `WorkspaceId` decides which\nagents and tools a department sees; `JobFamily` decides what counts as evidence of\ncompetence. They are different things and are named differently on purpose.\n\n`ENGINEERING` is the default so every job created before this field existed is scored\nby exactly the rubric it was always scored by. The calibration corpus pins that.",
+        "enum": [
+          "engineering",
+          "finance",
+          "education",
+          "healthcare",
+          "legal",
+          "operations",
+          "sales",
+          "general"
+        ],
+        "title": "JobFamily",
+        "type": "string"
+      },
       "JobStatus": {
         "enum": [
           "draft",
@@ -4504,6 +4523,16 @@
               }
             ],
             "title": "Dimension Weights"
+          },
+          "job_family": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobFamily"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "min_years_experience": {
             "anyOf": [
@@ -4646,6 +4675,9 @@
             "title": "Id",
             "type": "string"
           },
+          "job_family": {
+            "$ref": "#/components/schemas/JobFamily"
+          },
           "location": {
             "anyOf": [
               {
@@ -4716,6 +4748,7 @@
           "min_years_experience",
           "location",
           "dimension_weights",
+          "job_family",
           "status",
           "created_at",
           "updated_at",

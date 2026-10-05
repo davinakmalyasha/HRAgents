@@ -111,7 +111,7 @@ from hr_agents.models.growth import (
     ReviewSummary,
     SummaryStatus,
 )
-from hr_agents.models.job import JobSpecification, JobStatus, Seniority
+from hr_agents.models.job import JobFamily, JobSpecification, JobStatus, Seniority
 from hr_agents.models.leave import (
     AccrualMethod,
     LeaveBalance,
@@ -271,6 +271,7 @@ __all__ = [
     "HandoverNote",
     "HitlOverride",
     "InterviewerAvailability",
+    "JobFamily",
     "JobSpecification",
     "JobStatus",
     "LanguageSkill",

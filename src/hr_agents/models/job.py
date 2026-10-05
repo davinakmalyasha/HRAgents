@@ -28,6 +28,27 @@ class JobStatus(StrEnum):
     CLOSED = "closed"
 
 
+class JobFamily(StrEnum):
+    """The occupation a role belongs to, which selects the scoring rubric.
+
+    This is a property of the *role*, not of the workspace. `WorkspaceId` decides which
+    agents and tools a department sees; `JobFamily` decides what counts as evidence of
+    competence. They are different things and are named differently on purpose.
+
+    `ENGINEERING` is the default so every job created before this field existed is scored
+    by exactly the rubric it was always scored by. The calibration corpus pins that.
+    """
+
+    ENGINEERING = "engineering"
+    FINANCE = "finance"
+    EDUCATION = "education"
+    HEALTHCARE = "healthcare"
+    LEGAL = "legal"
+    OPERATIONS = "operations"
+    SALES = "sales"
+    GENERAL = "general"
+
+
 class JobSpecification(StrictModel):
     """A structured, scoreable job definition.
 
@@ -48,6 +69,13 @@ class JobSpecification(StrictModel):
 
     location: Location | None = None
     dimension_weights: dict[ScoreDimension, float] | None = None
+    job_family: JobFamily = Field(
+        default=JobFamily.ENGINEERING,
+        description=(
+            "Occupation family, which selects the scoring rubric. Defaults to "
+            "engineering so a job created without it is scored exactly as before."
+        ),
+    )
 
     status: JobStatus = JobStatus.DRAFT
     created_at: UtcDateTime = Field(default_factory=utc_now)

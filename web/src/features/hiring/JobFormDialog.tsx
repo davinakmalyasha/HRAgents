@@ -27,10 +27,13 @@ import { createJob, updateJob } from './jobApi'
 import {
   DEFAULT_WEIGHTS,
   DIMENSIONS,
+  DEFAULT_JOB_FAMILY,
+  JOB_FAMILIES,
   SENIORITIES,
   formatList,
   parseList,
   parseWeights,
+  type JobFamily,
   type JobView,
   type ScoreDimension,
   type Seniority,
@@ -58,6 +61,7 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
   const baseWeights = job?.dimension_weights ?? DEFAULT_WEIGHTS
   const [title, setTitle] = useState(job?.title ?? '')
   const [seniority, setSeniority] = useState<Seniority>(job?.seniority ?? 'mid')
+  const [jobFamily, setJobFamily] = useState<JobFamily>(job?.job_family ?? DEFAULT_JOB_FAMILY)
   const [description, setDescription] = useState(job?.description ?? '')
   const [minYears, setMinYears] = useState(String(job?.min_years_experience ?? 0))
   const [responsibilities, setResponsibilities] = useState(formatList(job?.responsibilities ?? []))
@@ -128,6 +132,7 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
       stack: parseList(stack),
       min_years_experience: years,
       dimension_weights: parsed.weights,
+      job_family: jobFamily,
     }
     const result =
       job === null
@@ -179,6 +184,38 @@ export function JobFormDialog({ job, open, onOpenChange }: JobFormDialogProps) {
               onChange={(event) => setTitle(event.target.value)}
               autoComplete="off"
             />
+          </div>
+
+          <div className={fieldClass}>
+            <span id="job-family-label" className={labelClass}>
+              {t('jobs.fields.jobFamily')}
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-labelledby="job-family-label"
+                  className="justify-between"
+                >
+                  <span>{t(`jobs.family.${jobFamily}`)}</span>
+                  <ChevronsUpDown aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuRadioGroup
+                  value={jobFamily}
+                  onValueChange={(value) => setJobFamily(value as JobFamily)}
+                >
+                  {JOB_FAMILIES.map((option) => (
+                    <DropdownMenuRadioItem key={option} value={option}>
+                      {t(`jobs.family.${option}`)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <p className="text-muted-foreground text-xs">{t('jobs.fields.jobFamilyHint')}</p>
           </div>
 
           <div className={fieldClass}>
