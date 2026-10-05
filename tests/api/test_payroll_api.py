@@ -77,7 +77,11 @@ def seed_tables(client: TestClient) -> None:
 
     app_state.set_entries(
         UUID(overtime),
-        entries=[RateEntry(label="first", multiplier=1.5)],
+        entries=[
+            RateEntry(key="monthly_hours", label="Monthly hours", hours_per_month=173.0),
+            RateEntry(key="first_hour", label="First hour each day", multiplier=1.5),
+            RateEntry(key="subsequent_hour", label="Subsequent hours", multiplier=2.0),
+        ],
         actor=ActorRef.legacy("hr"),
     )
     app_state.verify(UUID(overtime), actor=ActorRef.legacy("hr"), source_note="fixture")
@@ -96,6 +100,31 @@ def seed_tables(client: TestClient) -> None:
         actor=ActorRef.legacy("hr"),
     )
     app_state.verify(UUID(pph), actor=ActorRef.legacy("hr"), source_note="fixture")
+
+    ptkp = client.post(
+        "/v1/rate-tables",
+        json={"kind": "pph21_ptkp", "name": "PTKP"},
+    ).json()["id"]
+    app_state.set_entries(
+        UUID(ptkp),
+        entries=[
+            RateEntry(key="personal", label="Self", flat_amount=m(54_000_000)),
+            RateEntry(key="dependent", label="Per dependent", flat_amount=m(6_750_000)),
+        ],
+        actor=ActorRef.legacy("hr"),
+    )
+    app_state.verify(UUID(ptkp), actor=ActorRef.legacy("hr"), source_note="fixture")
+
+    minimum = client.post(
+        "/v1/rate-tables",
+        json={"kind": "minimum_wage", "name": "Minimum wage"},
+    ).json()["id"]
+    app_state.set_entries(
+        UUID(minimum),
+        entries=[RateEntry(label="Regional minimum", flat_amount=m(2_500_000))],
+        actor=ActorRef.legacy("hr"),
+    )
+    app_state.verify(UUID(minimum), actor=ActorRef.legacy("hr"), source_note="fixture")
 
 
 def test_payroll_full_flow_without_tables_blocks() -> None:

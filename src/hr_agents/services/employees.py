@@ -111,6 +111,42 @@ class EmployeeService:
         self._record(updated, action="employee.contact_updated", actor=actor)
         return updated
 
+    def update_payroll_profile(
+        self,
+        employee_id: UUID,
+        *,
+        actor: ActorRef,
+        jkk_risk_level: int | None = None,
+        dependents: int | None = None,
+        clear_jkk_risk: bool = False,
+    ) -> Employee:
+        """Record the employee's payroll classification.
+
+        Only the *bracket* an employee falls in, never a rate: `jkk_risk_level`
+        selects a row of the verified `bpjs_jkk` table, and `dependents` multiplies
+        the per-dependent allowance from the verified `pph21_ptkp` table. Rates
+        themselves cannot be set here, which is what stops a statutory figure being
+        hardcoded on an employee record.
+
+        Clearing the risk class needs `clear_jkk_risk=True` rather than a bare
+        `None`, so that updating a dependent count cannot quietly wipe a
+        classification an operator entered. A cleared class is itself meaningful:
+        payroll treats it as blocking on a keyed JKK table, so clearing stops the
+        wrong rate being charged but also stops the run being payable.
+        """
+        employee = self._require(employee_id)
+        updates: dict[str, object] = {"updated_at": utc_now()}
+        if clear_jkk_risk:
+            updates["jkk_risk_level"] = None
+        elif jkk_risk_level is not None:
+            updates["jkk_risk_level"] = jkk_risk_level
+        if dependents is not None:
+            updates["dependents"] = dependents
+        updated = employee.model_copy(update=updates)
+        self._store.save_employee(updated)
+        self._record(updated, action="employee.payroll_profile_updated", actor=actor)
+        return updated
+
     # --- lifecycle ------------------------------------------------------
 
     def transition(

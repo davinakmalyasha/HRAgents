@@ -106,6 +106,31 @@ class Employee(StrictModel):
     probation_end_date: date | None = None
     offboarded_on: date | None = None
 
+    # --- payroll classification ------------------------------------------
+    # These carry *which* bracket an employee falls in, never a rate. The rates
+    # themselves live in verified rate tables, so this cannot become a place a
+    # statutory figure is hardcoded.
+
+    jkk_risk_level: int | None = Field(
+        default=None,
+        ge=1,
+        le=4,
+        description=(
+            "BPJS JKK risk class I-IV. Selects the row of the verified "
+            "`bpjs_jkk` rate table by key `class_N`. Unset means payroll cannot "
+            "choose a row from a keyed JKK table and will block."
+        ),
+    )
+    dependents: int = Field(
+        default=0,
+        ge=0,
+        le=20,
+        description=(
+            "Dependents claimed for PPh 21. Each one draws the per-dependent "
+            "allowance from the verified `pph21_ptkp` rate table."
+        ),
+    )
+
     emergency_contact: EmergencyContact | None = None
     documents: list[EmployeeDocument] = Field(default_factory=list)
 

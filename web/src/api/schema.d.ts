@@ -5067,6 +5067,11 @@ export interface components {
             employer_share_percent?: number | null;
             /** Flat Amount */
             flat_amount?: (number | string) | null;
+            /**
+             * Hours Per Month
+             * @description Monthly hours divisor, in the `overtime_premium` table's `monthly_hours` row. Statutory, so it is operator-entered and verified rather than a constant in the payroll service.
+             */
+            hours_per_month?: number | null;
             /** Key */
             key?: string | null;
             /** Label */
@@ -5104,6 +5109,11 @@ export interface components {
             employer_share_percent?: number | null;
             /** Flat Amount */
             flat_amount?: number | null;
+            /**
+             * Hours Per Month
+             * @description Monthly hours divisor, in the `overtime_premium` table's `monthly_hours` row. Statutory, so it is operator-entered and verified rather than a constant in the payroll service.
+             */
+            hours_per_month?: number | null;
             /** Key */
             key?: string | null;
             /** Label */
@@ -5142,7 +5152,7 @@ export interface components {
          * RateTableKind
          * @enum {string}
          */
-        RateTableKind: "bpjs_kesehatan" | "bpjs_ketenagakerjaan_jht" | "bpjs_ketenagakerjaan_jp" | "bpjs_jkk" | "bpjs_jkm" | "pph21_ter" | "overtime_premium" | "thr_formula" | "minimum_wage" | "other";
+        RateTableKind: "bpjs_kesehatan" | "bpjs_ketenagakerjaan_jht" | "bpjs_ketenagakerjaan_jp" | "bpjs_jkk" | "bpjs_jkm" | "pph21_ter" | "pph21_ptkp" | "overtime_premium" | "thr_formula" | "minimum_wage" | "other";
         /**
          * RateTableVerify
          * @description Certify a rate table against a recorded source. Unblocks payroll compute.

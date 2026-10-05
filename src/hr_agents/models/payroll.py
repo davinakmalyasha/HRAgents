@@ -55,6 +55,16 @@ class PayrollInput(StrictModel):
     variable_allowances: Money = Field(default=ZERO, ge=0.0)
     overtime_hours: float = Field(default=0.0, ge=0.0, le=400.0)
     absence_days: float = Field(default=0.0, ge=0.0, le=31.0)
+    service_months: int = Field(
+        default=0,
+        ge=0,
+        le=1200,
+        description=(
+            "Completed months of service, used only by a `thr` run to pick the "
+            "entitlement row from the verified `thr_formula` table. Ignored on a "
+            "monthly run."
+        ),
+    )
     other_deductions: Money = Field(default=ZERO, ge=0.0)
     loan_deduction: Money = Field(default=ZERO, ge=0.0)
     bonus: Money = Field(default=ZERO, ge=0.0)
@@ -99,6 +109,11 @@ class PayrollLine(StrictModel):
     bpjs_jkk_employer: Money = Field(default=ZERO, ge=0.0)
     bpjs_jkm_employer: Money = Field(default=ZERO, ge=0.0)
     employer_cost: Money = Field(default=ZERO, ge=0.0)
+
+    # Termination (THR) entitlement, in whole months of wages. Zero on a monthly
+    # run. Present so a THR payslip is auditable: the figure an employee checks
+    # first is "how many months did they say I had", not the rupiah total.
+    thr_months: int = Field(default=0, ge=0, le=24)
 
     notes: list[str] = Field(default_factory=list)
 

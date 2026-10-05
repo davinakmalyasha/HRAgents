@@ -25,6 +25,7 @@ class RateTableKind(StrEnum):
     BPJS_JKK = "bpjs_jkk"
     BPJS_JKM = "bpjs_jkm"
     PPH21_TER = "pph21_ter"
+    PPH21_PTKP = "pph21_ptkp"
     OVERTIME_PREMIUM = "overtime_premium"
     THR_FORMULA = "thr_formula"
     MINIMUM_WAGE = "minimum_wage"
@@ -55,6 +56,15 @@ class RateEntry(StrictModel):
     upper_bound: Money | None = Field(default=None, ge=0.0)
     multiplier: float | None = Field(default=None, ge=0.0)
     flat_amount: Money | None = Field(default=None, ge=0.0)
+    hours_per_month: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Monthly hours divisor, in the `overtime_premium` table's `monthly_hours` "
+            "row. Statutory, so it is operator-entered and verified rather than a "
+            "constant in the payroll service."
+        ),
+    )
     notes: str | None = Field(default=None, max_length=500)
 
     def selected_by(self, key: str | None) -> bool:

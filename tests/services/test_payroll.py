@@ -104,10 +104,54 @@ def seed_verified_tables(rate_tables: RateTableService) -> None:
     )
     rate_tables.set_entries(
         overtime.id,
-        entries=[RateEntry(label="first hour", multiplier=1.5)],
+        entries=[
+            # Every part of overtime pricing is operator-entered; the service has no
+            # defaults for any of them and blocks if a row is missing.
+            RateEntry(key="monthly_hours", label="Monthly hours", hours_per_month=173.0),
+            RateEntry(key="first_hour", label="First hour each day", multiplier=1.5),
+            RateEntry(key="subsequent_hour", label="Subsequent hours", multiplier=2.0),
+        ],
         actor=ActorRef.legacy("hr-admin"),
     )
     rate_tables.verify(overtime.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
+
+    ptkp = rate_tables.create(
+        kind=RateTableKind.PPH21_PTKP, name="PTKP", actor=ActorRef.legacy("hr-admin")
+    )
+    rate_tables.set_entries(
+        ptkp.id,
+        entries=[
+            RateEntry(key="personal", label="Self", flat_amount=m(54_000_000)),
+            RateEntry(key="dependent", label="Per dependent", flat_amount=m(6_750_000)),
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    rate_tables.verify(ptkp.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
+
+    minimum = rate_tables.create(
+        kind=RateTableKind.MINIMUM_WAGE, name="Minimum wage", actor=ActorRef.legacy("hr-admin")
+    )
+    rate_tables.set_entries(
+        minimum.id,
+        entries=[RateEntry(label="Regional minimum", flat_amount=m(2_500_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    rate_tables.verify(minimum.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
+
+    thr = rate_tables.create(
+        kind=RateTableKind.THR_FORMULA, name="THR", actor=ActorRef.legacy("hr-admin")
+    )
+    rate_tables.set_entries(
+        thr.id,
+        entries=[
+            RateEntry(key="under_1y", label="Under 1 year", multiplier=1.0),
+            RateEntry(key="1y", label="1 to under 2 years", multiplier=2.0),
+            RateEntry(key="2y", label="2 to under 3 years", multiplier=3.0),
+            RateEntry(key="8y_plus", label="8 years and over", multiplier=10.0),
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    rate_tables.verify(thr.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
 
     pph = rate_tables.create(
         kind=RateTableKind.PPH21_TER, name="TER", actor=ActorRef.legacy("hr-admin")
@@ -137,6 +181,24 @@ def make_employee(employees: EmployeeService, name: str = "Sari Dewi") -> Employ
         hire_date=TODAY,
         job_title="Finance Staff",
     )
+
+
+def zero_ptkp(rate_tables: RateTableService) -> None:
+    """Drop the personal exemption to nil, to isolate bracket arithmetic.
+
+    Re-verifying is required: `set_entries` invalidates verification, and an
+    unverified table must not drive payroll.
+    """
+    table = next(t for t in rate_tables.list_all() if t.kind is RateTableKind.PPH21_PTKP)
+    rate_tables.set_entries(
+        table.id,
+        entries=[
+            RateEntry(key="personal", label="Self", flat_amount=ZERO),
+            RateEntry(key="dependent", label="Per dependent", flat_amount=m(6_750_000)),
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    rate_tables.verify(table.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
 
 
 def make_run(
@@ -229,8 +291,10 @@ def test_compute_with_verified_tables(
     assert line.gross == m(11_000_000) + expected_ot
     # employer cost present
     assert line.employer_cost > 0
-    # PPh21 computed from TER (gross ~11.2M → 5% bracket)
-    assert line.pph21 > 0
+    # No PPh 21: gross is far below the personal exemption in the verified PTKP
+    # table. Asserting `== 0` rather than `> 0` is the point -- it is evidence the
+    # exemption is being applied, not evidence that the bracket was skipped.
+    assert line.pph21 == ZERO
 
 
 def test_missing_employee_is_not_fatal(
@@ -423,6 +487,7 @@ def test_pph21_is_progressive_not_the_whole_gross_at_one_rate(
     from hr_agents.models import PayrollInput
 
     seed_verified_tables(rate_tables)
+    zero_ptkp(rate_tables)
     employee = make_employee(employees)
     run = make_run(service)
     service.set_inputs(
@@ -436,23 +501,98 @@ def test_pph21_is_progressive_not_the_whole_gross_at_one_rate(
     assert computed.lines[0].pph21 == expected
 
 
-def test_payslip_notes_pth_that_ptkp_is_not_applied(
+def test_pph21_reduces_the_taxable_base_by_ptkp_and_dependents(
     service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
 ) -> None:
+    """The exemption is subtracted *before* the brackets are walked.
+
+    Working: PTKP + 2 dependents = 54,000,000 + 13,500,000. On a 70,000,000 gross
+    the taxable base is 2,500,000, which lands wholly inside the first bracket, so
+    2% of 2,500,000 = 50,000 is owed. An unadjusted base of 70,000,000 would blow
+    past the fixture's top bracket entirely.
+    """
     from hr_agents.models import PayrollInput
 
     seed_verified_tables(rate_tables)
     employee = make_employee(employees)
+    employees.update_payroll_profile(employee.id, dependents=2, actor=ActorRef.legacy("hr-admin"))
     run = make_run(service)
     service.set_inputs(
         run.id,
-        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(10_000_000))],
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(70_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert computed.lines[0].pph21 == percent_of(m(2_500_000), 2.0)
+
+
+def test_pph21_blocks_when_no_ptkp_table_is_verified(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """Negative test: withholding with no exemption is not a quiet outcome.
+
+    Over-collecting every month leaves the employee owed the difference at year end,
+    which surfaces as an audit finding rather than as a payroll error.
+    """
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    ptkp = next(t for t in rate_tables.list_all() if t.kind is RateTableKind.PPH21_PTKP)
+    # Verified but with no `personal` row, which is what an operator who filled the
+    # table in half actually has. (An empty table cannot be verified at all.)
+    rate_tables.set_entries(
+        ptkp.id,
+        entries=[RateEntry(key="dependent", label="Per dependent", flat_amount=m(6_750_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    rate_tables.verify(ptkp.id, actor=ActorRef.legacy("hr-admin"), source_note="half-filled")
+
+    employee = make_employee(employees)
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(20_000_000))],
         actor=ActorRef.legacy("hr-admin"),
     )
     computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
 
     codes = {anomaly.code for anomaly in computed.anomalies}
-    assert "ptkp_not_applied" in codes
+    assert "pph21_ptkp_missing" in codes
+    assert computed.blocking_anomalies
+
+
+def test_payslip_flags_that_bpjs_on_thr_is_not_modelled(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """A THR payslip must block sign-off rather than quietly apply monthly rules.
+
+    Which contributions attach to a termination payout is not derivable from the
+    monthly tables. The gap is declared as an ERROR so a named human settles it.
+    """
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service, kind=PayrollRunKind.THR)
+    service.set_inputs(
+        run.id,
+        inputs=[
+            PayrollInput(
+                employee_id=employee.id,
+                base_salary=m(10_000_000),
+                service_months=30,
+            )
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    codes = {anomaly.code for anomaly in computed.anomalies}
+    assert "thr_bpjs_unmodelled" in codes
+    assert computed.blocking_anomalies
+    assert computed.lines[0].bpjs_kesehatan_employee == ZERO
+    assert computed.lines[0].bpjs_jkk_employer == ZERO
 
 
 def test_payroll_uses_the_rate_table_in_force_for_the_period(
@@ -498,6 +638,185 @@ def test_payroll_uses_the_rate_table_in_force_for_the_period(
     assert computed.rate_table_ids[RateTableKind.BPJS_KESEHATAN.value] != str(superseding.id)
     # The in-force table is the 1% employee share, not the 2027 table's 2%.
     assert computed.lines[0].bpjs_kesehatan_employee == m(100_000)
+
+
+def test_thr_pays_months_of_wages_for_length_of_service(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """THR is months of wages from the verified ladder, not a relabelled month.
+
+    30 months of service selects the `2y` row (3 months), so a Rp 10,000,000 wage
+    owes Rp 30,000,000. The old code ignored `kind` entirely and paid Rp 10,000,000.
+    """
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service, kind=PayrollRunKind.THR)
+    service.set_inputs(
+        run.id,
+        inputs=[
+            PayrollInput(employee_id=employee.id, base_salary=m(10_000_000), service_months=30)
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+    line = computed.lines[0]
+
+    assert line.thr_months == 3
+    assert line.gross == m(30_000_000)
+    assert line.net == m(30_000_000)
+    line.check_invariants()
+
+
+def test_thr_blocks_when_the_service_length_is_not_covered(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """Negative test: an uncovered service length must not quietly pay zero.
+
+    The fixture ladder has no `5y` row, so five years of service cannot be priced.
+    Paying a departing employee nothing because a table row is missing is the worst
+    available outcome, so the run blocks instead.
+    """
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service, kind=PayrollRunKind.THR)
+    service.set_inputs(
+        run.id,
+        inputs=[
+            PayrollInput(employee_id=employee.id, base_salary=m(10_000_000), service_months=60)
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    codes = {anomaly.code for anomaly in computed.anomalies}
+    assert "thr_entitlement_missing" in codes
+    assert computed.lines[0].gross == ZERO
+    assert computed.blocking_anomalies
+
+
+def test_payroll_below_the_verified_minimum_wage_blocks(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """Negative test: paying under the statutory minimum is a labour-law breach.
+
+    The `minimum_wage` table existed in the enum since the start and nothing read
+    it, so an employee could be paid Rp 1,000,000 with no complaint from the system.
+    """
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(1_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    codes = {anomaly.code for anomaly in computed.anomalies}
+    assert "below_minimum_wage" in codes
+    assert computed.blocking_anomalies
+
+
+def test_payroll_at_or_above_the_minimum_wage_is_clean(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(2_500_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    codes = {anomaly.code for anomaly in computed.anomalies}
+    assert "below_minimum_wage" not in codes
+
+
+def test_overtime_blocks_when_the_table_lacks_a_required_row(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """Negative test: no fallback to a hardcoded 173/1.5/2.0.
+
+    `AGENTS.md` forbids hardcoded statutory rates. The service used to carry them as
+    constants, so a half-configured overtime table produced plausible-looking figures
+    nobody could trace to a source. A missing row now blocks.
+    """
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    overtime = next(t for t in rate_tables.list_all() if t.kind is RateTableKind.OVERTIME_PREMIUM)
+    rate_tables.set_entries(
+        overtime.id,
+        entries=[RateEntry(key="first_hour", label="First hour", multiplier=1.5)],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    rate_tables.verify(overtime.id, actor=ActorRef.legacy("hr-admin"), source_note="partial")
+
+    employee = make_employee(employees)
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[
+            PayrollInput(employee_id=employee.id, base_salary=m(10_000_000), overtime_hours=4.0)
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    codes = {anomaly.code for anomaly in computed.anomalies}
+    assert "overtime_rules_missing" in codes
+    assert computed.lines[0].overtime_pay == ZERO
+    assert computed.blocking_anomalies
+
+
+def test_jkk_risk_class_selects_the_matching_row(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """A recorded risk class must actually choose the rate.
+
+    Before the keyed lookup, the first row was applied to everyone: a class-IV
+    industrial worker was charged the class-I 0.24% instead of 1.74%, which is both
+    an under-declaration and a BPJS compliance failure.
+    """
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    jkk = next(t for t in rate_tables.list_all() if t.kind is RateTableKind.BPJS_JKK)
+    rate_tables.set_entries(
+        jkk.id,
+        entries=[
+            RateEntry(key="class_1", label="Low", employer_share_percent=0.24),
+            RateEntry(key="class_4", label="High", employer_share_percent=1.74),
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    rate_tables.verify(jkk.id, actor=ActorRef.legacy("hr-admin"), source_note="test fixture")
+
+    employee = make_employee(employees)
+    employees.update_payroll_profile(
+        employee.id, jkk_risk_level=4, actor=ActorRef.legacy("hr-admin")
+    )
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(10_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert computed.lines[0].bpjs_jkk_employer == percent_of(m(10_000_000), 1.74)
+    codes = {anomaly.code for anomaly in computed.anomalies}
+    assert "jkk_risk_class_unrecorded" not in codes
 
 
 def test_line_invariants_reject_an_inconsistent_payslip() -> None:

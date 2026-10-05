@@ -44,19 +44,16 @@ from hr_agents.models import (
     Urgency,
     utc_now,
 )
-from hr_agents.models.money import ZERO, add, percent_of, sub
+from hr_agents.models.money import ZERO, add, money, percent_of, sub
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.rate_tables import RateTableError, RateTableService
 
-HOURLY_DIVISOR = 173.0
-DEFAULT_OVERTIME_FIRST_HOUR_MULTIPLIER = 1.5
-DEFAULT_OVERTIME_NEXT_HOURS_MULTIPLIER = 2.0
 NET_DEVIATION_THRESHOLD = 0.30
 MAX_OVERTIME_HOURS = 60.0
 
-OVERTIME_FIRST_HOURS_PER_DAY = 1.0
+OVERTIME_FIRST_HOURS_PER_DAY = Decimal("1")
 """UU 13/2003 Pasal 56(2): the 1.5x tier is one hour *per day*, not per month.
 
 The previous code applied it to one hour for the whole month, so 24 overtime hours
@@ -66,12 +63,21 @@ Rp 381,502 difference -- currently in the employee's favour, which is still a
 reconciliation failure.
 """
 
+MONTHLY_HOURS_KEY = "monthly_hours"
+OVERTIME_FIRST_TIER_KEY = "first_hour"
+OVERTIME_REST_TIER_KEY = "subsequent_hour"
+PTKP_SELF_KEY = "personal"
+PTKP_DEPENDENT_KEY = "dependent"
+
 REQUIRED_TABLES: tuple[RateTableKind, ...] = (
     RateTableKind.BPJS_KESEHATAN,
     RateTableKind.BPJS_KETENAGAKERJAAN_JHT,
     RateTableKind.BPJS_KETENAGAKERJAAN_JP,
     RateTableKind.BPJS_JKK,
     RateTableKind.BPJS_JKM,
+    RateTableKind.OVERTIME_PREMIUM,
+    RateTableKind.PPH21_PTKP,
+    RateTableKind.MINIMUM_WAGE,
 )
 
 
@@ -140,6 +146,71 @@ def _is_keyed(table: RateTable | None) -> bool:
     bug `_entry_for` replaced.
     """
     return table is not None and any(entry.key for entry in table.entries)
+
+
+def _ptkp(employee: Employee | None, table: RateTable | None) -> Decimal:
+    """Personal tax exemption plus dependent allowances, from a verified table.
+
+    Both figures are statutory, so both come from the operator's `pph21_ptkp`
+    table: a `personal` row and a `dependent` row. Returns zero when there is no
+    table at all, but the caller treats that as blocking -- withholding without an
+    exemption over-collects every month and the employee is owed the difference at
+    year end, which is a payroll failure discovered by an auditor.
+    """
+    if table is None:
+        return ZERO
+    personal = _entry_for(table, PTKP_SELF_KEY)
+    dependent = _entry_for(table, PTKP_DEPENDENT_KEY)
+    if personal is None or personal.flat_amount is None:
+        return ZERO
+    allowance = ZERO
+    claimed = employee.dependents if employee is not None else 0
+    if claimed and dependent is not None and dependent.flat_amount is not None:
+        allowance = money(Decimal(claimed) * dependent.flat_amount)
+    return add(personal.flat_amount, allowance)
+
+
+def _overtime_rules(table: RateTable | None) -> tuple[Decimal, Decimal, Decimal] | None:
+    """``(monthly_hours, first_tier_multiplier, rest_tier_multiplier)`` or ``None``.
+
+    Every part of overtime pricing is statutory, so all three come from the verified
+    `overtime_premium` table. This returns ``None`` -- never a default -- when any of
+    them is absent, because falling back to a hardcoded 173/1.5/2.0 is precisely the
+    practice `AGENTS.md` forbids and the reason `overtime_premium` cannot be
+    half-configured without anyone noticing.
+    """
+    hours = _entry_for(table, MONTHLY_HOURS_KEY)
+    first = _entry_for(table, OVERTIME_FIRST_TIER_KEY)
+    rest = _entry_for(table, OVERTIME_REST_TIER_KEY)
+    if hours is None or hours.hours_per_month is None:
+        return None
+    if first is None or first.multiplier is None or rest is None or rest.multiplier is None:
+        return None
+    return (
+        Decimal(str(hours.hours_per_month)),
+        Decimal(str(first.multiplier)),
+        Decimal(str(rest.multiplier)),
+    )
+
+
+def _thr_months_entitlement(service_months: int, table: RateTable | None) -> Decimal | None:
+    """Months of wages owed on termination, from the verified `thr_formula` table.
+
+    The service-length ladder (1 month under a year of service, more the longer the
+    employee stayed) is statutory, so the rows come from the operator's table keyed
+    ``under_1y``, ``1y``, ``2y`` ... ``8y_plus``. ``None`` when the employee's
+    service length is not covered, which the caller treats as blocking rather than
+    paying zero.
+    """
+    if table is None:
+        return None
+    key = "under_1y" if service_months < 12 else f"{service_months // 12}y"
+    entry = _entry_for(table, key)
+    if entry is None and service_months >= 96:
+        entry = _entry_for(table, "8y_plus")
+    if entry is None or entry.multiplier is None:
+        return None
+    return Decimal(str(entry.multiplier))
 
 
 def _working_days_in_month(year: int, month: int) -> int:
@@ -246,45 +317,23 @@ class PayrollService:
         # The rate table in force on the period being paid, not today. A March 2025
         # run computed in 2026 must use the 2025 rates.
         period = date(run.period_year, run.period_month, 1)
-        tables, table_ids, table_anomalies = self._resolve_tables(period=period)
-        overtime_table = tables.get(RateTableKind.OVERTIME_PREMIUM)
-        pph_table = tables.get(RateTableKind.PPH21_TER)
+        extra = (RateTableKind.THR_FORMULA,) if run.kind is PayrollRunKind.THR else ()
+        tables, table_ids, table_anomalies = self._resolve_tables(period=period, extra_kinds=extra)
 
-        if not tables.get(RateTableKind.OVERTIME_PREMIUM) or (
-            overtime_table and not overtime_table.usable
-        ):
-            table_anomalies.append(
-                PayrollAnomaly(
-                    code="overtime_rate_table_missing",
-                    severity=AnomalySeverity.WARNING,
-                    detail="Overtime table is not verified; overtime pay computed as zero.",
-                )
-            )
-        if pph_table is None or not pph_table.usable:
-            table_anomalies.append(
-                PayrollAnomaly(
-                    code="pph21_rate_table_missing",
-                    severity=AnomalySeverity.WARNING,
-                    detail=(
-                        "PPh 21 TER table is not verified; income tax is not computed. "
-                        "Handle tax in your own workflow until the table is verified."
-                    ),
-                )
-            )
-
+        working_days = _working_days_in_month(run.period_year, run.period_month)
         lines: list[PayrollLine] = []
         anomalies: list[PayrollAnomaly] = list(table_anomalies)
-        working_days = _working_days_in_month(run.period_year, run.period_month)
 
         for payroll_input in run.inputs:
             employee = self._try_employee(payroll_input.employee_id)
-            line, line_anomalies = self._compute_line(
-                payroll_input,
-                employee,
-                tables,
-                pph_table,
-                working_days=working_days,
-            )
+            if run.kind is PayrollRunKind.THR:
+                line, line_anomalies = self._compute_thr(
+                    payroll_input, employee, tables, working_days=working_days
+                )
+            else:
+                line, line_anomalies = self._compute_line(
+                    payroll_input, employee, tables, working_days=working_days
+                )
             lines.append(line)
             anomalies.extend(line_anomalies)
 
@@ -316,7 +365,7 @@ class PayrollService:
         return updated
 
     def _resolve_tables(
-        self, *, period: date
+        self, *, period: date, extra_kinds: tuple[RateTableKind, ...] = ()
     ) -> tuple[dict[RateTableKind, RateTable], dict[str, str], list[PayrollAnomaly]]:
         """Fetch the table in force for each kind, on the payroll period's date.
 
@@ -337,8 +386,10 @@ class PayrollService:
         table_ids: dict[str, str] = {}
         anomalies: list[PayrollAnomaly] = []
 
-        wanted = [*REQUIRED_TABLES, RateTableKind.OVERTIME_PREMIUM, RateTableKind.PPH21_TER]
-        for kind in wanted:
+        wanted = [*REQUIRED_TABLES, RateTableKind.PPH21_TER]
+        if extra_kinds:
+            wanted.extend(extra_kinds)
+        for kind in dict.fromkeys(wanted):
             try:
                 table = self._rate_tables.require_usable(kind, as_of=period)
             except RateTableError as exc:
@@ -357,12 +408,122 @@ class PayrollService:
             table_ids[kind.value] = str(table.id)
         return tables, table_ids, anomalies
 
+    def _compute_thr(
+        self,
+        payroll_input: PayrollInput,
+        employee: Employee | None,
+        tables: dict[RateTableKind, RateTable],
+        *,
+        working_days: int,
+    ) -> tuple[PayrollLine, list[PayrollAnomaly]]:
+        """Termination pay: months of wages owed, from the verified `thr_formula` table.
+
+        Until this existed, `PayrollRunKind.THR` was a label with no effect on the
+        arithmetic: a THR run computed an identical monthly payslip and called it a
+        termination payout, so the review packet showed a departing employee one
+        month's salary and an HR reviewer had no signal that anything was wrong.
+
+        The entitlement ladder is statutory, so it comes from the operator's table
+        (`under_1y`, `1y` .. `8y_plus`, each row's `multiplier` = months of wages).
+        Nothing is defaulted: an uncovered service length blocks, because paying a
+        departing employee less than the law requires is a labour dispute.
+
+        BPJS treatment of THR is *not* modelled -- which contributions apply to a
+        termination payout, and at what proration, depends on the operator's
+        arrangement and is not derivable from the monthly tables. Rather than
+        silently applying monthly rules to a termination, the line carries an
+        ERROR anomaly so sign-off cannot proceed until a human decides. That is the
+        one deliberate gap left in this service, and it is loud.
+        """
+        anomalies: list[PayrollAnomaly] = []
+        monthly_wage = add(payroll_input.base_salary, payroll_input.fixed_allowances)
+
+        anomalies.append(
+            PayrollAnomaly(
+                code="thr_bpjs_unmodelled",
+                severity=AnomalySeverity.ERROR,
+                employee_id=payroll_input.employee_id,
+                detail=(
+                    "BPJS contributions are not computed on this termination payout: which "
+                    "contributions apply to THR, and at what proration, depends on the "
+                    "employer's arrangement and is not derivable from the monthly tables. "
+                    "No contribution has been withheld. A named human must settle this "
+                    "before sign-off."
+                ),
+            )
+        )
+
+        absence_days = payroll_input.absence_days
+        paid_fraction = Decimal(1)
+        if absence_days >= working_days:
+            paid_fraction = ZERO
+        else:
+            paid_fraction = Decimal(working_days - absence_days) / Decimal(working_days)
+
+        thr_table = tables.get(RateTableKind.THR_FORMULA)
+        entitlement = _thr_months_entitlement(payroll_input.service_months, thr_table)
+        if entitlement is None:
+            anomalies.append(
+                PayrollAnomaly(
+                    code="thr_entitlement_missing",
+                    severity=AnomalySeverity.ERROR,
+                    employee_id=payroll_input.employee_id,
+                    detail=(
+                        f"no usable thr_formula row covers {payroll_input.service_months} "
+                        "months of service, so the termination entitlement cannot be "
+                        "determined without inventing a statutory figure. Enter and "
+                        "verify the table (keys: under_1y, 1y .. 8y_plus)."
+                    ),
+                )
+            )
+            line = self._thr_line(payroll_input, employee, ZERO, 0, paid_fraction, anomalies)
+            return line, anomalies
+
+        # Whole-month entitlement, prorated for the days actually worked in the
+        # final month. Adding a separate "partial month" term on top double-counted:
+        # with no absence it paid 4 months' wages against a 3-month entitlement.
+        thr_pay = percent_of(money(monthly_wage * entitlement), paid_fraction * 100)
+
+        line = self._thr_line(
+            payroll_input, employee, thr_pay, int(entitlement), paid_fraction, anomalies
+        )
+        return line, anomalies
+
+    @staticmethod
+    def _thr_line(
+        payroll_input: PayrollInput,
+        employee: Employee | None,
+        thr_pay: Decimal,
+        months: int,
+        paid_fraction: Decimal,
+        anomalies: list[PayrollAnomaly],
+    ) -> PayrollLine:
+        """Assemble a termination payslip.
+
+        Deductions the employee elected -- loans, other deductions -- still come off
+        a termination payout, so they are honoured here. BPJS is not, by design; see
+        `_compute_thr`.
+        """
+        total_deductions = add(payroll_input.other_deductions, payroll_input.loan_deduction)
+        line = PayrollLine(
+            employee_id=payroll_input.employee_id,
+            employee_name=employee.full_name if employee else "",
+            base_salary=thr_pay,
+            gross=thr_pay,
+            total_deductions=total_deductions,
+            net=sub(thr_pay, total_deductions),
+            thr_months=months,
+            other_deductions=total_deductions,
+            notes=[note for note in [payroll_input.note] if note],
+        )
+        line.check_invariants()
+        return line
+
     def _compute_line(
         self,
         payroll_input: PayrollInput,
         employee: Employee | None,
         tables: dict[RateTableKind, RateTable],
-        pph_table: RateTable | None,
         *,
         working_days: int,
     ) -> tuple[PayrollLine, list[PayrollAnomaly]]:
@@ -400,40 +561,52 @@ class PayrollService:
 
         # --- overtime -------------------------------------------------------
         # Priced per day: the 1.5x tier is one hour per day (UU 13/2003 Pasal
-        # 56(2)), not one hour per month. `OVERTIME_DAY_HOURS` tiers come from the
-        # verified table so the multipliers are operator-owned rather than
-        # constants, which `models/payroll.py` claims they already were.
+        # 56(2)), not one hour per month. Every number comes from the verified
+        # `overtime_premium` table; there is no fallback, because a silent default
+        # is how a statutory rate ends up being a constant nobody can audit.
         overtime_table = tables.get(RateTableKind.OVERTIME_PREMIUM)
-        first_tier = _entry_for(overtime_table, "first_hour")
-        rest_tier = _entry_for(overtime_table, "subsequent_hour")
-        first_multiplier = (
-            first_tier.multiplier
-            if first_tier and first_tier.multiplier is not None
-            else DEFAULT_OVERTIME_FIRST_HOUR_MULTIPLIER
-        )
-        rest_multiplier = (
-            rest_tier.multiplier
-            if rest_tier and rest_tier.multiplier is not None
-            else DEFAULT_OVERTIME_NEXT_HOURS_MULTIPLIER
-        )
-        hourly = wage / Decimal(str(HOURLY_DIVISOR))
+        overtime_rules = _overtime_rules(overtime_table)
+        hourly = ZERO
         hours = Decimal(str(payroll_input.overtime_hours))
         overtime_pay = ZERO
-        if hours > 0:
-            # Days the employee worked at all: the full period less absences. The
-            # 1.5x tier is one hour *per day* (UU 13/2003 Pasal 56(2)). Rounded, not
-            # truncated -- `int()` turns 14.999 into 14 days of first-tier hours.
-            days_worked = max(
-                1,
-                int((Decimal(working_days) * paid_fraction).quantize(Decimal("1"), ROUND_HALF_UP)),
+        if overtime_rules is None:
+            anomalies.append(
+                PayrollAnomaly(
+                    code="overtime_rules_missing",
+                    severity=AnomalySeverity.ERROR,
+                    employee_id=payroll_input.employee_id,
+                    detail=(
+                        "the overtime_premium table has no complete set of "
+                        f"'{MONTHLY_HOURS_KEY}' (hours_per_month), "
+                        f"'{OVERTIME_FIRST_TIER_KEY}' and "
+                        f"'{OVERTIME_REST_TIER_KEY}' (multiplier) rows, so overtime "
+                        "cannot be priced without inventing a statutory rate."
+                    ),
+                )
             )
-            first_hours = min(hours, Decimal(days_worked))
-            # Hours are a ratio, not money, so no two-place quantisation here.
-            rest_hours = max(hours - first_hours, ZERO)
-            overtime_pay = add(
-                hourly * Decimal(str(first_multiplier)) * first_hours,
-                hourly * Decimal(str(rest_multiplier)) * rest_hours,
-            )
+        else:
+            monthly_hours, first_multiplier, rest_multiplier = overtime_rules
+            hourly = wage / monthly_hours
+            if hours > 0:
+                # Days the employee worked at all: the full period less absences. The
+                # 1.5x tier is one hour *per day* (UU 13/2003 Pasal 56(2)). Rounded,
+                # not truncated -- `int()` turns 14.999 into 14 days of first-tier
+                # hours.
+                days_worked = max(
+                    1,
+                    int(
+                        (Decimal(working_days) * paid_fraction).quantize(
+                            Decimal("1"), ROUND_HALF_UP
+                        )
+                    ),
+                )
+                first_hours = min(hours, Decimal(days_worked) * OVERTIME_FIRST_HOURS_PER_DAY)
+                # Hours are a ratio, not money, so no two-place quantisation here.
+                rest_hours = max(hours - first_hours, ZERO)
+                overtime_pay = add(
+                    hourly * first_multiplier * first_hours,
+                    hourly * rest_multiplier * rest_hours,
+                )
 
         if payroll_input.overtime_hours > MAX_OVERTIME_HOURS:
             anomalies.append(
@@ -460,6 +633,29 @@ class PayrollService:
         fixed_paid = percent_of(payroll_input.fixed_allowances, paid_fraction * 100)
         paid_variable = percent_of(payroll_input.variable_allowances, paid_fraction * 100)
         contribution_wage = add(base_paid, fixed_paid)
+
+        # --- minimum wage ---------------------------------------------------
+        # The regional minimum is statutory and sits in a verified table nobody was
+        # reading. Paying below it is a labour-law breach, so the comparison is on
+        # the *paid* wage, and a shortfall blocks rather than warns.
+        minimum_table = tables.get(RateTableKind.MINIMUM_WAGE)
+        minimum_row = _entry_for(minimum_table, None)
+        minimum = minimum_row.wage_cap if minimum_row is not None else None
+        if minimum_row is not None and minimum_row.flat_amount is not None:
+            minimum = minimum_row.flat_amount
+        if minimum is not None and contribution_wage < minimum:
+            anomalies.append(
+                PayrollAnomaly(
+                    code="below_minimum_wage",
+                    severity=AnomalySeverity.ERROR,
+                    employee_id=payroll_input.employee_id,
+                    detail=(
+                        f"paid wage {contribution_wage} is below the configured minimum "
+                        f"{minimum}; paying it is a labour-law breach. Correct the input "
+                        "or the rate table."
+                    ),
+                )
+            )
 
         gross = add(
             base_paid,
@@ -520,20 +716,26 @@ class PayrollService:
 
         # --- PPh 21 ---------------------------------------------------------
         pph21 = ZERO
+        pph_table = tables.get(RateTableKind.PPH21_TER)
         if pph_table is not None and pph_table.usable:
-            pph21 = self._compute_pph21(pph_table, gross)
-            anomalies.append(
-                PayrollAnomaly(
-                    code="ptkp_not_applied",
-                    severity=AnomalySeverity.WARNING,
-                    employee_id=payroll_input.employee_id,
-                    detail=(
-                        f"TER withheld {pph21} on gross {gross} with no personal exemption "
-                        "(PTKP) or dependent allowance deducted, so this is overstated. "
-                        "Record the employee's tax profile and the PTKP rate table."
-                    ),
+            ptkp_table = tables.get(RateTableKind.PPH21_PTKP)
+            exemption = _ptkp(employee, ptkp_table)
+            pph21 = self._compute_pph21(pph_table, gross, exemption)
+            if exemption <= ZERO:
+                anomalies.append(
+                    PayrollAnomaly(
+                        code="pph21_ptkp_missing",
+                        severity=AnomalySeverity.ERROR,
+                        employee_id=payroll_input.employee_id,
+                        detail=(
+                            f"TER withheld {pph21} with no personal exemption applied, "
+                            "because the pph21_ptkp table has no usable "
+                            f"'{PTKP_SELF_KEY}' row. Without it the employee is "
+                            "over-collected every month and is owed the difference at "
+                            "year end. Enter and verify the PTKP table."
+                        ),
+                    )
                 )
-            )
 
         total_deductions = add(
             kes_employee,
@@ -584,8 +786,8 @@ class PayrollService:
         return line, anomalies
 
     @staticmethod
-    def _compute_pph21(table: RateTable, gross: Decimal) -> Decimal:
-        """Progressive TER over the operator's brackets.
+    def _compute_pph21(table: RateTable, gross: Decimal, exemption: Decimal = ZERO) -> Decimal:
+        """Progressive TER over the operator's brackets, less the employee's PTKP.
 
         This used to apply the first matching bracket's rate to the *whole* gross.
         PMK 168/2023's TER is progressive, so on a Rp 20,000,000 monthly gross the
@@ -597,12 +799,13 @@ class PayrollService:
         most is the worst possible failure mode for this function, so an uncovered
         gross raises rather than returning a number.
 
-        PTKP and dependent allowances are **not** applied yet: `Employee` has no tax
-        profile, and inventing one is the hardcoded statutory number `AGENTS.md`
-        forbids. The caller raises a `ptkp_not_applied` anomaly so the withholding is
-        visibly overstated rather than quietly wrong.
+        ``exemption`` is PTKP plus dependent allowances from the verified
+        `pph21_ptkp` table. It defaults to zero so the pure bracket maths is
+        testable on its own; the service never calls it that way without also
+        raising `pph21_ptkp_missing`.
         """
-        if gross <= ZERO:
+        taxable = sub(gross, exemption)
+        if taxable <= ZERO:
             return ZERO
 
         brackets = sorted(
@@ -616,9 +819,9 @@ class PayrollService:
         for entry in brackets:
             lower = entry.lower_bound or ZERO
             upper = entry.upper_bound
-            if gross <= lower:
+            if taxable <= lower:
                 break
-            slab_top = min(gross, upper) if upper is not None else gross
+            slab_top = min(taxable, upper) if upper is not None else taxable
             if slab_top <= lower:
                 continue
             slab = sub(slab_top, lower)
@@ -626,15 +829,15 @@ class PayrollService:
                 tax = add(tax, entry.flat_amount)
             else:
                 tax = add(tax, percent_of(slab, entry.employee_share_percent or 0.0))
-            if upper is not None and gross <= upper:
+            if upper is not None and taxable <= upper:
                 break
 
         top = brackets[-1].upper_bound
-        if top is not None and gross > top:
+        if top is not None and taxable > top:
             # Never silently zero: the highest earners are exactly the people a
             # truncated bracket table quietly exempts.
             raise PayrollError(
-                f"TER brackets cover up to {top} but taxable income is {gross}; "
+                f"TER brackets cover up to {top} but taxable income is {taxable}; "
                 "extend the table before paying this period"
             )
         return tax
