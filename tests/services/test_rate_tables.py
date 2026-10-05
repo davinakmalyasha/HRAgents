@@ -5,6 +5,7 @@ from tests.actors import finance as finance_principal
 
 from hr_agents.identity import ActorProvenance, ActorRef, ActorType
 from hr_agents.models import RateEntry, RateTableKind
+from hr_agents.models.money import money as m
 from hr_agents.services import (
     RateTableError,
     RateTableService,
@@ -22,7 +23,7 @@ BPJS_ENTRY = RateEntry(
     label="Employer share",
     employer_share_percent=4.0,
     employee_share_percent=1.0,
-    wage_cap=12_000_000.0,
+    wage_cap=m(12_000_000.0),
 )
 
 

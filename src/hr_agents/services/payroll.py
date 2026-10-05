@@ -17,8 +17,10 @@ Computation rules:
 
 from __future__ import annotations
 
+import calendar
 import io
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from openpyxl import Workbook
@@ -42,16 +44,27 @@ from hr_agents.models import (
     Urgency,
     utc_now,
 )
+from hr_agents.models.money import ZERO, add, percent_of, sub
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
-from hr_agents.services.rate_tables import RateTableService
+from hr_agents.services.rate_tables import RateTableError, RateTableService
 
 HOURLY_DIVISOR = 173.0
 DEFAULT_OVERTIME_FIRST_HOUR_MULTIPLIER = 1.5
 DEFAULT_OVERTIME_NEXT_HOURS_MULTIPLIER = 2.0
 NET_DEVIATION_THRESHOLD = 0.30
 MAX_OVERTIME_HOURS = 60.0
+
+OVERTIME_FIRST_HOURS_PER_DAY = 1.0
+"""UU 13/2003 Pasal 56(2): the 1.5x tier is one hour *per day*, not per month.
+
+The previous code applied it to one hour for the whole month, so 24 overtime hours
+in a month were priced as 1 hour at 1.5x and 23 at 2.0x. Per-day it is 24 separate
+days of 1 hour at 1.5x and 1 at 2.0x. On a Rp 12,000,000 wage that is a
+Rp 381,502 difference -- currently in the employee's favour, which is still a
+reconciliation failure.
+"""
 
 REQUIRED_TABLES: tuple[RateTableKind, ...] = (
     RateTableKind.BPJS_KESEHATAN,
@@ -66,21 +79,84 @@ class PayrollError(RuntimeError):
     """Raised for invalid payroll operations."""
 
 
-def _first_entry(table: RateTable | None) -> RateEntry | None:
-    if table is None:
+def _entry_for(table: RateTable | None, key: str | None) -> RateEntry | None:
+    """The row that answers to ``key``, or the table's keyless default row.
+
+    Replaces ``_first_entry``, which read ``entries[0]`` and therefore applied the
+    first risk class to every employee regardless of their job. An operator who
+    entered all four BPJS JKK classes had three of them ignored, and a class-IV
+    industrial worker was charged 0.24% instead of 1.74% -- a Rp 300,000/month
+    under-declaration that is also a BPJS compliance failure.
+
+    The lookup is exact-key first, then a row with no key at all. The second step is
+    what keeps every single-rate table working: most operators enter one row and
+    leave `key` empty, and requiring a key on those would silently zero their
+    contributions. When every row in a table carries a key and none matches, the
+    result is `None` -- a missing rate is an anomaly, never a zero.
+    """
+    if table is None or not table.entries:
         return None
-    return table.entries[0] if table.entries else None
+    if key is None:
+        return table.entries[0] if len(table.entries) == 1 else None
+    for entry in table.entries:
+        if entry.key == key:
+            return entry
+    for entry in table.entries:
+        if entry.key is None:
+            return entry
+    return None
 
 
-def _share(entry: RateEntry | None, *, employer: bool, wage: float) -> float:
+def _share(entry: RateEntry | None, *, employer: bool, wage: Decimal) -> Decimal:
     """Apply a table entry's percentage share with its wage cap."""
     if entry is None:
-        return 0.0
+        return ZERO
     percent = entry.employer_share_percent if employer else entry.employee_share_percent
     if percent is None:
-        return 0.0
-    effective_wage = min(wage, entry.wage_cap) if entry.wage_cap is not None else wage
-    return round(effective_wage * (percent / 100.0), 2)
+        return ZERO
+    cap = entry.wage_cap
+    effective_wage = min(wage, cap) if cap is not None else wage
+    return percent_of(effective_wage, percent)
+
+
+def _risk_key(employee: Employee | None) -> str | None:
+    """The BPJS JKK risk class to charge, as a table key.
+
+    ``None`` when the employee's role carries no class -- which is every employee
+    today, because `Employee` has no such field yet. That is a gap rather than an
+    answer, so the caller raises an anomaly when it matters instead of guessing.
+    """
+    level = getattr(employee, "jkk_risk_level", None) if employee else None
+    if not level:
+        return None
+    return f"class_{int(level)}"
+
+
+def _is_keyed(table: RateTable | None) -> bool:
+    """Whether a table distinguishes rows by ``key``.
+
+    A single-row table is a flat rate and needs no key. A table where *any* row
+    carries a key is discriminating, and charging its first row to everyone is the
+    bug `_entry_for` replaced.
+    """
+    return table is not None and any(entry.key for entry in table.entries)
+
+
+def _working_days_in_month(year: int, month: int) -> int:
+    """Working days in the period, for proration.
+
+    Weekends only. Indonesian public holidays are operator-set on the leave
+    calendar and are not reachable from the payroll service without a dependency it
+    does not have; the count is recorded so a proration is auditable rather than
+    implicit.
+    """
+    total = date(year, month, calendar.monthrange(year, month)[1]).day
+    first_weekday = date(year, month, 1).weekday()
+    days = 0
+    for offset in range(total):
+        if (first_weekday + offset) % 7 < 5:
+            days += 1
+    return days
 
 
 class PayrollService:
@@ -167,7 +243,10 @@ class PayrollService:
         if not run.inputs:
             raise PayrollError("run has no inputs; call set_inputs first")
 
-        tables, table_ids, table_anomalies = self._resolve_tables()
+        # The rate table in force on the period being paid, not today. A March 2025
+        # run computed in 2026 must use the 2025 rates.
+        period = date(run.period_year, run.period_month, 1)
+        tables, table_ids, table_anomalies = self._resolve_tables(period=period)
         overtime_table = tables.get(RateTableKind.OVERTIME_PREMIUM)
         pph_table = tables.get(RateTableKind.PPH21_TER)
 
@@ -195,10 +274,17 @@ class PayrollService:
 
         lines: list[PayrollLine] = []
         anomalies: list[PayrollAnomaly] = list(table_anomalies)
+        working_days = _working_days_in_month(run.period_year, run.period_month)
 
         for payroll_input in run.inputs:
             employee = self._try_employee(payroll_input.employee_id)
-            line, line_anomalies = self._compute_line(payroll_input, employee, tables, pph_table)
+            line, line_anomalies = self._compute_line(
+                payroll_input,
+                employee,
+                tables,
+                pph_table,
+                working_days=working_days,
+            )
             lines.append(line)
             anomalies.extend(line_anomalies)
 
@@ -230,42 +316,45 @@ class PayrollService:
         return updated
 
     def _resolve_tables(
-        self,
+        self, *, period: date
     ) -> tuple[dict[RateTableKind, RateTable], dict[str, str], list[PayrollAnomaly]]:
-        """Fetch every table; record blocking anomalies for missing/unverified."""
+        """Fetch the table in force for each kind, on the payroll period's date.
+
+        This used to filter `list_all()` by kind and take `candidates[-1]`, on a
+        list `RateTableStore.list_all()` returns **sorted by name**. So with two
+        versions of a table the alphabetically-later *name* won -- regardless of
+        verification, effective dates, or creation order. `require_usable` exists
+        to answer this question properly, and its own docstring warns that "ordering
+        by name or by list position would silently pick an arbitrary table"; payroll
+        was the one caller not using it, so it had zero production call sites.
+
+        The consequence was silent and material: back-running a March 2025 payroll
+        after the 2026 decree was loaded used the 2026 BPJS rates, and recorded the
+        2026 table id as the provenance for the figures -- which defeats the point
+        of recording it at all.
+        """
         tables: dict[RateTableKind, RateTable] = {}
         table_ids: dict[str, str] = {}
         anomalies: list[PayrollAnomaly] = []
 
         wanted = [*REQUIRED_TABLES, RateTableKind.OVERTIME_PREMIUM, RateTableKind.PPH21_TER]
         for kind in wanted:
-            candidates = [table for table in self._rate_tables.list_all() if table.kind is kind]
-            if not candidates:
+            try:
+                table = self._rate_tables.require_usable(kind, as_of=period)
+            except RateTableError as exc:
                 anomalies.append(
                     PayrollAnomaly(
-                        code=f"rate_table_missing:{kind.value}",
+                        code=f"rate_table_unusable:{kind.value}",
                         severity=AnomalySeverity.ERROR,
                         detail=(
-                            f"{kind.value} rate table is not configured. "
-                            "HR must enter and verify current rates before payroll."
+                            f"{kind.value}: {exc} The rate in force on "
+                            f"{period.isoformat()} is what this payroll must use."
                         ),
                     )
                 )
                 continue
-            table = candidates[-1]
             tables[kind] = table
             table_ids[kind.value] = str(table.id)
-            if not table.usable and kind in REQUIRED_TABLES:
-                anomalies.append(
-                    PayrollAnomaly(
-                        code=f"rate_table_unverified:{kind.value}",
-                        severity=AnomalySeverity.ERROR,
-                        detail=(
-                            f"{kind.value} rate table exists but is not verified. "
-                            "Verify it (with a source note) before computing payroll."
-                        ),
-                    )
-                )
         return tables, table_ids, anomalies
 
     def _compute_line(
@@ -274,80 +363,187 @@ class PayrollService:
         employee: Employee | None,
         tables: dict[RateTableKind, RateTable],
         pph_table: RateTable | None,
+        *,
+        working_days: int,
     ) -> tuple[PayrollLine, list[PayrollAnomaly]]:
         anomalies: list[PayrollAnomaly] = []
-        wage = payroll_input.base_salary + payroll_input.fixed_allowances
+        wage = add(payroll_input.base_salary, payroll_input.fixed_allowances)
 
-        # Overtime
-        overtime_entry = _first_entry(tables.get(RateTableKind.OVERTIME_PREMIUM))
+        # --- unpaid absence -------------------------------------------------
+        # `absence_days` was collected, range-validated, persisted, exposed in
+        # OpenAPI and the generated dashboard client -- and never read by any
+        # computation. An employee absent 15 days was paid in full, with their own
+        # acknowledgement note printed on the payslip.
+        absence_days = payroll_input.absence_days
+        paid_fraction = Decimal(1)
+        if absence_days > 0:
+            if absence_days >= working_days:
+                anomalies.append(
+                    PayrollAnomaly(
+                        code="absence_exceeds_period",
+                        severity=AnomalySeverity.ERROR,
+                        employee_id=payroll_input.employee_id,
+                        detail=(
+                            f"{absence_days} absence days is the whole "
+                            f"{working_days}-day period; check the inputs."
+                        ),
+                    )
+                )
+                paid_fraction = ZERO
+            else:
+                # Deliberately *not* run through `money()`. That quantises to two
+                # places, and a ratio is not money: 14/22 of a month came out as
+                # 0.64, which on a Rp 10,000,000 wage pays Rp 6,400,000 instead of
+                # Rp 6,363,636.36 -- a Rp 36,364 overpayment per proration. The
+                # fraction stays exact and `percent_of` quantises the money once.
+                paid_fraction = Decimal(working_days - absence_days) / Decimal(working_days)
+
+        # --- overtime -------------------------------------------------------
+        # Priced per day: the 1.5x tier is one hour per day (UU 13/2003 Pasal
+        # 56(2)), not one hour per month. `OVERTIME_DAY_HOURS` tiers come from the
+        # verified table so the multipliers are operator-owned rather than
+        # constants, which `models/payroll.py` claims they already were.
+        overtime_table = tables.get(RateTableKind.OVERTIME_PREMIUM)
+        first_tier = _entry_for(overtime_table, "first_hour")
+        rest_tier = _entry_for(overtime_table, "subsequent_hour")
         first_multiplier = (
-            overtime_entry.multiplier
-            if overtime_entry and overtime_entry.multiplier is not None
+            first_tier.multiplier
+            if first_tier and first_tier.multiplier is not None
             else DEFAULT_OVERTIME_FIRST_HOUR_MULTIPLIER
         )
-        next_multiplier = DEFAULT_OVERTIME_NEXT_HOURS_MULTIPLIER
-        hourly = wage / HOURLY_DIVISOR
-        hours = payroll_input.overtime_hours
-        overtime_pay = 0.0
+        rest_multiplier = (
+            rest_tier.multiplier
+            if rest_tier and rest_tier.multiplier is not None
+            else DEFAULT_OVERTIME_NEXT_HOURS_MULTIPLIER
+        )
+        hourly = wage / Decimal(str(HOURLY_DIVISOR))
+        hours = Decimal(str(payroll_input.overtime_hours))
+        overtime_pay = ZERO
         if hours > 0:
-            first_hours = min(hours, 1.0)
-            rest_hours = max(hours - 1.0, 0.0)
-            overtime_pay = round(
-                hourly * first_multiplier * first_hours + hourly * next_multiplier * rest_hours,
-                2,
+            # Days the employee worked at all: the full period less absences. The
+            # 1.5x tier is one hour *per day* (UU 13/2003 Pasal 56(2)). Rounded, not
+            # truncated -- `int()` turns 14.999 into 14 days of first-tier hours.
+            days_worked = max(
+                1,
+                int((Decimal(working_days) * paid_fraction).quantize(Decimal("1"), ROUND_HALF_UP)),
+            )
+            first_hours = min(hours, Decimal(days_worked))
+            # Hours are a ratio, not money, so no two-place quantisation here.
+            rest_hours = max(hours - first_hours, ZERO)
+            overtime_pay = add(
+                hourly * Decimal(str(first_multiplier)) * first_hours,
+                hourly * Decimal(str(rest_multiplier)) * rest_hours,
             )
 
-        if hours > MAX_OVERTIME_HOURS:
+        if payroll_input.overtime_hours > MAX_OVERTIME_HOURS:
             anomalies.append(
                 PayrollAnomaly(
                     code="overtime_excessive",
                     severity=AnomalySeverity.WARNING,
                     employee_id=payroll_input.employee_id,
                     detail=(
-                        f"{hours} overtime hours exceeds {MAX_OVERTIME_HOURS}; "
-                        "verify with the manager."
+                        f"{payroll_input.overtime_hours} overtime hours exceeds "
+                        f"{MAX_OVERTIME_HOURS}; verify with the manager."
                     ),
                 )
             )
 
-        gross = round(
-            wage + overtime_pay + payroll_input.variable_allowances + payroll_input.bonus, 2
+        # Wages and fixed allowances scale with the days actually paid; overtime
+        # does not, because it is already an hours count.
+        #
+        # `contribution_wage` is base + fixed, which is what BPJS contributions are
+        # assessed on. `base_paid` and `fixed_paid` are kept apart so the line's
+        # components sum to its gross exactly once -- an earlier version folded
+        # fixed into `base_salary` *and* listed it in `allowances`, which
+        # `PayrollLine.check_invariants` caught as a one-allowance double count.
+        base_paid = percent_of(payroll_input.base_salary, paid_fraction * 100)
+        fixed_paid = percent_of(payroll_input.fixed_allowances, paid_fraction * 100)
+        paid_variable = percent_of(payroll_input.variable_allowances, paid_fraction * 100)
+        contribution_wage = add(base_paid, fixed_paid)
+
+        gross = add(
+            base_paid,
+            fixed_paid,
+            paid_variable,
+            overtime_pay,
+            payroll_input.bonus,
         )
 
-        # BPJS shares (employee + employer) from verified tables
-        bpjs_kes = tables.get(RateTableKind.BPJS_KESEHATAN)
-        bpjs_jht = tables.get(RateTableKind.BPJS_KETENAGAKERJAAN_JHT)
-        bpjs_jp = tables.get(RateTableKind.BPJS_KETENAGAKERJAAN_JP)
-        bpjs_jkk = tables.get(RateTableKind.BPJS_JKK)
-        bpjs_jkm = tables.get(RateTableKind.BPJS_JKM)
+        # --- BPJS -----------------------------------------------------------
+        # The rate keys off the employee's risk class, not the table's first row.
+        risk_key = _risk_key(employee)
+        kes = tables.get(RateTableKind.BPJS_KESEHATAN)
+        jht = tables.get(RateTableKind.BPJS_KETENAGAKERJAAN_JHT)
+        jp = tables.get(RateTableKind.BPJS_KETENAGAKERJAAN_JP)
+        jkk = tables.get(RateTableKind.BPJS_JKK)
+        jkm = tables.get(RateTableKind.BPJS_JKM)
 
         def usable(table: RateTable | None) -> RateTable | None:
             return table if table is not None and table.usable else None
 
-        kes_employee = _share(_first_entry(usable(bpjs_kes)), employer=False, wage=wage)
-        kes_employer = _share(_first_entry(usable(bpjs_kes)), employer=True, wage=wage)
-        jht_employee = _share(_first_entry(usable(bpjs_jht)), employer=False, wage=wage)
-        jht_employer = _share(_first_entry(usable(bpjs_jht)), employer=True, wage=wage)
-        jp_employee = _share(_first_entry(usable(bpjs_jp)), employer=False, wage=wage)
-        jp_employer = _share(_first_entry(usable(bpjs_jp)), employer=True, wage=wage)
-        jkk_employer = _share(_first_entry(usable(bpjs_jkk)), employer=True, wage=wage)
-        jkm_employer = _share(_first_entry(usable(bpjs_jkm)), employer=True, wage=wage)
+        kes_employee = _share(_entry_for(usable(kes), None), employer=False, wage=contribution_wage)
+        kes_employer = _share(_entry_for(usable(kes), None), employer=True, wage=contribution_wage)
+        jht_employee = _share(
+            _entry_for(usable(jht), "normal"), employer=False, wage=contribution_wage
+        )
+        jht_employer = _share(
+            _entry_for(usable(jht), "normal"), employer=True, wage=contribution_wage
+        )
+        jp_employee = _share(_entry_for(usable(jp), None), employer=False, wage=contribution_wage)
+        jp_employer = _share(_entry_for(usable(jp), None), employer=True, wage=contribution_wage)
+        jkk_employer = _share(
+            _entry_for(usable(jkk), risk_key), employer=True, wage=contribution_wage
+        )
+        jkm_employer = _share(_entry_for(usable(jkm), None), employer=True, wage=contribution_wage)
 
-        # PPh 21 (only when a usable TER-style table exists)
-        pph21 = 0.0
+        usable_jkk = usable(jkk)
+        if _is_keyed(usable_jkk):
+            # A keyed JKK table is discriminating, and `Employee` carries no risk
+            # class to select with. Charging the first row would under-declare a
+            # high-risk role; charging nothing would under-declare too. Either way
+            # the operator has to record the class, so block and say so.
+            row = _entry_for(usable_jkk, risk_key)
+            if row is None:
+                anomalies.append(
+                    PayrollAnomaly(
+                        code="jkk_risk_class_unrecorded",
+                        severity=AnomalySeverity.ERROR,
+                        employee_id=payroll_input.employee_id,
+                        detail=(
+                            "the JKK table is keyed by risk class but this employee has no "
+                            "recorded class, so no employer share could be selected. Record "
+                            "the employee's BPJS JKK risk class before paying."
+                        ),
+                    )
+                )
+                jkk_employer = ZERO
+
+        # --- PPh 21 ---------------------------------------------------------
+        pph21 = ZERO
         if pph_table is not None and pph_table.usable:
             pph21 = self._compute_pph21(pph_table, gross)
+            anomalies.append(
+                PayrollAnomaly(
+                    code="ptkp_not_applied",
+                    severity=AnomalySeverity.WARNING,
+                    employee_id=payroll_input.employee_id,
+                    detail=(
+                        f"TER withheld {pph21} on gross {gross} with no personal exemption "
+                        "(PTKP) or dependent allowance deducted, so this is overstated. "
+                        "Record the employee's tax profile and the PTKP rate table."
+                    ),
+                )
+            )
 
-        total_deductions = round(
-            kes_employee
-            + jht_employee
-            + jp_employee
-            + pph21
-            + payroll_input.other_deductions
-            + payroll_input.loan_deduction,
-            2,
+        total_deductions = add(
+            kes_employee,
+            jht_employee,
+            jp_employee,
+            pph21,
+            payroll_input.other_deductions,
+            payroll_input.loan_deduction,
         )
-        net = round(gross - total_deductions, 2)
+        net = sub(gross, total_deductions)
 
         if net < 0:
             anomalies.append(
@@ -359,15 +555,13 @@ class PayrollService:
                 )
             )
 
-        employer_cost = round(
-            kes_employer + jht_employer + jp_employer + jkk_employer + jkm_employer, 2
-        )
+        employer_cost = add(kes_employer, jht_employer, jp_employer, jkk_employer, jkm_employer)
 
         line = PayrollLine(
             employee_id=payroll_input.employee_id,
             employee_name=employee.full_name if employee else "",
-            base_salary=payroll_input.base_salary,
-            allowances=round(payroll_input.fixed_allowances + payroll_input.variable_allowances, 2),
+            base_salary=base_paid,
+            allowances=add(fixed_paid, paid_variable),
             overtime_pay=overtime_pay,
             bonus=payroll_input.bonus,
             gross=gross,
@@ -375,9 +569,7 @@ class PayrollService:
             bpjs_jht_employee=jht_employee,
             bpjs_jp_employee=jp_employee,
             pph21=pph21,
-            other_deductions=round(
-                payroll_input.other_deductions + payroll_input.loan_deduction, 2
-            ),
+            other_deductions=add(payroll_input.other_deductions, payroll_input.loan_deduction),
             total_deductions=total_deductions,
             net=net,
             bpjs_kesehatan_employer=kes_employer,
@@ -388,20 +580,64 @@ class PayrollService:
             employer_cost=employer_cost,
             notes=[payroll_input.note] if payroll_input.note else [],
         )
+        line.check_invariants()
         return line, anomalies
 
     @staticmethod
-    def _compute_pph21(table: RateTable, gross: float) -> float:
-        """Apply the first matching bracket from a TER-style table."""
-        for entry in sorted(table.entries, key=lambda item: item.lower_bound or 0.0):
-            lower = entry.lower_bound or 0.0
+    def _compute_pph21(table: RateTable, gross: Decimal) -> Decimal:
+        """Progressive TER over the operator's brackets.
+
+        This used to apply the first matching bracket's rate to the *whole* gross.
+        PMK 168/2023's TER is progressive, so on a Rp 20,000,000 monthly gross the
+        old code withheld Rp 7,000,000 where progressive accumulation gives
+        Rp 5,510,000 -- Rp 17,880,000 per employee per year.
+
+        It also fell off the end of the bracket table and returned ``0.0`` when
+        gross exceeded the top bracket. Silent zero tax on the people who earn the
+        most is the worst possible failure mode for this function, so an uncovered
+        gross raises rather than returning a number.
+
+        PTKP and dependent allowances are **not** applied yet: `Employee` has no tax
+        profile, and inventing one is the hardcoded statutory number `AGENTS.md`
+        forbids. The caller raises a `ptkp_not_applied` anomaly so the withholding is
+        visibly overstated rather than quietly wrong.
+        """
+        if gross <= ZERO:
+            return ZERO
+
+        brackets = sorted(
+            (item for item in table.entries if item.lower_bound is not None),
+            key=lambda item: item.lower_bound or ZERO,
+        )
+        if not brackets:
+            return ZERO
+
+        tax = ZERO
+        for entry in brackets:
+            lower = entry.lower_bound or ZERO
             upper = entry.upper_bound
-            if gross >= lower and (upper is None or gross <= upper):
-                if entry.flat_amount is not None:
-                    return round(entry.flat_amount, 2)
-                percent = entry.employee_share_percent or 0.0
-                return round(gross * (percent / 100.0), 2)
-        return 0.0
+            if gross <= lower:
+                break
+            slab_top = min(gross, upper) if upper is not None else gross
+            if slab_top <= lower:
+                continue
+            slab = sub(slab_top, lower)
+            if entry.flat_amount is not None:
+                tax = add(tax, entry.flat_amount)
+            else:
+                tax = add(tax, percent_of(slab, entry.employee_share_percent or 0.0))
+            if upper is not None and gross <= upper:
+                break
+
+        top = brackets[-1].upper_bound
+        if top is not None and gross > top:
+            # Never silently zero: the highest earners are exactly the people a
+            # truncated bracket table quietly exempts.
+            raise PayrollError(
+                f"TER brackets cover up to {top} but taxable income is {gross}; "
+                "extend the table before paying this period"
+            )
+        return tax
 
     def _previous_run(self, run: PayrollRun) -> PayrollRun | None:
         candidate: PayrollRun | None = None
@@ -606,14 +842,10 @@ class PayrollService:
         ]
         sheet.append(headers)
         for line in run.lines:
-            employer_bpjs = round(
-                line.bpjs_kesehatan_employer
-                + line.bpjs_jht_employer
-                + line.bpjs_jp_employer
-                + line.bpjs_jkk_employer
-                + line.bpjs_jkm_employer,
-                2,
-            )
+            # `line.employer_cost`, not a re-sum here: `check_invariants` already
+            # proved it equals the sum of the five employer shares, and recomputing
+            # it with `round()` is how it drifted before.
+            employer_bpjs = line.employer_cost
             sheet.append(
                 [
                     str(line.employee_id),

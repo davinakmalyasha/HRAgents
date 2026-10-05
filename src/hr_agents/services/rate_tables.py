@@ -39,8 +39,31 @@ class RateTableService:
         name: str,
         actor: ActorRef,
         jurisdiction: str = "ID",
+        effective_from: date | None = None,
+        effective_to: date | None = None,
     ) -> RateTable:
-        table = RateTable(kind=kind, name=name, jurisdiction=jurisdiction)
+        """Create a table.
+
+        ``effective_from``/``effective_to`` are how an operator keeps two versions of
+        the same kind -- last year's rates and this year's. `require_usable` selects
+        on them, so without them a re-run of an old payroll period silently picks up
+        the current table.
+        """
+        if (
+            effective_from is not None
+            and effective_to is not None
+            and effective_to < effective_from
+        ):
+            raise RateTableError(
+                f"effective_to {effective_to} is before effective_from {effective_from}"
+            )
+        table = RateTable(
+            kind=kind,
+            name=name,
+            jurisdiction=jurisdiction,
+            effective_from=effective_from,
+            effective_to=effective_to,
+        )
         self._store.add(table)
         self._record(table, action="rate_table.created", actor=actor)
         return table

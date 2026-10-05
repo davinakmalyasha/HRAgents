@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 from pydantic import Field
 
 from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.money import Money
 
 
 class RateTableKind(StrEnum):
@@ -31,17 +32,34 @@ class RateTableKind(StrEnum):
 
 
 class RateEntry(StrictModel):
-    """One row in a rate table (e.g., a bracket, a risk class, a cap)."""
+    """One row in a rate table (e.g., a bracket, a risk class, a cap).
 
+    Amounts are exact :data:`~hr_agents.models.money.Money`; percentages and the
+    overtime multiplier are ratios and stay ``float``, because they are never
+    summed into a total and turning them into ``Decimal`` would mean a
+    ``/ Decimal(100)`` at every use site for no accuracy gain.
+
+    ``key`` is the machine-readable selector for tables that have variants -- the
+    BPJS JKK risk classes (I-IV), the JHT normal-vs-accelerated split, overtime
+    tiers. ``payroll.py`` used to read ``entries[0]`` and apply it to every
+    employee, which silently charged a class-IV industrial worker the class-I rate;
+    an operator entering four risk classes had three of them ignored.
+    """
+
+    key: str | None = Field(default=None, max_length=64)
     label: str = Field(min_length=1, max_length=200)
     employee_share_percent: float | None = Field(default=None, ge=0.0, le=100.0)
     employer_share_percent: float | None = Field(default=None, ge=0.0, le=100.0)
-    wage_cap: float | None = Field(default=None, ge=0.0)
-    lower_bound: float | None = Field(default=None, ge=0.0)
-    upper_bound: float | None = Field(default=None, ge=0.0)
+    wage_cap: Money | None = Field(default=None, ge=0.0)
+    lower_bound: Money | None = Field(default=None, ge=0.0)
+    upper_bound: Money | None = Field(default=None, ge=0.0)
     multiplier: float | None = Field(default=None, ge=0.0)
-    flat_amount: float | None = Field(default=None, ge=0.0)
+    flat_amount: Money | None = Field(default=None, ge=0.0)
     notes: str | None = Field(default=None, max_length=500)
+
+    def selected_by(self, key: str | None) -> bool:
+        """Whether this row answers to ``key``, or is the table's only row."""
+        return key is None or self.key == key
 
 
 class RateTable(StrictModel):

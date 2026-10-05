@@ -13,6 +13,8 @@ import os
 from collections.abc import Iterator
 
 import pytest
+from hypothesis import HealthCheck
+from hypothesis import settings as hypothesis_settings
 
 from hr_agents.config import get_settings
 from hr_agents.providers import settings as provider_settings
@@ -70,3 +72,23 @@ def hermetic_environment() -> Iterator[None]:
             os.environ.pop(key, None)
         os.environ.update(saved)
         get_settings.cache_clear()
+
+
+# --- hypothesis ----------------------------------------------------------------
+#
+# Registered here rather than per-test because the right settings are a property of
+# the *suite*, not of one assertion. Pydantic builds a validator's core schema on
+# first use, so the first few examples of any model-constructing test run in
+# hundreds of milliseconds and hypothesis's default 200 ms deadline fires on them --
+# a flake that depends on whether something else warmed the cache first.
+#
+# deadline=None removes the flakiness. suppress_health_check drops the two
+# warnings that are expected here: the strategies are not actually slow, and
+# function-scoped fixtures are not in play in 	ests/models/test_money.py.
+hypothesis_settings.register_profile(
+    "pydantic",
+    deadline=None,
+    max_examples=200,
+    suppress_health_check=[HealthCheck.too_slow],
+)
+hypothesis_settings.load_profile("pydantic")

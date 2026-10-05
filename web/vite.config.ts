@@ -64,7 +64,10 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     css: false,
     // Radix/dnd interaction tests flake under parallel CPU load at the 5s default.
-    testTimeout: 15000,
+    // 30s, not 15s: on a contended 8-core box `ImportPage.test.tsx` took 42s for
+    // three tests that run in 13s on an idle machine. A timeout that fires on CPU
+    // contention is a flaky gate, not a signal.
+    testTimeout: 30000,
     // Bound the worker pool: one fork per core exhausts memory on an 8 GB
     // machine (and in CI containers), which surfaces as "Failed to start forks
     // worker" or 15s timeouts rather than as a real test failure.

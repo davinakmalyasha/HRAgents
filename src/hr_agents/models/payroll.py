@@ -19,6 +19,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.money import ZERO, Money, add, sub, sum_money
 
 
 class PayrollRunStatus(StrEnum):
@@ -49,14 +50,14 @@ class PayrollInput(StrictModel):
     """Per-employee inputs assembled for one payroll run."""
 
     employee_id: UUID
-    base_salary: float = Field(ge=0.0)
-    fixed_allowances: float = Field(default=0.0, ge=0.0)
-    variable_allowances: float = Field(default=0.0, ge=0.0)
+    base_salary: Money = Field(ge=0.0)
+    fixed_allowances: Money = Field(default=ZERO, ge=0.0)
+    variable_allowances: Money = Field(default=ZERO, ge=0.0)
     overtime_hours: float = Field(default=0.0, ge=0.0, le=400.0)
     absence_days: float = Field(default=0.0, ge=0.0, le=31.0)
-    other_deductions: float = Field(default=0.0, ge=0.0)
-    loan_deduction: float = Field(default=0.0, ge=0.0)
-    bonus: float = Field(default=0.0, ge=0.0)
+    other_deductions: Money = Field(default=ZERO, ge=0.0)
+    loan_deduction: Money = Field(default=ZERO, ge=0.0)
+    bonus: Money = Field(default=ZERO, ge=0.0)
     note: str | None = Field(default=None, max_length=500)
 
 
@@ -76,38 +77,92 @@ class PayrollLine(StrictModel):
     employee_name: str = Field(default="", max_length=200)
 
     # earnings
-    base_salary: float = Field(ge=0.0)
-    allowances: float = Field(default=0.0, ge=0.0)
-    overtime_pay: float = Field(default=0.0, ge=0.0)
-    bonus: float = Field(default=0.0, ge=0.0)
-    gross: float = Field(ge=0.0)
+    base_salary: Money = Field(ge=0.0)
+    allowances: Money = Field(default=ZERO, ge=0.0)
+    overtime_pay: Money = Field(default=ZERO, ge=0.0)
+    bonus: Money = Field(default=ZERO, ge=0.0)
+    gross: Money = Field(ge=0.0)
 
     # employee deductions
-    bpjs_kesehatan_employee: float = Field(default=0.0, ge=0.0)
-    bpjs_jht_employee: float = Field(default=0.0, ge=0.0)
-    bpjs_jp_employee: float = Field(default=0.0, ge=0.0)
-    pph21: float = Field(default=0.0, ge=0.0)
-    other_deductions: float = Field(default=0.0, ge=0.0)
-    total_deductions: float = Field(ge=0.0)
-    net: float
+    bpjs_kesehatan_employee: Money = Field(default=ZERO, ge=0.0)
+    bpjs_jht_employee: Money = Field(default=ZERO, ge=0.0)
+    bpjs_jp_employee: Money = Field(default=ZERO, ge=0.0)
+    pph21: Money = Field(default=ZERO, ge=0.0)
+    other_deductions: Money = Field(default=ZERO, ge=0.0)
+    total_deductions: Money = Field(ge=0.0)
+    net: Money
 
     # employer costs (not deducted; company expense)
-    bpjs_kesehatan_employer: float = Field(default=0.0, ge=0.0)
-    bpjs_jht_employer: float = Field(default=0.0, ge=0.0)
-    bpjs_jp_employer: float = Field(default=0.0, ge=0.0)
-    bpjs_jkk_employer: float = Field(default=0.0, ge=0.0)
-    bpjs_jkm_employer: float = Field(default=0.0, ge=0.0)
-    employer_cost: float = Field(default=0.0, ge=0.0)
+    bpjs_kesehatan_employer: Money = Field(default=ZERO, ge=0.0)
+    bpjs_jht_employer: Money = Field(default=ZERO, ge=0.0)
+    bpjs_jp_employer: Money = Field(default=ZERO, ge=0.0)
+    bpjs_jkk_employer: Money = Field(default=ZERO, ge=0.0)
+    bpjs_jkm_employer: Money = Field(default=ZERO, ge=0.0)
+    employer_cost: Money = Field(default=ZERO, ge=0.0)
 
     notes: list[str] = Field(default_factory=list)
+
+    def check_invariants(self) -> None:
+        """The arithmetic identities a payslip must satisfy, asserted on the way out.
+
+        Money is exact now, so these are not approximations that "usually" hold --
+        they are identities, and a violation means a bug rather than a rounding
+        artefact. Having them here rather than in a test means a line assembled
+        anywhere -- a service, a test, a future import path -- is checked the moment
+        it exists.
+
+        They are what an employee's bank reconciliation compares against, which is
+        why they are worth asserting at construction rather than at export.
+        """
+        earnings = add(self.base_salary, self.allowances, self.overtime_pay, self.bonus)
+        if earnings != self.gross:
+            raise ValueError(
+                f"gross {self.gross} does not equal base {self.base_salary} + allowances "
+                f"{self.allowances} + overtime {self.overtime_pay} + bonus {self.bonus} "
+                f"= {earnings}"
+            )
+        deductions = add(
+            self.bpjs_kesehatan_employee,
+            self.bpjs_jht_employee,
+            self.bpjs_jp_employee,
+            self.pph21,
+            self.other_deductions,
+        )
+        if deductions != self.total_deductions:
+            raise ValueError(
+                f"total_deductions {self.total_deductions} does not equal the sum of "
+                f"its parts {deductions}"
+            )
+        if sub(self.gross, self.total_deductions) != self.net:
+            raise ValueError(
+                f"net {self.net} does not equal gross {self.gross} - deductions "
+                f"{self.total_deductions}"
+            )
+        employer = add(
+            self.bpjs_kesehatan_employer,
+            self.bpjs_jht_employer,
+            self.bpjs_jp_employer,
+            self.bpjs_jkk_employer,
+            self.bpjs_jkm_employer,
+        )
+        if employer != self.employer_cost:
+            raise ValueError(
+                f"employer_cost {self.employer_cost} does not equal the sum of the "
+                f"employer shares {employer}"
+            )
+
+    # `net` is deliberately unconstrained (`Money` with no `ge=0`). A negative net is
+    # a real state the service records as a blocking `negative_net` anomaly and a
+    # human corrects, so it must be representable -- which is also why this method
+    # asserts arithmetic identities only and makes no judgement about the values.
 
 
 class PayrollTotals(StrictModel):
     employees: int = Field(default=0, ge=0)
-    gross: float = Field(default=0.0, ge=0.0)
-    total_deductions: float = Field(default=0.0, ge=0.0)
-    net: float = 0.0
-    employer_cost: float = Field(default=0.0, ge=0.0)
+    gross: Money = Field(default=ZERO, ge=0.0)
+    total_deductions: Money = Field(default=ZERO, ge=0.0)
+    net: Money = ZERO
+    employer_cost: Money = Field(default=ZERO, ge=0.0)
 
 
 class PayrollRun(StrictModel):
@@ -137,12 +192,14 @@ class PayrollRun(StrictModel):
 
     @property
     def totals(self) -> PayrollTotals:
+        # Exact, and quantised once at the end -- summing 200 quantised Decimals
+        # is already exact, so this is belt-and-braces rather than a correction.
         return PayrollTotals(
             employees=len(self.lines),
-            gross=round(sum(line.gross for line in self.lines), 2),
-            total_deductions=round(sum(line.total_deductions for line in self.lines), 2),
-            net=round(sum(line.net for line in self.lines), 2),
-            employer_cost=round(sum(line.employer_cost for line in self.lines), 2),
+            gross=sum_money([line.gross for line in self.lines]),
+            total_deductions=sum_money([line.total_deductions for line in self.lines]),
+            net=sum_money([line.net for line in self.lines]),
+            employer_cost=sum_money([line.employer_cost for line in self.lines]),
         )
 
     @property

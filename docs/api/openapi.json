@@ -6380,9 +6380,9 @@
         "title": "QueueResponse",
         "type": "object"
       },
-      "RateEntry": {
+      "RateEntry-Input": {
         "additionalProperties": false,
-        "description": "One row in a rate table (e.g., a bracket, a risk class, a cap).",
+        "description": "One row in a rate table (e.g., a bracket, a risk class, a cap).\n\nAmounts are exact :data:`~hr_agents.models.money.Money`; percentages and the\novertime multiplier are ratios and stay ``float``, because they are never\nsummed into a total and turning them into ``Decimal`` would mean a\n``/ Decimal(100)`` at every use site for no accuracy gain.\n\n``key`` is the machine-readable selector for tables that have variants -- the\nBPJS JKK risk classes (I-IV), the JHT normal-vs-accelerated split, overtime\ntiers. ``payroll.py`` used to read ``entries[0]`` and apply it to every\nemployee, which silently charged a class-IV industrial worker the class-I rate;\nan operator entering four risk classes had three of them ignored.",
         "properties": {
           "employee_share_percent": {
             "anyOf": [
@@ -6413,14 +6413,34 @@
           "flat_amount": {
             "anyOf": [
               {
-                "minimum": 0.0,
-                "type": "number"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "ge": 0.0
               },
               {
                 "type": "null"
               }
             ],
             "title": "Flat Amount"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
           },
           "label": {
             "maxLength": 200,
@@ -6431,7 +6451,158 @@
           "lower_bound": {
             "anyOf": [
               {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "ge": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lower Bound"
+          },
+          "multiplier": {
+            "anyOf": [
+              {
                 "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multiplier"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "upper_bound": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "ge": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper Bound"
+          },
+          "wage_cap": {
+            "anyOf": [
+              {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "ge": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wage Cap"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "RateEntry",
+        "type": "object"
+      },
+      "RateEntry-Output": {
+        "additionalProperties": false,
+        "description": "One row in a rate table (e.g., a bracket, a risk class, a cap).\n\nAmounts are exact :data:`~hr_agents.models.money.Money`; percentages and the\novertime multiplier are ratios and stay ``float``, because they are never\nsummed into a total and turning them into ``Decimal`` would mean a\n``/ Decimal(100)`` at every use site for no accuracy gain.\n\n``key`` is the machine-readable selector for tables that have variants -- the\nBPJS JKK risk classes (I-IV), the JHT normal-vs-accelerated split, overtime\ntiers. ``payroll.py`` used to read ``entries[0]`` and apply it to every\nemployee, which silently charged a class-IV industrial worker the class-I rate;\nan operator entering four risk classes had three of them ignored.",
+        "properties": {
+          "employee_share_percent": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee Share Percent"
+          },
+          "employer_share_percent": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employer Share Percent"
+          },
+          "flat_amount": {
+            "anyOf": [
+              {
+                "ge": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flat Amount"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "lower_bound": {
+            "anyOf": [
+              {
+                "ge": 0.0,
                 "type": "number"
               },
               {
@@ -6467,7 +6638,7 @@
           "upper_bound": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "ge": 0.0,
                 "type": "number"
               },
               {
@@ -6479,7 +6650,7 @@
           "wage_cap": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "ge": 0.0,
                 "type": "number"
               },
               {
@@ -6528,7 +6699,7 @@
         "properties": {
           "entries": {
             "items": {
-              "$ref": "#/components/schemas/RateEntry"
+              "$ref": "#/components/schemas/RateEntry-Input"
             },
             "minItems": 1,
             "title": "Entries",
@@ -6604,7 +6775,7 @@
           },
           "entries": {
             "items": {
-              "$ref": "#/components/schemas/RateEntry"
+              "$ref": "#/components/schemas/RateEntry-Output"
             },
             "title": "Entries",
             "type": "array"

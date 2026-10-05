@@ -85,22 +85,25 @@ class LineView(StrictModel):
 
     @classmethod
     def from_model(cls, line: PayrollLine) -> LineView:
+        # Money is an exact `Decimal` in the domain and a JSON number on the wire.
+        # The conversion happens here and nowhere else, so the arithmetic upstream
+        # stays exact and the OpenAPI document is unchanged.
         return cls(
             employee_id=line.employee_id,
             employee_name=line.employee_name,
-            base_salary=line.base_salary,
-            allowances=line.allowances,
-            overtime_pay=line.overtime_pay,
-            bonus=line.bonus,
-            gross=line.gross,
-            bpjs_kesehatan_employee=line.bpjs_kesehatan_employee,
-            bpjs_jht_employee=line.bpjs_jht_employee,
-            bpjs_jp_employee=line.bpjs_jp_employee,
-            pph21=line.pph21,
-            other_deductions=line.other_deductions,
-            total_deductions=line.total_deductions,
-            net=line.net,
-            employer_cost=line.employer_cost,
+            base_salary=float(line.base_salary),
+            allowances=float(line.allowances),
+            overtime_pay=float(line.overtime_pay),
+            bonus=float(line.bonus),
+            gross=float(line.gross),
+            bpjs_kesehatan_employee=float(line.bpjs_kesehatan_employee),
+            bpjs_jht_employee=float(line.bpjs_jht_employee),
+            bpjs_jp_employee=float(line.bpjs_jp_employee),
+            pph21=float(line.pph21),
+            other_deductions=float(line.other_deductions),
+            total_deductions=float(line.total_deductions),
+            net=float(line.net),
+            employer_cost=float(line.employer_cost),
             notes=line.notes,
         )
 
@@ -116,10 +119,10 @@ class TotalsView(StrictModel):
     def from_model(cls, totals: PayrollTotals) -> TotalsView:
         return cls(
             employees=totals.employees,
-            gross=totals.gross,
-            total_deductions=totals.total_deductions,
-            net=totals.net,
-            employer_cost=totals.employer_cost,
+            gross=float(totals.gross),
+            total_deductions=float(totals.total_deductions),
+            net=float(totals.net),
+            employer_cost=float(totals.employer_cost),
         )
 
 

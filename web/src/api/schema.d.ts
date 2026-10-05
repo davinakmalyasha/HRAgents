@@ -5048,14 +5048,64 @@ export interface components {
         /**
          * RateEntry
          * @description One row in a rate table (e.g., a bracket, a risk class, a cap).
+         *
+         *     Amounts are exact :data:`~hr_agents.models.money.Money`; percentages and the
+         *     overtime multiplier are ratios and stay ``float``, because they are never
+         *     summed into a total and turning them into ``Decimal`` would mean a
+         *     ``/ Decimal(100)`` at every use site for no accuracy gain.
+         *
+         *     ``key`` is the machine-readable selector for tables that have variants -- the
+         *     BPJS JKK risk classes (I-IV), the JHT normal-vs-accelerated split, overtime
+         *     tiers. ``payroll.py`` used to read ``entries[0]`` and apply it to every
+         *     employee, which silently charged a class-IV industrial worker the class-I rate;
+         *     an operator entering four risk classes had three of them ignored.
          */
-        RateEntry: {
+        "RateEntry-Input": {
+            /** Employee Share Percent */
+            employee_share_percent?: number | null;
+            /** Employer Share Percent */
+            employer_share_percent?: number | null;
+            /** Flat Amount */
+            flat_amount?: (number | string) | null;
+            /** Key */
+            key?: string | null;
+            /** Label */
+            label: string;
+            /** Lower Bound */
+            lower_bound?: (number | string) | null;
+            /** Multiplier */
+            multiplier?: number | null;
+            /** Notes */
+            notes?: string | null;
+            /** Upper Bound */
+            upper_bound?: (number | string) | null;
+            /** Wage Cap */
+            wage_cap?: (number | string) | null;
+        };
+        /**
+         * RateEntry
+         * @description One row in a rate table (e.g., a bracket, a risk class, a cap).
+         *
+         *     Amounts are exact :data:`~hr_agents.models.money.Money`; percentages and the
+         *     overtime multiplier are ratios and stay ``float``, because they are never
+         *     summed into a total and turning them into ``Decimal`` would mean a
+         *     ``/ Decimal(100)`` at every use site for no accuracy gain.
+         *
+         *     ``key`` is the machine-readable selector for tables that have variants -- the
+         *     BPJS JKK risk classes (I-IV), the JHT normal-vs-accelerated split, overtime
+         *     tiers. ``payroll.py`` used to read ``entries[0]`` and apply it to every
+         *     employee, which silently charged a class-IV industrial worker the class-I rate;
+         *     an operator entering four risk classes had three of them ignored.
+         */
+        "RateEntry-Output": {
             /** Employee Share Percent */
             employee_share_percent?: number | null;
             /** Employer Share Percent */
             employer_share_percent?: number | null;
             /** Flat Amount */
             flat_amount?: number | null;
+            /** Key */
+            key?: string | null;
             /** Label */
             label: string;
             /** Lower Bound */
@@ -5086,7 +5136,7 @@ export interface components {
          */
         RateTableEntriesUpdate: {
             /** Entries */
-            entries: components["schemas"]["RateEntry"][];
+            entries: components["schemas"]["RateEntry-Input"][];
         };
         /**
          * RateTableKind
@@ -5111,7 +5161,7 @@ export interface components {
             /** Effective To */
             effective_to?: string | null;
             /** Entries */
-            entries?: components["schemas"]["RateEntry"][];
+            entries?: components["schemas"]["RateEntry-Output"][];
             /** Entry Count */
             entry_count: number;
             /**

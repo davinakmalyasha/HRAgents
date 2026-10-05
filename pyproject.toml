@@ -63,6 +63,7 @@ dev = [
     "anyio>=4.6",
     "aiosqlite>=0.20",
     "pre-commit>=3.8",
+    "hypothesis>=6.100",
 ]
 
 [build-system]

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from hr_agents.identity import ActorRef
 from hr_agents.main import create_app
+from hr_agents.models.money import money as m
 
 TODAY = date.today()
 YEAR = TODAY.year
@@ -56,7 +57,7 @@ def seed_tables(client: TestClient) -> None:
                     label="standard",
                     employer_share_percent=employer,
                     employee_share_percent=employee,
-                    wage_cap=cap,
+                    wage_cap=m(cap) if cap is not None else None,
                 )
             ],
             actor=ActorRef.legacy("hr-admin"),
@@ -89,7 +90,7 @@ def seed_tables(client: TestClient) -> None:
         UUID(pph),
         entries=[
             RateEntry(
-                label="low", lower_bound=0, upper_bound=15_000_000, employee_share_percent=2.0
+                label="low", lower_bound=m(0), upper_bound=m(15_000_000), employee_share_percent=2.0
             )
         ],
         actor=ActorRef.legacy("hr"),
