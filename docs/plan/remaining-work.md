@@ -178,9 +178,10 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       Postgres adapter behind the same interface, selected by `HRAGENTS_STORE_BACKEND`;
       the adapter suite runs on SQLite locally and PostgreSQL in CI. This item was
       previously ticked `[x]` on the claim that *every* store had an adapter. That was
-      false: five services still hold their state only in a Python dict, so a restart
-      loses leave requests, payroll runs, onboarding templates and plans, the Ask HR
-      chat transcript, and cross-workspace requests. See §0.3.
+      false: five services held their state only in a Python dict, so a restart lost
+      leave requests, payroll runs, onboarding templates and plans, the Ask HR chat
+      transcript, and cross-workspace requests. All five are now adapter-backed
+      (migrations `0014`-`0017`); §0.3 is what remains of the wider problem.
 - [x] **Audit-chain persistence.** The chain is persisted in `audit_log` with identical
       hash semantics (`DbAuditChain`, tamper-detection tested) and verified by
       `scripts/verify_audit.py` (exit 1 on the first broken sequence). The ops scheduler
@@ -199,37 +200,52 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 
 ---
 
-## 0.3 Persistence for the five stateful services (was claimed done; is not)
+## 0.3 Persistence for the stateful services
 
-> **Why this is next.** The dashboards for leave, payroll, offboarding and Ask HR all read
-> these stores. A container restart, a worker recycle or a second replica silently empties
-> them, and the product's central promise -- every decision reconstructible -- does not
-> survive a deploy. This is data loss, not a missing feature.
+> **Why this mattered.** The dashboards for leave, payroll, offboarding and Ask HR all read
+> these stores. A container restart, a worker recycle or a second replica silently emptied
+> them, and the product's central promise -- every decision reconstructible -- did not
+> survive a deploy. This was data loss, not a missing feature.
 
-Found by reading the services rather than the docs. Each has an in-process dict and no
-Postgres adapter, so the `HRAGENTS_STORE_BACKEND` switch does nothing for them:
+Found by reading the services rather than the docs. Each held its state in an in-process
+dict and had no Postgres adapter, so the `HRAGENTS_STORE_BACKEND` switch did nothing for
+them. All five are now adapter-backed, selected by that same switch:
 
-| Service | Lost on restart | Blast radius |
-|---|---|---|
-| `LeaveService._requests` | leave requests, approvals, balances | employee loses an approved request; manager re-approves |
-| `PayrollService._runs` | computed payslips, anomalies, sign-off state | **a payroll is recomputed from different rate tables** |
-| `OnboardingService._templates`/`_plans` | checklist templates and per-hire progress | offboarding steps silently un-waived |
-| `ChatService._items` | the Ask HR transcript | an answer the employee was given cannot be shown again |
-| `WorkspaceRequestStore._items` | cross-workspace handoffs | a handoff vanishes mid-workflow |
+| Service | Adapter | Migration | Blast radius when it was lost |
+|---|---|---|---|
+| `ConversationStore` | `DbConversationStore` | `0014` | an answer the employee was given could not be shown again |
+| `WorkspaceRequestStore` | `DbWorkspaceRequestStore` | `0014` | a handoff vanished mid-workflow |
+| `LeaveService` | `DbLeaveService` | `0015` | balance adjustments and the holiday calendar silently wrong |
+| `PayrollService` | `DbPayrollService` | `0016` | **a payroll was recomputed from different rate tables** |
+| `OnboardingService` | `DbOnboardingService` | `0017` | a waived step came back as an unresolved blocker |
 
-Also open alongside these:
+Two of these lose *silently*, which is why they got the most attention. A lost leave
+request is visible -- the employee's list is empty and they file it again. A lost balance
+adjustment still reads plausibly, and a lost holiday calendar makes `working_days` count a
+public holiday as a working day. Nothing reports either.
 
-- [ ] **No tenant index on any of the 35 RLS tables.** Row-level security filters every
-      query by tenant, but with no index on the tenant column each one is a sequential
-      scan of the whole table, so the security layer is also the performance floor.
+Remaining in this area:
+
+- [ ] **Tenant indexes on the 41 pre-existing RLS tables.** The eight tables added in
+      `0014`–`0017` lead with `tenant_id`; the older ones still do not, so every
+      tenant-scoped read of them is a sequential scan and the isolation layer remains the
+      performance floor for most of the schema.
 - [ ] **Payroll runs are not immutable.** A computed run can be recomputed in place, so
       `rate_table_ids` and the figures change after a human has seen them. A re-run should
       supersede the run, not rewrite it.
+- [ ] **A cancellation reason reaches the audit chain and nowhere else.** `PayrollRun` has
+      no `cancelled_at`/`cancel_reason`, so the XLSX review packet shows a cancelled run's
+      status without saying why. The payroll adapter deliberately did not invent the
+      columns.
 - [ ] **No pagination on 43 of 45 list endpoints**, and most DB lists are
-      `select(Table)` with no `LIMIT` followed by a Python `sorted`.
+      `select(Table)` with no `LIMIT` followed by a Python `sorted`. `active_plans` and
+      `_previous_run` are the two aggregations that now read a whole tenant's rows.
 - [ ] **No optimistic concurrency.** `db/mapping.py` read-modify-writes with no version
       predicate, so two concurrent `complete_step` calls lose one; a mid-loop erasure
       failure leaves a half-erased state.
+- [ ] **No `CHECK` constraint exists anywhere in the tables.** The payroll money columns
+      are `Numeric(18,2)` so the database rejects a third decimal place, but no other
+      invariant is enforced below the application.
 
 ---
 

@@ -10,6 +10,7 @@ are rejected in the same way approval decisions are.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -65,6 +66,35 @@ class OnboardingService:
         self._templates: dict[UUID, OnboardingTemplate] = {}
         self._plans: dict[UUID, OnboardingPlan] = {}
 
+    # --- persistence primitives -----------------------------------------
+    #
+    # Adapters override only these. Waivers, gate enforcement, document linkage and
+    # the auto-complete rules all stay above, where they are testable without a
+    # database.
+    #
+    # The loss that matters here is a *waived* step. A hire who had their document
+    # check waived by a manager, or a checklist step waived with a recorded reason,
+    # would come back as not-waived after a restart -- and the next person to look
+    # at the plan would see a blocker that HR had already resolved.
+
+    def _load_template(self, template_id: UUID) -> OnboardingTemplate | None:
+        return self._templates.get(template_id)
+
+    def _iter_templates(self) -> Iterator[OnboardingTemplate]:
+        return iter(list(self._templates.values()))
+
+    def _save_template(self, template: OnboardingTemplate) -> None:
+        self._templates[template.id] = template
+
+    def _load_plan(self, plan_id: UUID) -> OnboardingPlan | None:
+        return self._plans.get(plan_id)
+
+    def _iter_plans(self) -> Iterator[OnboardingPlan]:
+        return iter(list(self._plans.values()))
+
+    def _save_plan(self, plan: OnboardingPlan) -> None:
+        self._plans[plan.id] = plan
+
     # --- templates ------------------------------------------------------
 
     def create_template(
@@ -84,7 +114,7 @@ class OnboardingService:
             applies_to_contract_types=applies_to_contract_types or [],
             applies_to_roles=applies_to_roles or [],
         )
-        self._templates[template.id] = template
+        self._save_template(template)
         self._record(
             action="onboarding.template_created",
             subject_type="onboarding_template",
@@ -95,13 +125,13 @@ class OnboardingService:
         return template
 
     def get_template(self, template_id: UUID) -> OnboardingTemplate:
-        template = self._templates.get(template_id)
+        template = self._load_template(template_id)
         if template is None:
             raise OnboardingError(f"unknown onboarding template {template_id}")
         return template
 
     def list_templates(self, *, active_only: bool = True) -> list[OnboardingTemplate]:
-        templates = sorted(self._templates.values(), key=lambda item: item.name.lower())
+        templates = sorted(self._iter_templates(), key=lambda item: item.name.lower())
         if active_only:
             templates = [template for template in templates if template.active]
         return templates
@@ -172,7 +202,7 @@ class OnboardingService:
             template_version_hash=template_hash(template),
             steps=steps,
         )
-        self._plans[plan.id] = plan
+        self._save_plan(plan)
         self._record(
             action="onboarding.plan_started",
             subject_type="onboarding_plan",
@@ -206,7 +236,7 @@ class OnboardingService:
     # --- progress -------------------------------------------------------
 
     def get_plan(self, plan_id: UUID) -> OnboardingPlan:
-        plan = self._plans.get(plan_id)
+        plan = self._load_plan(plan_id)
         if plan is None:
             raise OnboardingError(f"unknown onboarding plan {plan_id}")
         return plan
@@ -214,12 +244,12 @@ class OnboardingService:
     def plans_for_employee(self, employee_id: UUID) -> list[OnboardingPlan]:
         return [
             plan
-            for plan in sorted(self._plans.values(), key=lambda item: item.started_at)
+            for plan in sorted(self._iter_plans(), key=lambda item: item.started_at)
             if plan.employee_id == employee_id
         ]
 
     def active_plans(self) -> list[OnboardingPlan]:
-        return [plan for plan in self._plans.values() if not plan.is_complete]
+        return [plan for plan in self._iter_plans() if not plan.is_complete]
 
     def complete_step(
         self,
@@ -247,7 +277,7 @@ class OnboardingService:
         plan = self._replace_step(plan, updated_step)
         if plan.is_complete and plan.completed_at is None:
             plan = plan.model_copy(update={"completed_at": utc_now()})
-        self._plans[plan.id] = plan
+        self._save_plan(plan)
         self._record(
             action="onboarding.step_completed",
             subject_type="onboarding_plan",
@@ -298,7 +328,7 @@ class OnboardingService:
         plan = self._replace_step(plan, updated_step)
         if plan.is_complete and plan.completed_at is None:
             plan = plan.model_copy(update={"completed_at": utc_now()})
-        self._plans[plan.id] = plan
+        self._save_plan(plan)
         self._record(
             action="onboarding.document_step_auto_completed",
             subject_type="onboarding_plan",
@@ -340,7 +370,7 @@ class OnboardingService:
         plan = self._replace_step(plan, updated_step)
         if plan.is_complete and plan.completed_at is None:
             plan = plan.model_copy(update={"completed_at": utc_now()})
-        self._plans[plan.id] = plan
+        self._save_plan(plan)
         self._record(
             action="onboarding.step_waived",
             subject_type="onboarding_plan",
@@ -374,7 +404,7 @@ class OnboardingService:
             }
         )
         plan = self._replace_step(plan, updated_step)
-        self._plans[plan.id] = plan
+        self._save_plan(plan)
         self._record(
             action="onboarding.document_linked",
             subject_type="onboarding_plan",

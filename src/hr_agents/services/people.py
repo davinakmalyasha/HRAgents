@@ -143,7 +143,19 @@ class PeopleServices:
                 audit=self.audit,
             )
         self.leave = leave
-        self.onboarding = OnboardingService(employees=self.employees, tasks=tasks, audit=self.audit)
+        onboarding: OnboardingService
+        if self.session_factory is None:
+            onboarding = OnboardingService(employees=self.employees, tasks=tasks, audit=self.audit)
+        else:
+            from hr_agents.db.onboarding import DbOnboardingService
+
+            onboarding = DbOnboardingService(
+                self.session_factory,
+                employees=self.employees,
+                tasks=tasks,
+                audit=self.audit,
+            )
+        self.onboarding = onboarding
         payroll: PayrollService
         if self.session_factory is None:
             payroll = PayrollService(
