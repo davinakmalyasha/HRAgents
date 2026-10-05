@@ -144,12 +144,25 @@ class PeopleServices:
             )
         self.leave = leave
         self.onboarding = OnboardingService(employees=self.employees, tasks=tasks, audit=self.audit)
-        self.payroll = PayrollService(
-            employees=self.employees,
-            rate_tables=self.rate_tables,
-            approvals=approvals,
-            audit=self.audit,
-        )
+        payroll: PayrollService
+        if self.session_factory is None:
+            payroll = PayrollService(
+                employees=self.employees,
+                rate_tables=self.rate_tables,
+                approvals=approvals,
+                audit=self.audit,
+            )
+        else:
+            from hr_agents.db.payroll import DbPayrollService
+
+            payroll = DbPayrollService(
+                self.session_factory,
+                employees=self.employees,
+                rate_tables=self.rate_tables,
+                approvals=approvals,
+                audit=self.audit,
+            )
+        self.payroll = payroll
         self.compliance = ComplianceService(compliance_store, approvals=approvals, audit=self.audit)
         self._register_purge_handlers(compliance_store)
         self.growth = GrowthService(

@@ -20,6 +20,7 @@ from hr_agents.db import (  # noqa: F401
     leave_tables,
     offboarding_tables,
     offers_tables,
+    payroll_tables,
     people_tables,
     tables,
     workspace_tables,

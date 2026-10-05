@@ -8,6 +8,7 @@ to JSON, scalars (dates, UUIDs, enums-as-str) pass through natively.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel
@@ -25,6 +26,12 @@ def _db_value(value: Any) -> Any:
         return [_db_value(item) for item in value]
     if isinstance(value, dict):
         return {key: _db_value(item) for key, item in value.items()}
+    if isinstance(value, Decimal):
+        # Kept as a Decimal for a Numeric column rather than stringified. Pydantic's
+        # `mode="json"` turns a Decimal into a *string*, so a model holding money in
+        # a nested JSON document round-trips as text -- correct, but it means the
+        # numeric columns must receive the Decimal itself to bind to `Numeric`.
+        return value
     return value
 
 

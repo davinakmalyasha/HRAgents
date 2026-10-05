@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import calendar
 import io
+from collections.abc import Iterator
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
@@ -247,6 +248,26 @@ class PayrollService:
         self._audit = audit or AuditChain()
         self._runs: dict[UUID, PayrollRun] = {}
 
+    # --- persistence primitives -----------------------------------------
+    #
+    # Adapters override only these; every rule about what a run may become next,
+    # who may sign it off and when it blocks stays above.
+    #
+    # This seam matters more here than anywhere else. A payroll run that does not
+    # survive a restart is not a lost convenience: `compute()` resolves the rate
+    # tables in force for the period, so a re-run of a March 2025 payroll after the
+    # 2026 decree was loaded produces *different figures* from the same inputs --
+    # and records the new table ids as the provenance for them.
+
+    def _load_run(self, run_id: UUID) -> PayrollRun | None:
+        return self._runs.get(run_id)
+
+    def _iter_runs(self) -> Iterator[PayrollRun]:
+        return iter(list(self._runs.values()))
+
+    def _save_run(self, run: PayrollRun) -> None:
+        self._runs[run.id] = run
+
     # --- run lifecycle ---------------------------------------------------
 
     def create_run(
@@ -265,7 +286,7 @@ class PayrollService:
             kind=kind,
             status=PayrollRunStatus.DRAFT,
         )
-        self._runs[run.id] = run
+        self._save_run(run)
         self._record(
             run,
             action="payroll.run_created",
@@ -275,14 +296,14 @@ class PayrollService:
         return run
 
     def get_run(self, run_id: UUID) -> PayrollRun:
-        run = self._runs.get(run_id)
+        run = self._load_run(run_id)
         if run is None:
             raise PayrollError(f"unknown payroll run {run_id}")
         return run
 
     def list_runs(self) -> list[PayrollRun]:
         return sorted(
-            self._runs.values(),
+            self._iter_runs(),
             key=lambda run: (run.period_year, run.period_month, run.created_at),
         )
 
@@ -297,7 +318,7 @@ class PayrollService:
                 "updated_at": utc_now(),
             }
         )
-        self._runs[run.id] = updated
+        self._save_run(updated)
         self._record(
             updated,
             action="payroll.inputs_set",
@@ -350,7 +371,7 @@ class PayrollService:
                 "updated_at": utc_now(),
             }
         )
-        self._runs[run.id] = updated
+        self._save_run(updated)
         self._record(
             updated,
             action="payroll.computed",
@@ -844,7 +865,7 @@ class PayrollService:
 
     def _previous_run(self, run: PayrollRun) -> PayrollRun | None:
         candidate: PayrollRun | None = None
-        for other in self._runs.values():
+        for other in self._iter_runs():
             if other.id == run.id or other.kind is not run.kind or not other.lines:
                 continue
             if (other.period_year, other.period_month) >= (run.period_year, run.period_month):
@@ -917,7 +938,7 @@ class PayrollService:
                 "updated_at": utc_now(),
             }
         )
-        self._runs[run.id] = updated
+        self._save_run(updated)
         self._record(
             updated,
             action="payroll.submitted_for_signoff",
@@ -929,7 +950,7 @@ class PayrollService:
     def apply_decision(self, approval_id: UUID, *, actor: ActorRef) -> PayrollRun:
         """Sync the run with the approver's decision."""
         run = next(
-            (item for item in self._runs.values() if item.approval_id == approval_id),
+            (item for item in self._iter_runs() if item.approval_id == approval_id),
             None,
         )
         if run is None:
@@ -963,7 +984,7 @@ class PayrollService:
                 "updated_at": utc_now(),
             }
         )
-        self._runs[run.id] = updated
+        self._save_run(updated)
         self._record(
             updated,
             action="payroll.run_approved" if approved else "payroll.run_rejected",
@@ -983,7 +1004,7 @@ class PayrollService:
         updated = run.model_copy(
             update={"status": PayrollRunStatus.EXPORTED, "exported_at": utc_now()}
         )
-        self._runs[run.id] = updated
+        self._save_run(updated)
         self._record(
             updated,
             action="payroll.packet_exported",
@@ -1006,7 +1027,7 @@ class PayrollService:
         updated = run.model_copy(
             update={"status": PayrollRunStatus.CANCELLED, "updated_at": utc_now()}
         )
-        self._runs[run.id] = updated
+        self._save_run(updated)
         self._record(
             updated, action="payroll.run_cancelled", actor=actor, payload={"reason": reason}
         )
