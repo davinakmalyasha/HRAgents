@@ -17,6 +17,7 @@ from sqlalchemy.pool import StaticPool
 from hr_agents.db import (  # noqa: F401
     compliance_tables,
     growth_tables,
+    leave_tables,
     offboarding_tables,
     offers_tables,
     people_tables,

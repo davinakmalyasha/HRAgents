@@ -6,6 +6,7 @@ policy values. Requests flow through the approval engine (humans decide).
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator
 from datetime import date, timedelta
 from uuid import UUID
 
@@ -54,6 +55,62 @@ class LeaveService:
         self._requests: dict[UUID, LeaveRequest] = {}
         self._adjustments: dict[tuple[UUID, LeaveType, int], float] = {}
         self._holidays: set[date] = set(holidays or [])
+        self._holiday_cache: set[date] | None = None
+
+    # --- persistence primitives -----------------------------------------
+    #
+    # Adapters override only these. Every balance computation, overlap check and
+    # lifecycle rule above stays here, where it is testable without a database.
+    #
+    # These existed because leaving state in plain dicts meant a restart lost
+    # approved leave requests, balance adjustments and the holiday calendar. The
+    # last two fail *silently* rather than visibly: a lost holiday set under-counts
+    # working days, and a lost adjustment overstates the balance.
+
+    def _load_request(self, request_id: UUID) -> LeaveRequest | None:
+        return self._requests.get(request_id)
+
+    def _iter_requests(self) -> Iterator[LeaveRequest]:
+        return iter(list(self._requests.values()))
+
+    def _save_request(self, request: LeaveRequest) -> None:
+        self._requests[request.id] = request
+
+    def _load_policy(self, leave_type: LeaveType) -> LeaveTypePolicy | None:
+        return self._policies.get(leave_type)
+
+    def _iter_policies(self) -> Iterator[LeaveTypePolicy]:
+        return iter(list(self._policies.values()))
+
+    def _save_policy(self, policy: LeaveTypePolicy) -> None:
+        self._policies[policy.leave_type] = policy
+
+    def _load_adjustment(self, employee_id: UUID, leave_type: LeaveType, year: int) -> float:
+        return self._adjustments.get((employee_id, leave_type, year), 0.0)
+
+    def _save_adjustment(
+        self, employee_id: UUID, leave_type: LeaveType, year: int, days: float
+    ) -> None:
+        self._adjustments[(employee_id, leave_type, year)] = days
+
+    def _iter_holidays(self) -> Iterator[date]:
+        return iter(sorted(self._holidays))
+
+    def _save_holidays(self, holidays: Iterable[date]) -> None:
+        self._holidays = set(holidays)
+        self._holiday_cache = self._holidays
+
+    def _all_holidays(self) -> set[date]:
+        """The whole holiday set, loaded once per process.
+
+        `is_working_day` is called once per candidate day by `working_days`, so
+        reading the primitives directly would mean one database round trip per day
+        of every range. The calendar is written rarely and only through
+        `_save_holidays`, which invalidates the cache.
+        """
+        if self._holiday_cache is None:
+            self._holiday_cache = set(self._iter_holidays())
+        return self._holiday_cache
 
     # --- policy management ----------------------------------------------
 
@@ -61,7 +118,7 @@ class LeaveService:
         """Install a leave policy. Accrual, caps, and minimum service are money-like
         rules that change for every employee at once, so a named human sets them."""
         actor.require_human("setting a leave policy", LeaveError)
-        self._policies[policy.leave_type] = policy
+        self._save_policy(policy)
         self._record(
             action="leave.policy_set",
             subject_type="leave_policy",
@@ -78,17 +135,17 @@ class LeaveService:
         return policy
 
     def get_policy(self, leave_type: LeaveType) -> LeaveTypePolicy:
-        policy = self._policies.get(leave_type)
+        policy = self._load_policy(leave_type)
         if policy is None:
             raise LeaveError(f"no policy configured for {leave_type.value}; HR must set it first")
         return policy
 
     def list_policies(self) -> list[LeaveTypePolicy]:
-        return sorted(self._policies.values(), key=lambda item: item.leave_type.value)
+        return sorted(self._iter_policies(), key=lambda item: item.leave_type.value)
 
     def set_holidays(self, holidays: list[date], *, actor: ActorRef) -> int:
         """Set public holidays (affects working-day computations)."""
-        self._holidays = set(holidays)
+        self._save_holidays(holidays)
         self._record(
             action="leave.holidays_set",
             subject_type="leave_calendar",
@@ -101,7 +158,7 @@ class LeaveService:
     # --- working-day math ------------------------------------------------
 
     def is_working_day(self, day: date) -> bool:
-        return day.weekday() not in WEEKEND_DAYS and day not in self._holidays
+        return day.weekday() not in WEEKEND_DAYS and day not in self._all_holidays()
 
     def working_days(self, start: date, end: date) -> float:
         """Count working days in the inclusive range."""
@@ -139,7 +196,7 @@ class LeaveService:
     ) -> tuple[float, float]:
         used = 0.0
         pending = 0.0
-        for request in self._requests.values():
+        for request in self._iter_requests():
             if request.employee_id != employee_id or request.leave_type is not leave_type:
                 continue
             if request.start_date.year != year:
@@ -213,7 +270,7 @@ class LeaveService:
         accrued = entitled if policy.accrual_method is AccrualMethod.FLAT_MONTHLY else 0.0
         used, pending = self._used_days(employee_id, leave_type, target_year)
         carried = self._carryover(employee, leave_type, target_year)
-        adjustment = self._adjustments.get((employee_id, leave_type, target_year), 0.0)
+        adjustment = self._load_adjustment(employee_id, leave_type, target_year)
 
         return LeaveBalance(
             employee_id=employee_id,
@@ -252,8 +309,12 @@ class LeaveService:
         self._require_employee(employee_id)
         self.get_policy(leave_type)
         target_year = year or date.today().year
-        key = (employee_id, leave_type, target_year)
-        self._adjustments[key] = self._adjustments.get(key, 0.0) + days
+        self._save_adjustment(
+            employee_id,
+            leave_type,
+            target_year,
+            self._load_adjustment(employee_id, leave_type, target_year) + days,
+        )
         self._record(
             action="leave.balance_adjusted",
             subject_type="leave_balance",
@@ -369,7 +430,7 @@ class LeaveService:
             # Auto-tier: no approval required; record the request as approved.
             request = request.model_copy(update={"status": RequestStatus.APPROVED})
 
-        self._requests[request.id] = request
+        self._save_request(request)
         self._record(
             action="leave.request_submitted",
             subject_type="leave_request",
@@ -388,7 +449,7 @@ class LeaveService:
     def apply_decision(self, approval_id: UUID, *, actor: ActorRef) -> LeaveRequest:
         """Sync a request with its approval's outcome (called by the app layer)."""
         request = next(
-            (item for item in self._requests.values() if item.approval_id == approval_id),
+            (item for item in self._iter_requests() if item.approval_id == approval_id),
             None,
         )
         if request is None:
@@ -413,7 +474,7 @@ class LeaveService:
             )
 
         updated = request.model_copy(update={"status": target, "updated_at": utc_now()})
-        self._requests[updated.id] = updated
+        self._save_request(updated)
         self._record(
             action=f"leave.request_{target.value}",
             subject_type="leave_request",
@@ -469,7 +530,7 @@ class LeaveService:
         updated = request.model_copy(
             update={"status": RequestStatus.CANCELLED, "updated_at": utc_now()}
         )
-        self._requests[updated.id] = updated
+        self._save_request(updated)
         self._record(
             action="leave.request_cancelled",
             subject_type="leave_request",
@@ -486,13 +547,13 @@ class LeaveService:
 
     def requests_for(self, employee_id: UUID) -> list[LeaveRequest]:
         return sorted(
-            (item for item in self._requests.values() if item.employee_id == employee_id),
+            (item for item in self._iter_requests() if item.employee_id == employee_id),
             key=lambda item: item.start_date,
         )
 
     def pending_requests(self) -> list[LeaveRequest]:
         return sorted(
-            (item for item in self._requests.values() if item.status is RequestStatus.PENDING),
+            (item for item in self._iter_requests() if item.status is RequestStatus.PENDING),
             key=lambda item: item.start_date,
         )
 
@@ -500,7 +561,7 @@ class LeaveService:
         """Active (non-cancelled/rejected) requests overlapping the range."""
         return [
             item
-            for item in self._requests.values()
+            for item in self._iter_requests()
             if item.employee_id == employee_id
             and item.status in {RequestStatus.PENDING, RequestStatus.APPROVED, RequestStatus.DRAFT}
             and item.overlaps(start, end)
@@ -511,7 +572,7 @@ class LeaveService:
         target = on_date or date.today()
         return [
             item
-            for item in self._requests.values()
+            for item in self._iter_requests()
             if item.status is RequestStatus.APPROVED and item.start_date <= target <= item.end_date
         ]
 
@@ -524,7 +585,7 @@ class LeaveService:
             raise LeaveError(f"unknown employee {employee_id}") from exc
 
     def _require_request(self, request_id: UUID) -> LeaveRequest:
-        request = self._requests.get(request_id)
+        request = self._load_request(request_id)
         if request is None:
             raise LeaveError(f"unknown leave request {request_id}")
         return request

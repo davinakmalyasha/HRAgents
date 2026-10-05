@@ -130,8 +130,20 @@ class PeopleServices:
         self.employees = EmployeeService(employee_store, audit=self.audit, approvals=approvals)
         self.contracts = ContractService(contract_store, audit=self.audit, tasks=tasks)
         self.rate_tables = RateTableService(rate_table_store, audit=self.audit)
+        leave: LeaveService
+        if self.session_factory is None:
+            leave = LeaveService(employees=self.employees, approvals=approvals, audit=self.audit)
+        else:
+            from hr_agents.db.leave import DbLeaveService
+
+            leave = DbLeaveService(
+                self.session_factory,
+                employees=self.employees,
+                approvals=approvals,
+                audit=self.audit,
+            )
+        self.leave = leave
         self.onboarding = OnboardingService(employees=self.employees, tasks=tasks, audit=self.audit)
-        self.leave = LeaveService(employees=self.employees, approvals=approvals, audit=self.audit)
         self.payroll = PayrollService(
             employees=self.employees,
             rate_tables=self.rate_tables,

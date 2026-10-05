@@ -14,6 +14,7 @@ from hr_agents.config import get_settings
 from hr_agents.db import (  # noqa: F401
     compliance,
     growth,
+    leave_tables,
     offboarding,
     offers_tables,
     people,
