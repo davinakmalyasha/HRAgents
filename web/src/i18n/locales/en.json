@@ -718,5 +718,32 @@
       "forbidden": "Your role cannot verify documents.",
       "failed": "Could not save. Please try again."
     }
+  },
+  "leave": {
+    "boardTitle": "Leave",
+    "boardEmpty": "Nobody is currently away.",
+    "queueTitle": "{{count}} leave request",
+    "queueTitle_other": "{{count}} leave requests",
+    "queueEmpty": "No leave requests.",
+    "cancel": "Cancel",
+    "cancelFailed": "The request could not be cancelled.",
+    "days": "{{count}} day",
+    "days_other": "{{count}} days",
+    "balancesTitle": "Balances",
+    "balancesPick": "Pick a person to see what they have left this year.",
+    "balancesEmpty": "No balances recorded for {{name}}.",
+    "available": "{{count}} left",
+    "availableLabel": "Available",
+    "entitled": "Entitled",
+    "used": "Used",
+    "pendingDays": "Awaiting decision",
+    "adjustment": "Adjustment",
+    "status": {
+      "draft": "Draft",
+      "pending": "Awaiting decision",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    }
   }
 }

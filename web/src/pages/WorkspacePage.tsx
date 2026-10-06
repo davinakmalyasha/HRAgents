@@ -4,6 +4,7 @@ import { Navigate, useParams, useSearchParams } from 'react-router'
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { ThreeRooms, type RoomId } from '@/components/three-rooms/ThreeRooms'
 import { ChatPanel } from '@/features/chat/ChatPanel'
+import { LeaveBoard, LeaveQueue } from '@/features/leave/LeaveWorkspace'
 import { PipelineBoard } from '@/features/hiring/PipelineBoard'
 import { ReviewQueue } from '@/features/hiring/ReviewQueue'
 import { SchedulingView } from '@/features/hiring/SchedulingView'
@@ -56,6 +57,8 @@ export function WorkspacePage() {
             <OnboardingBoard />
           ) : workspaceId === 'records' ? (
             <RecordsBoard />
+          ) : workspaceId === 'leave' ? (
+            <LeaveBoard />
           ) : (
             <EmptyState title={t('workspace.boardPlaceholder', { name })} />
           )
@@ -75,6 +78,8 @@ export function WorkspacePage() {
             <OnboardingChecklist />
           ) : workspaceId === 'records' ? (
             <RecordsQueue />
+          ) : workspaceId === 'leave' ? (
+            <LeaveQueue />
           ) : (
             <EmptyState title={t('workspace.queuePlaceholder')} />
           )

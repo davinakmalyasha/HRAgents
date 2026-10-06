@@ -718,5 +718,32 @@
       "forbidden": "Peran Anda tidak boleh memverifikasi dokumen.",
       "failed": "Gagal menyimpan. Silakan coba lagi."
     }
+  },
+  "leave": {
+    "boardTitle": "Cuti",
+    "boardEmpty": "Tidak ada yang sedang cuti.",
+    "queueTitle": "{{count}} permintaan cuti",
+    "queueTitle_other": "{{count}} permintaan cuti",
+    "queueEmpty": "Tidak ada permintaan cuti.",
+    "cancel": "Batalkan",
+    "cancelFailed": "Permintaan tidak dapat dibatalkan.",
+    "days": "{{count}} hari",
+    "days_other": "{{count}} hari",
+    "balancesTitle": "Saldo",
+    "balancesPick": "Pilih orang untuk melihat sisa cuti tahun ini.",
+    "balancesEmpty": "Belum ada saldo tercatat untuk {{name}}.",
+    "available": "Sisa {{count}}",
+    "availableLabel": "Tersedia",
+    "entitled": "Hak",
+    "used": "Terpakai",
+    "pendingDays": "Menunggu keputusan",
+    "adjustment": "Penyesuaian",
+    "status": {
+      "draft": "Draf",
+      "pending": "Menunggu keputusan",
+      "approved": "Disetujui",
+      "rejected": "Ditolak",
+      "cancelled": "Dibatalkan"
+    }
   }
 }
