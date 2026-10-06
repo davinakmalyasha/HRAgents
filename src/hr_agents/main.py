@@ -8,8 +8,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request
-from fastapi.exceptions import HTTPException
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,6 +20,13 @@ from hr_agents.agentset import AgentSet, KnowledgeUnavailableError, build_agent_
 from hr_agents.api.hardening import install_hardening, readiness_report
 from hr_agents.api.metrics import PROMETHEUS_CONTENT_TYPE
 from hr_agents.api.metrics import render as render_metrics
+from hr_agents.api.problem import (
+    ERROR_RESPONSES,
+    PROBLEM_MEDIA_TYPE,
+    ProblemCode,
+    ProblemDetail,
+    problem_uri,
+)
 from hr_agents.api.routers import (
     applications,
     communications,
@@ -162,17 +169,48 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def _problem_response(request: Request, exc: HTTPException) -> JSONResponse:
-    """RFC 7807 problem+json error representation."""
+    """RFC 7807 problem+json, carrying a stable ``code`` where one is known.
+
+    A bare ``HTTPException`` has no code, so it gets `ProblemCode.INTERNAL`'s sibling
+    `about:blank` type and a null ``code`` -- the RFC's default for "we do not describe
+    this one yet". `ApiProblem` raise-sites supply a real code.
+    """
+    code: ProblemCode | None = getattr(exc, "code", None)
     return JSONResponse(
         status_code=exc.status_code,
-        media_type="application/problem+json",
+        media_type=PROBLEM_MEDIA_TYPE,
         content={
-            "type": "about:blank",
+            "type": problem_uri(code) if code is not None else "about:blank",
             "title": str(exc.detail),
             "status": exc.status_code,
+            "detail": str(exc.detail),
             "instance": request.url.path,
+            "code": code.value if code is not None else None,
         },
         headers=exc.headers,
+    )
+
+
+def _validation_problem_response(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """FastAPI's 422, expressed as a problem document.
+
+    FastAPI's default 422 was the only structured error the API produced, and it was not
+    a problem document at all: no ``status``, no ``type``, no ``instance``, and served as
+    ``application/json``. ``detail`` stays the *list* of per-field errors -- fourteen API
+    tests assert that shape, and it is genuinely the most useful thing in the response --
+    so this adds the problem envelope without changing the payload clients already read.
+    """
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        media_type=PROBLEM_MEDIA_TYPE,
+        content={
+            "type": problem_uri(ProblemCode.VALIDATION_FAILED),
+            "title": "request body failed validation",
+            "status": status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "detail": exc.errors(),
+            "instance": request.url.path,
+            "code": ProblemCode.VALIDATION_FAILED.value,
+        },
     )
 
 
@@ -285,31 +323,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.add_exception_handler(HTTPException, _problem_response)  # type: ignore[arg-type]
+    app.add_exception_handler(
+        RequestValidationError,
+        _validation_problem_response,  # type: ignore[arg-type]
+    )
     install_hardening(app, settings)
-    app.include_router(workspaces.router)
-    app.include_router(chat_router.router)
-    app.include_router(applications.router)
-    app.include_router(queue.router)
-    app.include_router(documents.router)
-    app.include_router(jobs.router)
-    app.include_router(evaluations.router)
-    app.include_router(feedback.router)
-    app.include_router(scheduling.router)
-    app.include_router(communications.router)
-    app.include_router(offers.router)
-    app.include_router(people_router.employees_router)
-    app.include_router(people_router.org_units_router)
-    app.include_router(people_router.documents_router)
-    app.include_router(people_router.contracts_router)
-    app.include_router(people_router.approvals_router)
-    app.include_router(people_router.tasks_router)
-    app.include_router(people_router.rate_tables_router)
-    app.include_router(onboarding_router.router)
-    app.include_router(leave_router.router)
-    app.include_router(payroll_router.router)
-    app.include_router(compliance.router)
-    app.include_router(growth.router)
-    app.include_router(offboarding.router)
+    app.include_router(workspaces.router, responses=ERROR_RESPONSES)
+    app.include_router(chat_router.router, responses=ERROR_RESPONSES)
+    app.include_router(applications.router, responses=ERROR_RESPONSES)
+    app.include_router(queue.router, responses=ERROR_RESPONSES)
+    app.include_router(documents.router, responses=ERROR_RESPONSES)
+    app.include_router(jobs.router, responses=ERROR_RESPONSES)
+    app.include_router(evaluations.router, responses=ERROR_RESPONSES)
+    app.include_router(feedback.router, responses=ERROR_RESPONSES)
+    app.include_router(scheduling.router, responses=ERROR_RESPONSES)
+    app.include_router(communications.router, responses=ERROR_RESPONSES)
+    app.include_router(offers.router, responses=ERROR_RESPONSES)
+    app.include_router(people_router.employees_router, responses=ERROR_RESPONSES)
+    app.include_router(people_router.org_units_router, responses=ERROR_RESPONSES)
+    app.include_router(people_router.documents_router, responses=ERROR_RESPONSES)
+    app.include_router(people_router.contracts_router, responses=ERROR_RESPONSES)
+    app.include_router(people_router.approvals_router, responses=ERROR_RESPONSES)
+    app.include_router(people_router.tasks_router, responses=ERROR_RESPONSES)
+    app.include_router(people_router.rate_tables_router, responses=ERROR_RESPONSES)
+    app.include_router(onboarding_router.router, responses=ERROR_RESPONSES)
+    app.include_router(leave_router.router, responses=ERROR_RESPONSES)
+    app.include_router(payroll_router.router, responses=ERROR_RESPONSES)
+    app.include_router(compliance.router, responses=ERROR_RESPONSES)
+    app.include_router(growth.router, responses=ERROR_RESPONSES)
+    app.include_router(offboarding.router, responses=ERROR_RESPONSES)
 
     @app.get("/healthz", tags=["system"], summary="Liveness probe")
     async def healthz() -> dict[str, Any]:
@@ -335,7 +377,56 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return Response(content=render_metrics(app), media_type=PROMETHEUS_CONTENT_TYPE)
 
     _mount_web_app(app)
+    _register_problem_schemas(app)
     return app
+
+
+def _register_problem_schemas(app: FastAPI) -> None:
+    """Put `ProblemDetail` and `ProblemCode` in the document's components.
+
+    `ERROR_RESPONSES` declares each error with an explicit `$ref` rather than FastAPI's
+    `model` shorthand, because the shorthand registers the schema under
+    `application/json` -- which would contradict the media type the server actually uses
+    and leave a client branching on it treating every error as unrecognised.
+
+    The cost of spelling the content out is that FastAPI no longer infers the schemas, so
+    they are added here. Doing it in one place keeps `ERROR_RESPONSES` free of
+    openapi-typescript-specific plumbing.
+    """
+
+    def custom_openapi() -> dict[str, Any]:
+        if app.openapi_schema:
+            return app.openapi_schema
+        from fastapi.openapi.utils import get_openapi
+
+        schema = get_openapi(
+            title=app.title,
+            version=app.version,
+            description=app.description,
+            routes=app.routes,
+        )
+        components = schema.setdefault("components", {}).setdefault("schemas", {})
+        components.setdefault(
+            ProblemDetail.__name__,
+            ProblemDetail.model_json_schema(
+                ref_template="#/components/schemas/{model}", mode="validation"
+            ),
+        )
+        components.setdefault(
+            ProblemCode.__name__,
+            {
+                "type": "string",
+                "enum": [code.value for code in ProblemCode],
+                "description": (
+                    "Machine-readable error kinds. Switch on this rather than on the "
+                    "prose in `title`, which may be reworded."
+                ),
+            },
+        )
+        app.openapi_schema = schema
+        return schema
+
+    app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
 app = create_app()

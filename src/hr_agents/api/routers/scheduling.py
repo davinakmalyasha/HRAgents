@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.problem import conflict, not_found
 from hr_agents.api.recruitment_schemas import (
     AvailabilitySet,
     ProposalDecisionRequest,
@@ -31,14 +32,6 @@ def get_scheduling(request: Request) -> SchedulingService:
 
 
 SchedulingDep = Annotated[SchedulingService, Depends(get_scheduling)]
-
-
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
 @router.post(
@@ -71,7 +64,7 @@ def create_proposal(
             notes=payload.notes,
         )
     except RecruitingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return SchedulingProposalView.from_record(proposal)
 
 
@@ -85,7 +78,7 @@ def get_proposal(proposal_id: UUID, scheduling: SchedulingDep) -> SchedulingProp
     try:
         return SchedulingProposalView.from_record(scheduling.get(proposal_id))
     except RecruitingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.post(
@@ -111,10 +104,10 @@ def decide_proposal(
     except RecruitingError as exc:
         message = str(exc)
         if message.startswith("unknown scheduling proposal"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message) from exc
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return ProposalDecisionResponse(
         proposal=SchedulingProposalView.from_record(proposal),
         replacement=(

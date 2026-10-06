@@ -14,6 +14,7 @@ from hr_agents.api.payroll_schemas import (
     RunCreate,
     RunView,
 )
+from hr_agents.api.problem import conflict, not_found
 from hr_agents.rbac import Permission
 from hr_agents.services.payroll import PayrollError, PayrollService
 
@@ -31,14 +32,6 @@ def get_payroll(request: Request) -> PayrollService:
 PayrollDep = Annotated[PayrollService, Depends(get_payroll)]
 
 
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
 @router.post(
     "/runs",
     status_code=status.HTTP_201_CREATED,
@@ -54,7 +47,7 @@ def create_run(payload: RunCreate, payroll: PayrollDep, actor: ActorDep) -> RunV
             kind=payload.kind,
         )
     except PayrollError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RunView.from_model(run)
 
 
@@ -68,7 +61,7 @@ def get_run(run_id: UUID, payroll: PayrollDep) -> RunView:
     try:
         return RunView.from_model(payroll.get_run(run_id))
     except PayrollError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.put(
@@ -82,7 +75,7 @@ def set_inputs(run_id: UUID, payload: InputsSet, payroll: PayrollDep, actor: Act
             run_id, inputs=[item.to_model() for item in payload.inputs], actor=actor
         )
     except PayrollError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RunView.from_model(run)
 
 
@@ -95,7 +88,7 @@ def compute_run(run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: Ac
     try:
         run = payroll.compute(run_id, actor=actor)
     except PayrollError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RunView.from_model(run)
 
 
@@ -110,7 +103,7 @@ def submit_for_signoff(
     try:
         run = payroll.submit_for_signoff(run_id, actor=actor)
     except PayrollError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RunView.from_model(run)
 
 
@@ -124,7 +117,7 @@ def sync_decision(approval_id: UUID, payroll: PayrollDep, actor: ActorDep) -> Ru
     try:
         run = payroll.apply_decision(approval_id, actor=actor)
     except PayrollError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return RunView.from_model(run)
 
 
@@ -137,7 +130,7 @@ def export_run(run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: Act
     try:
         run = payroll.mark_exported(run_id, actor=actor)
     except PayrollError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RunView.from_model(run)
 
 
@@ -146,7 +139,7 @@ def download_packet(run_id: UUID, payroll: PayrollDep) -> Response:
     try:
         content = payroll.build_review_packet_xlsx(run_id)
     except PayrollError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return Response(
         content=content,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -171,5 +164,5 @@ def cancel_run(run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: Act
     try:
         run = payroll.cancel_run(run_id, actor=actor, reason=payload.reason)
     except PayrollError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RunView.from_model(run)

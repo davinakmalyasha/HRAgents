@@ -26,6 +26,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from hr_agents.api.auth import AuthenticationMiddleware
 from hr_agents.api.metrics import record_http_request
+from hr_agents.api.problem import PROBLEM_MEDIA_TYPE, ProblemCode, problem_uri
 from hr_agents.config import Settings, get_settings
 
 DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024
@@ -188,13 +189,22 @@ class BodySizeLimitMiddleware:
         self._max_bytes = max_bytes
 
     def _too_large(self, path: str) -> JSONResponse:
+        # Built here rather than raised: this is pure ASGI middleware, below the router,
+        # so there is no exception handler to run. It emits the same problem document the
+        # handler does, including the media type -- previously this and the rate limiter
+        # sent the same keys as `application/json`, so a client that branched on
+        # `application/problem+json` silently treated an oversized upload as a success.
+        code = ProblemCode.PAYLOAD_TOO_LARGE
         return JSONResponse(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            media_type=PROBLEM_MEDIA_TYPE,
             content={
-                "type": "about:blank",
+                "type": problem_uri(code),
                 "title": f"request body exceeds {self._max_bytes} bytes",
                 "status": status.HTTP_413_CONTENT_TOO_LARGE,
+                "detail": f"request body exceeds {self._max_bytes} bytes",
                 "instance": path,
+                "code": code.value,
             },
         )
 
@@ -263,14 +273,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         allowed, retry_after = self._limiter.check(client_key(request))
         if not allowed:
+            # Same reasoning as `_too_large`: ASGI middleware, so the document is built
+            # here. `rate_limited` is the one code the frontend had no translation for,
+            # so a throttled user was told "something went wrong" and invited to retry
+            # into the limit.
+            code = ProblemCode.RATE_LIMITED
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                media_type=PROBLEM_MEDIA_TYPE,
                 headers={"Retry-After": str(int(retry_after) + 1)},
                 content={
-                    "type": "about:blank",
+                    "type": problem_uri(code),
                     "title": "rate limit exceeded",
                     "status": status.HTTP_429_TOO_MANY_REQUESTS,
+                    "detail": "too many requests; retry after the interval in Retry-After",
                     "instance": request.url.path,
+                    "code": code.value,
                 },
             )
         return await call_next(request)

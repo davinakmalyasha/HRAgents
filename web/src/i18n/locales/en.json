@@ -531,7 +531,8 @@
     "changeLanguage": "Change language",
     "errors": {
       "network": "Could not reach the server. Check your connection and try again.",
-      "failed": "Something went wrong."
+      "failed": "Something went wrong.",
+      "rateLimited": "Too many requests. Wait a moment and try again."
     }
   },
   "onboarding": {

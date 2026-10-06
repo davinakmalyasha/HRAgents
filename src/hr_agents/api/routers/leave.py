@@ -6,7 +6,7 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.leave_schemas import (
@@ -19,6 +19,7 @@ from hr_agents.api.leave_schemas import (
     PolicyView,
     RequestAction,
 )
+from hr_agents.api.problem import conflict, not_found
 from hr_agents.models import LeaveType
 from hr_agents.rbac import Permission
 from hr_agents.services.leave import LeaveError, LeaveService
@@ -37,14 +38,6 @@ def get_leave(request: Request) -> LeaveService:
 LeaveDep = Annotated[LeaveService, Depends(get_leave)]
 
 
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
 # --- policies ----------------------------------------------------------------
 
 
@@ -57,7 +50,7 @@ def set_policy(payload: PolicySet, leave: LeaveDep, actor: ActorDep) -> PolicyVi
     try:
         policy = leave.set_policy(payload.to_policy(), actor=actor)
     except (ValueError, LeaveError) as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PolicyView.from_model(policy)
 
 
@@ -88,7 +81,7 @@ def employee_balances(
     try:
         balances = leave.all_balances(employee_id, year=year)
     except LeaveError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return [BalanceView.from_model(balance) for balance in balances]
 
 
@@ -102,7 +95,7 @@ def employee_balance(
     try:
         balance = leave.balance(employee_id, leave_type, year=year)
     except LeaveError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return BalanceView.from_model(balance)
 
 
@@ -128,7 +121,7 @@ def adjust_balance(
             reason=payload.reason,
         )
     except LeaveError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return BalanceView.from_model(balance)
 
 
@@ -147,7 +140,7 @@ def submit_request(
     try:
         request = leave.request(actor=actor, **payload.model_dump())
     except LeaveError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return LeaveRequestView.from_model(request)
 
 
@@ -179,7 +172,7 @@ def get_request(request_id: UUID, leave: LeaveDep) -> LeaveRequestView:
     try:
         return LeaveRequestView.from_model(leave.get_request(request_id))
     except LeaveError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.post(
@@ -193,7 +186,7 @@ def cancel_request(
     try:
         request = leave.cancel(request_id, actor=actor)
     except LeaveError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return LeaveRequestView.from_model(request)
 
 
@@ -207,5 +200,5 @@ def sync_from_approval(approval_id: UUID, leave: LeaveDep, actor: ActorDep) -> L
     try:
         request = leave.apply_decision(approval_id, actor=actor)
     except LeaveError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return LeaveRequestView.from_model(request)

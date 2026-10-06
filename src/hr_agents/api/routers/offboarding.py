@@ -23,6 +23,7 @@ from hr_agents.api.offboarding_schemas import (
     TemplateCreate,
     TemplateView,
 )
+from hr_agents.api.problem import conflict, not_found
 from hr_agents.rbac import Permission
 from hr_agents.services.offboarding import (
     OffboardingError,
@@ -42,14 +43,6 @@ def get_offboarding(request: Request) -> OffboardingService:
 
 
 OffboardingDep = Annotated[OffboardingService, Depends(get_offboarding)]
-
-
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
 
 
 # --- templates ----------------------------------------------------------------
@@ -90,7 +83,7 @@ def get_template(template_id: UUID, offboarding: OffboardingDep) -> TemplateView
     try:
         return TemplateView.from_model(offboarding.get_template(template_id))
     except OffboardingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 # --- plans ----------------------------------------------------------------------
@@ -112,7 +105,7 @@ def start_plan(payload: PlanCreate, offboarding: OffboardingDep, actor: ActorDep
             template_id=payload.template_id,
         )
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -126,7 +119,7 @@ def get_plan(plan_id: UUID, offboarding: OffboardingDep) -> PlanView:
     try:
         return PlanView.from_model(offboarding.get_plan(plan_id))
     except OffboardingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.get("/employees/{employee_id}/plans", response_model=list[PlanView])
@@ -149,7 +142,7 @@ def complete_step(
     try:
         plan = offboarding.complete_step(plan_id, step_key, actor=actor, note=payload.note)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -173,7 +166,7 @@ def waive_step(
     try:
         plan = offboarding.waive_step(plan_id, step_key, actor=actor, reason=payload.reason)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -193,7 +186,7 @@ def schedule_exit_interview(
             plan_id, scheduled_for=payload.scheduled_for, actor=actor
         )
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -208,7 +201,7 @@ def add_handover(
     try:
         plan = offboarding.add_handover_note(plan_id, content=payload.content, actor=actor)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -226,7 +219,7 @@ def coordinate_final_pay(
     try:
         plan = offboarding.coordinate_final_pay(plan_id, actor=actor)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -241,7 +234,7 @@ def complete_plan(
     try:
         plan = offboarding.complete_plan(plan_id, actor=actor)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -257,7 +250,7 @@ def finalize_employee(
         offboarding.finalize_employee_exit(plan_id, actor=actor)
         plan = offboarding.get_plan(plan_id)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -274,7 +267,7 @@ def register_asset(payload: AssetCreate, offboarding: OffboardingDep, actor: Act
     try:
         asset = offboarding.register_asset(actor=actor, **payload.model_dump())
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return AssetView.from_model(asset)
 
 
@@ -312,7 +305,7 @@ def return_asset(
             asset_id, actor=actor, note=payload.note, returned_on=payload.returned_on
         )
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return AssetView.from_model(asset)
 
 
@@ -330,7 +323,7 @@ def mark_asset_missing(
     try:
         asset = offboarding.mark_asset_missing(asset_id, actor=actor, note=payload.note)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return AssetView.from_model(asset)
 
 
@@ -348,5 +341,5 @@ def write_off_asset(
     try:
         asset = offboarding.write_off_asset(asset_id, actor=actor, reason=payload.reason)
     except OffboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return AssetView.from_model(asset)

@@ -34,6 +34,7 @@ from hr_agents.api.compliance_schemas import (
     StepComplete,
 )
 from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.problem import conflict, not_found
 from hr_agents.models import RecordEntity, SubjectKind, UtcDateTime
 from hr_agents.rbac import Permission
 from hr_agents.services.compliance import (
@@ -56,19 +57,11 @@ def get_compliance(request: Request) -> ComplianceService:
 ComplianceDep = Annotated[ComplianceService, Depends(get_compliance)]
 
 
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
 def _raise(exc: Exception) -> HTTPException:
     message = str(exc)
     if message.startswith("unknown") or " not found" in message:
-        return _not_found(message)
-    return _conflict(exc)
+        return not_found(message)
+    return conflict(exc)
 
 
 # --- consent ----------------------------------------------------------------
@@ -279,7 +272,7 @@ def get_erasure(request_id: UUID, compliance: ComplianceDep) -> ErasureView:
     try:
         return ErasureView.from_model(compliance.get_erasure(request_id))
     except ComplianceError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.post(
@@ -394,7 +387,7 @@ def get_breach(incident_id: UUID, compliance: ComplianceDep) -> BreachView:
     try:
         return BreachView.from_model(compliance.get_incident(incident_id))
     except ComplianceError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.post(

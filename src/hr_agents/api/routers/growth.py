@@ -27,6 +27,7 @@ from hr_agents.api.growth_schemas import (
     SummaryFinalize,
     SummaryView,
 )
+from hr_agents.api.problem import conflict, not_found
 from hr_agents.models import GoalStatus, ReviewCycleStatus
 from hr_agents.rbac import Permission
 from hr_agents.services.growth import GrowthError, GrowthService
@@ -45,14 +46,6 @@ def get_growth(request: Request) -> GrowthService:
 GrowthDep = Annotated[GrowthService, Depends(get_growth)]
 
 
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
 # --- cycles -----------------------------------------------------------------
 
 
@@ -66,7 +59,7 @@ def create_cycle(payload: CycleCreate, growth: GrowthDep, actor: ActorDep) -> Cy
     try:
         cycle = growth.create_cycle(actor=actor, **payload.model_dump())
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return CycleView.from_model(cycle)
 
 
@@ -82,7 +75,7 @@ def get_cycle(cycle_id: UUID, growth: GrowthDep) -> CycleView:
     try:
         return CycleView.from_model(growth.get_cycle(cycle_id))
     except GrowthError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.post(
@@ -96,7 +89,7 @@ def activate_cycle(
     try:
         cycle = growth.activate_cycle(cycle_id, actor=actor)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return CycleView.from_model(cycle)
 
 
@@ -111,7 +104,7 @@ def advance_cycle(
     try:
         cycle = growth.advance_to_reviewing(cycle_id, actor=actor)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return CycleView.from_model(cycle)
 
 
@@ -126,7 +119,7 @@ def close_cycle(
     try:
         cycle = growth.close_cycle(cycle_id, actor=actor)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return CycleView.from_model(cycle)
 
 
@@ -146,7 +139,7 @@ def cancel_cycle(
     try:
         cycle = growth.cancel_cycle(cycle_id, actor=actor, reason=payload.reason)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return CycleView.from_model(cycle)
 
 
@@ -172,7 +165,7 @@ def add_assignment(
             due_on=payload.due_on,
         )
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return AssignmentView.from_model(assignment)
 
 
@@ -181,7 +174,7 @@ def list_assignments(cycle_id: UUID, growth: GrowthDep) -> list[AssignmentView]:
     try:
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return [AssignmentView.from_model(item) for item in growth.list_assignments(cycle_id)]
 
 
@@ -210,7 +203,7 @@ def submit_assignment(
             assignment_id, actor=actor, ratings=payload.ratings, comments=payload.comments
         )
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return AssignmentView.from_model(assignment)
 
 
@@ -228,7 +221,7 @@ def skip_assignment(
     try:
         assignment = growth.skip_assignment(assignment_id, actor=actor, reason=payload.reason)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return AssignmentView.from_model(assignment)
 
 
@@ -250,7 +243,7 @@ def draft_summary(payload: SummaryDraft, growth: GrowthDep, actor: ActorDep) -> 
             actor=actor,
         )
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return SummaryView.from_model(summary)
 
 
@@ -259,7 +252,7 @@ def get_summary(summary_id: UUID, growth: GrowthDep) -> SummaryView:
     try:
         return SummaryView.from_model(growth.get_summary(summary_id))
     except GrowthError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.get("/cycles/{cycle_id}/summaries", response_model=list[SummaryView])
@@ -267,7 +260,7 @@ def list_summaries(cycle_id: UUID, growth: GrowthDep) -> list[SummaryView]:
     try:
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return [SummaryView.from_model(item) for item in growth.list_summaries(cycle_id)]
 
 
@@ -282,7 +275,7 @@ def finalize_summary(
     try:
         summary = growth.finalize_summary(summary_id, actor=actor, final_text=payload.final_text)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return SummaryView.from_model(summary)
 
 
@@ -299,7 +292,7 @@ def create_goal(payload: GoalCreate, growth: GrowthDep, actor: ActorDep) -> Goal
     try:
         goal = growth.create_goal(actor=actor, **payload.model_dump())
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return GoalView.from_model(goal)
 
 
@@ -323,7 +316,7 @@ def get_goal(goal_id: UUID, growth: GrowthDep) -> GoalView:
     try:
         return GoalView.from_model(growth.get_goal(goal_id))
     except GrowthError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.post(
@@ -335,7 +328,7 @@ def activate_goal(goal_id: UUID, payload: ByActor, growth: GrowthDep, actor: Act
     try:
         goal = growth.activate_goal(goal_id, actor=actor)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return GoalView.from_model(goal)
 
 
@@ -352,7 +345,7 @@ def update_goal_progress(
             goal_id, percent=payload.percent, actor=actor, note=payload.note
         )
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return GoalView.from_model(goal)
 
 
@@ -367,7 +360,7 @@ def complete_goal(
     try:
         goal = growth.complete_goal(goal_id, actor=actor, note=payload.note)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return GoalView.from_model(goal)
 
 
@@ -385,7 +378,7 @@ def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep, actor: Ac
     try:
         goal = growth.cancel_goal(goal_id, actor=actor, reason=payload.reason)
     except GrowthError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return GoalView.from_model(goal)
 
 

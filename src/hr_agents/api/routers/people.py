@@ -36,6 +36,7 @@ from hr_agents.api.people_schemas import (
     TaskCreate,
     TaskView,
 )
+from hr_agents.api.problem import ProblemCode, conflict, forbidden, not_found
 from hr_agents.models import (
     ApprovalStatus,
     ApproverRole,
@@ -101,14 +102,6 @@ rate_tables_router = APIRouter(
 )
 
 
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
 # --- employees ---------------------------------------------------------------
 
 
@@ -122,7 +115,7 @@ def create_employee(payload: EmployeeCreate, people: PeopleDep, actor: ActorDep)
     try:
         employee = people.employees.create(actor=actor, **payload.model_dump())
     except EmployeeError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return EmployeeView.from_model(employee)
 
 
@@ -142,7 +135,7 @@ def get_employee(employee_id: UUID, people: PeopleDep) -> EmployeeView:
     try:
         return EmployeeView.from_model(people.employees.get(employee_id))
     except EmployeeError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @employees_router.post(
@@ -162,7 +155,7 @@ def transition_employee(
             reason=payload.reason,
         )
     except EmployeeError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return EmployeeView.from_model(employee)
 
 
@@ -178,7 +171,7 @@ def add_document(
     try:
         document = people.employees.add_document(employee_id, actor=actor, **payload.model_dump())
     except EmployeeError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return DocumentView.from_model(document)
 
 
@@ -187,7 +180,7 @@ def employee_documents(employee_id: UUID, people: PeopleDep) -> list[DocumentVie
     try:
         documents = people.employees.documents_for(employee_id)
     except EmployeeError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return [DocumentView.from_model(document) for document in documents]
 
 
@@ -243,11 +236,8 @@ def verify_document(
         )
     except EmployeeError as exc:
         if "named human" in str(exc):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=str(exc),
-            ) from exc
-        raise _not_found(str(exc)) from exc
+            raise forbidden(str(exc), code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise not_found(str(exc)) from exc
     return DocumentView.from_model(document)
 
 
@@ -277,7 +267,7 @@ def create_org_unit(payload: OrgUnitCreate, people: PeopleDep, actor: ActorDep) 
             cost_center=payload.cost_center,
         )
     except EmployeeError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return OrgUnitView.from_model(unit)
 
 
@@ -294,7 +284,7 @@ def create_contract(payload: ContractCreate, people: PeopleDep, actor: ActorDep)
     try:
         contract = people.contracts.create(actor=actor, **payload.model_dump())
     except (ContractError, ValueError) as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return ContractView.from_model(contract)
 
 
@@ -316,7 +306,7 @@ def get_contract(contract_id: UUID, people: PeopleDep) -> ContractView:
     try:
         return ContractView.from_model(people.contracts.get(contract_id))
     except ContractError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @contracts_router.post(
@@ -330,7 +320,7 @@ def activate_contract(
     try:
         contract = people.contracts.activate(contract_id, actor=actor)
     except ContractError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return ContractView.from_model(contract)
 
 
@@ -350,7 +340,7 @@ def terminate_contract(
     try:
         contract = people.contracts.terminate(contract_id, actor=actor, reason=payload.reason)
     except ContractError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return ContractView.from_model(contract)
 
 
@@ -379,7 +369,7 @@ def create_approval(payload: ApprovalCreate, people: PeopleDep, actor: ActorDep)
     try:
         request = people.approvals.create(actor=actor, **payload.model_dump())
     except ApprovalError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return ApprovalView.from_model(request)
 
 
@@ -418,7 +408,7 @@ def decide_approval(
             reason=payload.reason,
         )
     except ApprovalError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return ApprovalDecisionResponse(
         request=ApprovalView.from_model(decision.request), action=decision.action
     )
@@ -472,7 +462,7 @@ def complete_task(
     try:
         task = people.tasks.complete(task_id, actor=actor)
     except TaskError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return TaskView.from_model(task)
 
 
@@ -514,7 +504,7 @@ def get_rate_table(table_id: UUID, people: PeopleDep) -> RateTableView:
     try:
         table = people.rate_tables.get(table_id)
     except RateTableError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return RateTableView.from_model(table)
 
 
@@ -533,7 +523,7 @@ def set_rate_table_entries(
     try:
         table = people.rate_tables.set_entries(table_id, entries=payload.entries, actor=actor)
     except RateTableError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RateTableView.from_model(table)
 
 
@@ -549,7 +539,7 @@ def verify_rate_table(
     try:
         table = people.rate_tables.verify(table_id, actor=actor, source_note=payload.source_note)
     except RateTableError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return RateTableView.from_model(table)
 
 

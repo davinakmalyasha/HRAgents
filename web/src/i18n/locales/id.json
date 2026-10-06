@@ -531,7 +531,8 @@
     "changeLanguage": "Ubah bahasa",
     "errors": {
       "network": "Tidak dapat menghubungi server. Periksa koneksi Anda lalu coba lagi.",
-      "failed": "Terjadi kesalahan."
+      "failed": "Terjadi kesalahan.",
+      "rateLimited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi."
     }
   },
   "onboarding": {

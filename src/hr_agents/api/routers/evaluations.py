@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.problem import conflict, forbidden, not_found
 from hr_agents.api.recruitment_schemas import (
     AuditReceipt,
     EvaluationView,
@@ -31,18 +32,6 @@ def get_evaluations(request: Request) -> EvaluationService:
 EvaluationsDep = Annotated[EvaluationService, Depends(get_evaluations)]
 
 
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
-def _forbidden(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-
-
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
 @router.get(
     "/applications/{application_id}/evaluation",
     response_model=EvaluationView,
@@ -52,7 +41,7 @@ def get_application_evaluation(application_id: UUID, evaluations: EvaluationsDep
     try:
         return EvaluationView.from_record(evaluations.get_by_application(application_id))
     except RecruitingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.get(
@@ -64,7 +53,7 @@ def get_evaluation(evaluation_id: UUID, evaluations: EvaluationsDep) -> Evaluati
     try:
         return EvaluationView.from_record(evaluations.get(evaluation_id))
     except RecruitingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.get(
@@ -76,7 +65,7 @@ def list_overrides(evaluation_id: UUID, evaluations: EvaluationsDep) -> list[Ove
     try:
         overrides = evaluations.list_overrides(evaluation_id)
     except RecruitingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     return [OverrideView.from_model(item) for item in overrides]
 
 
@@ -102,8 +91,8 @@ def record_override(
     except RecruitingError as exc:
         message = str(exc)
         if message.startswith("unknown evaluation"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message or "cannot override" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message) from exc
+        raise conflict(exc) from exc
     return AuditReceipt.from_entry(outcome.receipt)

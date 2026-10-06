@@ -11,9 +11,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.problem import ProblemCode, bad_request, conflict, forbidden, not_found
 from hr_agents.api.recruitment_schemas import (
     CommunicationPreviewView,
     CommunicationSentRequest,
@@ -51,22 +52,6 @@ def get_replies(request: Request) -> ReplyStore:
 
 CommunicationsDep = Annotated[CommunicationService, Depends(get_communications)]
 RepliesDep = Annotated[ReplyStore, Depends(get_replies)]
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
-def _forbidden(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-
-
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _bad_request(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 @router.get(
@@ -114,16 +99,16 @@ def queue_rejection(
     except RecruitingError as exc:
         message = str(exc)
         if message.startswith("no evaluation"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if isinstance(exc, HumanConfirmationRequiredError):
             # Branched on the type, not on the words. The message used to be
             # sniffed for "named human", which conflates "the caller is not a
             # person" with "a person has not decided yet" -- so rewording this
             # sentence once silently moved the status from 409 to 403.
-            raise _conflict(exc) from exc
+            raise conflict(exc) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return CommunicationView.from_model(item)
 
 
@@ -183,10 +168,10 @@ def queue_offer(
     except RecruitingError as exc:
         message = str(exc)
         if message.startswith("no evaluation"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return CommunicationView.from_model(item)
 
 
@@ -215,12 +200,12 @@ def compose_dispatch_link(
     except RecruitingError as exc:
         message_text = str(exc)
         if message_text.startswith("unknown communication"):
-            raise _not_found(message_text) from exc
+            raise not_found(message_text) from exc
         if "named human" in message_text:
-            raise _forbidden(message_text) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message_text, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     except WhatsappLinkError as exc:
-        raise _bad_request(str(exc)) from exc
+        raise bad_request(str(exc)) from exc
     return WhatsappDispatchLinkView(
         communication_id=message.id,
         provider=link.provider,
@@ -247,8 +232,8 @@ def mark_communication_sent(
     except RecruitingError as exc:
         message = str(exc)
         if message.startswith("unknown communication"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return CommunicationView.from_model(item)

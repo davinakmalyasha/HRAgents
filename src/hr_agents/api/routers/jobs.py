@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.problem import conflict, not_found
 from hr_agents.api.recruitment_schemas import (
     JobCreate,
     JobStatusChange,
@@ -32,14 +33,6 @@ def get_jobs(request: Request) -> JobService:
 JobsDep = Annotated[JobService, Depends(get_jobs)]
 
 
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
 @router.get("", response_model=list[JobView], summary="List job specifications")
 def list_jobs(jobs: JobsDep, job_status: JobStatus | None = None) -> list[JobView]:
     return [JobView.from_model(job) for job in jobs.list_all(status=job_status)]
@@ -55,7 +48,7 @@ def create_job(payload: JobCreate, jobs: JobsDep, actor: ActorDep) -> JobView:
     try:
         job = jobs.create(actor=actor, **payload.model_dump())
     except (RecruitingError, ValueError) as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return JobView.from_model(job)
 
 
@@ -64,7 +57,7 @@ def get_job(job_id: UUID, jobs: JobsDep) -> JobView:
     try:
         return JobView.from_model(jobs.get(job_id))
     except RecruitingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.patch(
@@ -76,7 +69,7 @@ def update_job(job_id: UUID, payload: JobUpdate, jobs: JobsDep, actor: ActorDep)
     try:
         job = jobs.update(job_id, actor=actor, **payload.model_dump())
     except (RecruitingError, ValueError) as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return JobView.from_model(job)
 
 
@@ -91,5 +84,5 @@ def change_job_status(
     try:
         job = jobs.transition(job_id, target=payload.status, actor=actor)
     except RecruitingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return JobView.from_model(job)

@@ -142,10 +142,20 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [ ] **Fix the 68 write endpoints guarded by a READ permission** and wire the 6 dead permissions
       (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`, `AUDIT_READ`,
       `ADMIN_MANAGE`).
-- [ ] **Type errors once**: typed domain exceptions + a central status map instead of
-      `if message.startswith("unknown")` in 7 routers; then the missing
-      `RequestValidationError` → `problem+json` handler and stable `type` URIs, so the frontend
-      stops matching English prose to pick an error message.
+- [x] **Type errors once**: `api/problem.py` owns a `ProblemCode` vocabulary and a central status
+      map, replacing `if message.startswith("unknown")` and 29 per-router `_not_found` /
+      `_conflict` / `_forbidden` / `_bad_request` copies with one shared implementation.
+      Responses now carry a stable `code` and a `type` URI derived from it, `RequestValidationError`
+      has a `problem+json` handler at last, and `ERROR_RESPONSES` declares the shape on every router
+      so the generated client carries the `ProblemCode` union (1602 typed error responses).
+      `title` is unchanged, so nothing a human reads regressed and the 21 tests asserting message
+      wording still pass. **Still open:** the prose sniffing in the routers is still there — the codes
+      are available to retire it, the mechanical adoption is not done.
+- [~] **Typed domain exceptions.** `Named human required` is a code now, but the branch that
+      *detects* it still sniffs `"named human" in message` at 25 sites, because no exception
+      carries a code yet. There is no common base class: 34 domain errors are flat
+      `RuntimeError`/`ValueError` subclasses, so a single handler cannot discriminate. Next step is a
+      `DomainError` base (or a registry keyed by class), then each raise-site names its own code.
 - [ ] **`Decimal` money with `ROUND_HALF_UP`**; move the 173-hour divisor and 1.5×/2.0× overtime
       multipliers into verified rate tables; progressive PPh 21 TER brackets; honour
       `absence_days`; add a totals-equal-lines invariant.

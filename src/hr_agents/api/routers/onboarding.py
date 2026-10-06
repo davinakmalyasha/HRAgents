@@ -18,6 +18,7 @@ from hr_agents.api.onboarding_schemas import (
     TemplateDraftView,
     TemplateView,
 )
+from hr_agents.api.problem import conflict, forbidden, not_found
 from hr_agents.rbac import Permission
 from hr_agents.services.onboarding import (
     OnboardingActorError,
@@ -40,23 +41,11 @@ def get_onboarding(request: Request) -> OnboardingService:
 OnboardingDep = Annotated[OnboardingService, Depends(get_onboarding)]
 
 
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
-def _forbidden(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-
-
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
 def _map(exc: OnboardingError) -> HTTPException:
     """Actor problems are 403; everything else the service refuses is a 409."""
     if isinstance(exc, OnboardingActorError):
-        return _forbidden(str(exc))
-    return _conflict(exc)
+        return forbidden(str(exc))
+    return conflict(exc)
 
 
 @router.post(
@@ -78,7 +67,7 @@ def create_template(
             applies_to_roles=payload.applies_to_roles,
         )
     except (ValueError, OnboardingError) as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return TemplateView.from_model(template)
 
 
@@ -111,7 +100,7 @@ def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep, actor: Acto
             template_id=payload.template_id,
         )
     except OnboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -126,7 +115,7 @@ def get_plan(plan_id: UUID, onboarding: OnboardingDep) -> PlanView:
     try:
         return PlanView.from_model(onboarding.get_plan(plan_id))
     except OnboardingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.post(
@@ -183,11 +172,11 @@ def link_document(
     people = request.app.state.people
     document = people.employees.get_document(payload.document_id)
     if document is None:
-        raise _not_found(f"unknown document {payload.document_id}")
+        raise not_found(f"unknown document {payload.document_id}")
     try:
         plan = onboarding.link_document(plan_id, step_key, document=document, actor=actor)
     except OnboardingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return PlanView.from_model(plan)
 
 
@@ -196,4 +185,4 @@ def document_status(plan_id: UUID, onboarding: OnboardingDep) -> dict[str, str]:
     try:
         return onboarding.document_step_status(plan_id)
     except OnboardingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc

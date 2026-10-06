@@ -10,9 +10,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.problem import ProblemCode, conflict, forbidden, not_found
 from hr_agents.api.recruitment_schemas import (
     OfferAcceptanceRequest,
     OfferCreate,
@@ -40,18 +41,6 @@ def get_offers(request: Request) -> OfferService:
 OffersDep = Annotated[OfferService, Depends(get_offers)]
 
 
-def _not_found(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
-
-
-def _forbidden(detail: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-
-
-def _conflict(exc: Exception) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
 @router.get("", response_model=list[OfferView], summary="List offers (filter by application)")
 def list_offers(offers: OffersDep, application_id: UUID | None = None) -> list[OfferView]:
     return [OfferView.from_model(offer) for offer in offers.list_all(application_id=application_id)]
@@ -68,11 +57,11 @@ def create_offer(payload: OfferCreate, offers: OffersDep, actor: ActorDep) -> Of
     try:
         offer = offers.create(payload.application_id, payload.terms, actor=actor, note=payload.note)
     except RecruitingError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
     except OfferError as exc:
         if "named human" in str(exc):
-            raise _forbidden(str(exc)) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(str(exc), code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return OfferView.from_model(offer)
 
 
@@ -81,7 +70,7 @@ def get_offer(offer_id: UUID, offers: OffersDep) -> OfferView:
     try:
         return OfferView.from_model(offers.get(offer_id))
     except OfferError as exc:
-        raise _not_found(str(exc)) from exc
+        raise not_found(str(exc)) from exc
 
 
 @router.patch(
@@ -98,10 +87,10 @@ def revise_offer(
     except OfferError as exc:
         message = str(exc)
         if message.startswith("unknown offer"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return OfferView.from_model(offer)
 
 
@@ -119,10 +108,10 @@ def submit_offer(
     except OfferError as exc:
         message = str(exc)
         if message.startswith("unknown offer"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return OfferView.from_model(offer)
 
 
@@ -142,10 +131,10 @@ def decide_offer(
     except OfferError as exc:
         message = str(exc)
         if message.startswith("unknown offer"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return OfferView.from_model(offer)
 
 
@@ -173,12 +162,12 @@ def queue_offer_message(
     except OfferError as exc:
         message = str(exc)
         if message.startswith("unknown offer"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     except RecruitingError as exc:
-        raise _conflict(exc) from exc
+        raise conflict(exc) from exc
     return OfferView.from_model(offer)
 
 
@@ -201,8 +190,8 @@ def record_acceptance(
     except OfferError as exc:
         message = str(exc)
         if message.startswith("unknown offer"):
-            raise _not_found(message) from exc
+            raise not_found(message) from exc
         if "named human" in message:
-            raise _forbidden(message) from exc
-        raise _conflict(exc) from exc
+            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
+        raise conflict(exc) from exc
     return OfferView.from_model(offer)

@@ -30,10 +30,11 @@ import secrets as secrets_module
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import HTTPException, Request, status
+from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from hr_agents.api.problem import ProblemCode, problem
 from hr_agents.config import Settings, get_settings
 from hr_agents.identity import ActorRef
 from hr_agents.rbac import Permission, Principal, RoleId, has_permission
@@ -105,12 +106,24 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
 
 
 def current_principal(request: Request) -> Principal:
-    """The resolved principal, or 401 when credentials were required and refused."""
+    """The resolved principal, or 401 when credentials were required and refused.
+
+    Two codes, not one. AUTH_REQUIRED means nothing was presented and AUTH_INVALID
+    means something was and it did not match; a client sending no key at all and a client
+    sending a revoked key need different handling, and prose was the only thing telling
+    them apart.
+    """
     principal: Principal | None = getattr(request.state, "principal", None)
     if principal is not None:
         return principal
-    detail: str = getattr(request.state, "auth_error", "authentication required")
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+    detail: str | None = getattr(request.state, "auth_error", None)
+    if detail is None:
+        raise problem(
+            status.HTTP_401_UNAUTHORIZED,
+            ProblemCode.AUTH_REQUIRED,
+            "authentication required",
+        )
+    raise problem(status.HTTP_401_UNAUTHORIZED, ProblemCode.AUTH_INVALID, detail)
 
 
 def current_actor(request: Request) -> ActorRef:
@@ -133,9 +146,10 @@ def require_permission(permission: Permission) -> Callable[..., Awaitable[Princi
     async def dependency(request: Request) -> Principal:
         principal = current_principal(request)
         if not has_permission(principal, permission):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(f"role {principal.role.value} lacks permission {permission.value}"),
+            raise problem(
+                status.HTTP_403_FORBIDDEN,
+                ProblemCode.PERMISSION_DENIED,
+                f"role {principal.role.value} lacks permission {permission.value}",
             )
         return principal
 
