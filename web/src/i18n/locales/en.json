@@ -793,5 +793,43 @@
       "exported": "Exported",
       "cancelled": "Cancelled"
     }
+  },
+  "offboarding": {
+    "boardTitle": "Departing",
+    "boardEmpty": "Nobody is currently offboarding.",
+    "queueTitle": "Offboarding checklist",
+    "queueEmpty": "No offboarding in progress.",
+    "employee": "Employee",
+    "lastDay": "Last working day: {{date}}",
+    "lastDayField": "Last working day",
+    "start": "Start offboarding",
+    "progress": "{{percent}}% complete",
+    "statusOpen": "In progress",
+    "statusComplete": "Complete",
+    "required": "Required",
+    "optional": "Optional",
+    "due": "Due {{date}}",
+    "complete": "Mark done",
+    "waive": "Waive",
+    "defaultWaiveReason": "Waived by HR",
+    "finalise": "Complete offboarding",
+    "outstanding_one": "{{count}} required step outstanding",
+    "outstanding_other": "{{count}} required steps outstanding",
+    "blockedBy": "Blocked by outstanding {{reasons}}",
+    "actionFailed": "That action was refused. A waiver needs a reason, and the plan may not be in that state.",
+    "assetsTitle": "Assets",
+    "assetsEmpty": "No assets assigned.",
+    "assetOutstanding": "Outstanding",
+    "assetCleared": "Cleared",
+    "assetReturn": "Mark returned",
+    "assetMissing": "Mark missing",
+    "missingNote": "Recorded as missing at offboarding",
+    "step": {
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "blocked": "Blocked",
+      "done": "Done",
+      "waived": "Waived"
+    }
   }
 }

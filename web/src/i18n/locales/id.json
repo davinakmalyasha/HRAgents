@@ -793,5 +793,43 @@
       "exported": "Diekspor",
       "cancelled": "Dibatalkan"
     }
+  },
+  "offboarding": {
+    "boardTitle": "Sedang keluar",
+    "boardEmpty": "Tidak ada proses keluar saat ini.",
+    "queueTitle": "Daftar periksa keluar",
+    "queueEmpty": "Tidak ada proses keluar yang berjalan.",
+    "employee": "Karyawan",
+    "lastDay": "Hari kerja terakhir: {{date}}",
+    "lastDayField": "Hari kerja terakhir",
+    "start": "Mulai proses keluar",
+    "progress": "Selesai {{percent}}%",
+    "statusOpen": "Berjalan",
+    "statusComplete": "Selesai",
+    "required": "Wajib",
+    "optional": "Opsional",
+    "due": "Jatuh tempo {{date}}",
+    "complete": "Tandai selesai",
+    "waive": "Dikecualikan",
+    "defaultWaiveReason": "Dikecualikan oleh HR",
+    "finalise": "Selesaikan proses keluar",
+    "outstanding_one": "{{count}} langkah wajib belum selesai",
+    "outstanding_other": "{{count}} langkah wajib belum selesai",
+    "blockedBy": "Dihambat oleh {{reasons}} yang belum selesai",
+    "actionFailed": "Tindakan itu ditolak. Pengecualikan memerlukan alasan, dan proses mungkin belum berada pada tahap itu.",
+    "assetsTitle": "Aset",
+    "assetsEmpty": "Tidak ada aset yang ditugaskan.",
+    "assetOutstanding": "Belum kembali",
+    "assetCleared": "Selesai",
+    "assetReturn": "Tandai kembali",
+    "assetMissing": "Tandai hilang",
+    "missingNote": "Dicatat hilang saat proses keluar",
+    "step": {
+      "pending": "Menunggu",
+      "in_progress": "Berjalan",
+      "blocked": "Terhalang",
+      "done": "Selesai",
+      "waived": "Dikecualikan"
+    }
   }
 }
