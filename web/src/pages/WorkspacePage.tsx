@@ -5,6 +5,7 @@ import { EmptyState } from '@/components/feedback/EmptyState'
 import { ThreeRooms, type RoomId } from '@/components/three-rooms/ThreeRooms'
 import { ChatPanel } from '@/features/chat/ChatPanel'
 import { LeaveBoard, LeaveQueue } from '@/features/leave/LeaveWorkspace'
+import { PayrollBoard, PayrollQueue } from '@/features/payroll/PayrollWorkspace'
 import { PipelineBoard } from '@/features/hiring/PipelineBoard'
 import { ReviewQueue } from '@/features/hiring/ReviewQueue'
 import { SchedulingView } from '@/features/hiring/SchedulingView'
@@ -59,6 +60,8 @@ export function WorkspacePage() {
             <RecordsBoard />
           ) : workspaceId === 'leave' ? (
             <LeaveBoard />
+          ) : workspaceId === 'payroll' ? (
+            <PayrollBoard />
           ) : (
             <EmptyState title={t('workspace.boardPlaceholder', { name })} />
           )
@@ -80,6 +83,8 @@ export function WorkspacePage() {
             <RecordsQueue />
           ) : workspaceId === 'leave' ? (
             <LeaveQueue />
+          ) : workspaceId === 'payroll' ? (
+            <PayrollQueue />
           ) : (
             <EmptyState title={t('workspace.queuePlaceholder')} />
           )
