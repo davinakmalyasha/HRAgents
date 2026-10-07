@@ -448,9 +448,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Requests: validation chain (documents, caps, min service, balance, overlaps) → routed through the Approval engine → synced on decision; `requires_approval=false` policies auto-approve in the auto tier
 - [x] Calendar view (who is on leave), pending queues, per-employee history
 - [x] API: 12 endpoints (policies, holiday calendar, balances, adjust, requests, cancel, sync, calendar)
+- [x] Cancellation carries its reason end to end: the router was accepting one and the service dropped it, so the record said only “cancelled”. `LeaveService.cancel` now refuses a blank reason and writes it into the audit payload and the approval withdrawal
 - [x] Tests: 36 new (service + API integration), audit chain covers every transition
 - [ ] `LeaveAssistant` agent (policy Q&A, request drafting over chat) — agent phase
-- [x] Leave workspace UI (Phase 6) - board (who is out, balances) + queue (pending-first list, cancel). Approval deliberately not here: it belongs in the approvals inbox
+- [x] Leave workspace UI (Phase 6) - board (who is out, balances) + queue (pending-first list, cancel behind a mandatory reason). Approval deliberately not here: it belongs in the approvals inbox
 
 ### 8.6 Payroll (prepare & verify ONLY — never executes payments) `DONE` (Wave 1 core)
 - [x] Run lifecycle: draft → assembling → ready_for_review → pending_signoff → approved → exported (or rejected/cancelled); run kinds (monthly, THR, adjustment, final)
@@ -475,7 +476,12 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Persistence: 4 tables (`review_cycles`, `review_assignments`, `review_summaries`, `goals`) in migration `0004_growth_offboarding`
 - [x] Tests: 29 service + 9 API integration
 - [x] Growth workspace UI (Phase 6) - board (cycles in flight, the server's overdue list, open goals with progress) + queue (the caller's own review forms with a real rating form gated on the cycle's scale; a skipped form shows as skipped, not as outstanding work)
-- [x] `GET /v1/growth/assignments/mine` - resolves the authenticated principal as the reviewer, so the client never has to pass `reviewer_id` and no one is asked to type the string that decides whose reviews they see
+- [x] `GET /v1/growth/assignments/mine`
+- [x] Growth summary editor (Phase 6): draft grounded in submitted forms, human-only finalisation with the final text starting empty, and no second finalise once it is final
+- [x] Compliance consent registry (Phase 6): refusals recorded as evidence, withdrawal human-only with a mandatory reason
+- [x] Retention purge behind a typed confirmation (Phase 6): the dry run uses the same code path as the real run, and the report stays on screen afterwards
+- [x] Audit trail viewer (Phase 6): `GET /v1/compliance/audit/entries` plus search, verbatim payloads and a JSON slice export
+- [x] `ProblemDetail.detail` typed as the union it actually sends (`str | list[dict] | None`), so the generated client no longer lies - resolves the authenticated principal as the reviewer, so the client never has to pass `reviewer_id` and no one is asked to type the string that decides whose reviews they see
 - [ ] `ReviewAssistant` agent (summary drafting, tone-adjusted) — agent phase
 - [ ] Performance workspace UI (Phase 6)
 

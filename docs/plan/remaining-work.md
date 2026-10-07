@@ -476,26 +476,29 @@ documented.
       ones, lifecycle-gated compute/submit/cancel, review-packet link (XLSX is review only and
       the "no payments executed" notice is rendered in the UI). Approve/decline is the
       approvals inbox's job, and cancel still needs a real reason typed in
-- [~] Growth workspace: board (cycles in flight, the server's overdue list, open goals with
+- [x] Growth workspace: board (cycles in flight, the server's overdue list, open goals with
       progress) + queue (the caller's own forms with a real rating form gated on the cycle's
-      scale). Still missing: the summary draft → human-finalize editor, and reminder-runner
-      visibility
+      scale, and the summary draft → human-finalise editor: only employees with a submitted
+      form appear, the final text box starts empty, and a finalised summary offers no button
+      again). Still missing: reminder-runner visibility
 - [~] Offboarding workspace: departing board, per-plan checklist (required vs optional),
       asset return/missing, finalise gated on outstanding required steps **and** asset
-      clearance, start-a-plan form. Waiving sends a reason
-- [~] Compliance workspace: board (unverified rate tables, open breaches, overdue breach
+      clearance, start-another form whenever plans already exist. Waiving is two-step and
+      requires a reason
+- [x] Compliance workspace: board (unverified rate tables, open breaches, overdue breach
       steps, and an audit-chain verifier that names the session that ran it) + queue
-      (erasure requests, breach containment, retention scan, rate-table verification).
-      Submitting an erasure raises an approval and only an approved request offers
-      Execute; the decision itself is never made on this surface. Still missing: the
-      consent registry list, and an explicit purge action behind a human confirmation
+      (consent registry with refusals recorded and withdrawal behind a mandatory reason,
+      erasure requests, breach containment, retention scan, rate-table verification, and a
+      purge that previews on the same code path and runs only against a typed phrase).
+      Submitting an erasure raises an approval and only an approved request offers Execute;
+      the decision itself is never made on this surface
 - [x] Approvals workspace: board (overdue-first queue, escalate-overdue, the viewer's own
       role) + queue (approve/reject, with the reason a rejection demands and the reason a
       decision is unavailable named in words). Every department queue defers here instead
       of carrying its own approve button
-- [ ] Audit viewer: searchable entries, chain verification badge, export. The verifier
-      itself now ships (" + BT + "GET /v1/compliance/audit/verify" + BT + " plus the workspace panel); what
-      is missing is the searchable entry list and export
+- [x] Audit viewer: `GET /v1/compliance/audit/entries` (newest first, exact-match filters,
+      inclusive window, limit capped at 500) + the trail panel: search the chain, read the
+      recorded payload verbatim, and export the fetched slice as JSON that says it is a slice
 
 ### 2.6 PWA
 - [x] `vite-plugin-pwa`: manifest, service worker, offline shell (static assets only —
