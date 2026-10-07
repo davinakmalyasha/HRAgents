@@ -133,15 +133,17 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       entries carry provenance and role like the rest. `ApprovalEngine._record` defaults
       to `ActorRef.system("approval-engine")` for its own SLA sweep, and
       `offers.expire_overdue` no longer writes the bare string `"system"`.
-- [ ] **Bind approval decisions to `assignee_role`** — `decide` checks that the actor is a human,
-      but not that they hold the role the approval is assigned to, so a `MANAGER` can decide a
-      `FINANCE`-assigned payroll sign-off. The table exists (see above); enforcement does not.
-      Also lands here: **`RateTableService.verify` has no named-human gate**, so an agent can
-      certify a BPJS or PPh21 table today. The endpoint is already behind `RATES_VERIFY`, so
-      the check is the only thing missing.
-- [ ] **Fix the 68 write endpoints guarded by a READ permission** and wire the 6 dead permissions
-      (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`, `AUDIT_READ`,
-      `ADMIN_MANAGE`).
+- [x] **Bind approval decisions to `assignee_role`** — `ApprovalService.decide` now calls
+      `_require_authority`, which reads `may_decide_for` over `APPROVER_ROLE_HOLDERS`, so a
+      `MANAGER` can no longer decide a `FINANCE`-assigned payroll sign-off; `tests/services/test_approvals.py`
+      has the by-role cases. `RateTableService.verify` also insists on a named human now, which
+      was the last gap in that module.
+- [x] **Fix the 68 write endpoints guarded by a READ permission** and wire the dead permissions.
+      `tests/test_route_inventory.py` asserts the read-guarded write set is empty and that the
+      extractor still sees every module. `PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`
+      and `RATES_VERIFY` are all used by routers now; `AUDIT_READ` and `ADMIN_MANAGE` remain
+      defined-but-unused, and `AUDIT_READ` is the one worth wiring next if audit reading should
+      be grantable without the rest of compliance access.
 - [x] **Type errors once**: `api/problem.py` owns a `ProblemCode` vocabulary and a central status
       map, replacing `if message.startswith("unknown")` and 29 per-router `_not_found` /
       `_conflict` / `_forbidden` / `_bad_request` copies with one shared implementation.
@@ -156,9 +158,9 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       carries a code yet. There is no common base class: 34 domain errors are flat
       `RuntimeError`/`ValueError` subclasses, so a single handler cannot discriminate. Next step is a
       `DomainError` base (or a registry keyed by class), then each raise-site names its own code.
-- [ ] **`Decimal` money with `ROUND_HALF_UP`**; move the 173-hour divisor and 1.5×/2.0× overtime
-      multipliers into verified rate tables; progressive PPh 21 TER brackets; honour
-      `absence_days`; add a totals-equal-lines invariant.
+- [x] **`Decimal` money with `ROUND_HALF_UP`**; the 173-hour divisor and 1.5×/2.0× overtime
+      multipliers come from verified rate tables; progressive PPh 21 TER brackets; `absence_days`
+      proration; and totals-equal-lines is an enforced invariant (commit `9cca50a`).
 - [ ] **Business dates in WIB**: `HRAGENTS_TIMEZONE` (default `Asia/Jakarta`) through the ~20 bare
       `date.today()` calls. On a UTC host every business date is wrong for 17 hours a day.
 - [ ] **A unit of work with optimistic concurrency**: one transaction per service method, a
