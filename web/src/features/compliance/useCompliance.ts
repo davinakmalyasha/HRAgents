@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   completeBreachStep,
   consentStatus,
+  listAuditEntries,
   executeErasure,
   listBreaches,
   listConsents,
@@ -203,5 +204,18 @@ export function usePurge() {
   return useMutation({
     mutationFn: async (body: PurgeRequest) => executePurge(body),
     onSuccess: invalidate(queryClient),
+  })
+}
+
+/** A filtered slice of the audit trail. `applied` is what the operator submitted. */
+export function useAuditEntries(filters: { actor: string; action: string; subjectType: string }) {
+  return useQuery({
+    queryKey: ['compliance', 'audit', 'entries', filters],
+    queryFn: () =>
+      listAuditEntries({
+        actor: filters.actor,
+        action: filters.action,
+        subjectType: filters.subjectType,
+      }),
   })
 }

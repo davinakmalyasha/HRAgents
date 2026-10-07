@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from hr_agents.api.compliance_schemas import (
+    AuditEntryView,
     AuditVerifyView,
     BreachCreate,
     BreachTemplateView,
@@ -35,7 +38,7 @@ from hr_agents.api.compliance_schemas import (
 )
 from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.problem import conflict, not_found
-from hr_agents.models import RecordEntity, SubjectKind, UtcDateTime
+from hr_agents.models import AuditEntry, RecordEntity, SubjectKind, UtcDateTime
 from hr_agents.rbac import Permission
 from hr_agents.services.compliance import (
     ComplianceError,
@@ -457,6 +460,42 @@ def transition_breach(
 
 
 # --- audit -------------------------------------------------------------------
+
+
+@router.get("/audit/entries", response_model=list[AuditEntryView])
+def list_audit_entries(
+    request: Request,
+    actor: Annotated[str | None, Query()] = None,
+    action: Annotated[str | None, Query()] = None,
+    subject_type: Annotated[str | None, Query()] = None,
+    subject_id: Annotated[str | None, Query()] = None,
+    since: Annotated[datetime | None, Query()] = None,
+    until: Annotated[datetime | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> list[AuditEntryView]:
+    """The audit trail itself, newest first.
+
+    Newest first because a viewer is nearly always answering "what just happened" rather
+    than reading the chain from the beginning; the sequence number is on every row, so the
+    order is never ambiguous. `limit` is capped: the chain grows forever and a viewer that
+    can request all of it is an easy way to take the process down.
+
+    Filters are exact matches on the indexed columns. `since`/`until` are inclusive so a
+    caller can page by the boundary timestamp it already has.
+    """
+    entries: Iterable[AuditEntry] = request.app.state.audit.entries
+    matched = [
+        entry
+        for entry in entries
+        if (actor is None or entry.actor.actor_id == actor)
+        and (action is None or entry.action == action)
+        and (subject_type is None or entry.subject_type == subject_type)
+        and (subject_id is None or entry.subject_id == subject_id)
+        and (since is None or entry.created_at >= since)
+        and (until is None or entry.created_at <= until)
+    ]
+    newest_first = list(reversed(matched))[:limit]
+    return [AuditEntryView.from_model(entry) for entry in newest_first]
 
 
 @router.get("/audit/verify", response_model=AuditVerifyView)

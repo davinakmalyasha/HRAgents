@@ -12,6 +12,7 @@ import { formatDateTime } from '@/lib/dates'
 import {
   LAWFUL_BASES,
   PURGE_CONFIRMATION,
+  auditExport,
   consentState,
   consentTone,
   erasureTone,
@@ -31,6 +32,7 @@ import {
   type PurgeReportView,
 } from './complianceApi'
 import {
+  useAuditEntries,
   useAuditVerification,
   useBreaches,
   useCompleteBreachStep,
@@ -254,6 +256,7 @@ export function ComplianceQueue() {
       <ErasureSection />
       <BreachSection />
       <RetentionSection />
+      <AuditTrailPanel />
     </div>
   )
 }
@@ -931,6 +934,155 @@ export function ConsentSection() {
       {record.isError || revoke.isError ? (
         <p role="alert" className="text-error text-sm">
           {t('compliance.consentActionFailed')}
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+/**
+ * Audit trail: search, read, and export the slice.
+ *
+ * The trail is evidence, so this viewer does not summarise it: it filters it, shows the
+ * recorded payload verbatim, and exports exactly what was read. Verification lives on the
+ * board -- here the question is "what happened", not "is the chain intact".
+ */
+export function AuditTrailPanel() {
+  const { t } = useTranslation()
+  const [actor, setActor] = useState('')
+  const [action, setAction] = useState('')
+  const [subjectType, setSubjectType] = useState('')
+  const [applied, setApplied] = useState<{ actor: string; action: string; subjectType: string }>({
+    actor: '',
+    action: '',
+    subjectType: '',
+  })
+  const entries = useAuditEntries(applied)
+  const rows = entries.data ?? []
+
+  function download() {
+    const now = new Date().toISOString()
+    const { filename, body } = auditExport(rows, now)
+    const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <section aria-labelledby="compliance-audit-trail" className="flex flex-col gap-3">
+      <h2 id="compliance-audit-trail" className="text-ink-strong text-lg font-medium">
+        {t('compliance.auditTrailTitle')}
+      </h2>
+      <p className="text-ink-muted text-xs">{t('compliance.auditTrailHint')}</p>
+
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(event) => {
+          event.preventDefault()
+          /**
+           * Filters apply on submit rather than as you type: the trail is read, not
+           * played with, and a query on every keystroke against a growing chain is a
+           * cost somebody pays for nothing.
+           */
+          setApplied({
+            actor: actor.trim(),
+            action: action.trim(),
+            subjectType: subjectType.trim(),
+          })
+        }}
+      >
+        <span className="flex flex-col gap-1">
+          <label className="text-ink-muted text-xs" htmlFor="audit-actor">
+            {t('compliance.auditActor')}
+          </label>
+          <Input
+            id="audit-actor"
+            className="w-40"
+            value={actor}
+            onChange={(event) => setActor(event.target.value)}
+          />
+        </span>
+        <span className="flex flex-col gap-1">
+          <label className="text-ink-muted text-xs" htmlFor="audit-action">
+            {t('compliance.auditAction')}
+          </label>
+          <Input
+            id="audit-action"
+            className="w-56"
+            placeholder="compliance.consent_recorded"
+            value={action}
+            onChange={(event) => setAction(event.target.value)}
+          />
+        </span>
+        <span className="flex flex-col gap-1">
+          <label className="text-ink-muted text-xs" htmlFor="audit-subject-type">
+            {t('compliance.auditSubjectType')}
+          </label>
+          <Input
+            id="audit-subject-type"
+            className="w-40"
+            value={subjectType}
+            onChange={(event) => setSubjectType(event.target.value)}
+          />
+        </span>
+        <Button type="submit" size="sm">
+          {t('compliance.auditSearch')}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={rows.length === 0}
+          /**
+           * Export is the fetched slice, and the file says so. Dumping the whole chain
+           * was never read here, and an export that silently means "everything" would be
+           * trusted as complete.
+           */
+          onClick={download}
+        >
+          {t('compliance.auditExport')}
+        </Button>
+      </form>
+
+      {entries.isLoading ? (
+        <Skeleton className="h-32" />
+      ) : rows.length === 0 ? (
+        <EmptyState title={t('compliance.auditEmpty')} />
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {rows.map((entry) => (
+            <li key={entry.entry_id} className="border-line rounded border p-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-ink-strong text-sm">
+                  <span className="tabular-nums">#{entry.seq}</span> {entry.action}
+                </p>
+                <p className="text-ink-muted text-xs">
+                  {formatDateTime(entry.created_at)} &middot; {entry.actor_id}
+                  {entry.actor_role ? ` (${entry.actor_role})` : ''}
+                </p>
+              </div>
+              <p className="text-ink-muted text-xs">
+                {entry.subject_type} · {entry.subject_id}
+              </p>
+              {Object.keys(entry.payload).length > 0 ? (
+                <details className="text-ink-muted mt-1 text-xs">
+                  <summary className="cursor-pointer">{t('compliance.auditPayload')}</summary>
+                  <pre className="border-line mt-1 overflow-x-auto rounded border p-2">
+                    {JSON.stringify(entry.payload, null, 2)}
+                  </pre>
+                </details>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {entries.isError ? (
+        <p role="alert" className="text-error text-sm">
+          {t('compliance.auditFailed')}
         </p>
       ) : null}
     </section>

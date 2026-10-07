@@ -4,6 +4,7 @@ import type { components } from '@/api/schema'
 
 import {
   LAWFUL_BASES,
+  auditExport,
   PURGE_CONFIRMATION,
   consentState,
   consentTone,
@@ -174,6 +175,58 @@ describe('a purge report says what it did and what it did not', () => {
 })
 
 type Consent = components['schemas']['ConsentView']
+type AuditEntry = components['schemas']['AuditEntryView']
+
+function auditEntry(overrides: Partial<AuditEntry> = {}): AuditEntry {
+  return {
+    seq: 7,
+    entry_id: 'e0f5b6f0-1111-2222-3333-444455556666',
+    created_at: '2026-01-01T00:00:00Z',
+    actor_id: 'local-dev',
+    actor_type: 'human',
+    actor_role: 'hr_admin',
+    action: 'compliance.consent_recorded',
+    subject_type: 'consent',
+    subject_id: 'con-1',
+    payload: { purpose: 'recruitment_evaluation' },
+    ...overrides,
+  }
+}
+
+describe('the audit export preserves the evidence', () => {
+  it('writes JSON, not flattened cells', () => {
+    /**\payload\ is structured and nests; CSV would mangle the very fields the export
+     * exists to keep intact.
+     */
+    const { filename, body } = auditExport([auditEntry()], '2026-08-01T00:00:00Z')
+    expect(filename).toMatch(/^audit-entries-.*\.json$/)
+    const parsed = JSON.parse(body)
+    expect(parsed.entries[0].payload).toEqual({ purpose: 'recruitment_evaluation' })
+  })
+
+  it('says how many entries it carries and that it is a slice', () => {
+    /**A file that looks complete but is not is worse than no file: somebody will rely
+     * on it. The count and the note are what stop that.
+     */
+    const { body } = auditExport([auditEntry(), auditEntry({ seq: 8 })], '2026-08-01T00:00:00Z')
+    const parsed = JSON.parse(body)
+    expect(parsed.count).toBe(2)
+    expect(parsed.note).toContain('slice')
+    expect(parsed.exported_at).toBe('2026-08-01T00:00:00Z')
+  })
+
+  it('exports exactly the rows it was handed', () => {
+    const rows = [auditEntry({ seq: 3 }), auditEntry({ seq: 4 })]
+    const parsed = JSON.parse(auditExport(rows, '2026-08-01T00:00:00Z').body)
+    expect(parsed.entries.map((entry: AuditEntry) => entry.seq)).toEqual([3, 4])
+  })
+
+  it('writes an empty slice honestly rather than refusing', () => {
+    const parsed = JSON.parse(auditExport([], '2026-08-01T00:00:00Z').body)
+    expect(parsed.count).toBe(0)
+    expect(parsed.entries).toEqual([])
+  })
+})
 
 function consent(overrides: Partial<Consent> = {}): Consent {
   return {

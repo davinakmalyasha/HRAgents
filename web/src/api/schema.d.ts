@@ -411,6 +411,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/compliance/audit/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Audit Entries
+         * @description The audit trail itself, newest first.
+         *
+         *     Newest first because a viewer is nearly always answering "what just happened" rather
+         *     than reading the chain from the beginning; the sequence number is on every row, so the
+         *     order is never ambiguous. `limit` is capped: the chain grows forever and a viewer that
+         *     can request all of it is an easy way to take the process down.
+         *
+         *     Filters are exact matches on the indexed columns. `since`/`until` are inclusive so a
+         *     caller can page by the boundary timestamp it already has.
+         */
+        get: operations["list_audit_entries_v1_compliance_audit_entries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/compliance/audit/verify": {
         parameters: {
             query?: never;
@@ -3063,6 +3091,44 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /**
+         * AuditEntryView
+         * @description One entry in the audit chain, as the viewer reads it.
+         *
+         *     `payload` is the recorded detail; it is a dict of primitives by construction, and the
+         *     viewer shows it verbatim rather than reinterpreting it -- the trail is evidence, not
+         *     something to summarise.
+         */
+        AuditEntryView: {
+            /** Action */
+            action: string;
+            /** Actor Id */
+            actor_id: string;
+            /** Actor Role */
+            actor_role: string | null;
+            /** Actor Type */
+            actor_type: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Entry Id
+             * Format: uuid
+             */
+            entry_id: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Seq */
+            seq: number;
+            /** Subject Id */
+            subject_id: string;
+            /** Subject Type */
+            subject_type: string;
         };
         /** AuditReceipt */
         AuditReceipt: {
@@ -8870,6 +8936,116 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommunicationView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_audit_entries_v1_compliance_audit_entries_get: {
+        parameters: {
+            query?: {
+                actor?: string | null;
+                action?: string | null;
+                subject_type?: string | null;
+                subject_id?: string | null;
+                since?: string | null;
+                until?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEntryView"][];
                 };
             };
             /** @description The request could not be understood. */

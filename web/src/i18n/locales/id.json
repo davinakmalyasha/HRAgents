@@ -1046,7 +1046,17 @@
     "purgeConfirmLabel": "Ketik {{phrase}} untuk konfirmasi",
     "runPurge": "Jalankan purge sungguhan",
     "purgeDone": "Purge sudah dijalankan. Laporan ini adalah catatan apa yang dilakukannya.",
-    "purgeFailed": "Purge ditolak. Hanya manusia atau penjadwal yang boleh menjalankannya."
+    "purgeFailed": "Purge ditolak. Hanya manusia atau penjadwal yang boleh menjalankannya.",
+    "auditTrailTitle": "Jejak audit",
+    "auditTrailHint": "Filter adalah kecocokan persis, diterapkan saat mencari, bukan tiap ketikan. Ekspor menulis potongan yang Anda baca, bukan seluruh rantai.",
+    "auditActor": "Aktor",
+    "auditAction": "Aksi",
+    "auditSubjectType": "Jenis subjek",
+    "auditSearch": "Cari",
+    "auditExport": "Ekspor potongan (JSON)",
+    "auditEmpty": "Tidak ada yang cocok dengan filter ini.",
+    "auditPayload": "Detail yang tercatat",
+    "auditFailed": "Jejak tidak dapat dibaca."
   },
   "approvals": {
     "boardTitle": "Persetujuan",

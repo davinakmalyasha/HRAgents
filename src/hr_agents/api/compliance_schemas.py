@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from pydantic import Field
 
 from hr_agents.models import (
+    AuditEntry,
     AuditVerificationReport,
     BreachChecklistTemplate,
     BreachImpact,
@@ -479,6 +481,41 @@ class OverdueStepView(StrictModel):
 
 
 # --- audit -------------------------------------------------------------------
+
+
+class AuditEntryView(StrictModel):
+    """One entry in the audit chain, as the viewer reads it.
+
+    `payload` is the recorded detail; it is a dict of primitives by construction, and the
+    viewer shows it verbatim rather than reinterpreting it -- the trail is evidence, not
+    something to summarise.
+    """
+
+    seq: int
+    entry_id: UUID
+    created_at: UtcDateTime
+    actor_id: str
+    actor_type: str
+    actor_role: str | None
+    action: str
+    subject_type: str
+    subject_id: str
+    payload: dict[str, Any]
+
+    @classmethod
+    def from_model(cls, entry: AuditEntry) -> AuditEntryView:
+        return cls(
+            seq=entry.seq,
+            entry_id=entry.entry_id,
+            created_at=entry.created_at,
+            actor_id=entry.actor.actor_id,
+            actor_type=entry.actor.actor_type.value,
+            actor_role=entry.actor.role,
+            action=entry.action,
+            subject_type=entry.subject_type,
+            subject_id=entry.subject_id,
+            payload=dict(entry.payload),
+        )
 
 
 class AuditVerifyView(StrictModel):

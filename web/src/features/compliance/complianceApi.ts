@@ -8,6 +8,7 @@ export type BreachStepView = components['schemas']['hr_agents__api__compliance_s
 export type ErasureView = components['schemas']['ErasureView']
 export type RateTableView = components['schemas']['RateTableView']
 export type AuditVerifyView = components['schemas']['AuditVerifyView']
+export type AuditEntryView = components['schemas']['AuditEntryView']
 export type ScanView = components['schemas']['ScanView']
 export type PurgeReportView = components['schemas']['PurgeReportView']
 export type PurgeOutcomeView = components['schemas']['PurgeOutcomeView']
@@ -309,6 +310,58 @@ export async function executePurge(body: PurgeRequest): Promise<PurgeReportView>
     throw new Error('purge returned no report')
   }
   return data
+}
+
+/**
+ * The audit trail itself, newest first.
+ *
+ * `limit` is capped server-side at 500: the chain grows forever, and a viewer that can
+ * ask for all of it is an easy way to take the process down.
+ */
+export async function listAuditEntries(filters: {
+  actor?: string
+  action?: string
+  subjectType?: string
+  limit?: number
+}): Promise<AuditEntryView[]> {
+  const { data } = await api.GET('/v1/compliance/audit/entries', {
+    params: {
+      query: {
+        actor: filters.actor === '' ? undefined : filters.actor,
+        action: filters.action === '' ? undefined : filters.action,
+        subject_type: filters.subjectType === '' ? undefined : filters.subjectType,
+        limit: filters.limit ?? 100,
+      },
+    },
+  })
+  return data ?? []
+}
+
+/**
+ * Render a fetched slice as a downloadable JSON document.
+ *
+ * JSON, not CSV: `payload` is a structured record with nested values, and flattening it
+ * into cells would mangle the evidence this export exists to preserve. The slice is what
+ * was read, not the whole chain -- the header says so, so the file cannot be mistaken for
+ * a complete copy.
+ */
+export function auditExport(
+  entries: AuditEntryView[],
+  now: string,
+): { filename: string; body: string } {
+  return {
+    filename: `audit-entries-${now}.json`,
+    body: JSON.stringify(
+      {
+        exported_at: now,
+        note: 'Filtered slice of the audit chain, newest first. Verify the chain in the dashboard.',
+        count: entries.length,
+        entries,
+      },
+      null,
+      2,
+    ),
+  }
 }
 
 /**

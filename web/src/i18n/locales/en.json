@@ -1046,7 +1046,17 @@
     "purgeConfirmLabel": "Type {{phrase}} to confirm",
     "runPurge": "Run purge for real",
     "purgeDone": "The purge ran. This report is the record of what it did.",
-    "purgeFailed": "The purge was refused. Only a person or the scheduler may run one."
+    "purgeFailed": "The purge was refused. Only a person or the scheduler may run one.",
+    "auditTrailTitle": "Audit trail",
+    "auditTrailHint": "Filters are exact matches, applied when you search rather than on every keystroke. Export writes the slice you read, not the whole chain.",
+    "auditActor": "Actor",
+    "auditAction": "Action",
+    "auditSubjectType": "Subject type",
+    "auditSearch": "Search",
+    "auditExport": "Export slice (JSON)",
+    "auditEmpty": "Nothing matches these filters.",
+    "auditPayload": "Recorded detail",
+    "auditFailed": "The trail could not be read."
   },
   "approvals": {
     "boardTitle": "Approvals",
