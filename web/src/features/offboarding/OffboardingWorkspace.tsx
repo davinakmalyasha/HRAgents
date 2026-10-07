@@ -162,6 +162,20 @@ export function OffboardingQueue() {
       {plan ? (
         <PlanDetail plan={plan} employeeName={names.get(plan.employee_id) ?? plan.employee_id} />
       ) : null}
+
+      {/**
+       * The start form lives here whether or not plans exist. It used to render only in
+       * the empty branch, which meant once one person was offboarding there was no way
+       * to start the next one -- a queue that can only ever hold its first item.
+       */}
+      <details className="border-line rounded-lg border p-3">
+        <summary className="text-ink-strong cursor-pointer text-sm font-medium">
+          {t('offboarding.startAnother')}
+        </summary>
+        <div className="mt-3">
+          <StartOffboardingForm />
+        </div>
+      </details>
     </section>
   )
 }
@@ -184,13 +198,7 @@ function PlanDetail({ plan, employeeName }: { plan: PlanView; employeeName: stri
         steps={plan.steps}
         busy={busy}
         onComplete={(step) => complete.mutate({ planId: plan.id, stepKey: step.key })}
-        onWaive={(step) =>
-          waive.mutate({
-            planId: plan.id,
-            stepKey: step.key,
-            reason: t('offboarding.defaultWaiveReason'),
-          })
-        }
+        onWaive={(step, reason) => waive.mutate({ planId: plan.id, stepKey: step.key, reason })}
       />
 
       <AssetPanel employeeId={plan.employee_id} assets={assets.data ?? []} />
@@ -232,9 +240,16 @@ function StepList({
   steps: StepView[]
   busy: boolean
   onComplete: (step: StepView) => void
-  onWaive: (step: StepView) => void
+  onWaive: (step: StepView, reason: string) => void
 }) {
   const { t } = useTranslation()
+  /**
+   * Which step is being waived, and why. A waiver skips something the law or the process
+   * required, so it is the last place a canned reason belongs -- the record has to say
+   * what was skipped and on whose judgement.
+   */
+  const [waivingKey, setWaivingKey] = useState<string | null>(null)
+  const [waiveReason, setWaiveReason] = useState('')
   return (
     <ul className="flex flex-col gap-2">
       {steps.map((step) => (
@@ -255,13 +270,53 @@ function StepList({
                   <Button size="sm" disabled={busy} onClick={() => onComplete(step)}>
                     {t('offboarding.complete')}
                   </Button>
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => onWaive(step)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => {
+                      setWaivingKey(step.key)
+                      setWaiveReason('')
+                    }}
+                  >
                     {t('offboarding.waive')}
                   </Button>
                 </>
               ) : null}
             </div>
           </div>
+
+          {waivingKey === step.key ? (
+            <div className="mt-2 flex flex-col gap-2">
+              <label className="text-ink-muted text-xs" htmlFor={`waive-${step.key}`}>
+                {t('offboarding.waiveReasonLabel')}
+              </label>
+              <textarea
+                id={`waive-${step.key}`}
+                className="border-line w-full rounded border p-2 text-sm"
+                rows={2}
+                placeholder={t('offboarding.waiveReasonPlaceholder')}
+                value={waiveReason}
+                onChange={(event) => setWaiveReason(event.target.value)}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={busy || waiveReason.trim() === ''}
+                  onClick={() => {
+                    onWaive(step, waiveReason.trim())
+                    setWaivingKey(null)
+                  }}
+                >
+                  {t('offboarding.confirmWaive')}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setWaivingKey(null)}>
+                  {t('offboarding.cancel')}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </li>
       ))}
     </ul>

@@ -824,7 +824,6 @@
     "due": "Due {{date}}",
     "complete": "Mark done",
     "waive": "Waive",
-    "defaultWaiveReason": "Waived by HR",
     "finalise": "Complete offboarding",
     "outstanding_one": "{{count}} required step outstanding",
     "outstanding_other": "{{count}} required steps outstanding",
@@ -843,7 +842,12 @@
       "blocked": "Blocked",
       "done": "Done",
       "waived": "Waived"
-    }
+    },
+    "startAnother": "Start another offboarding",
+    "waiveReasonLabel": "Reason for waiving",
+    "waiveReasonPlaceholder": "Why is this step being skipped?",
+    "confirmWaive": "Confirm waiver",
+    "cancel": "Cancel"
   },
   "growth": {
     "boardTitle": "Growth",
