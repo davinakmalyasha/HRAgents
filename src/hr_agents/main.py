@@ -40,6 +40,7 @@ from hr_agents.api.routers import (
     offers,
     queue,
     scheduling,
+    session,
     workspaces,
 )
 from hr_agents.api.routers import chat as chat_router
@@ -352,6 +353,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(compliance.router, responses=ERROR_RESPONSES)
     app.include_router(growth.router, responses=ERROR_RESPONSES)
     app.include_router(offboarding.router, responses=ERROR_RESPONSES)
+    app.include_router(session.router, responses=ERROR_RESPONSES)
 
     @app.get("/healthz", tags=["system"], summary="Liveness probe")
     async def healthz() -> dict[str, Any]:

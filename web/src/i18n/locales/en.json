@@ -33,6 +33,9 @@
     },
     "compliance": {
       "name": "Compliance"
+    },
+    "approvals": {
+      "name": "Approvals"
     }
   },
   "home": {
@@ -966,6 +969,78 @@
       "approved": "Approved",
       "partial": "Partly executed",
       "executed": "Executed"
+    }
+  },
+  "approvals": {
+    "boardTitle": "Approvals",
+    "queueTitle_one": "{{count}} approval awaiting a decision",
+    "queueTitle_other": "{{count}} approvals awaiting a decision",
+    "empty": "Nothing is waiting on a decision.",
+    "overdueCount_one": "{{count}} is past its deadline.",
+    "overdueCount_other": "{{count}} are past their deadlines.",
+    "escalateOverdue": "Escalate overdue",
+    "escalateFailed": "Escalation was refused.",
+    "yoursToDecide_one": "You can decide {{count}} of these.",
+    "yoursToDecide_other": "You can decide {{count}} of these.",
+    "noneYoursToDecide": "None of these are yours to decide.",
+    "decideFailed": "That decision was refused. It may already have been decided, it may be assigned to another role, or you may have raised it yourself.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "confirmReject": "Confirm rejection",
+    "cancel": "Cancel",
+    "reasonLabel": "Reason for rejecting",
+    "reasonPlaceholder": "Why is this being refused?",
+    "reasonRequired": "A rejection needs a reason: it is the record a person reads later.",
+    "raisedBy": "raised by {{who}}",
+    "raisedByAgent": "Agent-raised",
+    "overdue": "Past deadline",
+    "escalated": "Escalated",
+    "dueBy": "Due by {{when}}",
+    "blocked": {
+      "decided": "Already decided.",
+      "ownRequest": "You raised this one, so it is not yours to decide.",
+      "otherRole": "Assigned to another role.",
+      "unknownViewer": "Your role is unknown, so no decision is offered here."
+    },
+    "status": {
+      "pending": "Awaiting decision",
+      "escalated": "Escalated, awaiting decision",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "withdrawn": "Withdrawn"
+    },
+    "role": {
+      "hr_admin": "You: HR admin",
+      "recruiter": "You: recruiter",
+      "finance": "You: finance",
+      "manager": "You: manager",
+      "employee": "You: employee"
+    },
+    "assigneeRole": {
+      "hr_admin": "HR admin",
+      "recruiter_lead": "recruiting lead",
+      "engineering_lead": "engineering lead",
+      "finance": "finance",
+      "manager": "line manager",
+      "data_protection": "data protection"
+    },
+    "subject": {
+      "leave_request": "Leave request",
+      "payroll_run": "Payroll run",
+      "payroll_anomaly": "Payroll anomaly",
+      "contract": "Contract",
+      "candidate_rejection": "Candidate rejection",
+      "candidate_anomaly": "Candidate anomaly",
+      "offer": "Offer",
+      "scheduling": "Interview scheduling",
+      "document_validation": "Document check",
+      "onboarding_step": "Onboarding step",
+      "offboarding_step": "Offboarding step",
+      "expense": "Expense",
+      "data_change": "Data change",
+      "erasure_request": "Erasure request",
+      "other": "Other"
     }
   }
 }

@@ -100,6 +100,13 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
         request.state.principal = principal
         if principal is not None:
             request.state.actor_id = principal.actor_id
+        elif request.headers.get(API_KEY_HEADER) is None:
+            # Nothing was presented, as opposed to something being presented and
+            # refused. These are different problems with different fixes -- send a key
+            # versus replace the key -- and `current_principal` gives them different
+            # codes. Collapsing them into one message is what made both codes
+            # unreachable.
+            request.state.auth_error = None
         else:
             request.state.auth_error = "invalid or missing API key"
         return await call_next(request)

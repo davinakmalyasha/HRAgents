@@ -34,9 +34,30 @@ def test_every_router_module_is_reachable_by_the_structural_fences() -> None:
     `test_write_routes_declare_their_actor_as_a_dependency` without either
     failing -- the exact failure this file exists to prevent.
     """
-    assert len(MODULES) == 18, f"router modules changed: {MODULES}"
+    assert len(MODULES) == 19, f"router modules changed: {MODULES}"
     for name, router in api_routers():
         assert all_routes_of(router), f"{name} contributes no routes to the fences"
+
+
+def test_the_session_router_is_read_only() -> None:
+    """`/v1/session` answers "who am I" and must not become a write surface.
+
+    It is the one endpoint whose whole purpose is to name the caller, so a POST here
+    would be a way to *become* somebody else. The fence below already knows that a
+    read permission alone must never guard a write; this says the endpoint has no
+    write at all.
+    """
+    session_routes = [
+        route
+        for name, router in api_routers()
+        if name == "session"
+        for route in all_routes_of(router)
+    ]
+    assert session_routes, "session.py contributes no routes to the fences"
+    for route in session_routes:
+        assert not route.methods or not route.methods & WRITE_METHODS, (
+            f"{route.path} is a write route on the session surface"
+        )
 
 
 def test_the_fences_see_more_routes_than_a_single_router_attribute_would() -> None:

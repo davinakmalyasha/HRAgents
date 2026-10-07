@@ -489,7 +489,13 @@ documented.
       Submitting an erasure raises an approval and only an approved request offers
       Execute; the decision itself is never made on this surface. Still missing: the
       consent registry list, and an explicit purge action behind a human confirmation
-- [ ] Audit viewer: searchable entries, chain verification badge, export
+- [x] Approvals workspace: board (overdue-first queue, escalate-overdue, the viewer's own
+      role) + queue (approve/reject, with the reason a rejection demands and the reason a
+      decision is unavailable named in words). Every department queue defers here instead
+      of carrying its own approve button
+- [ ] Audit viewer: searchable entries, chain verification badge, export. The verifier
+      itself now ships (" + BT + "GET /v1/compliance/audit/verify" + BT + " plus the workspace panel); what
+      is missing is the searchable entry list and export
 
 ### 2.6 PWA
 - [x] `vite-plugin-pwa`: manifest, service worker, offline shell (static assets only —

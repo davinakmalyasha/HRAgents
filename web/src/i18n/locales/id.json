@@ -33,6 +33,9 @@
     },
     "compliance": {
       "name": "Kepatuhan"
+    },
+    "approvals": {
+      "name": "Persetujuan"
     }
   },
   "home": {
@@ -967,5 +970,77 @@
     "held_one": "{{count}} ditahan hukum",
     "uncovered_one": "{{count}} tanpa kebijakan",
     "rateTableVerifyTitle_one": "{{count}} tabel perlu diverifikasi"
+  },
+  "approvals": {
+    "boardTitle": "Persetujuan",
+    "queueTitle_other": "{{count}} persetujuan menunggu keputusan",
+    "empty": "Tidak ada yang menunggu keputusan.",
+    "overdueCount_other": "{{count}} sudah melewati tenggat.",
+    "escalateOverdue": "Eskalasi yang lewat tenggat",
+    "escalateFailed": "Eskalasi ditolak.",
+    "yoursToDecide_other": "Anda dapat memutuskan {{count}} dari ini.",
+    "noneYoursToDecide": "Tidak ada yang boleh Anda putuskan.",
+    "decideFailed": "Keputusan itu ditolak. Mungkin sudah diputuskan, mungkin ditugaskan ke peran lain, atau mungkin Anda yang pengajuannya.",
+    "approve": "Setujui",
+    "reject": "Tolak",
+    "confirmReject": "Konfirmasi penolakan",
+    "cancel": "Batal",
+    "reasonLabel": "Alasan penolakan",
+    "reasonPlaceholder": "Mengapa ini ditolak?",
+    "reasonRequired": "Penolakan perlu alasan: itulah catatan yang dibaca orang nanti.",
+    "raisedBy": "diajukan oleh {{who}}",
+    "raisedByAgent": "Diajukan agen",
+    "overdue": "Lewat tenggat",
+    "escalated": "Dieuskalasi",
+    "dueBy": "Tenggat {{when}}",
+    "blocked": {
+      "decided": "Sudah diputuskan.",
+      "ownRequest": "Anda yang mengajukan, jadi bukan hak Anda untuk memutuskan.",
+      "otherRole": "Ditugaskan ke peran lain.",
+      "unknownViewer": "Peran Anda tidak diketahui, jadi tidak ada keputusan yang ditawarkan di sini."
+    },
+    "status": {
+      "pending": "Menunggu keputusan",
+      "escalated": "Dieuskalasi, menunggu keputusan",
+      "approved": "Disetujui",
+      "rejected": "Ditolak",
+      "expired": "Kedaluwarsa",
+      "withdrawn": "Ditarik"
+    },
+    "role": {
+      "hr_admin": "Anda: admin HR",
+      "recruiter": "Anda: perekrut",
+      "finance": "Anda: keuangan",
+      "manager": "Anda: atasan",
+      "employee": "Anda: karyawan"
+    },
+    "assigneeRole": {
+      "hr_admin": "admin HR",
+      "recruiter_lead": "pemimpin rekrutmen",
+      "engineering_lead": "pemimpin teknik",
+      "finance": "keuangan",
+      "manager": "atasan langsung",
+      "data_protection": "pelindungan data"
+    },
+    "subject": {
+      "leave_request": "Permintaan cuti",
+      "payroll_run": "Pembayaran gaji",
+      "payroll_anomaly": "Anomali gaji",
+      "contract": "Kontrak",
+      "candidate_rejection": "Penolakan kandidat",
+      "candidate_anomaly": "Anomali kandidat",
+      "offer": "Penawaran",
+      "scheduling": "Penjadwalan wawancara",
+      "document_validation": "Pemeriksaan dokumen",
+      "onboarding_step": "Langkah orientasi",
+      "offboarding_step": "Langkah pemisahan",
+      "expense": "Pengeluaran",
+      "data_change": "Perubahan data",
+      "erasure_request": "Permintaan penghapusan",
+      "other": "Lainnya"
+    },
+    "overdueCount_one": "{{count}} sudah melewati tenggat.",
+    "queueTitle_one": "{{count}} persetujuan menunggu keputusan",
+    "yoursToDecide_one": "Anda dapat memutuskan {{count}} dari ini."
   }
 }

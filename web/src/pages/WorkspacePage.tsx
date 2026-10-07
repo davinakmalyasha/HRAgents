@@ -3,6 +3,7 @@ import { Navigate, useParams, useSearchParams } from 'react-router'
 
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { ThreeRooms, type RoomId } from '@/components/three-rooms/ThreeRooms'
+import { ApprovalsBoard, ApprovalsQueue } from '@/features/approvals/ApprovalsWorkspace'
 import { ChatPanel } from '@/features/chat/ChatPanel'
 import { ComplianceBoard, ComplianceQueue } from '@/features/compliance/ComplianceWorkspace'
 import { GrowthBoard, GrowthQueue } from '@/features/growth/GrowthWorkspace'
@@ -55,7 +56,9 @@ export function WorkspacePage() {
         key={defaultRoom}
         defaultRoom={defaultRoom}
         board={
-          workspaceId === 'hiring' ? (
+          workspaceId === 'approvals' ? (
+            <ApprovalsBoard />
+          ) : workspaceId === 'hiring' ? (
             <PipelineBoard />
           ) : workspaceId === 'onboarding' ? (
             <OnboardingBoard />
@@ -76,7 +79,9 @@ export function WorkspacePage() {
           )
         }
         queue={
-          workspaceId === 'hiring' ? (
+          workspaceId === 'approvals' ? (
+            <ApprovalsQueue />
+          ) : workspaceId === 'hiring' ? (
             <div className="flex flex-col gap-6">
               <section aria-labelledby="hiring-signoff" className="flex flex-col gap-3">
                 <h2 id="hiring-signoff" className="text-ink-strong text-lg font-medium">

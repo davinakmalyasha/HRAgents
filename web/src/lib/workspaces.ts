@@ -1,5 +1,6 @@
 import {
   Briefcase,
+  Stamp,
   CalendarDays,
   LogOut,
   MessagesSquare,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react'
 
 export const WORKSPACE_IDS = [
+  'approvals',
   'hiring',
   'policy',
   'onboarding',
@@ -26,6 +28,7 @@ export const WORKSPACE_IDS = [
 export type WorkspaceId = (typeof WORKSPACE_IDS)[number]
 
 export const WORKSPACE_ICONS: Record<WorkspaceId, LucideIcon> = {
+  approvals: Stamp,
   hiring: Briefcase,
   policy: MessagesSquare,
   onboarding: UserPlus,

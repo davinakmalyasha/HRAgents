@@ -7479,6 +7479,17 @@
         "title": "ReviewCycleStatus",
         "type": "string"
       },
+      "RoleId": {
+        "enum": [
+          "hr_admin",
+          "recruiter",
+          "finance",
+          "manager",
+          "employee"
+        ],
+        "title": "RoleId",
+        "type": "string"
+      },
       "RouteReason": {
         "enum": [
           "explicit",
@@ -7937,6 +7948,50 @@
         ],
         "title": "Seniority",
         "type": "string"
+      },
+      "SessionView": {
+        "additionalProperties": false,
+        "description": "Who the server believes is making this request.\n\n`role` is the authoritative one for this request: it is what every permission check\nand every `assignee_role` comparison uses. A UI that guessed it from anything else\nwould eventually offer a decision the server refuses.\n\n`decides_approver_roles` is the server's own answer, taken from\n`APPROVER_ROLE_HOLDERS`, rather than something the client works out. That table is\nmany-to-many -- `hr_admin` may decide `manager`-assigned work, `finance`-assigned\nwork and `data_protection`-assigned work -- and a client that copied it would be\none table edit away from hiding every decision, or offering one it has no authority\nfor. Publishing it means there is only one copy to get right.",
+        "properties": {
+          "actor_id": {
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "api_key": {
+            "default": false,
+            "title": "Api Key",
+            "type": "boolean"
+          },
+          "decides_approver_roles": {
+            "description": "Approver roles this principal may decide an approval assigned to.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Decides Approver Roles",
+            "type": "array"
+          },
+          "employee_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employee Id"
+          },
+          "role": {
+            "$ref": "#/components/schemas/RoleId"
+          }
+        },
+        "required": [
+          "actor_id",
+          "role"
+        ],
+        "title": "SessionView",
+        "type": "object"
       },
       "SourceType": {
         "description": "Where a piece of evidence came from.",
@@ -8826,6 +8881,7 @@
       },
       "WorkspaceId": {
         "enum": [
+          "approvals",
           "hiring",
           "policy",
           "onboarding",
@@ -33799,6 +33855,125 @@
         "summary": "Confirm, cancel, or reschedule a proposal (named human)",
         "tags": [
           "scheduling"
+        ]
+      }
+    },
+    "/v1/session": {
+      "get": {
+        "description": "The caller's own actor id, role, employee binding and approval authority.\n\nReturns only what the caller already proved by authenticating. No permission is\nrequired beyond holding a valid credential, because there is nothing here to protect:\nit is the caller's own identity, not anyone else's.",
+        "operationId": "read_session_v1_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The request could not be understood."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Credentials are missing (`auth_required`) or refused (`auth_invalid`)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The record is not in a state that allows this."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request body exceeded the configured ceiling."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limited. `Retry-After` carries the interval in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A dependency the request needs is not running."
+          }
+        },
+        "summary": "Who the server thinks you are",
+        "tags": [
+          "session"
         ]
       }
     },

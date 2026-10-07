@@ -2610,6 +2610,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who the server thinks you are
+         * @description The caller's own actor id, role, employee binding and approval authority.
+         *
+         *     Returns only what the caller already proved by authenticating. No permission is
+         *     required beyond holding a valid credential, because there is nothing here to protect:
+         *     it is the caller's own identity, not anyone else's.
+         */
+        get: operations["read_session_v1_session_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tasks": {
         parameters: {
             query?: never;
@@ -5471,6 +5495,11 @@ export interface components {
          */
         ReviewCycleStatus: "draft" | "active" | "reviewing" | "completed" | "cancelled";
         /**
+         * RoleId
+         * @enum {string}
+         */
+        RoleId: "hr_admin" | "recruiter" | "finance" | "manager" | "employee";
+        /**
          * RouteReason
          * @enum {string}
          */
@@ -5644,6 +5673,38 @@ export interface components {
          * @enum {string}
          */
         Seniority: "intern" | "junior" | "mid" | "senior" | "lead" | "principal";
+        /**
+         * SessionView
+         * @description Who the server believes is making this request.
+         *
+         *     `role` is the authoritative one for this request: it is what every permission check
+         *     and every `assignee_role` comparison uses. A UI that guessed it from anything else
+         *     would eventually offer a decision the server refuses.
+         *
+         *     `decides_approver_roles` is the server's own answer, taken from
+         *     `APPROVER_ROLE_HOLDERS`, rather than something the client works out. That table is
+         *     many-to-many -- `hr_admin` may decide `manager`-assigned work, `finance`-assigned
+         *     work and `data_protection`-assigned work -- and a client that copied it would be
+         *     one table edit away from hiding every decision, or offering one it has no authority
+         *     for. Publishing it means there is only one copy to get right.
+         */
+        SessionView: {
+            /** Actor Id */
+            actor_id: string;
+            /**
+             * Api Key
+             * @default false
+             */
+            api_key: boolean;
+            /**
+             * Decides Approver Roles
+             * @description Approver roles this principal may decide an approval assigned to.
+             */
+            decides_approver_roles?: string[];
+            /** Employee Id */
+            employee_id?: string | null;
+            role: components["schemas"]["RoleId"];
+        };
         /**
          * SourceType
          * @description Where a piece of evidence came from.
@@ -5994,7 +6055,7 @@ export interface components {
          * WorkspaceId
          * @enum {string}
          */
-        WorkspaceId: "hiring" | "policy" | "onboarding" | "records" | "leave" | "payroll" | "growth" | "offboarding" | "compliance";
+        WorkspaceId: "approvals" | "hiring" | "policy" | "onboarding" | "records" | "leave" | "payroll" | "growth" | "offboarding" | "compliance";
         /**
          * WorkspaceView
          * @description One department pack as the dashboard needs it: identity + bilingual copy.
@@ -24888,6 +24949,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProposalDecisionResponse"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    read_session_v1_session_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionView"];
                 };
             };
             /** @description The request could not be understood. */

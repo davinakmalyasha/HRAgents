@@ -523,6 +523,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       day counts, contract expiry windows, and payroll periods. Needs `HRAGENTS_TIMEZONE` threaded
       through every business-date computation
 - [ ] Pipeline consent checkpoint (halt candidate processing when `has_active_consent` is false) — Phase 8.1 integration
+- [x] Approvals workspace UI (Phase 6) - the one place a decision is taken: board (overdue-first queue, escalation, the viewer's own role) + queue (approve/reject with the reason a rejection demands). Leave, payroll, offboarding, compliance-erasure and growth all defer here rather than growing their own approve button
+- [x] `GET /v1/session` - who the server thinks you are: actor id, role, employee binding, and the approver roles this principal may decide, read from the same `APPROVER_ROLE_HOLDERS` table `ApprovalService` enforces with, so the client keeps no copy of it
+- [x] Auth middleware distinguishes a missing credential from a refused one (`auth_required` vs `auth_invalid`) - it previously set the same message for both, which made the second code unreachable
 - [x] Compliance workspace UI (Phase 6) - board (unverified rate tables, open breaches, overdue breach steps, audit-chain verifier) + queue (erasure requests, breach containment ladder, retention scan, rate-table verification). Erasure decisions stay in the approvals inbox - read-only: findings, retention/purge log, verified rate tables. No agent action, no edit
 
 ## Phase 9 — Deployment & operations

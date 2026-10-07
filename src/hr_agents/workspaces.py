@@ -19,6 +19,7 @@ from hr_agents.rbac import Permission
 
 
 class WorkspaceId(StrEnum):
+    APPROVALS = "approvals"
     HIRING = "hiring"
     POLICY = "policy"
     ONBOARDING = "onboarding"
@@ -72,6 +73,32 @@ _POLICY_TOOLS = frozenset({"search_knowledge", "canonicalize_skill"})
 
 
 DEFAULT_WORKSPACES: tuple[WorkspaceDefinition, ...] = (
+    WorkspaceDefinition(
+        id=WorkspaceId.APPROVALS,
+        name_en="Approvals",
+        name_id="Persetujuan",
+        summary_en=("Every decision waiting on a named person, across all departments."),
+        summary_id=("Semua keputusan yang menunggu manusia bernama, dari semua departemen."),
+        tools=_POLICY_TOOLS,
+        knowledge_namespaces=frozenset({"platform.knowledge"}),
+        # Read-only for agents: an approval is decided by a person, and the agent's job
+        # here is to explain the queue, never to answer it. `APPROVALS_DECIDE` is
+        # deliberately absent from the write side for the same reason.
+        read_permissions=frozenset({Permission.PEOPLE_READ}),
+        write_permissions=frozenset(),
+        keywords=frozenset(
+            {
+                "approval",
+                "persetujuan",
+                "sign-off",
+                "decision",
+                "keputusan",
+                "escalation",
+                "eskalasi",
+                "sla",
+            }
+        ),
+    ),
     WorkspaceDefinition(
         id=WorkspaceId.HIRING,
         name_en="Hiring",
