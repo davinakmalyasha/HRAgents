@@ -19511,6 +19511,129 @@
         ]
       }
     },
+    "/v1/growth/assignments/mine": {
+      "get": {
+        "description": "The caller's own outstanding forms.\n\n`reviewer_id` is the authenticated principal's id, minted server-side. Without\nthis route the only way to list them is to pass that id as a query parameter,\nwhich leaves the caller typing a string that decides whose reviews they see --\nand the honest UI would have to ask a person to do it.",
+        "operationId": "my_assignments_v1_growth_assignments_mine_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentView"
+                  },
+                  "title": "Response My Assignments V1 Growth Assignments Mine Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The request could not be understood."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Credentials are missing (`auth_required`) or refused (`auth_invalid`)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The record is not in a state that allows this."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request body exceeded the configured ceiling."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limited. `Retry-After` carries the interval in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A dependency the request needs is not running."
+          }
+        },
+        "summary": "My Assignments",
+        "tags": [
+          "growth"
+        ]
+      }
+    },
     "/v1/growth/assignments/{assignment_id}/skip": {
       "post": {
         "operationId": "skip_assignment_v1_growth_assignments__assignment_id__skip_post",

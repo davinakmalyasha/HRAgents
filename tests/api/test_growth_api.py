@@ -4,6 +4,7 @@ from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
 
+from hr_agents.api.auth import LOCAL_OPERATOR_ACTOR
 from hr_agents.main import create_app
 
 TODAY = date.today()
@@ -119,6 +120,58 @@ def test_cycle_list_and_status_filter() -> None:
 
     assert listed.status_code == 200
     assert len(listed.json()) == 1
+
+
+def test_mine_lists_the_callers_own_forms_and_nobody_elses() -> None:
+    """`/assignments/mine` exists so the client never has to name itself.
+
+    The only other way in is `?reviewer_id=`, which leaves the caller typing a
+    string that decides whose reviews they see. Here the local operator's own id
+    is what the server compares against, so a form belonging to someone else is
+    absent rather than merely unrequested.
+    """
+    with make_client() as client:
+        employee = create_employee(client)
+        cycle = create_cycle(client)
+        mine = client.post(
+            f"/v1/growth/cycles/{cycle['id']}/assignments",
+            json={"employee_id": employee["id"], "reviewer_id": LOCAL_OPERATOR_ACTOR},
+        )
+        assert mine.status_code == 201, mine.text
+        client.post(
+            f"/v1/growth/cycles/{cycle['id']}/assignments",
+            json={"employee_id": employee["id"], "reviewer_id": "someone-else"},
+        )
+
+        listed = client.get("/v1/growth/assignments/mine")
+
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()] == [mine.json()["id"]]
+
+
+def test_mine_drops_a_form_once_it_is_terminal() -> None:
+    """A written or skipped form is not outstanding work.
+
+    The service filters on `terminal`, so a reviewer who has already filed does
+    not see it queued again.
+    """
+    with make_client() as client:
+        employee = create_employee(client)
+        cycle = create_cycle(client, rating_scale_max=5.0)
+        assignment = client.post(
+            f"/v1/growth/cycles/{cycle['id']}/assignments",
+            json={"employee_id": employee["id"], "reviewer_id": LOCAL_OPERATOR_ACTOR},
+        ).json()
+        client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={})
+        client.post(
+            f"/v1/growth/assignments/{assignment['id']}/submit",
+            json={"ratings": {"delivery": 4.0}},
+        )
+
+        listed = client.get("/v1/growth/assignments/mine")
+
+    assert listed.status_code == 200
+    assert listed.json() == []
 
 
 def test_close_cycle_blocked_until_summary_finalized() -> None:

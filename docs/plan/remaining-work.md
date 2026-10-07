@@ -469,11 +469,20 @@ documented.
 - [x] Records workspace: employee directory filterable by org unit, org chart with roll-up
       headcount, document vault ordered by urgency, expiry alerts, and named-human document
       verification (backend: `/v1/documents`, `/v1/documents/{id}/verify`, `/v1/org-units`)
-- [ ] Leave workspace: policies, balances, request calendar, approval queue
-- [ ] Payroll workspace: run assembly, anomaly review, sign-off submission, XLSX packet download
-      (with the "no payments executed" notice rendered in the UI)
-- [ ] Growth workspace: cycles, form collection, draft → finalize editor, goals
-- [ ] Offboarding workspace: exit checklists, asset clearance, handover notes, final-pay link
+- [~] Leave workspace: board (who is out, per-employee balances) + queue (pending-first
+      requests, cancel with a reason). Decisions are **not** here — they go through the
+      approvals inbox, so this surface never offers approve/reject
+- [~] Payroll workspace: runs board, run detail splitting blocking anomalies from advisory
+      ones, lifecycle-gated compute/submit/cancel, review-packet link (XLSX is review only and
+      the "no payments executed" notice is rendered in the UI). Approve/decline is the
+      approvals inbox's job, and cancel still needs a real reason typed in
+- [~] Growth workspace: board (cycles in flight, the server's overdue list, open goals with
+      progress) + queue (the caller's own forms with a real rating form gated on the cycle's
+      scale). Still missing: the summary draft → human-finalize editor, and reminder-runner
+      visibility
+- [~] Offboarding workspace: departing board, per-plan checklist (required vs optional),
+      asset return/missing, finalise gated on outstanding required steps **and** asset
+      clearance, start-a-plan form. Waiving sends a reason
 - [ ] Compliance workspace: consent registry, retention scan/purge, erasure workflow, breach
       checklist, audit-chain verifier with visible integrity result
 - [ ] Audit viewer: searchable entries, chain verification badge, export

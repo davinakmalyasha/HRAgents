@@ -1052,6 +1052,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/growth/assignments/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Assignments
+         * @description The caller's own outstanding forms.
+         *
+         *     `reviewer_id` is the authenticated principal's id, minted server-side. Without
+         *     this route the only way to list them is to pass that id as a query parameter,
+         *     which leaves the caller typing a string that decides whose reviews they see --
+         *     and the honest UI would have to ask a person to do it.
+         */
+        get: operations["my_assignments_v1_growth_assignments_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/growth/assignments/{assignment_id}/skip": {
         parameters: {
             query?: never;
@@ -13627,6 +13652,108 @@ export interface operations {
             query: {
                 reviewer_id: string;
             };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssignmentView"][];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    my_assignments_v1_growth_assignments_mine_get: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

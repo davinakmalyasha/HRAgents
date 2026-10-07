@@ -831,5 +831,50 @@
       "done": "Selesai",
       "waived": "Dikecualikan"
     }
+  },
+  "growth": {
+    "boardTitle": "Pertumbuhan",
+    "cyclesTitle": "Siklus penilaian berjalan",
+    "cyclesEmpty": "Tidak ada siklus penilaian yang terbuka.",
+    "period": "{{start}} - {{end}}",
+    "overdueTitle_other": "{{count}} target lewat tenggat",
+    "noOverdue": "Tidak ada yang lewat tenggat.",
+    "overdue": "Lewat tenggat",
+    "goalsTitle_other": "{{count}} target terbuka",
+    "goalsEmpty": "Tidak ada target yang terbuka.",
+    "due": "Tenggat {{date}}",
+    "percent": "{{percent}}%",
+    "progressFor": "Kemajuan menuju {{title}}",
+    "bumpProgress": "Catat +10%",
+    "progressNote": "Kemajuan dicatat dari papan pertumbuhan.",
+    "assignmentsTitle_other": "{{count}} tugas penilaian",
+    "assignmentsEmpty": "Tidak ada penilaian yang ditugaskan kepada Anda.",
+    "writeReview": "Tulis penilaian",
+    "skippedBecause": "Dilewati: {{reason}}",
+    "submitFailed": "Penilaian itu ditolak. Pengiriman memerlukan rating dan komentar, dan siklus harus sedang dalam tahap penilaian.",
+    "cycleStatus": {
+      "draft": "Draf",
+      "active": "Aktif",
+      "reviewing": "Dalam penilaian",
+      "completed": "Selesai",
+      "cancelled": "Dibatalkan"
+    },
+    "goalStatus": {
+      "draft": "Draf",
+      "active": "Aktif",
+      "completed": "Selesai",
+      "cancelled": "Dibatalkan"
+    },
+    "assignmentStatus": {
+      "pending": "Belum ditulis",
+      "submitted": "Ditulis",
+      "skipped": "Dilewati"
+    },
+    "ratingsLegend": "Nilai setiap dimensi ({{min}}-{{max}})",
+    "commentsLabel": "Komentar penilaian",
+    "commentsPlaceholder": "Apa yang Anda lihat?",
+    "assignmentsTitle_one": "{{count}} tugas penilaian",
+    "goalsTitle_one": "{{count}} target terbuka",
+    "overdueTitle_one": "{{count}} target lewat tenggat"
   }
 }

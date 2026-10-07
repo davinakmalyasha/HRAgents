@@ -178,6 +178,20 @@ def list_assignments(cycle_id: UUID, growth: GrowthDep) -> list[AssignmentView]:
     return [AssignmentView.from_model(item) for item in growth.list_assignments(cycle_id)]
 
 
+@router.get("/assignments/mine", response_model=list[AssignmentView])
+def my_assignments(growth: GrowthDep, actor: ActorDep) -> list[AssignmentView]:
+    """The caller's own outstanding forms.
+
+    `reviewer_id` is the authenticated principal's id, minted server-side. Without
+    this route the only way to list them is to pass that id as a query parameter,
+    which leaves the caller typing a string that decides whose reviews they see --
+    and the honest UI would have to ask a person to do it.
+    """
+    return [
+        AssignmentView.from_model(item) for item in growth.assignments_for_reviewer(actor.actor_id)
+    ]
+
+
 @router.get("/assignments", response_model=list[AssignmentView])
 def assignments_for_reviewer(
     growth: GrowthDep, reviewer_id: Annotated[str, Query(min_length=1)]

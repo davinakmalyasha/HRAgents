@@ -831,5 +831,50 @@
       "done": "Done",
       "waived": "Waived"
     }
+  },
+  "growth": {
+    "boardTitle": "Growth",
+    "cyclesTitle": "Review cycles in flight",
+    "cyclesEmpty": "No review cycle is open.",
+    "period": "{{start}} - {{end}}",
+    "overdueTitle_one": "{{count}} overdue goal",
+    "overdueTitle_other": "{{count}} overdue goals",
+    "noOverdue": "Nothing is overdue.",
+    "overdue": "Overdue",
+    "goalsTitle_one": "{{count}} goal open",
+    "goalsTitle_other": "{{count}} goals open",
+    "goalsEmpty": "No goal is open.",
+    "due": "Due {{date}}",
+    "percent": "{{percent}}%",
+    "progressFor": "Progress toward {{title}}",
+    "bumpProgress": "Record +10%",
+    "progressNote": "Progress recorded from the growth board.",
+    "assignmentsTitle_one": "{{count}} review assignment",
+    "assignmentsTitle_other": "{{count}} review assignments",
+    "assignmentsEmpty": "No review is assigned to you.",
+    "writeReview": "Write review",
+    "skippedBecause": "Skipped: {{reason}}",
+    "submitFailed": "That review was refused. A submission needs ratings and comments, and the cycle must be in review.",
+    "cycleStatus": {
+      "draft": "Draft",
+      "active": "Active",
+      "reviewing": "In review",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "goalStatus": {
+      "draft": "Draft",
+      "active": "Active",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "assignmentStatus": {
+      "pending": "Not written yet",
+      "submitted": "Written",
+      "skipped": "Skipped"
+    },
+    "ratingsLegend": "Rate each dimension ({{min}}-{{max}})",
+    "commentsLabel": "Review comments",
+    "commentsPlaceholder": "What did you see?"
   }
 }

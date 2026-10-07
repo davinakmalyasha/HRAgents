@@ -450,7 +450,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] API: 12 endpoints (policies, holiday calendar, balances, adjust, requests, cancel, sync, calendar)
 - [x] Tests: 36 new (service + API integration), audit chain covers every transition
 - [ ] `LeaveAssistant` agent (policy Q&A, request drafting over chat) — agent phase
-- [ ] Leave workspace UI (Phase 6)
+- [x] Leave workspace UI (Phase 6) - board (who is out, balances) + queue (pending-first list, cancel). Approval deliberately not here: it belongs in the approvals inbox
 
 ### 8.6 Payroll (prepare & verify ONLY — never executes payments) `DONE` (Wave 1 core)
 - [x] Run lifecycle: draft → assembling → ready_for_review → pending_signoff → approved → exported (or rejected/cancelled); run kinds (monthly, THR, adjustment, final)
@@ -463,7 +463,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tests: 23 new (service computations with exact expected values + API integration flows); audit chain covers every transition
 - [ ] Attendance/overtime import (CSV/XLSX) from office machines — Phase 7 files work
 - [ ] Payslip distribution coordination (human-approved) — Phase 7 messaging
-- [ ] Payroll workspace UI (Phase 6)
+- [x] Payroll workspace UI (Phase 6) - runs board, run detail with blocking vs advisory anomalies, lifecycle-gated compute/submit/cancel, review-packet link (XLSX is review only, never payment execution)
 
 ### 8.7 Performance `DONE` (Wave 1 scope: cycles, forms, summaries, light goals)
 - [x] Review cycles: operator-set rating scale (no hardcoded 1–5), deterministic lifecycle (draft → active → reviewing → completed/cancelled), assignment required before activation, close blocked on pending forms + unfinalized summaries
@@ -474,6 +474,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] API: 17 endpoints (cycles CRUD-lite + transitions, assignments submit/skip/list, summaries draft/finalize, goals lifecycle, reminders run)
 - [x] Persistence: 4 tables (`review_cycles`, `review_assignments`, `review_summaries`, `goals`) in migration `0004_growth_offboarding`
 - [x] Tests: 29 service + 9 API integration
+- [x] Growth workspace UI (Phase 6) - board (cycles in flight, the server's overdue list, open goals with progress) + queue (the caller's own review forms with a real rating form gated on the cycle's scale; a skipped form shows as skipped, not as outstanding work)
+- [x] `GET /v1/growth/assignments/mine` - resolves the authenticated principal as the reviewer, so the client never has to pass `reviewer_id` and no one is asked to type the string that decides whose reviews they see
 - [ ] `ReviewAssistant` agent (summary drafting, tone-adjusted) — agent phase
 - [ ] Performance workspace UI (Phase 6)
 
@@ -490,7 +492,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tests: 21 service + 9 API integration (+6 shared DB round-trip tests covering all new tables)
 - [ ] Asset inventory at onboarding time (assign equipment on day one) — later
 - [ ] `OffboardingCoordinator` agent (checklist chasing, exit interview summaries) — agent phase
-- [ ] Offboarding workspace UI (Phase 6)
+- [x] Offboarding workspace UI (Phase 6) - departing board, per-plan checklist, asset return/missing, finalise gated on outstanding required steps AND asset clearance
 
 ### 8.9 Compliance (cross-cutting) `DONE` (Wave 1 core: consent, retention, erasure, breach, audit verify)
 - [x] Approval/task audit trails for every HR operation
@@ -521,7 +523,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       day counts, contract expiry windows, and payroll periods. Needs `HRAGENTS_TIMEZONE` threaded
       through every business-date computation
 - [ ] Pipeline consent checkpoint (halt candidate processing when `has_active_consent` is false) — Phase 8.1 integration
-- [ ] Compliance workspace UI (Phase 6)
+- [ ] Compliance workspace UI (Phase 6) - read-only: findings, retention/purge log, verified rate tables. No agent action, no edit
 
 ## Phase 9 — Deployment & operations
 
