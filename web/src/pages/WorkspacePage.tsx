@@ -4,6 +4,7 @@ import { Navigate, useParams, useSearchParams } from 'react-router'
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { ThreeRooms, type RoomId } from '@/components/three-rooms/ThreeRooms'
 import { ChatPanel } from '@/features/chat/ChatPanel'
+import { ComplianceBoard, ComplianceQueue } from '@/features/compliance/ComplianceWorkspace'
 import { GrowthBoard, GrowthQueue } from '@/features/growth/GrowthWorkspace'
 import { LeaveBoard, LeaveQueue } from '@/features/leave/LeaveWorkspace'
 import { OffboardingBoard, OffboardingQueue } from '@/features/offboarding/OffboardingWorkspace'
@@ -68,6 +69,8 @@ export function WorkspacePage() {
             <OffboardingBoard />
           ) : workspaceId === 'growth' ? (
             <GrowthBoard />
+          ) : workspaceId === 'compliance' ? (
+            <ComplianceBoard />
           ) : (
             <EmptyState title={t('workspace.boardPlaceholder', { name })} />
           )
@@ -95,6 +98,8 @@ export function WorkspacePage() {
             <OffboardingQueue />
           ) : workspaceId === 'growth' ? (
             <GrowthQueue />
+          ) : workspaceId === 'compliance' ? (
+            <ComplianceQueue />
           ) : (
             <EmptyState title={t('workspace.queuePlaceholder')} />
           )

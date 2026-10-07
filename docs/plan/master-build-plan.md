@@ -523,7 +523,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       day counts, contract expiry windows, and payroll periods. Needs `HRAGENTS_TIMEZONE` threaded
       through every business-date computation
 - [ ] Pipeline consent checkpoint (halt candidate processing when `has_active_consent` is false) — Phase 8.1 integration
-- [ ] Compliance workspace UI (Phase 6) - read-only: findings, retention/purge log, verified rate tables. No agent action, no edit
+- [x] Compliance workspace UI (Phase 6) - board (unverified rate tables, open breaches, overdue breach steps, audit-chain verifier) + queue (erasure requests, breach containment ladder, retention scan, rate-table verification). Erasure decisions stay in the approvals inbox - read-only: findings, retention/purge log, verified rate tables. No agent action, no edit
 
 ## Phase 9 — Deployment & operations
 

@@ -483,8 +483,12 @@ documented.
 - [~] Offboarding workspace: departing board, per-plan checklist (required vs optional),
       asset return/missing, finalise gated on outstanding required steps **and** asset
       clearance, start-a-plan form. Waiving sends a reason
-- [ ] Compliance workspace: consent registry, retention scan/purge, erasure workflow, breach
-      checklist, audit-chain verifier with visible integrity result
+- [~] Compliance workspace: board (unverified rate tables, open breaches, overdue breach
+      steps, and an audit-chain verifier that names the session that ran it) + queue
+      (erasure requests, breach containment, retention scan, rate-table verification).
+      Submitting an erasure raises an approval and only an approved request offers
+      Execute; the decision itself is never made on this surface. Still missing: the
+      consent registry list, and an explicit purge action behind a human confirmation
 - [ ] Audit viewer: searchable entries, chain verification badge, export
 
 ### 2.6 PWA
