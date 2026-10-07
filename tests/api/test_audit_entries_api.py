@@ -12,7 +12,7 @@ from pydantic import SecretStr
 
 from hr_agents.config import ApiPrincipalSettings, Settings
 from hr_agents.main import create_app
-from hr_agents.rbac import RoleId
+from hr_agents.rbac import Permission, RoleId
 
 
 def make_client() -> TestClient:
@@ -219,3 +219,24 @@ def test_window_arithmetic_documentation_case() -> None:
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_the_trail_requires_its_own_permission() -> None:
+    """Reading the raw trail is an audit capability, not a side effect of compliance access.
+
+    The route is declared on a router whose dependency is AUDIT_READ, so a future role
+    can be granted the trail without also being handed consent, retention and breach
+    access -- and AUDIT_READ stops being a permission nothing enforces.
+    """
+    from tests.route_probe import all_routes_of, api_routers, route_permissions
+
+    entries = [
+        route
+        for _name, router in api_routers()
+        if router.prefix == "/v1/compliance/audit"
+        for route in all_routes_of(router)
+        if route.path.endswith("/entries")
+    ]
+
+    assert len(entries) == 1
+    assert route_permissions(entries[0]) == {Permission.AUDIT_READ}

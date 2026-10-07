@@ -351,6 +351,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(leave_router.router, responses=ERROR_RESPONSES)
     app.include_router(payroll_router.router, responses=ERROR_RESPONSES)
     app.include_router(compliance.router, responses=ERROR_RESPONSES)
+    app.include_router(compliance.audit_router, responses=ERROR_RESPONSES)
     app.include_router(growth.router, responses=ERROR_RESPONSES)
     app.include_router(offboarding.router, responses=ERROR_RESPONSES)
     app.include_router(session.router, responses=ERROR_RESPONSES)

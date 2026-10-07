@@ -52,6 +52,16 @@ router = APIRouter(
     dependencies=[Depends(require_permission(Permission.COMPLIANCE_READ))],
 )
 
+# Reading the raw trail is an audit capability, not a compliance one. Keeping the
+# entries endpoint on `AUDIT_READ` means a future role can be granted the trail
+# without also being handed consent, retention and breach access -- and it gives
+# `AUDIT_READ`, which existed but was never referenced, an enforcement point.
+audit_router = APIRouter(
+    prefix="/v1/compliance/audit",
+    tags=["compliance"],
+    dependencies=[Depends(require_permission(Permission.AUDIT_READ))],
+)
+
 
 def get_compliance(request: Request) -> ComplianceService:
     return request.app.state.compliance
@@ -462,7 +472,7 @@ def transition_breach(
 # --- audit -------------------------------------------------------------------
 
 
-@router.get("/audit/entries", response_model=list[AuditEntryView])
+@audit_router.get("/entries", response_model=list[AuditEntryView])
 def list_audit_entries(
     request: Request,
     actor: Annotated[str | None, Query()] = None,

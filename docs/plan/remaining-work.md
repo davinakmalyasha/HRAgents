@@ -141,9 +141,9 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [x] **Fix the 68 write endpoints guarded by a READ permission** and wire the dead permissions.
       `tests/test_route_inventory.py` asserts the read-guarded write set is empty and that the
       extractor still sees every module. `PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`
-      and `RATES_VERIFY` are all used by routers now; `AUDIT_READ` and `ADMIN_MANAGE` remain
-      defined-but-unused, and `AUDIT_READ` is the one worth wiring next if audit reading should
-      be grantable without the rest of compliance access.
+      and `RATES_VERIFY` are all used by routers now. `AUDIT_READ` guards the audit-trail
+      router, so reading the raw chain is grantable without the rest of compliance access;
+      `ADMIN_MANAGE` remains defined-but-unused.
 - [x] **Type errors once**: `api/problem.py` owns a `ProblemCode` vocabulary and a central status
       map, replacing `if message.startswith("unknown")` and 29 per-router `_not_found` /
       `_conflict` / `_forbidden` / `_bad_request` copies with one shared implementation.
