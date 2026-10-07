@@ -422,7 +422,9 @@ documented.
 - [x] i18n from day one: English + Bahasa Indonesia locale files, language switcher, key-parity test
 - [ ] Accessibility: WCAG AA, keyboard navigation, reduced motion, icon+label on every status color
       (baseline in place: focus rings, reduced-motion CSS, icon+label StatusBadge)
-- [ ] Mobile-first check at 390px (queues, approvals, chat)
+- [x] Mobile-first check at 390px: approvals, compliance, growth and records were driven at
+      390px in a browser with a DOM probe for horizontal overflow (none anywhere) and a clean
+      console; dialogs and the chat transcript are still unverified
 
 ### 2.3 Attention-first home
 - [x] "Needs you today" wired to real queues: overdue approvals, overdue tasks, open handoffs

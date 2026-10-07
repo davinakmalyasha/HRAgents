@@ -217,37 +217,46 @@ export function GrowthQueue() {
   }
 
   const list = assignments.data ?? []
-  if (list.length === 0) {
-    return <EmptyState title={t('growth.assignmentsEmpty')} />
-  }
 
   return (
-    <section aria-labelledby="growth-queue" className="flex flex-col gap-3">
-      <h2 id="growth-queue" className="text-ink-strong text-lg font-medium">
-        {t('growth.assignmentsTitle', { count: list.length })}
-      </h2>
-      <ul className="flex flex-col gap-2">
-        {list.map((assignment) => {
-          const cycle = cycleById.get(assignment.cycle_id)
-          /**
-           * The write form appears only while the cycle is active, because that is the
-           * only window `submit_assignment` accepts. Assignments span every cycle, so
-           * the status that gates the write lives on the cycle -- offering a form and
-           * letting the server refuse it would be worse than not offering one.
-           */
-          return (
-            <AssignmentRow
-              key={assignment.id}
-              assignment={assignment}
-              cycle={cycle}
-              employeeName={names.get(assignment.employee_id) ?? assignment.employee_id}
-            />
-          )
-        })}
-      </ul>
+    <div className="flex flex-col gap-6">
+      <section aria-labelledby="growth-queue" className="flex flex-col gap-3">
+        <h2 id="growth-queue" className="text-ink-strong text-lg font-medium">
+          {t('growth.assignmentsTitle', { count: list.length })}
+        </h2>
+        {list.length === 0 ? (
+          <EmptyState title={t('growth.assignmentsEmpty')} />
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {list.map((assignment) => {
+              const cycle = cycleById.get(assignment.cycle_id)
+              /**
+               * The write form appears only while the cycle is active, because that is the
+               * only window `submit_assignment` accepts. Assignments span every cycle, so
+               * the status that gates the write lives on the cycle -- offering a form and
+               * letting the server refuse it would be worse than not offering one.
+               */
+              return (
+                <AssignmentRow
+                  key={assignment.id}
+                  assignment={assignment}
+                  cycle={cycle}
+                  employeeName={names.get(assignment.employee_id) ?? assignment.employee_id}
+                />
+              )
+            })}
+          </ul>
+        )}
+      </section>
+      {/**
+       * Drafting summaries and running reminders do not depend on the viewer having
+       * assignments of their own. These used to sit inside the non-empty branch, so a
+       * fresh install -- exactly when a first review cycle is being set up -- showed
+       * neither.
+       */}
       <SummarySection />
       <ReminderPanel />
-    </section>
+    </div>
   )
 }
 
