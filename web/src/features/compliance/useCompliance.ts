@@ -12,6 +12,7 @@ import {
   recordConsent,
   revokeConsent,
   scanRetention,
+  executePurge,
   submitErasure,
   transitionBreach,
   unverifiedRateTables,
@@ -189,3 +190,18 @@ export function useVerifyRateTable() {
 }
 
 export type { PurgeRequest }
+
+/**
+ * Run a purge.
+ *
+ * The dry run and the real run are the same mutation: the caller says which. Keeping one
+ * path means the report the operator read is produced by the code that deletes, not by a
+ * separate preview implementation that could disagree with it.
+ */
+export function usePurge() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: PurgeRequest) => executePurge(body),
+    onSuccess: invalidate(queryClient),
+  })
+}

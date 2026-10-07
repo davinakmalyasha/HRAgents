@@ -16,6 +16,7 @@ export type BreachImpact = components['schemas']['BreachImpact']
 export type ErasureStatus = components['schemas']['ErasureStatus']
 export type ConsentCreate = components['schemas']['ConsentCreate']
 export type ConsentRevoke = components['schemas']['ConsentRevoke']
+export type LawfulBasis = components['schemas']['LawfulBasis']
 export type BreachCreate = components['schemas']['BreachCreate']
 export type BreachTransition = components['schemas']['BreachTransition']
 export type ErasureCreate = components['schemas']['ErasureCreate']
@@ -47,6 +48,48 @@ export function nonDestructiveOutcomes(report: PurgeReportView): PurgeOutcomeVie
  */
 export function sparedOutcomes(outcomes: PurgeOutcomeView[]): PurgeOutcomeView[] {
   return outcomes.filter((item) => item.status === 'skipped')
+}
+
+/**
+ * Whether a consent record can still be withdrawn.
+ *
+ * Only a granted, un-revoked record. The service refuses both "already revoked" and
+ * "never granted", so offering either would be a button that cannot succeed.
+ */
+export function isRevocable(consent: ConsentView): boolean {
+  return consent.granted && consent.revoked_at === null
+}
+
+/**
+ * What a consent record currently says.
+ *
+ * Three outcomes, not two: a refusal is itself registry evidence and is recorded, so
+ * collapsing it into "not granted" would lose the fact that somebody said no.
+ */
+export function consentState(consent: ConsentView): 'active' | 'revoked' | 'refused' {
+  if (consent.revoked_at !== null) {
+    return 'revoked'
+  }
+  return consent.granted ? 'active' : 'refused'
+}
+
+export function consentTone(state: ReturnType<typeof consentState>): 'done' | 'error' | 'waiting' {
+  if (state === 'active') {
+    return 'done'
+  }
+  return state === 'revoked' ? 'error' : 'waiting'
+}
+
+/**
+ * A purge needs an explicit second step.
+ *
+ * A dry run returns the same report shape as a real one, so the operator can read exactly
+ * what would go before anything does. This is the phrase that has to be typed to proceed.
+ */
+export const PURGE_CONFIRMATION = 'PURGE'
+
+export function purgeConfirmed(typed: string): boolean {
+  return typed.trim() === PURGE_CONFIRMATION
 }
 
 export function purgedOutcomes(outcomes: PurgeOutcomeView[]): PurgeOutcomeView[] {
@@ -371,3 +414,13 @@ export function purgeSummary(report: PurgeReportView): {
     stillPresent: [...report.held, ...report.uncovered],
   }
 }
+
+/** The lawful bases UU PDP defines; an operator picks one, nothing is inferred. */
+export const LAWFUL_BASES: readonly LawfulBasis[] = [
+  'consent',
+  'contract',
+  'legal_obligation',
+  'vital_interest',
+  'public_task',
+  'legitimate_interest',
+]

@@ -6,29 +6,44 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useEmployees } from '@/features/records/useRecords'
 import { formatDateTime } from '@/lib/dates'
 
 import {
+  LAWFUL_BASES,
+  PURGE_CONFIRMATION,
+  consentState,
+  consentTone,
   erasureTone,
   impactTone,
   isAwaitingDecision,
   isBreachTerminal,
   isExecutable,
+  isRevocable,
   nextBreachStatuses,
+  purgeConfirmed,
+  purgeSummary,
   unverifiedTables,
   type BreachStatus,
   type BreachView,
   type ErasureView,
+  type LawfulBasis,
+  type PurgeReportView,
 } from './complianceApi'
 import {
   useAuditVerification,
   useBreaches,
   useCompleteBreachStep,
+  useConsentStatus,
+  useConsents,
   useErasures,
   useExecuteErasure,
   useOverdueBreachSteps,
+  usePurge,
   useRateTables,
+  useRecordConsent,
   useRetentionScan,
+  useRevokeConsent,
   useSubmitErasure,
   useTransitionBreach,
   useUnverifiedRateTables,
@@ -235,6 +250,7 @@ function AuditVerdict({
 export function ComplianceQueue() {
   return (
     <div className="flex flex-col gap-6">
+      <ConsentSection />
       <ErasureSection />
       <BreachSection />
       <RetentionSection />
@@ -519,6 +535,7 @@ function RetentionSection() {
         ) : null}
       </div>
 
+      <PurgePanel />
       <div>
         <h3 className="text-ink-strong text-base font-medium">
           {t('compliance.rateTableVerifyTitle', { count: unverified.length })}
@@ -576,6 +593,346 @@ function RetentionSection() {
           </p>
         ) : null}
       </div>
+    </section>
+  )
+}
+
+/**
+ * Purge: preview, then type the word, then run.
+ *
+ * The dry run and the real run are the same server path, so the report the operator reads
+ * is produced by the code that deletes. A purge destroys records, so the real run is
+ * gated on an explicit confirmation phrase rather than a second click on the same button
+ * -- and the report stays on screen after it runs, because the outcome is the record of
+ * what happened.
+ */
+function PurgePanel() {
+  const { t } = useTranslation()
+  const purge = usePurge()
+  const [report, setReport] = useState<PurgeReportView | null>(null)
+  const [confirmText, setConfirmText] = useState('')
+
+  const summary = report ? purgeSummary(report) : null
+  const ran = report !== null && !report.dry_run
+
+  function run(dryRun: boolean) {
+    purge.mutate(
+      { dry_run: dryRun },
+      {
+        onSuccess: (data) => {
+          setReport(data)
+          if (!dryRun) {
+            setConfirmText('')
+          }
+        },
+      },
+    )
+  }
+
+  return (
+    <div className="border-line flex flex-col gap-2 rounded-lg border p-3">
+      <h3 className="text-ink-strong text-base font-medium">{t('compliance.purgeTitle')}</h3>
+      <p className="text-ink-muted text-xs">{t('compliance.purgeWarning')}</p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" disabled={purge.isPending} onClick={() => run(true)}>
+          {t('compliance.previewPurge')}
+        </Button>
+      </div>
+
+      {summary && report ? (
+        <div className="border-line rounded border p-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge
+              tone={report.dry_run ? 'waiting' : 'done'}
+              labelKey={report.dry_run ? 'compliance.dryRun' : 'compliance.realRun'}
+            />
+            <span className="text-ink-muted text-xs tabular-nums">
+              {t('compliance.purgeCounts', {
+                destroyed: summary.destroyed,
+                spared: summary.spared,
+                untouched: summary.stillPresent.length,
+              })}
+            </span>
+          </div>
+          {summary.stillPresent.length > 0 ? (
+            <p className="text-ink-muted mt-1 text-xs">
+              {t('compliance.stillPresent', { count: summary.stillPresent.length })}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {report?.dry_run ? (
+        <div className="flex flex-col gap-2">
+          <label className="text-ink-muted text-xs" htmlFor="purge-confirm">
+            {t('compliance.purgeConfirmLabel', { phrase: PURGE_CONFIRMATION })}
+          </label>
+          <Input
+            id="purge-confirm"
+            className="w-48"
+            value={confirmText}
+            onChange={(event) => setConfirmText(event.target.value)}
+          />
+          <Button
+            className="self-start"
+            size="sm"
+            variant="destructive"
+            disabled={purge.isPending || !purgeConfirmed(confirmText)}
+            onClick={() => run(false)}
+          >
+            {t('compliance.runPurge')}
+          </Button>
+        </div>
+      ) : null}
+
+      {ran ? <p className="text-ink-muted text-xs">{t('compliance.purgeDone')}</p> : null}
+
+      {purge.isError ? (
+        <p role="alert" className="text-error text-sm">
+          {t('compliance.purgeFailed')}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * Consent registry: what each person agreed to, what they refused, and what they
+ * withdrew.
+ *
+ * A refusal is recorded, not merely absent -- `granted: false` is evidence too, and the
+ * registry is what an audit reads. Recording is open to a person or an agent capturing a
+ * form; withdrawing is human-only in the service and needs a reason.
+ */
+export function ConsentSection() {
+  const { t } = useTranslation()
+  const employees = useEmployees()
+  const [subjectId, setSubjectId] = useState('')
+  const consents = useConsents(subjectId === '' ? null : subjectId)
+  const status = useConsentStatus(subjectId === '' ? null : subjectId, 'employee')
+  const record = useRecordConsent()
+  const revoke = useRevokeConsent()
+
+  const [purpose, setPurpose] = useState('')
+  const [basis, setBasis] = useState<LawfulBasis>('consent')
+  const [granting, setGranting] = useState(true)
+  const [revokingId, setRevokingId] = useState<string | null>(null)
+  const [revokeReason, setRevokeReason] = useState('')
+
+  const rows = consents.data ?? []
+  const blankPurpose = purpose.trim() === ''
+
+  return (
+    <section aria-labelledby="compliance-consents" className="flex flex-col gap-3">
+      <h2 id="compliance-consents" className="text-ink-strong text-lg font-medium">
+        {t('compliance.consentsTitle')}
+      </h2>
+      <p className="text-ink-muted text-xs">{t('compliance.consentsHint')}</p>
+
+      <label className="text-ink-muted text-xs" htmlFor="consent-subject">
+        {t('compliance.subjectField')}
+      </label>
+      <select
+        id="consent-subject"
+        className="border-line w-full max-w-sm rounded border p-2 text-sm"
+        value={subjectId}
+        onChange={(event) => setSubjectId(event.target.value)}
+      >
+        <option value="">{t('compliance.subjectPlaceholder')}</option>
+        {(employees.data ?? []).map((employee) => (
+          <option key={employee.id} value={employee.id}>
+            {employee.full_name}
+          </option>
+        ))}
+      </select>
+
+      {subjectId === '' ? null : (
+        <>
+          {status.data ? (
+            <p className="text-ink-muted text-xs">
+              {t('compliance.consentCounts', {
+                active: status.data.active_purposes.length,
+                total: status.data.records.length,
+              })}
+            </p>
+          ) : null}
+
+          {consents.isLoading ? (
+            <Skeleton className="h-24" />
+          ) : rows.length === 0 ? (
+            <EmptyState title={t('compliance.noConsents')} />
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {rows.map((consent) => {
+                const state = consentState(consent)
+                return (
+                  <li key={consent.id} className="border-line rounded-lg border p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-ink-strong text-sm font-medium">{consent.purpose}</p>
+                        <p className="text-ink-muted text-xs">
+                          {t(`compliance.lawfulBasis.${consent.lawful_basis}`, {
+                            defaultValue: consent.lawful_basis,
+                          })}
+                          {' · '}
+                          {t('compliance.capturedBy', { who: consent.captured_by })}
+                          {consent.policy_version ? ` · v${consent.policy_version}` : ''}
+                        </p>
+                        {consent.revoked_reason ? (
+                          <p className="text-ink-muted mt-1 text-xs italic">
+                            {t('compliance.revokedBecause', { reason: consent.revoked_reason })}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge
+                          tone={consentTone(state)}
+                          labelKey={`compliance.consentState.${state}`}
+                        />
+                        {isRevocable(consent) && revokingId !== consent.id ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setRevokingId(consent.id)
+                              setRevokeReason('')
+                            }}
+                          >
+                            {t('compliance.revoke')}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {revokingId === consent.id ? (
+                      <div className="mt-2 flex flex-col gap-2">
+                        <label className="text-ink-muted text-xs" htmlFor={`revoke-${consent.id}`}>
+                          {t('compliance.revokeReasonLabel')}
+                        </label>
+                        <textarea
+                          id={`revoke-${consent.id}`}
+                          className="border-line w-full rounded border p-2 text-sm"
+                          rows={2}
+                          value={revokeReason}
+                          onChange={(event) => setRevokeReason(event.target.value)}
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={revoke.isPending || revokeReason.trim() === ''}
+                            /**
+                             * Withdrawal is human-only on the server and the reason is
+                             * mandatory: the record outlives the tool, and "revoked" with
+                             * no why is not a record anybody can rely on.
+                             */
+                            onClick={() =>
+                              revoke.mutate(
+                                { consentId: consent.id, reason: revokeReason.trim() },
+                                { onSuccess: () => setRevokingId(null) },
+                              )
+                            }
+                          >
+                            {t('compliance.confirmRevoke')}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setRevokingId(null)}>
+                            {t('compliance.cancel')}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
+          <div className="border-line flex flex-col gap-2 rounded-lg border p-3">
+            <h3 className="text-ink-strong text-sm font-medium">
+              {t('compliance.recordConsentTitle')}
+            </h3>
+            <label className="text-ink-muted text-xs" htmlFor="consent-purpose">
+              {t('compliance.purposeLabel')}
+            </label>
+            <Input
+              id="consent-purpose"
+              placeholder={t('compliance.purposePlaceholder')}
+              value={purpose}
+              onChange={(event) => setPurpose(event.target.value)}
+            />
+            <label className="text-ink-muted text-xs" htmlFor="consent-basis">
+              {t('compliance.basisLabel')}
+            </label>
+            <select
+              id="consent-basis"
+              className="border-line w-full max-w-sm rounded border p-2 text-sm"
+              value={basis}
+              onChange={(event) => setBasis(event.target.value as LawfulBasis)}
+            >
+              {LAWFUL_BASES.map((item) => (
+                <option key={item} value={item}>
+                  {t(`compliance.lawfulBasis.${item}`, { defaultValue: item })}
+                </option>
+              ))}
+            </select>
+            <fieldset className="flex items-center gap-4">
+              <legend className="text-ink-muted text-xs">{t('compliance.outcomeLabel')}</legend>
+              <label className="flex items-center gap-1 text-sm">
+                <input
+                  type="radio"
+                  name="consent-outcome"
+                  checked={granting}
+                  onChange={() => setGranting(true)}
+                />
+                {t('compliance.granted')}
+              </label>
+              <label className="flex items-center gap-1 text-sm">
+                <input
+                  type="radio"
+                  name="consent-outcome"
+                  checked={!granting}
+                  onChange={() => setGranting(false)}
+                />
+                {t('compliance.refused')}
+              </label>
+            </fieldset>
+            <p className="text-ink-muted text-xs">{t('compliance.refusalIsEvidence')}</p>
+            <Button
+              className="self-start"
+              size="sm"
+              disabled={record.isPending || blankPurpose}
+              onClick={() =>
+                record.mutate(
+                  {
+                    subject_kind: 'employee',
+                    subject_id: subjectId,
+                    purpose: purpose.trim(),
+                    lawful_basis: basis,
+                    granted: granting,
+                    capture_method: 'manual',
+                    policy_version: '1.0',
+                  },
+                  {
+                    onSuccess: () => {
+                      setPurpose('')
+                      setGranting(true)
+                    },
+                  },
+                )
+              }
+            >
+              {t('compliance.recordConsent')}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {record.isError || revoke.isError ? (
+        <p role="alert" className="text-error text-sm">
+          {t('compliance.consentActionFailed')}
+        </p>
+      ) : null}
     </section>
   )
 }

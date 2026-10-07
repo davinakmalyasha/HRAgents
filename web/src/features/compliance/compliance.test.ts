@@ -3,12 +3,18 @@ import { describe, expect, it } from 'vitest'
 import type { components } from '@/api/schema'
 
 import {
+  LAWFUL_BASES,
+  PURGE_CONFIRMATION,
+  consentState,
+  consentTone,
   impactTone,
   isAwaitingDecision,
   isBreachTerminal,
   isExecutable,
+  isRevocable,
   isSubmittable,
   nextBreachStatuses,
+  purgeConfirmed,
   purgeSummary,
   purgedOutcomes,
   sparedOutcomes,
@@ -164,5 +170,94 @@ describe('a purge report says what it did and what it did not', () => {
     const dry = { ...report, dry_run: true, purged: [], skipped: report.skipped }
     expect(purgeSummary(dry).destroyed).toBe(0)
     expect(purgeSummary(dry).spared).toBe(1)
+  })
+})
+
+type Consent = components['schemas']['ConsentView']
+
+function consent(overrides: Partial<Consent> = {}): Consent {
+  return {
+    id: 'con-1',
+    subject_kind: 'employee',
+    subject_id: 'emp-1',
+    purpose: 'Recruiting communications',
+    lawful_basis: 'consent',
+    granted: true,
+    active: true,
+    capture_method: 'manual',
+    captured_by: 'Rina',
+    policy_version: '1.0',
+    granted_at: '2026-01-01T00:00:00Z',
+    revoked_at: null,
+    revoked_reason: null,
+    expires_at: null,
+    note: null,
+    ...overrides,
+  }
+}
+
+describe('a consent record has three states, not two', () => {
+  it('reads an active grant', () => {
+    expect(consentState(consent())).toBe('active')
+    expect(consentTone('active')).toBe('done')
+  })
+
+  it('reads a withdrawal as revoked, whatever it was before', () => {
+    const withdrawn = consent({
+      revoked_at: '2026-02-01T00:00:00Z',
+      revoked_reason: 'Changed mind',
+    })
+    expect(consentState(withdrawn)).toBe('revoked')
+    expect(consentTone('revoked')).toBe('error')
+  })
+
+  it('keeps a refusal as its own state', () => {
+    /**The registry is what an audit reads. Recording a refusal as merely "not granted"
+     * would lose the fact that somebody was asked and said no.
+     */
+    const refused = consent({ granted: false, granted_at: '2026-01-01T00:00:00Z' })
+    expect(consentState(refused)).toBe('refused')
+    expect(consentTone('refused')).toBe('waiting')
+  })
+})
+
+describe('only a live grant can be withdrawn', () => {
+  it('offers withdrawal on an active grant', () => {
+    expect(isRevocable(consent())).toBe(true)
+  })
+
+  it('refuses to re-withdraw one already revoked', () => {
+    expect(isRevocable(consent({ revoked_at: '2026-02-01T00:00:00Z' }))).toBe(false)
+  })
+
+  it('refuses to withdraw a refusal', () => {
+    /**`ComplianceService.revoke_consent` refuses a record that was never granted, so
+     * offering the button would be a guaranteed failure.
+     */
+    expect(isRevocable(consent({ granted: false }))).toBe(false)
+  })
+})
+
+describe('the purge is gated on a typed phrase', () => {
+  it('accepts only the exact phrase', () => {
+    expect(PURGE_CONFIRMATION).toBe('PURGE')
+    expect(purgeConfirmed('PURGE')).toBe(true)
+    expect(purgeConfirmed('  PURGE  ')).toBe(true)
+    expect(purgeConfirmed('purge')).toBe(false)
+    expect(purgeConfirmed('PURG')).toBe(false)
+    expect(purgeConfirmed('')).toBe(false)
+  })
+})
+
+describe('every lawful basis is offered and none is inferred', () => {
+  it('lists the six UU PDP bases', () => {
+    expect([...LAWFUL_BASES].sort()).toEqual([
+      'consent',
+      'contract',
+      'legal_obligation',
+      'legitimate_interest',
+      'public_task',
+      'vital_interest',
+    ])
   })
 })
