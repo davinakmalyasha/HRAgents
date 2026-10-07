@@ -888,7 +888,28 @@
     },
     "ratingsLegend": "Rate each dimension ({{min}}-{{max}})",
     "commentsLabel": "Review comments",
-    "commentsPlaceholder": "What did you see?"
+    "commentsPlaceholder": "What did you see?",
+    "summariesTitle": "Review summaries",
+    "summariesHint": "A draft is written from submitted forms, then a person edits it. The final text is what gets shared, so it is never finalised automatically.",
+    "summariesEmpty": "No cycle is open for summaries.",
+    "noSubmittedForms": "No review form has been submitted in this cycle yet, so there is nothing to summarise.",
+    "cycleField": "Cycle",
+    "agentDraftLabel": "Draft from submitted forms",
+    "finalLabel": "Final text (shared)",
+    "finalizedBy": "Finalised by {{who}}",
+    "finalizeAction": "Edit and finalise",
+    "finalTextLabel": "Final text",
+    "finalTextRequired": "The final text is what the employee reads, so it cannot be empty.",
+    "confirmFinalize": "Finalise summary",
+    "draftTextLabel": "Draft text",
+    "draftTextPlaceholder": "Summarise the submitted ratings in the employee's own context.",
+    "saveDraft": "Save draft",
+    "summaryActionFailed": "That action was refused. A draft needs at least one submitted form, and a finalised summary cannot be finalised again.",
+    "summaryMissing": "Not drafted yet",
+    "summaryStatus": {
+      "pending_review": "Awaiting human finalisation",
+      "finalized": "Finalised"
+    }
   },
   "compliance": {
     "boardTitle": "Compliance",

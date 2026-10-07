@@ -8,9 +8,13 @@ import {
   isReviewable,
   outstandingAssignments,
   collectRatings,
+  employeesWithSubmittedForms,
+  isDraftable,
+  isSummaryWindow,
   overdueGoals,
   progressPercent,
   REVIEW_DIMENSIONS,
+  summariesByEmployee,
   type CycleStatus,
   type GoalStatus,
 } from './growthApi'
@@ -206,5 +210,75 @@ describe('the rating form sends only what the server would accept', () => {
       'delivery',
       'reliability',
     ])
+  })
+})
+
+describe('a summary is drafted only where forms were submitted', () => {
+  it('collects the employees with at least one submitted form', () => {
+    /**GrowthService.draft_summary refuses a draft for an employee with no submitted
+     * form, because a summary that is not grounded in ratings is an opinion.
+     */
+    const list = [
+      assignment({ id: 'a1', employee_id: 'emp-1', status: 'submitted' }),
+      assignment({ id: 'a2', employee_id: 'emp-1', status: 'pending' }),
+      assignment({ id: 'a3', employee_id: 'emp-2', status: 'skipped' }),
+      assignment({ id: 'a4', employee_id: 'emp-3', status: 'submitted' }),
+    ]
+    expect(employeesWithSubmittedForms(list)).toEqual(['emp-1', 'emp-3'])
+  })
+
+  it('lists each employee once however many reviewers filed', () => {
+    const list = [
+      assignment({ id: 'a1', employee_id: 'emp-1', status: 'submitted' }),
+      assignment({ id: 'a2', employee_id: 'emp-1', status: 'submitted' }),
+    ]
+    expect(employeesWithSubmittedForms(list)).toEqual(['emp-1'])
+  })
+
+  it('lists nobody when every form is skipped', () => {
+    const list = [assignment({ status: 'skipped' }), assignment({ status: 'pending' })]
+    expect(employeesWithSubmittedForms(list)).toEqual([])
+  })
+})
+
+describe('summary lifecycle', () => {
+  it('accepts active and reviewing, and nothing else', () => {
+    /**Drafting and finalising happen in ctive and
+eviewing; submissions only in
+    * ctive. Conflating the two would hide the editor during the stage it exists for.
+    */
+    expect(isSummaryWindow('active')).toBe(true)
+    expect(isSummaryWindow('reviewing')).toBe(true)
+    for (const status of ['draft', 'completed', 'cancelled'] as CycleStatus[]) {
+      expect(isSummaryWindow(status)).toBe(false)
+    }
+  })
+
+  it('offers finalisation only while pending review', () => {
+    /**A finalised summary is what the employee may already have read; offering the
+     * button again would overwrite it.
+     */
+    expect(isDraftable('pending_review')).toBe(true)
+    expect(isDraftable('finalized')).toBe(false)
+  })
+
+  it('indexes summaries by the employee they are about', () => {
+    const summary = {
+      id: 'sum-1',
+      cycle_id: 'cyc-1',
+      employee_id: 'emp-1',
+      status: 'pending_review',
+      agent_draft: 'Draft',
+      draft_by: 'agent',
+      draft_created_at: '2026-01-01T00:00:00Z',
+      final_text: '',
+      finalized_by: null,
+      finalized_at: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    } as components['schemas']['SummaryView']
+    const map = summariesByEmployee([summary])
+    expect(map.get('emp-1')).toBe(summary)
+    expect(map.size).toBe(1)
   })
 })

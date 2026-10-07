@@ -10,23 +10,32 @@ import { useEmployees } from '@/features/records/useRecords'
 import { formatDate } from '@/lib/dates'
 
 import {
+  isDraftable,
   isOpenCycle,
+  isSummaryWindow,
   REVIEW_DIMENSIONS,
   collectRatings,
+  employeesWithSubmittedForms,
   isProgressable,
   isReviewable,
   progressPercent,
+  summariesByEmployee,
   type AssignmentView,
   type CycleView,
   type GoalView,
+  type SummaryView,
 } from './growthApi'
 import {
+  useCycleAssignments,
+  useDraftSummary,
+  useFinalizeSummary,
   useGrowthCycles,
   useGrowthGoals,
   useMyAssignments,
   useOverdueGoals,
   useRecordGoalProgress,
   useSubmitAssignment,
+  useSummaries,
 } from './useGrowth'
 
 /**
@@ -235,6 +244,7 @@ export function GrowthQueue() {
           )
         })}
       </ul>
+      <SummarySection />
     </section>
   )
 }
@@ -376,6 +386,230 @@ function AssignmentRow({
             </p>
           ) : null}
         </form>
+      ) : null}
+    </li>
+  )
+}
+
+/**
+ * Summary editor: the drafts written from submitted forms, and the human act of making
+ * one final.
+ *
+ * Finalising is human-only in the service and the final text is what gets shared, so this
+ * never finalises implicitly: a person reads the draft, edits it, and commits.
+ * `pending_review` is the only status that offers the button -- re-finalising would
+ * overwrite text somebody may already have given the employee.
+ */
+export function SummarySection() {
+  const { t } = useTranslation()
+  const cycles = useGrowthCycles()
+  const [chosen, setChosen] = useState<string | null>(null)
+  const assignments = useCycleAssignments(chosen)
+  const summaries = useSummaries(chosen)
+  const employees = useEmployees()
+  const draft = useDraftSummary()
+  const finalize = useFinalizeSummary()
+
+  const names = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const employee of employees.data ?? []) {
+      map.set(employee.id, employee.full_name)
+    }
+    return map
+  }, [employees.data])
+
+  const writeableCycles = (cycles.data ?? []).filter((item) => isSummaryWindow(item.status))
+  const selected = chosen ?? writeableCycles[0]?.id ?? null
+
+  if (writeableCycles.length === 0) {
+    return (
+      <section aria-labelledby="growth-summaries" className="flex flex-col gap-3">
+        <h2 id="growth-summaries" className="text-ink-strong text-lg font-medium">
+          {t('growth.summariesTitle')}
+        </h2>
+        <EmptyState title={t('growth.summariesEmpty')} />
+      </section>
+    )
+  }
+
+  const submitted = employeesWithSubmittedForms(assignments.data ?? [])
+  const byEmployee = summariesByEmployee(summaries.data ?? [])
+
+  return (
+    <section aria-labelledby="growth-summaries" className="flex flex-col gap-3">
+      <h2 id="growth-summaries" className="text-ink-strong text-lg font-medium">
+        {t('growth.summariesTitle')}
+      </h2>
+      <p className="text-ink-muted text-xs">{t('growth.summariesHint')}</p>
+
+      <label className="text-ink-muted text-xs" htmlFor="growth-summary-cycle">
+        {t('growth.cycleField')}
+      </label>
+      <select
+        id="growth-summary-cycle"
+        className="border-line w-full max-w-sm rounded border p-2 text-sm"
+        value={selected ?? ''}
+        onChange={(event) => setChosen(event.target.value)}
+      >
+        {writeableCycles.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+
+      {assignments.isLoading || summaries.isLoading ? (
+        <Skeleton className="h-24" />
+      ) : submitted.length === 0 ? (
+        <EmptyState title={t('growth.noSubmittedForms')} />
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {submitted.map((employeeId) => (
+            <SummaryRow
+              key={employeeId}
+              employeeName={names.get(employeeId) ?? employeeId}
+              summary={byEmployee.get(employeeId)}
+              draftBusy={draft.isPending}
+              finalizeBusy={finalize.isPending}
+              onDraft={(text) =>
+                selected !== null &&
+                draft.mutate({
+                  cycle_id: selected,
+                  employee_id: employeeId,
+                  draft_text: text,
+                })
+              }
+              onFinalize={(summaryId, text) => finalize.mutate({ summaryId, finalText: text })}
+            />
+          ))}
+        </ul>
+      )}
+
+      {draft.isError || finalize.isError ? (
+        <p role="alert" className="text-error text-sm">
+          {t('growth.summaryActionFailed')}
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+function SummaryRow({
+  employeeName,
+  summary,
+  draftBusy,
+  finalizeBusy,
+  onDraft,
+  onFinalize,
+}: {
+  employeeName: string
+  summary: SummaryView | undefined
+  draftBusy: boolean
+  finalizeBusy: boolean
+  onDraft: (text: string) => void
+  onFinalize: (summaryId: string, text: string) => void
+}) {
+  const { t } = useTranslation()
+  const [editing, setEditing] = useState(false)
+  /**
+   * The textarea starts empty rather than pre-filled with the agent draft: the final text
+   * is what gets shared, and a summary nobody wrote is not the reviewer's words.
+   */
+  const [text, setText] = useState('')
+  const blank = text.trim() === ''
+  const canFinalize = summary !== undefined && isDraftable(summary.status)
+
+  return (
+    <li className="border-line rounded-lg border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-ink-strong font-medium">{employeeName}</p>
+        <StatusBadge
+          tone={summary?.status === 'finalized' ? 'done' : 'waiting'}
+          labelKey={summary ? `growth.summaryStatus.${summary.status}` : 'growth.summaryMissing'}
+        />
+      </div>
+
+      {summary ? (
+        <>
+          <p className="text-ink-muted mt-2 text-xs font-medium">{t('growth.agentDraftLabel')}</p>
+          <p className="border-line mt-1 rounded border border-dashed p-2 text-sm whitespace-pre-wrap">
+            {summary.agent_draft}
+          </p>
+        </>
+      ) : null}
+
+      {summary?.status === 'finalized' ? (
+        <>
+          <p className="text-ink-muted mt-2 text-xs font-medium">{t('growth.finalLabel')}</p>
+          <p className="mt-1 text-sm whitespace-pre-wrap">{summary.final_text}</p>
+          {summary.finalized_by ? (
+            <p className="text-ink-muted mt-1 text-xs">
+              {t('growth.finalizedBy', { who: summary.finalized_by })}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+
+      {canFinalize && !editing ? (
+        <Button className="mt-2" size="sm" disabled={finalizeBusy} onClick={() => setEditing(true)}>
+          {t('growth.finalizeAction')}
+        </Button>
+      ) : null}
+
+      {canFinalize && editing && summary ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <label className="text-ink-muted text-xs" htmlFor={`final-${summary.id}`}>
+            {t('growth.finalTextLabel')}
+          </label>
+          <textarea
+            id={`final-${summary.id}`}
+            className="border-line w-full rounded border p-2 text-sm"
+            rows={5}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              disabled={finalizeBusy || blank}
+              onClick={() => onFinalize(summary.id, text.trim())}
+            >
+              {t('growth.confirmFinalize')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditing(false)
+                setText('')
+              }}
+            >
+              {t('growth.cancel')}
+            </Button>
+            {blank ? (
+              <p className="text-ink-muted text-xs">{t('growth.finalTextRequired')}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {summary === undefined ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <label className="text-ink-muted text-xs" htmlFor={`draft-${employeeName}`}>
+            {t('growth.draftTextLabel')}
+          </label>
+          <textarea
+            id={`draft-${employeeName}`}
+            className="border-line w-full rounded border p-2 text-sm"
+            rows={4}
+            placeholder={t('growth.draftTextPlaceholder')}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <Button size="sm" disabled={draftBusy || blank} onClick={() => onDraft(text.trim())}>
+            {t('growth.saveDraft')}
+          </Button>
+        </div>
       ) : null}
     </li>
   )

@@ -5,9 +5,13 @@ import {
   closeCycle,
   createCycle,
   createGoal,
+  cycleAssignments,
+  draftSummary,
+  finalizeSummary,
   listCycles,
   listGoals,
   listOverdueGoals,
+  listSummaries,
   myAssignments,
   openReviewing,
   recordGoalProgress,
@@ -15,6 +19,7 @@ import {
   submitAssignment,
   type CycleCreate,
   type GoalCreate,
+  type SummaryDraft,
 } from './growthApi'
 
 export function useGrowthCycles() {
@@ -39,6 +44,23 @@ function invalidate(queryClient: ReturnType<typeof useQueryClient>) {
   return async () => {
     await queryClient.invalidateQueries({ queryKey: ['growth'] })
   }
+}
+
+/** Every form in one cycle, for the reviewer roster and the summary editor. */
+export function useCycleAssignments(cycleId: string | null) {
+  return useQuery({
+    queryKey: ['growth', 'assignments', cycleId],
+    queryFn: () => cycleAssignments(cycleId as string),
+    enabled: cycleId !== null,
+  })
+}
+
+export function useSummaries(cycleId: string | null) {
+  return useQuery({
+    queryKey: ['growth', 'summaries', cycleId],
+    queryFn: () => listSummaries(cycleId as string),
+    enabled: cycleId !== null,
+  })
 }
 
 export function useCreateCycle() {
@@ -115,6 +137,27 @@ export function useRecordGoalProgress() {
       percent: number
       note: string
     }) => recordGoalProgress(goalId, percent, note),
+    onSuccess: invalidate(queryClient),
+  })
+}
+
+export function useDraftSummary() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: SummaryDraft) => draftSummary(body),
+    onSuccess: invalidate(queryClient),
+  })
+}
+
+/**
+ * Finalising is human-only on the server, and the final text is what gets shared --
+ * so this mutation is never wired to an agent path.
+ */
+export function useFinalizeSummary() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ summaryId, finalText }: { summaryId: string; finalText: string }) =>
+      finalizeSummary(summaryId, finalText),
     onSuccess: invalidate(queryClient),
   })
 }

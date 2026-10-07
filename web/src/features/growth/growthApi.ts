@@ -11,6 +11,10 @@ export type CycleKind = components['schemas']['ReviewCycleKind']
 export type AssignmentStatus = components['schemas']['AssignmentStatus']
 export type CycleCreate = components['schemas']['CycleCreate']
 export type GoalCreate = components['schemas']['GoalCreate']
+export type SummaryView = components['schemas']['SummaryView']
+export type SummaryStatus = components['schemas']['SummaryStatus']
+export type SummaryDraft = components['schemas']['SummaryDraft']
+export type SummaryFinalize = components['schemas']['SummaryFinalize']
 
 export const CYCLE_STATUS_LABELS: Record<CycleStatus, string> = {
   draft: 'Draft',
@@ -100,6 +104,87 @@ export async function listCycles(): Promise<CycleView[]> {
 export async function myAssignments(): Promise<AssignmentView[]> {
   const { data } = await api.GET('/v1/growth/assignments/mine')
   return data ?? []
+}
+
+/**
+ * Summaries written for a cycle.
+ *
+ * A summary exists only where at least one review form was submitted: the service
+ * refuses to draft one that is not grounded in submitted ratings.
+ */
+export async function listSummaries(cycleId: string): Promise<SummaryView[]> {
+  const { data } = await api.GET('/v1/growth/cycles/{cycle_id}/summaries', {
+    params: { path: { cycle_id: cycleId } },
+  })
+  return data ?? []
+}
+
+export async function draftSummary(body: SummaryDraft): Promise<{ status: number }> {
+  const { response } = await api.POST('/v1/growth/summaries', { body })
+  return { status: response.status }
+}
+
+/**
+ * Finalise a summary.
+ *
+ * The service requires a human for this, and the final text is what gets shared. A
+ * finalized summary cannot be re-finalized, so the button is not offered again.
+ */
+export async function finalizeSummary(
+  summaryId: string,
+  finalText: string,
+): Promise<{ status: number }> {
+  const { response } = await api.POST('/v1/growth/summaries/{summary_id}/finalize', {
+    params: { path: { summary_id: summaryId } },
+    body: { final_text: finalText },
+  })
+  return { status: response.status }
+}
+
+/**
+ * Whether a summary can still be finalised.
+ *
+ * pending_review only. Re-finalising would overwrite text somebody may already have
+ * shared with the employee.
+ */
+export function isDraftable(status: SummaryStatus): boolean {
+  return status === 'pending_review'
+}
+
+/**
+ * Whether a cycle is open for drafting or finalising summaries.
+ *
+ * The service accepts ctive and
+eviewing: the reviewing stage is exactly where
+ * summaries are written, unlike review *submissions* which are only accepted while active.
+ */
+export function isSummaryWindow(status: CycleStatus): boolean {
+  return status === 'active' || status === 'reviewing'
+}
+
+/**
+ * A draft is only as good as the forms under it.
+ *
+ * Mirrors GrowthService.draft_summary, which refuses a draft for an employee with no
+ * submitted form.
+ */
+export function employeesWithSubmittedForms(assignments: AssignmentView[]): string[] {
+  const seen = new Set<string>()
+  for (const assignment of assignments) {
+    if (assignment.status === 'submitted') {
+      seen.add(assignment.employee_id)
+    }
+  }
+  return [...seen].sort()
+}
+
+/** Every summary in a cycle is written for exactly one employee. */
+export function summariesByEmployee(summaries: SummaryView[]): Map<string, SummaryView> {
+  const map = new Map<string, SummaryView>()
+  for (const summary of summaries) {
+    map.set(summary.employee_id, summary)
+  }
+  return map
 }
 
 /** Every form in a cycle, for the HR view of one cycle. */

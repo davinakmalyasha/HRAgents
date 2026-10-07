@@ -888,7 +888,28 @@
     "commentsPlaceholder": "Apa yang Anda lihat?",
     "assignmentsTitle_one": "{{count}} tugas penilaian",
     "goalsTitle_one": "{{count}} target terbuka",
-    "overdueTitle_one": "{{count}} target lewat tenggat"
+    "overdueTitle_one": "{{count}} target lewat tenggat",
+    "summariesTitle": "Ringkasan penilaian",
+    "summariesHint": "Draf disusun dari formulir yang sudah dikirim, lalu diedit oleh manusia. Teks final itulah yang dibagikan, jadi tidak pernah difinalkan otomatis.",
+    "summariesEmpty": "Tidak ada siklus yang terbuka untuk ringkasan.",
+    "noSubmittedForms": "Belum ada formulir penilaian yang dikirim di siklus ini, jadi belum ada yang bisa diringkas.",
+    "cycleField": "Siklus",
+    "agentDraftLabel": "Draf dari formulir yang dikirim",
+    "finalLabel": "Teks final (dibagikan)",
+    "finalizedBy": "Difinalkan oleh {{who}}",
+    "finalizeAction": "Edit dan finalkan",
+    "finalTextLabel": "Teks final",
+    "finalTextRequired": "Teks final itulah yang dibaca karyawan, jadi tidak boleh kosong.",
+    "confirmFinalize": "Finalkan ringkasan",
+    "draftTextLabel": "Teks draf",
+    "draftTextPlaceholder": "Ringkas rating yang dikirim dalam konteks karyawan itu sendiri.",
+    "saveDraft": "Simpan draf",
+    "summaryActionFailed": "Tindakan itu ditolak. Draf perlu setidaknya satu formulir yang dikirim, dan ringkasan yang sudah final tidak dapat difinalkan lagi.",
+    "summaryMissing": "Belum ada draf",
+    "summaryStatus": {
+      "pending_review": "Menunggu finalisasi manusia",
+      "finalized": "Sudah final"
+    }
   },
   "compliance": {
     "boardTitle": "Kepatuhan",
