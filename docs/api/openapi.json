@@ -6257,7 +6257,7 @@
             "type": "string"
           }
         },
-        "description": "The response body. Documents the contract in the OpenAPI document.\n\n``detail`` is a ``dict[str, Any]`` rather than a string because a\n`RequestValidationError` problem carries a *list* of per-field errors there, which is\nwhat FastAPI produced and what fourteen tests assert. The field is polymorphic on\npurpose; `detail_is_list` is not carried because a client that cares can check the\ntype, and a client that does not should use ``code``.",
+        "description": "The response body. Documents the contract in the OpenAPI document.\n\n``detail`` is polymorphic and the annotation says so: a `RequestValidationError`\nproblem carries a *list* of per-field errors there, which is what FastAPI produces and\nwhat fourteen tests assert. The annotation used to claim ``str | None`` while the\nruntime sent a list, so a generated client could only have handled it by being wrong.\nSwitch on ``code`` rather than inspecting ``detail`` -- the shape is stable per code,\nbut the codes are the contract.",
         "properties": {
           "code": {
             "anyOf": [
@@ -6277,11 +6277,18 @@
                 "type": "string"
               },
               {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
                 "type": "null"
               }
             ],
             "default": null,
-            "description": "Explanation specific to this occurrence.",
+            "description": "Explanation specific to this occurrence. A validation problem carries a list of per-field errors here rather than a string.",
             "title": "Detail"
           },
           "instance": {

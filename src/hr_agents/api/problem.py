@@ -28,6 +28,7 @@ a human reads.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
@@ -104,17 +105,24 @@ class ProblemCode(StrEnum):
 class ProblemDetail(BaseModel):
     """The response body. Documents the contract in the OpenAPI document.
 
-    ``detail`` is a ``dict[str, Any]`` rather than a string because a
-    `RequestValidationError` problem carries a *list* of per-field errors there, which is
-    what FastAPI produced and what fourteen tests assert. The field is polymorphic on
-    purpose; `detail_is_list` is not carried because a client that cares can check the
-    type, and a client that does not should use ``code``.
+    ``detail`` is polymorphic and the annotation says so: a `RequestValidationError`
+    problem carries a *list* of per-field errors there, which is what FastAPI produces and
+    what fourteen tests assert. The annotation used to claim ``str | None`` while the
+    runtime sent a list, so a generated client could only have handled it by being wrong.
+    Switch on ``code`` rather than inspecting ``detail`` -- the shape is stable per code,
+    but the codes are the contract.
     """
 
     type: str = Field(description="Stable URI identifying the error kind.")
     title: str = Field(description="A short human-readable summary of the problem.")
     status: int = Field(description="The HTTP status code.")
-    detail: str | None = Field(default=None, description="Explanation specific to this occurrence.")
+    detail: str | list[dict[str, Any]] | None = Field(
+        default=None,
+        description=(
+            "Explanation specific to this occurrence. A validation problem carries a "
+            "list of per-field errors here rather than a string."
+        ),
+    )
     instance: str | None = Field(default=None, description="The path of the request.")
     code: ProblemCode | None = Field(
         default=None,

@@ -5049,11 +5049,12 @@ export interface components {
          * ProblemDetail
          * @description The response body. Documents the contract in the OpenAPI document.
          *
-         *     ``detail`` is a ``dict[str, Any]`` rather than a string because a
-         *     `RequestValidationError` problem carries a *list* of per-field errors there, which is
-         *     what FastAPI produced and what fourteen tests assert. The field is polymorphic on
-         *     purpose; `detail_is_list` is not carried because a client that cares can check the
-         *     type, and a client that does not should use ``code``.
+         *     ``detail`` is polymorphic and the annotation says so: a `RequestValidationError`
+         *     problem carries a *list* of per-field errors there, which is what FastAPI produces and
+         *     what fourteen tests assert. The annotation used to claim ``str | None`` while the
+         *     runtime sent a list, so a generated client could only have handled it by being wrong.
+         *     Switch on ``code`` rather than inspecting ``detail`` -- the shape is stable per code,
+         *     but the codes are the contract.
          */
         ProblemDetail: {
             /**
@@ -5063,10 +5064,12 @@ export interface components {
             code: components["schemas"]["ProblemCode"] | null;
             /**
              * Detail
-             * @description Explanation specific to this occurrence.
+             * @description Explanation specific to this occurrence. A validation problem carries a list of per-field errors here rather than a string.
              * @default null
              */
-            detail: string | null;
+            detail: string | {
+                [key: string]: unknown;
+            }[] | null;
             /**
              * Instance
              * @description The path of the request.

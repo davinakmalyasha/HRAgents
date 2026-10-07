@@ -36,7 +36,12 @@ export const NETWORK_FAILURE = 0
 
 export interface ProblemDetail {
   title?: string
-  detail?: string
+  /**
+   * unknown, not string: a validation problem sends a list of per-field errors here
+   * (the server's own schema says so). `detailText` guards on the type; anything else
+   * that wants to read it has to as well, and the compiler will insist.
+   */
+  detail?: unknown
   code?: string
 }
 
