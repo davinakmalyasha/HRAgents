@@ -34,6 +34,7 @@ import {
   useMyAssignments,
   useOverdueGoals,
   useRecordGoalProgress,
+  useRunReminders,
   useSubmitAssignment,
   useSummaries,
 } from './useGrowth'
@@ -245,6 +246,7 @@ export function GrowthQueue() {
         })}
       </ul>
       <SummarySection />
+      <ReminderPanel />
     </section>
   )
 }
@@ -612,5 +614,82 @@ function SummaryRow({
         </div>
       ) : null}
     </li>
+  )
+}
+
+/**
+ * Reminder runner: create the tasks for forms and summaries that are coming due.
+ *
+ * The server deduplicates, so this is safe to press on any schedule. The list below is
+ * what the press *created*, not everything outstanding -- an existing open task is left
+ * alone, and saying otherwise would make "2 reminders" read as "only 2 things are due".
+ */
+export function ReminderPanel() {
+  const { t } = useTranslation()
+  const run = useRunReminders()
+  const [windowDays, setWindowDays] = useState(3)
+
+  const created = run.data ?? []
+
+  return (
+    <section aria-labelledby="growth-reminders" className="flex flex-col gap-3">
+      <h2 id="growth-reminders" className="text-ink-strong text-lg font-medium">
+        {t('growth.remindersTitle')}
+      </h2>
+      <p className="text-ink-muted text-xs">{t('growth.remindersHint')}</p>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <span className="flex flex-col gap-1">
+          <label className="text-ink-muted text-xs" htmlFor="reminder-window">
+            {t('growth.reminderWindow')}
+          </label>
+          {/* 0-60 is what `RemindersRun.window_days` accepts; the input says so. */}
+          <input
+            id="reminder-window"
+            className="border-line w-20 rounded border px-2 py-1 text-sm"
+            type="number"
+            min={0}
+            max={60}
+            value={windowDays}
+            onChange={(event) => setWindowDays(Number(event.target.value))}
+          />
+        </span>
+        <Button
+          size="sm"
+          disabled={run.isPending || Number.isNaN(windowDays)}
+          onClick={() => run.mutate({ window_days: windowDays })}
+        >
+          {t('growth.runReminders')}
+        </Button>
+      </div>
+
+      {run.isSuccess ? (
+        created.length === 0 ? (
+          <p className="text-ink-muted text-sm">{t('growth.noNewReminders')}</p>
+        ) : (
+          <>
+            <p className="text-ink-strong text-sm">
+              {t('growth.remindersCreated', { count: created.length })}
+            </p>
+            <ul className="flex flex-col gap-1">
+              {created.map((reminder) => (
+                <li key={reminder.task_id} className="border-line rounded border p-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-ink-strong text-sm">{reminder.detail}</p>
+                    <StatusBadge tone="waiting" labelKey={`growth.reminderKind.${reminder.kind}`} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      ) : null}
+
+      {run.isError ? (
+        <p role="alert" className="text-error text-sm">
+          {t('growth.remindersFailed')}
+        </p>
+      ) : null}
+    </section>
   )
 }

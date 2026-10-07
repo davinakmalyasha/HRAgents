@@ -15,10 +15,12 @@ import {
   myAssignments,
   openReviewing,
   recordGoalProgress,
+  runReminders,
   skipAssignment,
   submitAssignment,
   type CycleCreate,
   type GoalCreate,
+  type RemindersRun,
   type SummaryDraft,
 } from './growthApi'
 
@@ -158,6 +160,15 @@ export function useFinalizeSummary() {
   return useMutation({
     mutationFn: async ({ summaryId, finalText }: { summaryId: string; finalText: string }) =>
       finalizeSummary(summaryId, finalText),
+    onSuccess: invalidate(queryClient),
+  })
+}
+
+/** Running reminders returns what it created; it is not a query. */
+export function useRunReminders() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: RemindersRun) => runReminders(body),
     onSuccess: invalidate(queryClient),
   })
 }

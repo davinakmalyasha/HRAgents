@@ -15,6 +15,8 @@ export type SummaryView = components['schemas']['SummaryView']
 export type SummaryStatus = components['schemas']['SummaryStatus']
 export type SummaryDraft = components['schemas']['SummaryDraft']
 export type SummaryFinalize = components['schemas']['SummaryFinalize']
+export type ReminderView = components['schemas']['ReminderView']
+export type RemindersRun = components['schemas']['RemindersRun']
 
 export const CYCLE_STATUS_LABELS: Record<CycleStatus, string> = {
   draft: 'Draft',
@@ -185,6 +187,19 @@ export function summariesByEmployee(summaries: SummaryView[]): Map<string, Summa
     map.set(summary.employee_id, summary)
   }
   return map
+}
+
+/**
+ * Create reminder tasks for due forms and unfinalised summaries.
+ *
+ * Deduplicated server-side: an open task for the same assignment or summary is not
+ * created again, so a daily schedule and an impatient operator cannot pile up duplicates.
+ * The list returned is what was *created*, not everything that is due -- a distinction the
+ * panel has to state, or "3 reminders" reads as "only 3 things are due".
+ */
+export async function runReminders(body: RemindersRun): Promise<ReminderView[]> {
+  const { data } = await api.POST('/v1/growth/reminders/run', { body })
+  return data ?? []
 }
 
 /** Every form in a cycle, for the HR view of one cycle. */

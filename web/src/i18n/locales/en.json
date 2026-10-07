@@ -913,6 +913,18 @@
     "summaryStatus": {
       "pending_review": "Awaiting human finalisation",
       "finalized": "Finalised"
+    },
+    "remindersTitle": "Reminders",
+    "remindersHint": "Creates a task for each form and summary coming due. Safe to run on any schedule: an open task for the same form is never duplicated, so the list below is what this run added, not everything outstanding.",
+    "reminderWindow": "Window (days)",
+    "runReminders": "Run reminders",
+    "noNewReminders": "Nothing new was due -- every due form and summary already has an open task.",
+    "remindersCreated_one": "{{count}} task created.",
+    "remindersCreated_other": "{{count}} tasks created.",
+    "remindersFailed": "The reminder run was refused.",
+    "reminderKind": {
+      "assignment_due": "Review form due",
+      "summary_awaiting_finalize": "Summary awaiting finalisation"
     }
   },
   "compliance": {

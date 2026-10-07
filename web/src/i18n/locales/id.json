@@ -913,7 +913,19 @@
     "summaryStatus": {
       "pending_review": "Menunggu finalisasi manusia",
       "finalized": "Sudah final"
-    }
+    },
+    "remindersTitle": "Pengingat",
+    "remindersHint": "Membuat tugas untuk setiap formulir dan ringkasan yang mendekati tenggat. Aman dijalankan kapan saja: tugas terbuka untuk formulir yang sama tidak pernah diduplikasi, jadi daftar di bawah adalah yang ditambahkan proses ini, bukan semua yang tertunda.",
+    "reminderWindow": "Jendela (hari)",
+    "runReminders": "Jalankan pengingat",
+    "noNewReminders": "Tidak ada yang baru jatuh tempo -- setiap formulir dan ringkasan sudah punya tugas terbuka.",
+    "remindersCreated_other": "{{count}} tugas dibuat.",
+    "remindersFailed": "Proses pengingat ditolak.",
+    "reminderKind": {
+      "assignment_due": "Formulir penilaian jatuh tempo",
+      "summary_awaiting_finalize": "Ringkasan menunggu finalisasi"
+    },
+    "remindersCreated_one": "{{count}} tugas dibuat."
   },
   "compliance": {
     "boardTitle": "Kepatuhan",

@@ -482,7 +482,9 @@ documented.
       progress) + queue (the caller's own forms with a real rating form gated on the cycle's
       scale, and the summary draft → human-finalise editor: only employees with a submitted
       form appear, the final text box starts empty, and a finalised summary offers no button
-      again). Still missing: reminder-runner visibility
+      again, plus the reminder runner: a window in days, a run, and the tasks it created --
+      with the caveat that deduplication means the list is what this run added, not everything
+      outstanding)
 - [~] Offboarding workspace: departing board, per-plan checklist (required vs optional),
       asset return/missing, finalise gated on outstanding required steps **and** asset
       clearance, start-another form whenever plans already exist. Waiving is two-step and
