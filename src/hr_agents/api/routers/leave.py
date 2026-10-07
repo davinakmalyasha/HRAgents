@@ -184,7 +184,7 @@ def cancel_request(
     request_id: UUID, payload: RequestAction, leave: LeaveDep, actor: ActorDep
 ) -> LeaveRequestView:
     try:
-        request = leave.cancel(request_id, actor=actor)
+        request = leave.cancel(request_id, actor=actor, reason=payload.reason)
     except LeaveError as exc:
         raise conflict(exc) from exc
     return LeaveRequestView.from_model(request)

@@ -747,7 +747,12 @@
       "approved": "Disetujui",
       "rejected": "Ditolak",
       "cancelled": "Dibatalkan"
-    }
+    },
+    "cancelReasonLabel": "Alasan membatalkan",
+    "cancelReasonPlaceholder": "Apa yang berubah? Inilah catatan yang dibaca nanti.",
+    "cancelReasonRequired": "Pembatalan perlu alasan: ini mencabut waktu cuti yang sudah direncanakan.",
+    "confirmCancel": "Konfirmasi pembatalan",
+    "keepRequest": "Pertahankan permintaan"
   },
   "payroll": {
     "boardTitle": "Proses penggajian",
@@ -795,7 +800,12 @@
       "rejected": "Ditolak approver",
       "exported": "Diekspor",
       "cancelled": "Dibatalkan"
-    }
+    },
+    "cancelReasonLabel": "Alasan membatalkan perhitungan ini",
+    "cancelReasonPlaceholder": "Apa yang salah dengan perhitungan ini?",
+    "cancelReasonRequired": "Pembatalan membuang perhitungan yang sudah dihitung, jadi perlu alasan.",
+    "confirmCancel": "Konfirmasi pembatalan",
+    "keepRun": "Pertahankan perhitungan"
   },
   "offboarding": {
     "boardTitle": "Sedang keluar",

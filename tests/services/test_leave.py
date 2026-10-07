@@ -463,13 +463,60 @@ def test_cancel_withdraws_approval(
         end_date=WORK_START + timedelta(days=1),
         actor=owner_of(employee),
     )
-    cancelled = service.cancel(request.id, actor=owner_of(employee))
+    cancelled = service.cancel(request.id, actor=owner_of(employee), reason="trip moved")
     assert cancelled.status is RequestStatus.CANCELLED
 
     assert request.approval_id is not None
     approval = approvals._store.get(request.approval_id)
     assert approval is not None
     assert approval.status is ApprovalStatus.WITHDRAWN
+
+
+def test_cancel_requires_a_reason(service: LeaveService, employee_service: EmployeeService) -> None:
+    """The router was accepting a reason and dropping it.
+
+    The record said "cancelled" with no way to tell a withdrawn trip from a change of
+    plan two months later, so a blank reason is refused rather than silently discarded.
+    """
+    service.set_policy(annual_policy(), actor=people_admin())
+    employee = make_employee(employee_service)
+    request = service.request(
+        employee_id=employee.id,
+        leave_type=LeaveType.ANNUAL,
+        start_date=WORK_START,
+        end_date=WORK_START + timedelta(days=1),
+        actor=owner_of(employee),
+    )
+
+    for blank in (None, "", "   "):
+        with pytest.raises(LeaveError, match="requires a reason"):
+            service.cancel(request.id, actor=owner_of(employee), reason=blank)
+
+    assert service.get_request(request.id).status is RequestStatus.PENDING
+
+
+def test_cancel_records_the_reason_it_was_given(
+    service: LeaveService, employee_service: EmployeeService, audit: AuditChain
+) -> None:
+    """The reason has to survive into the audit trail, not just pass validation."""
+    service.set_policy(annual_policy(), actor=people_admin())
+    employee = make_employee(employee_service)
+    request = service.request(
+        employee_id=employee.id,
+        leave_type=LeaveType.ANNUAL,
+        start_date=WORK_START,
+        end_date=WORK_START + timedelta(days=1),
+        actor=owner_of(employee),
+    )
+
+    service.cancel(request.id, actor=owner_of(employee), reason="  flights rebooked  ")
+
+    entries = [entry for entry in audit.entries if entry.action == "leave.request_cancelled"]
+    assert len(entries) == 1
+    assert entries[0].payload == {
+        "approval_id": str(request.approval_id),
+        "reason": "flights rebooked",
+    }
 
 
 def test_cancel_after_decision_rejected(
@@ -489,7 +536,7 @@ def test_cancel_after_decision_rejected(
     service.apply_decision(request.approval_id, actor=people_admin())
 
     with pytest.raises(LeaveError, match="cannot cancel"):
-        service.cancel(request.id, actor=owner_of(employee))
+        service.cancel(request.id, actor=owner_of(employee), reason="trip moved")
 
 
 # --- queries -----------------------------------------------------------------
@@ -674,7 +721,7 @@ def test_an_employee_cannot_cancel_somebody_elses_leave(
     request = _request_for(sari, service, owner_of(sari))
 
     with pytest.raises(LeaveError, match="cannot cancel a leave request"):
-        service.cancel(request.id, actor=owner_of(budi))
+        service.cancel(request.id, actor=owner_of(budi), reason="not mine")
 
     assert service.get_request(request.id).status is RequestStatus.PENDING
 
@@ -686,6 +733,6 @@ def test_an_employee_can_cancel_their_own_leave(
     sari = make_employee(employee_service)
     request = _request_for(sari, service, owner_of(sari))
 
-    cancelled = service.cancel(request.id, actor=owner_of(sari))
+    cancelled = service.cancel(request.id, actor=owner_of(sari), reason="plan changed")
 
     assert cancelled.status is RequestStatus.CANCELLED

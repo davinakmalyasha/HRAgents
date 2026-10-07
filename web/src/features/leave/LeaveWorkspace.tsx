@@ -193,7 +193,7 @@ export function LeaveQueue() {
             key={row.request.id}
             row={row}
             busy={cancel.isPending}
-            onCancel={() => cancel.mutate({ requestId: row.request.id, reason: '' })}
+            onCancel={(reason) => cancel.mutate({ requestId: row.request.id, reason })}
           />
         ))}
       </ul>
@@ -213,11 +213,14 @@ function LeaveQueueRow({
 }: {
   row: LeaveRequestWithEmployee
   busy: boolean
-  onCancel: () => void
+  onCancel: (reason: string) => void
 }) {
   const { t } = useTranslation()
   const { request, employeeName } = row
   const cancellable = ['pending', 'approved'].includes(request.status)
+  const [asking, setAsking] = useState(false)
+  const [reason, setReason] = useState('')
+  const blank = reason.trim() === ''
 
   return (
     <li className="border-line rounded-lg border p-3">
@@ -237,13 +240,58 @@ function LeaveQueueRow({
             tone={toneForStatus(request.status)}
             labelKey={`leave.status.${request.status}`}
           />
-          {cancellable ? (
-            <Button variant="outline" size="sm" disabled={busy} onClick={onCancel}>
+          {cancellable && !asking ? (
+            <Button variant="outline" size="sm" disabled={busy} onClick={() => setAsking(true)}>
               {t('leave.cancel')}
             </Button>
           ) : null}
         </div>
       </div>
+
+      {asking ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <label className="text-ink-muted text-xs" htmlFor={`cancel-reason-${request.id}`}>
+            {t('leave.cancelReasonLabel')}
+          </label>
+          <textarea
+            id={`cancel-reason-${request.id}`}
+            className="border-line w-full rounded border p-2 text-sm"
+            rows={2}
+            placeholder={t('leave.cancelReasonPlaceholder')}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            {/**
+             * Cancelling withdraws somebody's time off, and the server refuses a blank
+             * reason -- it used to accept one and drop it, leaving a record that said
+             * only "cancelled". The button waits for a real reason instead of firing a
+             * request that cannot succeed.
+             */}
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={busy || blank}
+              onClick={() => onCancel(reason.trim())}
+            >
+              {t('leave.confirmCancel')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setAsking(false)
+                setReason('')
+              }}
+            >
+              {t('leave.keepRequest')}
+            </Button>
+            {blank ? (
+              <p className="text-ink-muted text-xs">{t('leave.cancelReasonRequired')}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </li>
   )
 }

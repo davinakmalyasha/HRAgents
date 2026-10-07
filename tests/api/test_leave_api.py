@@ -155,10 +155,40 @@ def test_cancel_request_via_api() -> None:
             },
         ).json()
 
-        cancelled = client.post(f"/v1/leave/requests/{created['id']}/cancel", json={})
+        cancelled = client.post(
+            f"/v1/leave/requests/{created['id']}/cancel",
+            json={"reason": "Flights were rebooked to next month."},
+        )
 
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
+
+
+def test_cancel_without_a_reason_is_refused() -> None:
+    """The endpoint always accepted a reason and then ignored it.
+
+    Cancelling somebody else's leave is as consequential as filing it, so the record has
+    to say why. A blank reason is a refusal rather than a silent discard.
+    """
+    with make_client() as client:
+        employee = create_employee(client)
+        set_annual_policy(client)
+        created = client.post(
+            "/v1/leave",
+            json={
+                "employee_id": employee["id"],
+                "leave_type": "annual",
+                "start_date": WORK_START.isoformat(),
+                "end_date": (WORK_START + timedelta(days=1)).isoformat(),
+            },
+        ).json()
+
+        refused = client.post(f"/v1/leave/requests/{created['id']}/cancel", json={})
+        still_pending = client.get(f"/v1/leave/requests/{created['id']}")
+
+    assert refused.status_code == 409
+    assert "requires a reason" in refused.json()["detail"]
+    assert still_pending.json()["status"] == "pending"
 
 
 def test_calendar_endpoint() -> None:

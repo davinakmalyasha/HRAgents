@@ -489,10 +489,12 @@ class LeaveService:
         )
         return updated
 
-    def cancel(self, request_id: UUID, *, actor: ActorRef) -> LeaveRequest:
+    def cancel(
+        self, request_id: UUID, *, actor: ActorRef, reason: str | None = None
+    ) -> LeaveRequest:
         request = self._require_request(request_id)
-        # Cancelling somebody else's leave is as consequential as filing it, and
-        # this took no ownership check at all: the caller only had to know the id.
+        # Cancelling somebody else's leave is as consequential as filing it, and this
+        # took no ownership check at all: the caller only had to know the id.
         owner = self._require_employee(request.employee_id)
         actor.require_may_act_for(
             request.employee_id,
@@ -502,10 +504,18 @@ class LeaveService:
         )
         if request.status not in {RequestStatus.PENDING, RequestStatus.DRAFT}:
             raise LeaveError(f"request {request_id} is {request.status.value}; cannot cancel")
+        # The router was already accepting a `reason` and then dropping it on the floor,
+        # so the record said "cancelled" with no way to tell a withdrawn trip from a
+        # change of plan two months later.
+        cleaned_reason = (reason or "").strip()
+        if not cleaned_reason:
+            raise LeaveError("cancelling a leave request requires a reason")
         if request.approval_id is not None:
             try:
                 self._approvals.withdraw(
-                    request.approval_id, actor=actor, reason="request cancelled"
+                    request.approval_id,
+                    actor=actor,
+                    reason=f"request cancelled: {cleaned_reason}",
                 )
             except ApprovalError as exc:
                 # Only an already-terminal approval is an expected outcome here:
@@ -536,7 +546,10 @@ class LeaveService:
             subject_type="leave_request",
             subject_id=str(updated.id),
             actor=actor,
-            payload={"approval_id": str(request.approval_id) if request.approval_id else None},
+            payload={
+                "approval_id": str(request.approval_id) if request.approval_id else None,
+                "reason": cleaned_reason,
+            },
         )
         return updated
 

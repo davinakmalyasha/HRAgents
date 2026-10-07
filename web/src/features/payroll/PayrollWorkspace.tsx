@@ -225,6 +225,9 @@ function RunDetail({ run }: { run: RunView }) {
   const blocking = blockingAnomalies(run)
   const advisory = advisoryAnomalies(run)
   const busy = compute.isPending || submit.isPending || cancel.isPending
+  const [askingToCancel, setAskingToCancel] = useState(false)
+  const [reason, setReason] = useState('')
+  const blankReason = reason.trim() === ''
 
   return (
     <div className="flex flex-col gap-4">
@@ -299,16 +302,54 @@ function RunDetail({ run }: { run: RunView }) {
           </a>
         ) : null}
 
-        {isCancellable(run.status) ? (
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => cancel.mutate({ runId: run.id, reason: '' })}
-          >
+        {isCancellable(run.status) && !askingToCancel ? (
+          <Button variant="outline" disabled={busy} onClick={() => setAskingToCancel(true)}>
             {t('payroll.cancel')}
           </Button>
         ) : null}
       </div>
+
+      {isCancellable(run.status) && askingToCancel ? (
+        <div className="flex flex-col gap-2">
+          <label className="text-ink-muted text-xs" htmlFor={`cancel-reason-${run.id}`}>
+            {t('payroll.cancelReasonLabel')}
+          </label>
+          <textarea
+            id={`cancel-reason-${run.id}`}
+            className="border-line w-full rounded border p-2 text-sm"
+            rows={2}
+            placeholder={t('payroll.cancelReasonPlaceholder')}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            {/**
+             * `PayrollService.cancel_run` refuses a blank reason, and the UI was sending
+             * exactly that -- so this button could never succeed. Cancelling discards a
+             * computed run, so the reason is what makes the decision reviewable later.
+             */}
+            <Button
+              variant="destructive"
+              disabled={busy || blankReason}
+              onClick={() => cancel.mutate({ runId: run.id, reason: reason.trim() })}
+            >
+              {t('payroll.confirmCancel')}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setAskingToCancel(false)
+                setReason('')
+              }}
+            >
+              {t('payroll.keepRun')}
+            </Button>
+            {blankReason ? (
+              <p className="text-ink-muted text-xs">{t('payroll.cancelReasonRequired')}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {submit.isError ? (
         <p role="alert" className="text-error text-sm">

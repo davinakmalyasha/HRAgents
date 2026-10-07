@@ -747,7 +747,12 @@
       "approved": "Approved",
       "rejected": "Rejected",
       "cancelled": "Cancelled"
-    }
+    },
+    "cancelReasonLabel": "Reason for cancelling",
+    "cancelReasonPlaceholder": "What changed? This is the record read later.",
+    "cancelReasonRequired": "Cancelling needs a reason: it withdraws time off somebody already planned around.",
+    "confirmCancel": "Confirm cancellation",
+    "keepRequest": "Keep request"
   },
   "payroll": {
     "boardTitle": "Payroll runs",
@@ -795,7 +800,12 @@
       "rejected": "Rejected by approver",
       "exported": "Exported",
       "cancelled": "Cancelled"
-    }
+    },
+    "cancelReasonLabel": "Reason for cancelling this run",
+    "cancelReasonPlaceholder": "What went wrong with this run?",
+    "cancelReasonRequired": "Cancelling discards a computed run, so it needs a reason.",
+    "confirmCancel": "Confirm cancellation",
+    "keepRun": "Keep run"
   },
   "offboarding": {
     "boardTitle": "Departing",
