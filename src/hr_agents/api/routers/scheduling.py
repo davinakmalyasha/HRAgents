@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
-from hr_agents.api.problem import conflict, not_found
+from hr_agents.api.problem import conflict, domain_problem, not_found
 from hr_agents.api.recruitment_schemas import (
     AvailabilitySet,
     ProposalDecisionRequest,
@@ -105,9 +105,7 @@ def decide_proposal(
         message = str(exc)
         if message.startswith("unknown scheduling proposal"):
             raise not_found(message) from exc
-        if "named human" in message:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message) from exc
-        raise conflict(exc) from exc
+        raise domain_problem(exc) from exc
     return ProposalDecisionResponse(
         proposal=SchedulingProposalView.from_record(proposal),
         replacement=(

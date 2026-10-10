@@ -36,7 +36,7 @@ from hr_agents.api.people_schemas import (
     TaskCreate,
     TaskView,
 )
-from hr_agents.api.problem import ProblemCode, conflict, forbidden, not_found
+from hr_agents.api.problem import conflict, domain_problem, not_found
 from hr_agents.models import (
     ApprovalStatus,
     ApproverRole,
@@ -235,9 +235,7 @@ def verify_document(
             verified=payload.verified,
         )
     except EmployeeError as exc:
-        if "named human" in str(exc):
-            raise forbidden(str(exc), code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
-        raise not_found(str(exc)) from exc
+        raise domain_problem(exc) from exc
     return DocumentView.from_model(document)
 
 

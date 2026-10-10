@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ActorType,
@@ -25,7 +26,7 @@ from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import TaskStore
 
 
-class TaskError(RuntimeError):
+class TaskError(DomainError, RuntimeError):
     """Raised for invalid task operations."""
 
 

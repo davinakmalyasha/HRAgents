@@ -13,6 +13,7 @@ import hashlib
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef, require_named_human
 from hr_agents.models import (
     ApproverRole,
@@ -40,7 +41,7 @@ from hr_agents.services.people_store import OffboardingStore
 from hr_agents.services.tasks import TaskEngine
 
 
-class OffboardingError(RuntimeError):
+class OffboardingError(DomainError, RuntimeError):
     """Raised for invalid offboarding operations."""
 
 

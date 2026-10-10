@@ -14,6 +14,7 @@ from collections.abc import Iterator
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
@@ -36,7 +37,7 @@ from hr_agents.services.employees import EmployeeService
 from hr_agents.services.tasks import TaskEngine
 
 
-class OnboardingError(RuntimeError):
+class OnboardingError(DomainError, RuntimeError):
     """Raised for invalid onboarding operations."""
 
 

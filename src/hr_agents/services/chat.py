@@ -15,6 +15,7 @@ from pydantic import Field
 
 from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.policy_assistant import PolicyResult, validate_policy_answer
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import AuditActor, StrictModel, UtcDateTime, utc_now
 from hr_agents.rbac import Principal, RoleId
@@ -26,7 +27,7 @@ from hr_agents.workspaces import WorkspaceId
 ESCALATION_TEXT = "I could not ground an answer in the current policies, so a human will follow up."
 
 
-class ChatError(RuntimeError):
+class ChatError(DomainError, RuntimeError):
     """Raised for invalid chat operations (unknown conversation, etc.)."""
 
 

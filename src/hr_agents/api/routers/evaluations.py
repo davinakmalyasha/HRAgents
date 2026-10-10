@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
-from hr_agents.api.problem import conflict, forbidden, not_found
+from hr_agents.api.problem import domain_problem, not_found
 from hr_agents.api.recruitment_schemas import (
     AuditReceipt,
     EvaluationView,
@@ -92,7 +92,5 @@ def record_override(
         message = str(exc)
         if message.startswith("unknown evaluation"):
             raise not_found(message) from exc
-        if "named human" in message or "cannot override" in message:
-            raise forbidden(message) from exc
-        raise conflict(exc) from exc
+        raise domain_problem(exc) from exc
     return AuditReceipt.from_entry(outcome.receipt)

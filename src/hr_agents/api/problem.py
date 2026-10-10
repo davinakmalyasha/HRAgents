@@ -33,6 +33,8 @@ from typing import Any
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
+from hr_agents.errors import DomainCode, DomainError
+
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 """The media type every error is served as, and the one `ERROR_RESPONSES` declares.
 
@@ -204,6 +206,38 @@ def bad_request(
 
 def unprocessable(detail: str, *, code: ProblemCode = ProblemCode.REASON_REQUIRED) -> ApiProblem:
     return problem(status.HTTP_422_UNPROCESSABLE_CONTENT, code, detail)
+
+
+#: `DomainCode` to the `ProblemCode` a client switches on. One table, at the one
+#: place the two vocabularies meet: the service layer says what happened in its
+#: own words and never learns what HTTP is.
+_DOMAIN_CODE_TO_PROBLEM: dict[DomainCode, ProblemCode] = {
+    DomainCode.STATE_CONFLICT: ProblemCode.STATE_CONFLICT,
+    DomainCode.UNKNOWN_RECORD: ProblemCode.UNKNOWN_RECORD,
+    DomainCode.VALIDATION_FAILED: ProblemCode.VALIDATION_FAILED,
+    DomainCode.NAMED_HUMAN_REQUIRED: ProblemCode.NAMED_HUMAN_REQUIRED,
+    DomainCode.PERMISSION_REQUIRED: ProblemCode.PERMISSION_DENIED,
+    DomainCode.OWNERSHIP_REQUIRED: ProblemCode.OWNERSHIP_REQUIRED,
+    DomainCode.INSUFFICIENT_BALANCE: ProblemCode.INSUFFICIENT_BALANCE,
+    DomainCode.TEMPLATE_UNAVAILABLE: ProblemCode.TEMPLATE_UNAVAILABLE,
+    DomainCode.RATE_TABLE_UNUSABLE: ProblemCode.RATE_TABLE_UNUSABLE,
+    DomainCode.BLOCKING_ANOMALIES: ProblemCode.BLOCKING_ANOMALIES,
+    DomainCode.APPROVAL_ALREADY_DECIDED: ProblemCode.APPROVAL_ALREADY_DECIDED,
+}
+
+
+def domain_problem(exc: DomainError) -> ApiProblem:
+    """Turn a `DomainError` into the response, using the code it carries.
+
+    This is what the routers call instead of recognising the failure by reading
+    its English prose. A domain class that is not derived from `DomainError`
+    raises here rather than being silently downgraded -- the point of the base is
+    that every domain refusal carries its own answer, and an un-tagged one means a
+    caller would have to guess again.
+    """
+    return problem(
+        exc.status, _DOMAIN_CODE_TO_PROBLEM.get(exc.code, ProblemCode.STATE_CONFLICT), str(exc)
+    )
 
 
 def body_too_large(detail: str) -> ApiProblem:

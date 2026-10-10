@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
@@ -29,7 +30,7 @@ DEFAULT_WARNING_DAYS = 60
 COMPLETION_FLAG_DAYS = 30
 
 
-class ContractError(RuntimeError):
+class ContractError(DomainError, RuntimeError):
     """Raised for invalid contract operations."""
 
 

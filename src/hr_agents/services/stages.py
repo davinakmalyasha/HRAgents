@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import (
@@ -38,7 +39,7 @@ _SYSTEM_OWNED = frozenset({ApplicationStatus.QUEUED, ApplicationStatus.PROCESSIN
 _SYSTEM_TARGETS = _SYSTEM_OWNED | {ApplicationStatus.EVALUATED}
 
 
-class StageTransitionError(RuntimeError):
+class StageTransitionError(DomainError, RuntimeError):
     """Invalid manual stage move; the router maps messages to HTTP statuses."""
 
 

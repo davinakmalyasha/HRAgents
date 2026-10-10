@@ -481,7 +481,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Compliance consent registry (Phase 6): refusals recorded as evidence, withdrawal human-only with a mandatory reason
 - [x] Retention purge behind a typed confirmation (Phase 6): the dry run uses the same code path as the real run, and the report stays on screen afterwards
 - [x] Audit trail viewer (Phase 6): `GET /v1/compliance/audit/entries` plus search, verbatim payloads and a JSON slice export
-- [x] `ProblemDetail.detail` typed as the union it actually sends (`str | list[dict] | None`), so the generated client no longer lies - resolves the authenticated principal as the reviewer, so the client never has to pass `reviewer_id` and no one is asked to type the string that decides whose reviews they see
+- [x] `ProblemDetail.detail` typed as the union it actually sends
+- [x] `DomainError` base with a `DomainCode` and a status, inherited additively by every service error: the 11 routers that recognised a refusal by asking whether the message contained "named human" now call `domain_problem(exc)`, and the rule is decided once, at the gate (`str | list[dict] | None`), so the generated client no longer lies - resolves the authenticated principal as the reviewer, so the client never has to pass `reviewer_id` and no one is asked to type the string that decides whose reviews they see
 - [ ] `ReviewAssistant` agent (summary drafting, tone-adjusted) — agent phase
 - [ ] Performance workspace UI (Phase 6)
 

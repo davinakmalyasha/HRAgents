@@ -10,6 +10,7 @@ from collections.abc import Iterable, Iterator
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.logging import get_logger
 from hr_agents.models import (
@@ -30,7 +31,7 @@ from hr_agents.services.employees import EmployeeService
 logger = get_logger(__name__)
 
 
-class LeaveError(RuntimeError):
+class LeaveError(DomainError, RuntimeError):
     """Raised for invalid leave operations."""
 
 

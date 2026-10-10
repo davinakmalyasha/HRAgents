@@ -17,6 +17,7 @@ from uuid import UUID
 
 from pydantic import EmailStr
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     EXPIRABLE_OFFER_STATUSES,
@@ -94,7 +95,7 @@ def compose_offer_body(terms: OfferTerms, *, language: str = "en") -> str:
     return "\n".join(lines)
 
 
-class OfferError(RuntimeError):
+class OfferError(DomainError, RuntimeError):
     """Invalid offer operation; the router maps messages to HTTP statuses."""
 
 

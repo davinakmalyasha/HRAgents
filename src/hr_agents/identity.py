@@ -33,6 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.models import ActorProvenance, ActorType, AuditActor
 from hr_agents.rbac import (
     ROLE_PERMISSIONS,
@@ -86,13 +87,29 @@ def require_named_human(
     cleaned = actor.strip()
     detail = f" — {subject}" if subject else ""
     if not cleaned:
-        raise error(f"{action} requires a named human actor; none was given{detail}")
+        raise _named_human_refusal(
+            error, f"{action} requires a named human actor; none was given{detail}"
+        )
     if classify_actor(cleaned) is not ActorType.HUMAN:
-        raise error(
+        raise _named_human_refusal(
+            error,
             f"{action} requires a named human actor, not a {cleaned.split(':', 1)[0]} "
-            f"actor ({cleaned}){detail}"
+            f"actor ({cleaned}){detail}",
         )
     return cleaned
+
+
+def _named_human_refusal(error: type[Exception], message: str) -> Exception:
+    """Build the refusal, tagged when the error class can carry a code.
+
+    The code is the point: it is what lets a router stop asking whether the
+    message contains "named human". A service that raises a class not derived
+    from `DomainError` still works -- the code is simply unavailable there, and
+    that router keeps whatever mapping it already had.
+    """
+    if issubclass(error, DomainError):
+        return error(message, code=DomainCode.NAMED_HUMAN_REQUIRED, status=403)
+    return error(message)
 
 
 def require_named_human_or_system(
@@ -111,9 +128,9 @@ def require_named_human_or_system(
     cleaned = actor.strip()
     detail = f" — {subject}" if subject else ""
     if not cleaned:
-        raise error(f"{action} requires an actor; none was given{detail}")
+        raise _named_human_refusal(error, f"{action} requires an actor; none was given{detail}")
     if classify_actor(cleaned) is ActorType.AGENT:
-        raise error(f"agents cannot {action}{detail}")
+        raise _named_human_refusal(error, f"agents cannot {action}{detail}")
     return cleaned
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef, require_named_human
 from hr_agents.models import (
     CYCLE_TRANSITIONS,
@@ -36,7 +37,7 @@ from hr_agents.services.tasks import TaskEngine
 DEFAULT_REMINDER_WINDOW_DAYS = 3
 
 
-class GrowthError(RuntimeError):
+class GrowthError(DomainError, RuntimeError):
     """Raised for invalid growth operations."""
 
 

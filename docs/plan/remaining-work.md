@@ -151,13 +151,18 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       has a `problem+json` handler at last, and `ERROR_RESPONSES` declares the shape on every router
       so the generated client carries the `ProblemCode` union (1602 typed error responses).
       `title` is unchanged, so nothing a human reads regressed and the 21 tests asserting message
-      wording still pass. **Still open:** the prose sniffing in the routers is still there — the codes
-      are available to retire it, the mechanical adoption is not done.
-- [~] **Typed domain exceptions.** `Named human required` is a code now, but the branch that
-      *detects* it still sniffs `"named human" in message` at 25 sites, because no exception
-      carries a code yet. There is no common base class: 34 domain errors are flat
-      `RuntimeError`/`ValueError` subclasses, so a single handler cannot discriminate. Next step is a
-      `DomainError` base (or a registry keyed by class), then each raise-site names its own code.
+      wording still pass. The `named human` sniffing is now retired as well (see typed domain
+      exceptions above); the 404 branches are the remainder.
+- [~] **Typed domain exceptions.** `hr_agents/errors.py` now has the `DomainError` base every
+      service error inherits (additively -- they keep `RuntimeError`/`ValueError`, so existing
+      handlers still catch them) and it carries a `DomainCode` plus the status, which
+      `api/problem.domain_problem` maps onto `ProblemCode` in one table. Every
+      `"named human" in message` sniff is gone: `require_named_human` decides the 403 and the code
+      once, and the eleven routers that re-derived it now call `domain_problem`. The override role
+      checks and the document-not-found refusal are tagged at their raise sites the same way.
+      **Still open:** the 24 `"unknown ..."` / `" not found" in message` branches that choose 404.
+      Same treatment applies -- each raise site names `UNKNOWN_RECORD` -- and a test already fails
+      if the `named human` ones come back.
 - [x] **`Decimal` money with `ROUND_HALF_UP`**; the 173-hour divisor and 1.5×/2.0× overtime
       multipliers come from verified rate tables; progressive PPh 21 TER brackets; `absence_days`
       proration; and totals-equal-lines is an enforced invariant (commit `9cca50a`).

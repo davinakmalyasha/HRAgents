@@ -21,6 +21,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.logging import get_logger
 from hr_agents.models import (
@@ -66,7 +67,7 @@ PurgeHandler = Callable[[RetentionRecord, PurgeAction], str]
 """Store-specific purge callback. Returns a human-readable detail string."""
 
 
-class ComplianceError(RuntimeError):
+class ComplianceError(DomainError, RuntimeError):
     """Raised for invalid compliance operations."""
 
 

@@ -32,6 +32,7 @@ from uuid import UUID, uuid4
 
 from pydantic import EmailStr, Field
 
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     TERMINAL_PROPOSAL_STATUSES,
@@ -126,7 +127,7 @@ _STRENGTH_THRESHOLD = 0.60
 _GROWTH_THRESHOLD = 0.70
 
 
-class RecruitingError(RuntimeError):
+class RecruitingError(DomainError, RuntimeError):
     """Raised for invalid recruitment operations."""
 
 
@@ -135,6 +136,19 @@ class DocumentTooLargeError(RecruitingError):
 
 
 class HumanConfirmationRequiredError(RecruitingError):
+    """A consequential step a person has not decided yet.
+
+    Kept distinct from "the caller is not a person": both used to be
+    recognised by the same word in a message, which is why this one
+    branches on the type. The code now lives here, so a router does not
+    have to know the class exists.
+    """
+
+    # A state conflict, not a permission failure: the request is refused because a
+    # decision has not been recorded yet, and it succeeds once one has. That is
+    # exactly what state_conflict says, and it is what the endpoint returned
+    # before any of this existed.
+    status = 409
     """Raised when an action needs a human decision that has not been recorded.
 
     Separate from ``RecruitingError`` because the routers map error *kinds* to
@@ -592,12 +606,16 @@ class EvaluationService:
         if reviewer_role not in OVERRIDE_REVIEWER_ROLES:
             raise RecruitingError(
                 f"role {reviewer_role.value!r} cannot override; expected one of "
-                + ", ".join(sorted(role.value for role in OVERRIDE_REVIEWER_ROLES))
+                + ", ".join(sorted(role.value for role in OVERRIDE_REVIEWER_ROLES)),
+                code=DomainCode.PERMISSION_REQUIRED,
+                status=403,
             )
         if actor.role is None:
             raise RecruitingError(
                 f"signing as {reviewer_role.value} requires an authenticated principal "
-                f"that holds that authority; {actor.actor_id} carries no role"
+                f"that holds that authority; {actor.actor_id} carries no role",
+                code=DomainCode.PERMISSION_REQUIRED,
+                status=403,
             )
         if not may_decide_for(
             Principal(actor_id=actor.actor_id, role=RoleId(actor.role)), reviewer_role.value
@@ -607,7 +625,9 @@ class EvaluationService:
             )
             raise RecruitingError(
                 f"{actor.actor_id} is {actor.role} and cannot sign an override as "
-                f"{reviewer_role.value}; that authority is held by: {holders}"
+                f"{reviewer_role.value}; that authority is held by: {holders}",
+                code=DomainCode.PERMISSION_REQUIRED,
+                status=403,
             )
         if not reason_code.strip():
             raise RecruitingError("an override requires a reason code")

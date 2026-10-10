@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from hr_agents.api.deps import ActorDep, get_audit, get_dispatcher, get_store, require_permission
+from hr_agents.api.problem import domain_problem
 from hr_agents.api.schemas import (
     ApplicationAccepted,
     ApplicationStatusResponse,
@@ -188,7 +189,5 @@ def move_stage(
         message = str(exc)
         if message.startswith("application ") and message.endswith(" not found"):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message) from exc
-        if "named human" in message:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message) from exc
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=message) from exc
+        raise domain_problem(exc) from exc
     return ApplicationStatusResponse.from_record(record)

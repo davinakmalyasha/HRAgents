@@ -26,6 +26,7 @@ from uuid import UUID
 
 from openpyxl import Workbook
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.models import (
     AnomalySeverity,
@@ -82,7 +83,7 @@ REQUIRED_TABLES: tuple[RateTableKind, ...] = (
 )
 
 
-class PayrollError(RuntimeError):
+class PayrollError(DomainError, RuntimeError):
     """Raised for invalid payroll operations."""
 
 

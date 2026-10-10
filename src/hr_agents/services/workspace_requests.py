@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import StrictModel, UtcDateTime, utc_now
 from hr_agents.rbac import Principal
@@ -27,7 +28,7 @@ class RequestStatus(StrEnum):
     CLOSED = "closed"
 
 
-class HandoffError(RuntimeError):
+class HandoffError(DomainError, RuntimeError):
     """Raised for invalid handoff requests."""
 
 

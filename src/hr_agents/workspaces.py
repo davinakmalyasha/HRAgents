@@ -14,6 +14,7 @@ from enum import StrEnum
 
 from pydantic import Field
 
+from hr_agents.errors import DomainError
 from hr_agents.models import StrictModel
 from hr_agents.rbac import Permission
 
@@ -31,7 +32,7 @@ class WorkspaceId(StrEnum):
     COMPLIANCE = "compliance"
 
 
-class WorkspaceError(RuntimeError):
+class WorkspaceError(DomainError, RuntimeError):
     """Raised for unknown workspace identifiers."""
 
 

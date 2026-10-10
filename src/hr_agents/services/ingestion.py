@@ -13,6 +13,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
+from hr_agents.errors import DomainError
 from hr_agents.models import (
     ConsentRecord,
     Recommendation,
@@ -93,7 +94,7 @@ class ApplicationRecord:
         )
 
 
-class SubmissionConflictError(RuntimeError):
+class SubmissionConflictError(DomainError, RuntimeError):
     """Same idempotency key was reused with a different payload."""
 
 

@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApprovalRequest,
@@ -27,7 +28,7 @@ from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ApprovalStore
 
 
-class ApprovalError(RuntimeError):
+class ApprovalError(DomainError, RuntimeError):
     """Raised for invalid approval operations."""
 
 

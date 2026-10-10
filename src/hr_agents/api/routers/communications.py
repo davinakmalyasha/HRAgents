@@ -14,7 +14,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request, status
 
 from hr_agents.api.deps import ActorDep, require_permission
-from hr_agents.api.problem import ProblemCode, bad_request, conflict, forbidden, not_found
+from hr_agents.api.problem import (
+    bad_request,
+    domain_problem,
+    not_found,
+)
 from hr_agents.api.recruitment_schemas import (
     CommunicationPreviewView,
     CommunicationSentRequest,
@@ -31,7 +35,6 @@ from hr_agents.messaging.whatsapp import ManualWhatsappLinks, WhatsappLinkError
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import (
     CommunicationService,
-    HumanConfirmationRequiredError,
     RecruitingError,
 )
 
@@ -100,15 +103,7 @@ def queue_rejection(
         message = str(exc)
         if message.startswith("no evaluation"):
             raise not_found(message) from exc
-        if isinstance(exc, HumanConfirmationRequiredError):
-            # Branched on the type, not on the words. The message used to be
-            # sniffed for "named human", which conflates "the caller is not a
-            # person" with "a person has not decided yet" -- so rewording this
-            # sentence once silently moved the status from 409 to 403.
-            raise conflict(exc) from exc
-        if "named human" in message:
-            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
-        raise conflict(exc) from exc
+        raise domain_problem(exc) from exc
     return CommunicationView.from_model(item)
 
 
@@ -169,9 +164,7 @@ def queue_offer(
         message = str(exc)
         if message.startswith("no evaluation"):
             raise not_found(message) from exc
-        if "named human" in message:
-            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
-        raise conflict(exc) from exc
+        raise domain_problem(exc) from exc
     return CommunicationView.from_model(item)
 
 
@@ -201,9 +194,7 @@ def compose_dispatch_link(
         message_text = str(exc)
         if message_text.startswith("unknown communication"):
             raise not_found(message_text) from exc
-        if "named human" in message_text:
-            raise forbidden(message_text, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
-        raise conflict(exc) from exc
+        raise domain_problem(exc) from exc
     except WhatsappLinkError as exc:
         raise bad_request(str(exc)) from exc
     return WhatsappDispatchLinkView(
@@ -233,7 +224,5 @@ def mark_communication_sent(
         message = str(exc)
         if message.startswith("unknown communication"):
             raise not_found(message) from exc
-        if "named human" in message:
-            raise forbidden(message, code=ProblemCode.NAMED_HUMAN_REQUIRED) from exc
-        raise conflict(exc) from exc
+        raise domain_problem(exc) from exc
     return CommunicationView.from_model(item)

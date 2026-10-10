@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import date
 from uuid import UUID
 
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     DocumentKind,
@@ -26,7 +27,7 @@ from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import EmployeeStore
 
 
-class EmployeeError(RuntimeError):
+class EmployeeError(DomainError, RuntimeError):
     """Raised for invalid employee operations."""
 
 
@@ -253,7 +254,11 @@ class EmployeeService:
         )
         document = self.get_document(document_id)
         if document is None:
-            raise EmployeeError(f"unknown document {document_id}")
+            raise EmployeeError(
+                f"unknown document {document_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         updated = document.model_copy(
             update={
                 "status": VerificationStatus.VERIFIED if verified else VerificationStatus.FAILED
