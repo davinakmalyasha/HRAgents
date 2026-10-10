@@ -89,8 +89,5 @@ def record_override(
             notes=payload.notes,
         )
     except RecruitingError as exc:
-        message = str(exc)
-        if message.startswith("unknown evaluation"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return AuditReceipt.from_entry(outcome.receipt)

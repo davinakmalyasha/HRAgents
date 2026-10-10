@@ -74,13 +74,19 @@ def test_no_router_recognises_a_failure_by_reading_its_message() -> None:
 
     Every one of these branches existed for the same reason -- the refusal had no
     code -- so the rule is now in one place. A new branch matching on prose would
-    be a second opinion about a status code, which is the bug itself.
+    be a second opinion about a status code, which is the bug itself. The three
+    patterns are the three forms that were in the tree: a named-human branch, an
+    "unknown X" prefix test, and a " not found" substring test.
     """
     offenders: list[str] = []
-    pattern = re.compile(r"if .*[\"']named human[\"'] in \w+")
+    patterns = (
+        re.compile(r"if .*[\"']named human[\"'] in \w+"),
+        re.compile(r"startswith\(\"(?:unknown|no evaluation)"),
+        re.compile(r"[\"'] not found[\"'] in "),
+    )
     for path in sorted(ROUTERS.glob("*.py")):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            if pattern.search(line):
+            if any(pattern.search(line) for pattern in patterns):
                 offenders.append(f"{path.name}:{number}")
     assert offenders == [], f"routers sniffing prose again: {offenders}"
 

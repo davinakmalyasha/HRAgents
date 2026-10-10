@@ -325,7 +325,11 @@ class JobService:
     def get(self, job_id: UUID) -> JobSpecification:
         job = self._load_job(job_id)
         if job is None:
-            raise RecruitingError(f"unknown job {job_id}")
+            raise RecruitingError(
+                f"unknown job {job_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return job
 
     def list_all(self, *, status: JobStatus | None = None) -> list[JobSpecification]:
@@ -539,7 +543,11 @@ class EvaluationService:
     def get(self, evaluation_id: UUID) -> EvaluationRecord:
         record = self._load_record(evaluation_id)
         if record is None:
-            raise RecruitingError(f"unknown evaluation {evaluation_id}")
+            raise RecruitingError(
+                f"unknown evaluation {evaluation_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return record
 
     def get_by_application(self, application_id: UUID) -> EvaluationRecord:
@@ -550,7 +558,11 @@ class EvaluationService:
         """
         record = self._record_for_application(application_id)
         if record is None:
-            raise RecruitingError(f"no evaluation for application {application_id}")
+            raise RecruitingError(
+                f"no evaluation for application {application_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return record
 
     def get_by_candidate(self, candidate_id: UUID) -> EvaluationRecord:
@@ -562,7 +574,11 @@ class EvaluationService:
         """
         record = self._record_for_candidate(candidate_id)
         if record is None:
-            raise RecruitingError(f"no evaluation for candidate {candidate_id}")
+            raise RecruitingError(
+                f"no evaluation for candidate {candidate_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return record
 
     # overrides
@@ -1213,7 +1229,11 @@ class CommunicationService:
     def get(self, communication_id: UUID) -> CandidateCommunication:
         item = self._load(communication_id)
         if item is None:
-            raise RecruitingError(f"unknown communication {communication_id}")
+            raise RecruitingError(
+                f"unknown communication {communication_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return item
 
     def _find(
@@ -1501,7 +1521,11 @@ class SchedulingService:
     def get(self, proposal_id: UUID) -> SchedulingProposalRecord:
         proposal = self._load_proposal(proposal_id)
         if proposal is None:
-            raise RecruitingError(f"unknown scheduling proposal {proposal_id}")
+            raise RecruitingError(
+                f"unknown scheduling proposal {proposal_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return proposal
 
     def list_all(self) -> list[SchedulingProposalRecord]:

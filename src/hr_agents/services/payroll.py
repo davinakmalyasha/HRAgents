@@ -26,7 +26,7 @@ from uuid import UUID
 
 from openpyxl import Workbook
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.models import (
     AnomalySeverity,
@@ -299,7 +299,11 @@ class PayrollService:
     def get_run(self, run_id: UUID) -> PayrollRun:
         run = self._load_run(run_id)
         if run is None:
-            raise PayrollError(f"unknown payroll run {run_id}")
+            raise PayrollError(
+                f"unknown payroll run {run_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return run
 
     def list_runs(self) -> list[PayrollRun]:
@@ -959,7 +963,11 @@ class PayrollService:
 
         approval = self._approvals._store.get(approval_id)
         if approval is None:
-            raise PayrollError(f"unknown approval {approval_id}")
+            raise PayrollError(
+                f"unknown approval {approval_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         if approval.status not in {
             ApprovalStatus.APPROVED,
             ApprovalStatus.REJECTED,

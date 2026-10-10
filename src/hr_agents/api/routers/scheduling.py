@@ -102,9 +102,6 @@ def decide_proposal(
             reason=payload.reason,
         )
     except RecruitingError as exc:
-        message = str(exc)
-        if message.startswith("unknown scheduling proposal"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return ProposalDecisionResponse(
         proposal=SchedulingProposalView.from_record(proposal),

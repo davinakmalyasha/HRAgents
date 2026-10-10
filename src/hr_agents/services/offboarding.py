@@ -13,7 +13,7 @@ import hashlib
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef, require_named_human
 from hr_agents.models import (
     ApproverRole,
@@ -101,7 +101,11 @@ class OffboardingService:
     def get_template(self, template_id: UUID) -> OffboardingTemplate:
         template = self._store.get_template(template_id)
         if template is None:
-            raise OffboardingError(f"unknown offboarding template {template_id}")
+            raise OffboardingError(
+                f"unknown offboarding template {template_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return template
 
     def list_templates(self, *, active_only: bool = True) -> list[OffboardingTemplate]:
@@ -215,7 +219,11 @@ class OffboardingService:
     def get_plan(self, plan_id: UUID) -> OffboardingPlan:
         plan = self._store.get_plan(plan_id)
         if plan is None:
-            raise OffboardingError(f"unknown offboarding plan {plan_id}")
+            raise OffboardingError(
+                f"unknown offboarding plan {plan_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return plan
 
     def plans_for_employee(self, employee_id: UUID) -> list[OffboardingPlan]:
@@ -379,7 +387,11 @@ class OffboardingService:
     def get_asset(self, asset_id: UUID) -> OffboardingAsset:
         asset = self._store.get_asset(asset_id)
         if asset is None:
-            raise OffboardingError(f"unknown asset {asset_id}")
+            raise OffboardingError(
+                f"unknown asset {asset_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return asset
 
     def list_assets(

@@ -83,9 +83,6 @@ def revise_offer(
     try:
         offer = offers.revise(offer_id, payload.terms, actor=actor, note=payload.note)
     except OfferError as exc:
-        message = str(exc)
-        if message.startswith("unknown offer"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return OfferView.from_model(offer)
 
@@ -102,9 +99,6 @@ def submit_offer(
     try:
         offer = offers.submit(offer_id, actor=actor)
     except OfferError as exc:
-        message = str(exc)
-        if message.startswith("unknown offer"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return OfferView.from_model(offer)
 
@@ -123,9 +117,6 @@ def decide_offer(
             offer_id, decision=payload.decision, actor=actor, reason=payload.reason
         )
     except OfferError as exc:
-        message = str(exc)
-        if message.startswith("unknown offer"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return OfferView.from_model(offer)
 
@@ -152,9 +143,6 @@ def queue_offer_message(
             to_email=payload.to_email,
         )
     except OfferError as exc:
-        message = str(exc)
-        if message.startswith("unknown offer"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     except RecruitingError as exc:
         raise domain_problem(exc) from exc
@@ -178,8 +166,5 @@ def record_acceptance(
             offer_id, actor=actor, accepted=payload.accepted, reason=payload.reason
         )
     except OfferError as exc:
-        message = str(exc)
-        if message.startswith("unknown offer"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return OfferView.from_model(offer)

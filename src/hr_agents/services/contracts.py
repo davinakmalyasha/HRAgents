@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
@@ -236,7 +236,11 @@ class ContractService:
     def _require(self, contract_id: UUID) -> Contract:
         contract = self._store.get(contract_id)
         if contract is None:
-            raise ContractError(f"unknown contract {contract_id}")
+            raise ContractError(
+                f"unknown contract {contract_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return contract
 
     def _record(self, contract: Contract, *, action: str, actor: ActorRef | str) -> None:

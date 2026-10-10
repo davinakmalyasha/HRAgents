@@ -21,7 +21,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.logging import get_logger
 from hr_agents.models import (
@@ -212,7 +212,11 @@ class ComplianceService:
     def get_consent(self, consent_id: UUID) -> ConsentGrant:
         record = self._store.get_consent(consent_id)
         if record is None:
-            raise ComplianceError(f"unknown consent record {consent_id}")
+            raise ComplianceError(
+                f"unknown consent record {consent_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return record
 
     def list_consents(
@@ -319,7 +323,11 @@ class ComplianceService:
     def get_record(self, record_id: UUID) -> RetentionRecord:
         record = self._store.get_record(record_id)
         if record is None:
-            raise ComplianceError(f"unknown retention record {record_id}")
+            raise ComplianceError(
+                f"unknown retention record {record_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return record
 
     def list_records(
@@ -554,7 +562,11 @@ class ComplianceService:
     def get_erasure(self, request_id: UUID) -> ErasureRequest:
         request = self._store.get_erasure(request_id)
         if request is None:
-            raise ComplianceError(f"unknown erasure request {request_id}")
+            raise ComplianceError(
+                f"unknown erasure request {request_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return request
 
     def list_erasures(self) -> list[ErasureRequest]:
@@ -633,7 +645,11 @@ class ComplianceService:
             raise ComplianceError(f"no erasure request linked to approval {approval_id}")
         approval = self._approvals._store.get(approval_id)
         if approval is None:
-            raise ComplianceError(f"unknown approval {approval_id}")
+            raise ComplianceError(
+                f"unknown approval {approval_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         if approval.status not in {
             ApprovalStatus.APPROVED,
             ApprovalStatus.REJECTED,
@@ -876,7 +892,11 @@ class ComplianceService:
     def get_incident(self, incident_id: UUID) -> BreachIncident:
         incident = self._store.get_incident(incident_id)
         if incident is None:
-            raise ComplianceError(f"unknown breach incident {incident_id}")
+            raise ComplianceError(
+                f"unknown breach incident {incident_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return incident
 
     def list_incidents(self) -> list[BreachIncident]:

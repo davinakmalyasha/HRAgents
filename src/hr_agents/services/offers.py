@@ -17,7 +17,7 @@ from uuid import UUID
 
 from pydantic import EmailStr
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     EXPIRABLE_OFFER_STATUSES,
@@ -418,7 +418,11 @@ class OfferService:
     def get(self, offer_id: UUID) -> Offer:
         offer = self._load(offer_id)
         if offer is None:
-            raise OfferError(f"unknown offer {offer_id}")
+            raise OfferError(
+                f"unknown offer {offer_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return offer
 
     def list_all(self, *, application_id: UUID | None = None) -> list[Offer]:

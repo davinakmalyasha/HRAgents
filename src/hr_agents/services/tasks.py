@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import date
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ActorType,
@@ -247,7 +247,11 @@ class TaskEngine:
     def _require(self, task_id: UUID) -> TaskItem:
         task = self._store.get(task_id)
         if task is None:
-            raise TaskError(f"unknown task {task_id}")
+            raise TaskError(
+                f"unknown task {task_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return task
 
     def _record(self, task: TaskItem, *, action: str, actor: ActorRef | str) -> None:

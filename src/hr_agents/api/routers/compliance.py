@@ -37,7 +37,8 @@ from hr_agents.api.compliance_schemas import (
     StepComplete,
 )
 from hr_agents.api.deps import ActorDep, require_permission
-from hr_agents.api.problem import conflict, not_found
+from hr_agents.api.problem import conflict, domain_problem, not_found
+from hr_agents.errors import DomainError
 from hr_agents.models import AuditEntry, RecordEntity, SubjectKind, UtcDateTime
 from hr_agents.rbac import Permission
 from hr_agents.services.compliance import (
@@ -71,9 +72,16 @@ ComplianceDep = Annotated[ComplianceService, Depends(get_compliance)]
 
 
 def _raise(exc: Exception) -> HTTPException:
-    message = str(exc)
-    if message.startswith("unknown") or " not found" in message:
-        return not_found(message)
+    """Turn a compliance refusal into the response, using the code it carries.
+
+    It used to decide by asking whether the message began with "unknown" or
+    contained " not found" -- one shared helper, so every compliance endpoint got
+    the same prose test and every one of them had to keep the wording in step
+    with it. The refusals now carry `UNKNOWN_RECORD`/404 or the default conflict
+    themselves.
+    """
+    if isinstance(exc, DomainError):
+        return domain_problem(exc)
     return conflict(exc)
 
 

@@ -17,7 +17,6 @@ from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.problem import (
     bad_request,
     domain_problem,
-    not_found,
 )
 from hr_agents.api.recruitment_schemas import (
     CommunicationPreviewView,
@@ -100,9 +99,6 @@ def queue_rejection(
             to_phone=payload.to_phone,
         )
     except RecruitingError as exc:
-        message = str(exc)
-        if message.startswith("no evaluation"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return CommunicationView.from_model(item)
 
@@ -161,9 +157,6 @@ def queue_offer(
             to_phone=payload.to_phone,
         )
     except RecruitingError as exc:
-        message = str(exc)
-        if message.startswith("no evaluation"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return CommunicationView.from_model(item)
 
@@ -191,9 +184,6 @@ def compose_dispatch_link(
         )
         link = transport.compose(prepared.recipient_phone or "", prepared.body)
     except RecruitingError as exc:
-        message_text = str(exc)
-        if message_text.startswith("unknown communication"):
-            raise not_found(message_text) from exc
         raise domain_problem(exc) from exc
     except WhatsappLinkError as exc:
         raise bad_request(str(exc)) from exc
@@ -221,8 +211,5 @@ def mark_communication_sent(
     try:
         item = communications.mark_sent(communication_id, actor=actor)
     except RecruitingError as exc:
-        message = str(exc)
-        if message.startswith("unknown communication"):
-            raise not_found(message) from exc
         raise domain_problem(exc) from exc
     return CommunicationView.from_model(item)

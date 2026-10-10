@@ -10,7 +10,7 @@ from collections.abc import Iterable, Iterator
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.logging import get_logger
 from hr_agents.models import (
@@ -458,7 +458,11 @@ class LeaveService:
 
         approval = self._approvals._store.get(approval_id)
         if approval is None:
-            raise LeaveError(f"unknown approval {approval_id}")
+            raise LeaveError(
+                f"unknown approval {approval_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
 
         from hr_agents.models import ApprovalStatus
 
@@ -601,7 +605,11 @@ class LeaveService:
     def _require_request(self, request_id: UUID) -> LeaveRequest:
         request = self._load_request(request_id)
         if request is None:
-            raise LeaveError(f"unknown leave request {request_id}")
+            raise LeaveError(
+                f"unknown leave request {request_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return request
 
     def _record(

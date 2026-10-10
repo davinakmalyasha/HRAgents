@@ -151,18 +151,19 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       has a `problem+json` handler at last, and `ERROR_RESPONSES` declares the shape on every router
       so the generated client carries the `ProblemCode` union (1602 typed error responses).
       `title` is unchanged, so nothing a human reads regressed and the 21 tests asserting message
-      wording still pass. The `named human` sniffing is now retired as well (see typed domain
-      exceptions above); the 404 branches are the remainder.
-- [~] **Typed domain exceptions.** `hr_agents/errors.py` now has the `DomainError` base every
-      service error inherits (additively -- they keep `RuntimeError`/`ValueError`, so existing
-      handlers still catch them) and it carries a `DomainCode` plus the status, which
-      `api/problem.domain_problem` maps onto `ProblemCode` in one table. Every
-      `"named human" in message` sniff is gone: `require_named_human` decides the 403 and the code
-      once, and the eleven routers that re-derived it now call `domain_problem`. The override role
-      checks and the document-not-found refusal are tagged at their raise sites the same way.
-      **Still open:** the 24 `"unknown ..."` / `" not found" in message` branches that choose 404.
-      Same treatment applies -- each raise site names `UNKNOWN_RECORD` -- and a test already fails
-      if the `named human` ones come back.
+      wording still pass. All the prose sniffing in the routers went with the domain-error work
+      above: the codes exist and every router uses them.
+- [x] **Typed domain exceptions.** `hr_agents/errors.py` has the `DomainError` base every service
+      error inherits (additively -- they keep `RuntimeError`/`ValueError`, so existing handlers
+      still catch them) and it carries a `DomainCode` plus the status, which
+      `api/problem.domain_problem` maps onto `ProblemCode` in one table. **No router recognises a
+      failure by reading its message any more.** `require_named_human` decides the 403 and the code
+      once; 31 record-lookup refusals across twelve services are tagged `UNKNOWN_RECORD`/404 at
+      their raise sites; the override role checks are tagged `permission_required`/403; and the
+      compliance `_raise` helper, which tested one shared string for every endpoint, now delegates.
+      Two refusals are deliberately *not* 404: `unknown decision {decision!r}` in offers and
+      `unknown step ... in plan` are validation errors, so a missing record would be a lie.
+      `tests/api/test_domain_errors.py` fails if any of the three prose shapes returns.
 - [x] **`Decimal` money with `ROUND_HALF_UP`**; the 173-hour divisor and 1.5×/2.0× overtime
       multipliers come from verified rate tables; progressive PPh 21 TER brackets; `absence_days`
       proration; and totals-equal-lines is an enforced invariant (commit `9cca50a`).

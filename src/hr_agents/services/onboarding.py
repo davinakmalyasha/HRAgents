@@ -14,7 +14,7 @@ from collections.abc import Iterator
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApproverRole,
@@ -128,7 +128,11 @@ class OnboardingService:
     def get_template(self, template_id: UUID) -> OnboardingTemplate:
         template = self._load_template(template_id)
         if template is None:
-            raise OnboardingError(f"unknown onboarding template {template_id}")
+            raise OnboardingError(
+                f"unknown onboarding template {template_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return template
 
     def list_templates(self, *, active_only: bool = True) -> list[OnboardingTemplate]:
@@ -239,7 +243,11 @@ class OnboardingService:
     def get_plan(self, plan_id: UUID) -> OnboardingPlan:
         plan = self._load_plan(plan_id)
         if plan is None:
-            raise OnboardingError(f"unknown onboarding plan {plan_id}")
+            raise OnboardingError(
+                f"unknown onboarding plan {plan_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return plan
 
     def plans_for_employee(self, employee_id: UUID) -> list[OnboardingPlan]:

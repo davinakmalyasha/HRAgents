@@ -374,7 +374,11 @@ class EmployeeService:
     def _require(self, employee_id: UUID) -> Employee:
         employee = self._store.get_employee(employee_id)
         if employee is None:
-            raise EmployeeError(f"unknown employee {employee_id}")
+            raise EmployeeError(
+                f"unknown employee {employee_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return employee
 
     def _all_documents(self) -> list[EmployeeDocument]:

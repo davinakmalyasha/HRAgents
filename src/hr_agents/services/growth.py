@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef, require_named_human
 from hr_agents.models import (
     CYCLE_TRANSITIONS,
@@ -104,7 +104,11 @@ class GrowthService:
     def get_cycle(self, cycle_id: UUID) -> ReviewCycle:
         cycle = self._store.get_cycle(cycle_id)
         if cycle is None:
-            raise GrowthError(f"unknown review cycle {cycle_id}")
+            raise GrowthError(
+                f"unknown review cycle {cycle_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return cycle
 
     def list_cycles(self, *, status: ReviewCycleStatus | None = None) -> list[ReviewCycle]:
@@ -234,7 +238,11 @@ class GrowthService:
     def get_assignment(self, assignment_id: UUID) -> ReviewAssignment:
         assignment = self._store.get_assignment(assignment_id)
         if assignment is None:
-            raise GrowthError(f"unknown review assignment {assignment_id}")
+            raise GrowthError(
+                f"unknown review assignment {assignment_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return assignment
 
     def list_assignments(self, cycle_id: UUID) -> list[ReviewAssignment]:
@@ -407,7 +415,11 @@ class GrowthService:
     def get_summary(self, summary_id: UUID) -> ReviewSummary:
         summary = self._store.get_summary(summary_id)
         if summary is None:
-            raise GrowthError(f"unknown review summary {summary_id}")
+            raise GrowthError(
+                f"unknown review summary {summary_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return summary
 
     def list_summaries(self, cycle_id: UUID) -> list[ReviewSummary]:
@@ -578,7 +590,11 @@ class GrowthService:
     def get_goal(self, goal_id: UUID) -> Goal:
         goal = self._store.get_goal(goal_id)
         if goal is None:
-            raise GrowthError(f"unknown goal {goal_id}")
+            raise GrowthError(
+                f"unknown goal {goal_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
         return goal
 
     def list_goals(
