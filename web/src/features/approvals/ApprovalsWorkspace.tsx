@@ -18,7 +18,9 @@ import {
   type ApproverRole,
   type Viewer,
 } from './approvalsApi'
-import { useApprovals, useDecideApproval, useEscalateOverdue, useSession } from './useApprovals'
+import { useSession } from '@/features/auth/session'
+
+import { useApprovals, useDecideApproval, useEscalateOverdue } from './useApprovals'
 
 /**
  * Approvals inbox — the one place a named human decides anything.

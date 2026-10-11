@@ -4,7 +4,6 @@ import {
   decideApproval,
   escalateOverdue,
   listApprovals,
-  readSession,
   type ApprovalStatus,
   type RoleId,
 } from './approvalsApi'
@@ -12,13 +11,11 @@ import {
 /**
  * Who the server thinks this caller is.
  *
- * `/v1/session` rather than anything the browser can infer: the role here is the one
- * every permission check uses, so guessing it locally is how an inbox ends up offering a
- * decision the server refuses.
+ * Moved to `features/auth/session.ts`, where the sign-in screen and the shell
+ * read the same query. Re-exported here because the inbox was its first caller
+ * and importing it from two places under two names is how cache keys drift.
  */
-export function useSession() {
-  return useQuery({ queryKey: ['session'], queryFn: readSession, staleTime: 60_000 })
-}
+export { useSession } from '@/features/auth/session'
 
 /** Approvals still awaiting a decision, newest last so the queue reads in order. */
 export function useApprovals(status: ApprovalStatus = 'pending') {

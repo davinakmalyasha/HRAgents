@@ -424,7 +424,12 @@ documented.
 ### 2.2 Shell, auth, i18n
 - [~] App shell: sidebar workspaces, topbar, responsive layout; three-room layout component
       (Board / Queue / Chat) with placeholders (real surfaces land per workspace)
-- [ ] Auth screens: login, session handling, password reset (API keys for service accounts)
+- [~] Auth screens: the sign-in screen, session handling and sign-out shipped. The
+      dashboard gates on /v1/session, keeps the key in sessionStorage, drops it on any
+      401 and returns the person to where they were after signing in. Password reset is
+      deliberately absent: the credential is an API key, so the reset path is "rotate the
+      configured principal", documented in deployment.md. Service accounts keep using
+      keys without the dashboard
 - [x] i18n from day one: English + Bahasa Indonesia locale files, language switcher, key-parity test
 - [ ] Accessibility: WCAG AA, keyboard navigation, reduced motion, icon+label on every status color
       (baseline in place: focus rings, reduced-motion CSS, icon+label StatusBadge)

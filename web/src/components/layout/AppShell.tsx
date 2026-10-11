@@ -1,9 +1,48 @@
-import { Outlet } from 'react-router'
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
+
+import { useSession } from '@/features/auth/session'
+import { isAuthRequired, onUnauthorized } from '@/lib/auth'
 
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
 export function AppShell() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const session = useSession()
+
+  /**
+   * A credential that is refused anywhere -- a query, a mutation, a background
+   * refetch -- ends the same way: the key is gone (the client drops it on 401)
+   * and the person is sent to sign in, remembering where they were.
+   */
+  useEffect(() => {
+    onUnauthorized(() => navigate('/login', { state: { from: location.pathname } }))
+    return () => onUnauthorized(null)
+  }, [location.pathname, navigate])
+
+  /**
+   * The session resolves before anything else mounts.
+   *
+   * The sidebar and every workspace read the API on mount, so rendering them
+   * while the session is still unknown fires half a dozen requests that are all
+   * going to be refused -- a burst of 401s in the console and a flash of error
+   * states on the way to the sign-in screen. One request first, then the app.
+   */
+  if (session.isPending) {
+    return <SessionCheck />
+  }
+
+  /**
+   * A refused session is not an error state to render; it means this app has
+   * nobody to act as.
+   */
+  if (session.isError && isAuthRequired(session.error)) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />
+  }
+
   return (
     <div className="bg-surface text-ink flex min-h-dvh">
       <Sidebar />
@@ -14,5 +53,14 @@ export function AppShell() {
         </main>
       </div>
     </div>
+  )
+}
+
+function SessionCheck() {
+  const { t } = useTranslation()
+  return (
+    <main className="bg-surface text-ink flex min-h-dvh items-center justify-center">
+      <p className="text-ink-muted text-sm">{t('auth.checking')}</p>
+    </main>
   )
 }

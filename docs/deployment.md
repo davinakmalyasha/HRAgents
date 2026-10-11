@@ -84,14 +84,21 @@ because an email is a nullable, changeable, shareable field, and a permission
 that depends on one is not a permission. An unbound principal is refused rather
 than assumed to own whatever it names.
 
-> **Authentication is a documented limitation, not a recommendation.** With no
-> keys configured, every request is accepted as a local development principal
-> with full admin rights — appropriate for `localhost`, not for a server. With
-> keys configured, **the dashboard stops working**, because there are no login
-> screens yet: the SPA sends no `X-API-Key` and every call returns 401. So today
-> the only safe deployment is behind a reverse proxy that terminates TLS and
-> restricts access. Authentication screens land with the dashboard work tracked
-> in [remaining work](plan/remaining-work.md) §2.2.
+> **What the two modes mean.** With no keys configured, every request is accepted
+> as a local development principal with full admin rights — appropriate for
+> `localhost`, not for a server. With keys configured, the dashboard signs in:
+> the first request it makes is `/v1/session`, and if the server refuses it the
+> app shows a sign-in screen that takes the API key. The key is kept in
+> `sessionStorage`, so closing the tab ends the session, and signing out clears
+> it and the cache. The sign-in screen never decides anything itself: the role
+> it displays is the one the server resolved, and every permission is still
+> checked server-side.
+>
+> Still not a substitute for TLS. The key travels in an `X-API-Key` header and is
+> readable by any script on the origin, so a self-host exposed to a network wants
+> a reverse proxy that terminates TLS and restricts who can reach it. There are
+> no passwords and therefore no password reset: the credential *is* the key, and
+> rotating it means changing the configured principal.
 
 ## 2. Connecting a real mail provider
 

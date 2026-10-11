@@ -1145,5 +1145,19 @@
       "erasure_request": "Erasure request",
       "other": "Other"
     }
+  },
+  "auth": {
+    "title": "Sign in",
+    "checking": "Checking this install...",
+    "hint": "This install authenticates with API keys. The key decides who you act as and what you may do; it is sent to the server as X-API-Key.",
+    "keyLabel": "API key",
+    "signIn": "Sign in",
+    "signingIn": "Signing in...",
+    "signOut": "Sign out",
+    "signedInAs": "{{who}} ({{role}})",
+    "wrongKey": "That key was not accepted. Check it against HRAGENTS_API_PRINCIPALS and try again.",
+    "unreachable": "Could not reach the server. The key may be fine; the API is not answering.",
+    "retry": "Try again",
+    "roleNote": "Your role comes from the server, not from this screen. A key that lacks a permission will still be refused when it asks for something."
   }
 }

@@ -1145,5 +1145,19 @@
     "overdueCount_one": "{{count}} sudah melewati tenggat.",
     "queueTitle_one": "{{count}} persetujuan menunggu keputusan",
     "yoursToDecide_one": "Anda dapat memutuskan {{count}} dari ini."
+  },
+  "auth": {
+    "title": "Masuk",
+    "checking": "Memeriksa instalasi ini...",
+    "hint": "Instalasi ini memakai kunci API. Kunci menentukan Anda bertindak sebagai siapa dan boleh apa; kunci dikirim ke server sebagai X-API-Key.",
+    "keyLabel": "Kunci API",
+    "signIn": "Masuk",
+    "signingIn": "Memproses...",
+    "signOut": "Keluar",
+    "signedInAs": "{{who}} ({{role}})",
+    "wrongKey": "Kunci itu tidak diterima. Periksa dengan HRAGENTS_API_PRINCIPALS lalu coba lagi.",
+    "unreachable": "Tidak dapat menghubungi server. Kuncinya mungkin benar; API-nya yang tidak menjawab.",
+    "retry": "Coba lagi",
+    "roleNote": "Peran Anda berasal dari server, bukan dari layar ini. Kunci yang tidak punya izin tetap akan ditolak saat memintanya."
   }
 }

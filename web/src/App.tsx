@@ -9,12 +9,17 @@ import { ApplicationDetailPage } from '@/pages/ApplicationDetailPage'
 import { HomePage } from '@/pages/HomePage'
 import { ImportPage } from '@/pages/ImportPage'
 import { JobsPage } from '@/pages/JobsPage'
+import { LoginPage } from '@/pages/LoginPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 import { WorkspacePage } from '@/pages/WorkspacePage'
 
 export function AppRoutes() {
   return (
     <Routes>
+      {/* Outside the shell: there is no sidebar to render for somebody who is
+          not signed in yet, and the shell's session gate would bounce this
+          route back to itself. */}
+      <Route path="login" element={<LoginPage />} />
       <Route element={<AppShell />}>
         <Route index element={<HomePage />} />
         <Route path="w/:workspaceId" element={<WorkspacePage />} />

@@ -5,11 +5,32 @@ import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 
 import i18n from '@/i18n'
+import { api } from '@/lib/api'
 
 import { AppRoutes } from './App'
 
+/**
+ * A signed-in-enough API for the shell.
+ *
+ * `api.use` is part of the mock because the real client registers its credential
+ * middleware at module scope: an object without `use` throws at import, which
+ * fails every test in this file for a reason unrelated to routing. `/v1/session`
+ * answers with a local-operator session so the shell's gate lets the routes
+ * through -- what these tests are about.
+ */
+const SESSION = {
+  actor_id: 'local-dev',
+  role: 'hr_admin',
+  employee_id: null,
+  api_key: false,
+  decides_approver_roles: [],
+}
+
 vi.mock('@/lib/api', () => ({
-  api: { GET: vi.fn().mockResolvedValue({ data: [] }) },
+  api: {
+    GET: vi.fn((path: string) => Promise.resolve({ data: path === '/v1/session' ? SESSION : [] })),
+    use: vi.fn(),
+  },
 }))
 
 function renderAt(path: string) {
@@ -26,18 +47,26 @@ function renderAt(path: string) {
 }
 
 describe('AppRoutes', () => {
-  it('renders the attention-first home with Needs you and Watching', () => {
+  /**
+   * Every assertion below waits for the shell's session query to settle, because
+   * the routes do not mount until then -- rendering them while the session is
+   * still unknown fires a request per workspace that is going to be refused.
+   * `findBy` is the assertion that says "the app finished coming up".
+   */
+  it('renders the attention-first home with Needs you and Watching', async () => {
     renderAt('/')
 
-    expect(screen.getByRole('heading', { name: i18n.t('home.needsYou') })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('home.needsYou') }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: i18n.t('home.watching') })).toBeInTheDocument()
   })
 
-  it('renders every workspace with the three rooms', () => {
+  it('renders every workspace with the three rooms', async () => {
     renderAt('/w/hiring')
 
     expect(
-      screen.getByRole('heading', { name: i18n.t('workspaces.hiring.name') }),
+      await screen.findByRole('heading', { name: i18n.t('workspaces.hiring.name') }),
     ).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: i18n.t('rooms.board') })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: i18n.t('rooms.queue') })).toBeInTheDocument()
@@ -47,21 +76,83 @@ describe('AppRoutes', () => {
   it('renders the chat room instead of a placeholder', async () => {
     renderAt('/w/hiring')
 
-    await userEvent.click(screen.getByRole('tab', { name: i18n.t('rooms.chat') }))
+    await userEvent.click(await screen.findByRole('tab', { name: i18n.t('rooms.chat') }))
 
     expect(screen.getByRole('textbox', { name: i18n.t('chat.placeholder') })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: i18n.t('chat.send') })).toBeInTheDocument()
   })
 
-  it('deep-links to a room through the query string', () => {
+  it('deep-links to a room through the query string', async () => {
     renderAt('/w/hiring?room=chat')
 
-    expect(screen.getByRole('textbox', { name: i18n.t('chat.placeholder') })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('textbox', { name: i18n.t('chat.placeholder') }),
+    ).toBeInTheDocument()
   })
 
-  it('redirects unknown workspaces to home', () => {
+  it('redirects unknown workspaces to home', async () => {
     renderAt('/w/unknown')
 
-    expect(screen.getByRole('heading', { name: i18n.t('home.needsYou') })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('home.needsYou') }),
+    ).toBeInTheDocument()
+  })
+})
+
+describe('the sign-in route', () => {
+  /** A session the server refused: no body, just the status. */
+  const refused = { data: undefined, response: new Response(null, { status: 401 }) }
+
+  function respondWith(handler: (path: string) => unknown) {
+    vi.mocked(api.GET).mockImplementation(((path: string) =>
+      Promise.resolve(handler(path))) as never)
+  }
+
+  it('shows the key form when the server refuses the session', async () => {
+    respondWith((path) => (path === '/v1/session' ? refused : { data: [] }))
+
+    renderAt('/login')
+
+    expect(await screen.findByRole('heading', { name: i18n.t('auth.title') })).toBeInTheDocument()
+    // A password input has no 	extbox role; the label is how it is reached.
+    expect(screen.getByLabelText(i18n.t('auth.keyLabel'))).toBeInTheDocument()
+    /** The button waits for a key; an empty submit would only produce a 401. */
+    expect(screen.getByRole('button', { name: i18n.t('auth.signIn') })).toBeDisabled()
+  })
+
+  it('gets out of the way when the install has no keys configured', async () => {
+    /**
+     * With no keys configured the API answers as the local operator, so there is
+     * nothing to sign in to. Showing a form anyway would ask the solo operator
+     * for a credential their own install does not have.
+     */
+    respondWith((path) => (path === '/v1/session' ? { data: SESSION } : { data: [] }))
+
+    renderAt('/login')
+
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('home.needsYou') }),
+    ).toBeInTheDocument()
+  })
+
+  it('sends a refused workspace visit to the sign-in route', async () => {
+    respondWith((path) => (path === '/v1/session' ? refused : { data: [] }))
+
+    renderAt('/w/payroll')
+
+    expect(await screen.findByRole('heading', { name: i18n.t('auth.title') })).toBeInTheDocument()
+  })
+
+  it('renders nothing but the check while the session is unresolved', () => {
+    /**
+     * The routes mount only after the session resolves; mounting them earlier
+     * fires one request per workspace that is going to be refused.
+     */
+    respondWith(() => new Promise(() => undefined))
+
+    renderAt('/w/payroll')
+
+    expect(screen.getByText(i18n.t('auth.checking'))).toBeInTheDocument()
+    expect(screen.queryByLabelText(i18n.t('auth.keyLabel'))).toBeNull()
   })
 })

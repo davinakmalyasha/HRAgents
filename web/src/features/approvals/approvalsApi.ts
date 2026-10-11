@@ -13,7 +13,6 @@ export type ApprovalSubject = components['schemas']['ApprovalSubject']
  */
 export type ApproverRole = components['schemas']['ApproverRole']
 export type RoleId = components['schemas']['RoleId']
-export type SessionView = components['schemas']['SessionView']
 export type Urgency = components['schemas']['Urgency']
 export type ApprovalDecisionRequest = components['schemas']['ApprovalDecisionRequest']
 
@@ -102,15 +101,6 @@ export function blockedBecause(
     return 'otherRole'
   }
   return null
-}
-
-/** The authenticated session, or null when /v1/session is unavailable. */
-export async function readSession(): Promise<SessionView> {
-  const { data } = await api.GET('/v1/session')
-  if (data === undefined) {
-    throw new Error('session returned nothing')
-  }
-  return data
 }
 
 /**

@@ -281,7 +281,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 
 ### 6.1 Shell & auth
 - [~] App shell: sidebar workspaces, topbar, responsive layout (icon rail on mobile; bottom bar later)
-- [ ] Auth screens: login, session handling, password reset
+- [x] Auth screens: sign-in with the API key, session gate on /v1/session, sign-out, 401 handling that returns the person to where they were; password reset is N/A for key auth (documented)
 - [ ] Mobile-first layouts (solo HR lives on their phone)
 - [x] i18n from day one: English + Bahasa Indonesia (locale files, language switcher, key-parity test)
 - [ ] Settings → Connections: provider list with health badges, config forms (schema-generated), Test buttons, env-lock padlocks
