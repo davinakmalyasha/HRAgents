@@ -580,7 +580,13 @@ latency, costs, and failure modes documented.
       readiness, 503 when degraded)
 - [ ] Provider settings UI with health badges, env-lock indicators, masked secrets (Settings →
       Connections)
-- [ ] Local-model mode (Ollama): fully offline operation, documented model floor (size/quality)
+- [x] Local-model mode (Ollama): `docs/deployment.md` §8 documents the fully-offline provider
+      set (llm.ollama, embeddings.ollama or the no-download `embeddings.hash`,
+      storage.local_disk, queue.memory, whatsapp.manual_links, calendar.manual_slots,
+      Mailpit for mail) with the honest model floor and what offline mode does not do.
+      Eight tests hold the section and the registry together: every id it names exists, the
+      set resolves with no secret anywhere, the local LLM builds against localhost, and the
+      hosted contrast (misconfigured until a key is supplied) is real
 - [x] Backup/restore script with a verification drill (`scripts/backup.py --verify` restores into a
       scratch database and re-verifies the audit chain) and a runbook in `docs/deployment.md`;
       measured RTO/RPO numbers are still to be recorded

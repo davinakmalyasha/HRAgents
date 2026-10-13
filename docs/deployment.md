@@ -214,3 +214,60 @@ uv run python scripts/run_messaging.py          # the messaging bridge
 In-memory mode (`HRAGENTS_STORE_BACKEND=memory`, the default) needs nothing at
 all: it is the zero-configuration developer experience and the right choice for
 a demo, not for real HR data.
+
+## 8. Fully offline (local models)
+
+Everything below keeps candidate and employee data on the machine. The
+deterministic core — scoring, payroll arithmetic, policy routing, approvals —
+never calls a model in the first place, so what this section configures is
+extraction, drafting and chat.
+
+### Point every capability at something local
+
+```bash
+HRAGENTS_PROVIDER_LLM=llm.ollama
+HRAGENTS_PROVIDER_LLM_CONFIG={"model":"qwen2.5:7b"}
+HRAGENTS_PROVIDER_EMBEDDINGS=embeddings.ollama
+HRAGENTS_PROVIDER_EMBEDDINGS_CONFIG={"model":"nomic-embed-text"}
+HRAGENTS_PROVIDER_STORAGE=storage.local_disk
+HRAGENTS_PROVIDER_STORAGE_CONFIG={"root":"data/documents"}
+HRAGENTS_PROVIDER_QUEUE=queue.memory
+HRAGENTS_PROVIDER_WHATSAPP=whatsapp.manual_links
+HRAGENTS_PROVIDER_CALENDAR=calendar.manual_slots
+```
+
+`whatsapp.manual_links` and `calendar.manual_slots` need no credentials at all:
+you send the message from your own WhatsApp and enter interview slots by hand,
+and the app composes the link and the ICS. For email, point `email.smtp` and
+`email.imap_poll` at the Mailpit container from §1 — it is a local mail server,
+so nothing leaves the host.
+
+### Get the models
+
+```bash
+ollama pull qwen2.5:7b          # extraction, drafting, chat
+ollama pull nomic-embed-text    # embeddings, 768 dimensions
+```
+
+**Model floor.** Extraction asks a model to return structured data from a CV and
+to keep two similar profiles straight. A 7–8B instruction-tuned model is the
+floor at which that is reliable; 14B and up is visibly better on ambiguous
+résumés and on the drafted summaries a person edits. Below the floor the failure
+mode is quiet: fields come back plausible-but-wrong, which is worse than a
+refusal, because nothing downstream can tell. If you have no model to run,
+`embeddings.hash` implements embeddings with no download at all — it is lexical
+overlap, not meaning, so it finds documents that share words and misses ones
+that share sense.
+
+### What the offline mode does not do
+
+- GitHub and repository lookups, publication checks and credential registries
+  need the network. Offline, those signals are simply absent from an
+  evaluation, and the deterministic scorer treats absent evidence as absent
+  rather than guessing.
+- The built-in `test` model runs the whole pipeline with canned responses so
+  tests and demos need neither a network nor a model. Its numbers are fake by
+  construction; never use it for a real candidate.
+- Provider health badges report *configured*, not *reachable*: the health probe
+  is a Phase 7 item, so verify Ollama yourself with `ollama list` and one
+  extraction from the dashboard before trusting a batch.
