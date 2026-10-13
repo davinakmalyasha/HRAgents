@@ -805,7 +805,8 @@
     "cancelReasonPlaceholder": "What went wrong with this run?",
     "cancelReasonRequired": "Cancelling discards a computed run, so it needs a reason.",
     "confirmCancel": "Confirm cancellation",
-    "keepRun": "Keep run"
+    "keepRun": "Keep run",
+    "cancelledBecause": "Cancelled: {{reason}}"
   },
   "offboarding": {
     "boardTitle": "Departing",

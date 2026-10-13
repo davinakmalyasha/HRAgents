@@ -11,6 +11,7 @@ import {
   amount,
   advisoryAnomalies,
   blockingAnomalies,
+  cancellationNote,
   blocksSignoff,
   isCancellable,
   isComputable,
@@ -222,6 +223,7 @@ function RunDetail({ run }: { run: RunView }) {
   const compute = useComputeRun()
   const submit = useSubmitRun()
   const cancel = useCancelRun()
+  const cancellation = cancellationNote(run)
   const blocking = blockingAnomalies(run)
   const advisory = advisoryAnomalies(run)
   const busy = compute.isPending || submit.isPending || cancel.isPending
@@ -354,6 +356,12 @@ function RunDetail({ run }: { run: RunView }) {
       {submit.isError ? (
         <p role="alert" className="text-error text-sm">
           {t('payroll.actionFailed')}
+        </p>
+      ) : null}
+
+      {cancellation !== null ? (
+        <p className="text-ink-muted text-sm">
+          {t('payroll.cancelledBecause', { reason: cancellation })}
         </p>
       ) : null}
 

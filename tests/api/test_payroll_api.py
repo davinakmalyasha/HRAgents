@@ -296,3 +296,40 @@ def test_edit_after_submission_rejected() -> None:
 
     assert response.status_code == 409
     assert "no longer be edited" in response.json()["title"]
+
+
+def test_cancelling_a_run_reports_why_through_the_view() -> None:
+    """The reason has to reach the run view, not just the audit chain.
+
+    The queue and the packet are where a person meets a cancelled run; a status
+    with no why in either is what this closes.
+    """
+    app = create_app()
+    with TestClient(app) as client:
+        employee = create_employee(client)
+        seed_tables(client)
+        run = client.post(
+            "/v1/payroll/runs",
+            json={"period_year": YEAR, "period_month": 6},
+        ).json()
+        client.put(
+            f"/v1/payroll/runs/{run['id']}/inputs",
+            json={"inputs": [{"employee_id": employee["id"], "base_salary": 9_000_000}]},
+        )
+        client.post(f"/v1/payroll/runs/{run['id']}/compute", json={})
+        refused = client.post(f"/v1/payroll/runs/{run['id']}/cancel", json={"reason": "   "})
+        cancelled = client.post(
+            f"/v1/payroll/runs/{run['id']}/cancel", json={"reason": " duplicate period "}
+        )
+        listed = client.get("/v1/payroll/runs").json()
+
+    # The router refuses a blank reason before the service does; either way it is a refusal.
+    assert refused.status_code == 422
+    assert cancelled.status_code == 200
+    body = cancelled.json()
+    assert body["status"] == "cancelled"
+    assert body["cancel_reason"] == "duplicate period"
+    assert body["cancelled_at"]
+
+    same_run = next(item for item in listed if item["id"] == run["id"])
+    assert same_run["cancel_reason"] == "duplicate period"

@@ -364,6 +364,32 @@ def test_signed_off_state_survives_a_restart(factory: sessionmaker[Session]) -> 
     assert fresh.approval_id == approved.approval_id
 
 
+def test_cancellation_survives_a_restart(factory: sessionmaker[Session]) -> None:
+    """A cancelled run remembered only as a status is the gap this closes.
+
+    The reason has to survive the round trip the same way the sign-off does --
+    a reload that dropped it would show "cancelled" and leave the packet's
+    reason row empty.
+    """
+    service, employees, rates = _parts(factory)
+    _seed(rates)
+    employee = _employee(employees)
+    run = service.create_run(period_year=YEAR, period_month=MONTH, actor=ACTOR)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=money("5000000"))],
+        actor=ACTOR,
+    )
+    service.compute(run.id, actor=ACTOR)
+    cancelled = service.cancel_run(run.id, actor=ACTOR, reason="period entered twice")
+
+    fresh = _parts(factory)[0].get_run(run.id)
+
+    assert fresh.status is PayrollRunStatus.CANCELLED
+    assert fresh.cancel_reason == "period entered twice"
+    assert fresh.cancelled_at == cancelled.cancelled_at
+
+
 def test_previous_run_survives_a_restart(factory: sessionmaker[Session]) -> None:
     """The net-deviation check needs the prior period, and reads every run to find it."""
     service, employees, rates = _parts(factory)

@@ -805,7 +805,8 @@
     "cancelReasonPlaceholder": "Apa yang salah dengan perhitungan ini?",
     "cancelReasonRequired": "Pembatalan membuang perhitungan yang sudah dihitung, jadi perlu alasan.",
     "confirmCancel": "Konfirmasi pembatalan",
-    "keepRun": "Pertahankan perhitungan"
+    "keepRun": "Pertahankan perhitungan",
+    "cancelledBecause": "Dibatalkan: {{reason}}"
   },
   "offboarding": {
     "boardTitle": "Sedang keluar",

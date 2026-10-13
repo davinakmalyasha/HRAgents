@@ -5595,6 +5595,10 @@ export interface components {
             approval_id: string | null;
             /** Blocking Count */
             blocking_count: number;
+            /** Cancel Reason */
+            cancel_reason?: string | null;
+            /** Cancelled At */
+            cancelled_at?: string | null;
             /**
              * Id
              * Format: uuid

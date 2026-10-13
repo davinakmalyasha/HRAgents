@@ -104,6 +104,8 @@ class DbPayrollService(PayrollService):
                 "signed_off_by": run.signed_off_by,
                 "signed_off_at": _optional_aware(run.signed_off_at),
                 "exported_at": _optional_aware(run.exported_at),
+                "cancelled_at": _optional_aware(run.cancelled_at),
+                "cancel_reason": run.cancel_reason,
                 "created_at": _aware(run.created_at),
                 "updated_at": _aware(run.updated_at),
             }
@@ -155,6 +157,8 @@ class DbPayrollService(PayrollService):
             signed_off_by=row.signed_off_by,
             signed_off_at=_aware(row.signed_off_at) if row.signed_off_at else None,
             exported_at=_aware(row.exported_at) if row.exported_at else None,
+            cancelled_at=_aware(row.cancelled_at) if row.cancelled_at else None,
+            cancel_reason=row.cancel_reason,
             created_at=_aware(row.created_at),
             updated_at=_aware(row.updated_at),
         )

@@ -1035,7 +1035,12 @@ class PayrollService:
         if not reason.strip():
             raise PayrollError("cancelling a run requires a reason")
         updated = run.model_copy(
-            update={"status": PayrollRunStatus.CANCELLED, "updated_at": utc_now()}
+            update={
+                "status": PayrollRunStatus.CANCELLED,
+                "cancelled_at": utc_now(),
+                "cancel_reason": reason.strip(),
+                "updated_at": utc_now(),
+            }
         )
         self._save_run(updated)
         self._record(
@@ -1130,6 +1135,11 @@ class PayrollService:
         info.append(["Kind", run.kind.value])
         info.append(["Status", run.status.value])
         info.append(["Signed off by", run.signed_off_by or "(pending)"])
+        # A cancelled run would otherwise be a status with no why, which is the
+        # one thing the packet is supposed to be able to answer later.
+        if run.cancelled_at is not None:
+            info.append(["Cancelled at", run.cancelled_at.isoformat()])
+            info.append(["Cancellation reason", run.cancel_reason or ""])
         info.append(
             ["Rate tables used", ", ".join(f"{k}={v}" for k, v in run.rate_table_ids.items())]
         )

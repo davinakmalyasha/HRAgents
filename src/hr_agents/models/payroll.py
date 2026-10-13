@@ -201,6 +201,22 @@ class PayrollRun(StrictModel):
     signed_off_by: str | None = Field(default=None, max_length=200)
     signed_off_at: UtcDateTime | None = None
     exported_at: UtcDateTime | None = None
+    cancelled_at: UtcDateTime | None = None
+    cancel_reason: str | None = Field(
+        default=None,
+        max_length=1000,
+        description=(
+            "Why the run was cancelled. Required whenever `cancelled_at` is set: a "
+            "cancelled run is what the review packet and the audit trail show, and a "
+            "status with no reason is not a record anybody can act on a month later."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _cancel_metadata_is_complete(self) -> PayrollRun:
+        if (self.cancelled_at is None) != (self.cancel_reason is None):
+            raise ValueError("a cancelled run carries both cancelled_at and cancel_reason")
+        return self
 
     created_at: UtcDateTime = Field(default_factory=utc_now)
     updated_at: UtcDateTime = Field(default_factory=utc_now)

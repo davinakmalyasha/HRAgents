@@ -3,6 +3,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from tests.actors import finance as finance_principal
 
 from hr_agents.identity import ActorRef
@@ -1115,6 +1116,40 @@ def test_cancel_run_requires_reason_and_state(service: PayrollService) -> None:
     assert cancelled.status is PayrollRunStatus.CANCELLED
 
 
+def test_cancel_run_records_why(service: PayrollService) -> None:
+    """The reason used to live only in the audit chain.
+
+    The packet and the run view showed "cancelled" and nothing else, so the one
+    question a reader has -- why -- had no answer where they were looking. The
+    reason is trimmed and stored beside the moment it happened.
+    """
+    run = make_run(service)
+
+    cancelled = service.cancel_run(
+        run.id, actor=ActorRef.legacy("hr"), reason="  period entered twice  "
+    )
+
+    assert cancelled.status is PayrollRunStatus.CANCELLED
+    assert cancelled.cancelled_at is not None
+    assert cancelled.cancel_reason == "period entered twice"
+
+
+def test_a_cancelled_run_cannot_lose_its_reason(service: PayrollService) -> None:
+    """The model refuses half a cancellation: a status with no why is the gap.
+
+    Revalidation rather than `model_copy`: the latter skips validators by design,
+    which is exactly the door this test exists to check is closed.
+    """
+    run = make_run(service)
+    cancelled = service.cancel_run(run.id, actor=ActorRef.legacy("hr"), reason="duplicate")
+    payload = cancelled.model_dump()
+
+    for missing in ("cancel_reason", "cancelled_at"):
+        half = {**payload, missing: None}
+        with pytest.raises(ValidationError, match="both cancelled_at and cancel_reason"):
+            PayrollRun.model_validate(half)
+
+
 # --- THR / kinds -------------------------------------------------------------
 
 
@@ -1156,6 +1191,40 @@ def test_review_packet_exports_xlsx(
     info = workbook["Run info"]
     notice = [row for row in info.iter_rows(values_only=True) if row[0] == "Notice"]
     assert notice and "does not execute payments" in notice[0][1]
+
+
+def test_review_packet_says_why_a_run_was_cancelled(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    """The packet is the deliverable somebody reads a month later.
+
+    "cancelled" without a reason is the state this fixes: the reason existed only
+    in the audit chain, which is not where a reader of the packet is looking.
+    """
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(7_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+    service.cancel_run(run.id, actor=ActorRef.legacy("hr-admin"), reason="duplicate period")
+
+    workbook = load_workbook(BytesIO(service.build_review_packet_xlsx(run.id)))
+    info = workbook["Run info"]
+    rows = {row[0]: row[1] for row in info.iter_rows(values_only=True) if row[0]}
+
+    assert rows["Status"] == "cancelled"
+    assert rows["Cancellation reason"] == "duplicate period"
+    assert rows["Cancelled at"]
 
 
 def test_export_requires_lines(service: PayrollService) -> None:

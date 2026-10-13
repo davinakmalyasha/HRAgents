@@ -78,9 +78,10 @@ class PayrollRunRecord(TenantScoped, Base):
     signed_off_by: Mapped[str | None] = mapped_column(String(200))
     signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # No cancelled_at / cancel_reason column: `PayrollRun` does not carry them. A
-    # cancellation reason is written to the tamper-evident audit chain and nowhere
-    # else, so it is not invented here -- see docs/plan/remaining-work.md.
+    # A cancelled run explains itself: the packet and the audit trail both carry
+    # the reason, so the record is not a status with no why a month later.
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancel_reason: Mapped[str | None] = mapped_column(String(1000))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

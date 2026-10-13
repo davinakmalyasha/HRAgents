@@ -113,6 +113,22 @@ export function deductionBreakdown(line: LineView): {
   }
 }
 
+/**
+ * Why a cancelled run was cancelled, for the screen and nothing else.
+ *
+ * A cancelled run with no reason is refused by the model, so this only shapes
+ * what is already there: trimmed for display, and null when the run is not
+ * cancelled. Returning the bare status for a cancelled run with no reason would
+ * put "cancelled" on screen as though it were an explanation.
+ */
+export function cancellationNote(run: RunView): string | null {
+  if (run.status !== 'cancelled' || run.cancel_reason == null) {
+    return null
+  }
+  const reason = run.cancel_reason.trim()
+  return reason === '' ? null : reason
+}
+
 export async function listRuns(): Promise<RunView[]> {
   const { data } = await api.GET('/v1/payroll/runs')
   return data ?? []

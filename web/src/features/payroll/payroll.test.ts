@@ -9,6 +9,7 @@ import {
   amount,
   blockingAnomalies,
   blocksSignoff,
+  cancellationNote,
   deductionBreakdown,
   isCancellable,
   isComputable,
@@ -248,5 +249,29 @@ describe('labels cover every value the API can return', () => {
     for (const kind of everyKind) {
       expect(RUN_KIND_LABELS[kind]).toBeTruthy()
     }
+  })
+})
+
+describe('a cancelled run says why, or says nothing at all', () => {
+  it('returns the trimmed reason for a cancelled run', () => {
+    const note = cancellationNote(
+      run({
+        status: 'cancelled',
+        cancelled_at: '2026-06-01T00:00:00Z',
+        cancel_reason: '  duplicate period  ',
+      }),
+    )
+    expect(note).toBe('duplicate period')
+  })
+
+  it('says nothing for a run that is not cancelled', () => {
+    /**A reason on a live run would be leftover data; the screen must not show it
+     * as though the run were cancelled.
+     */
+    expect(cancellationNote(run({ status: 'draft', cancel_reason: 'stale text' }))).toBeNull()
+  })
+
+  it('refuses to render a bare cancelled status as an explanation', () => {
+    expect(cancellationNote(run({ status: 'cancelled', cancel_reason: null }))).toBeNull()
   })
 })

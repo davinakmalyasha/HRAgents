@@ -255,10 +255,11 @@ Remaining in this area:
 - [ ] **Payroll runs are not immutable.** A computed run can be recomputed in place, so
       `rate_table_ids` and the figures change after a human has seen them. A re-run should
       supersede the run, not rewrite it.
-- [ ] **A cancellation reason reaches the audit chain and nowhere else.** `PayrollRun` has
-      no `cancelled_at`/`cancel_reason`, so the XLSX review packet shows a cancelled run's
-      status without saying why. The payroll adapter deliberately did not invent the
-      columns.
+- [x] **A cancellation reason reaches the audit chain and nowhere else.** `PayrollRun` now
+      carries `cancelled_at` and `cancel_reason` (the model refuses half a
+      cancellation), `cancel_run` records both, the run view exposes them, the XLSX review
+      packet's Run info sheet prints them, and migration `0019` adds the columns. A
+      cancelled run is no longer a status with no why wherever it is read.
 - [ ] **No pagination on 43 of 45 list endpoints**, and most DB lists are
       `select(Table)` with no `LIMIT` followed by a Python `sorted`. `active_plans` and
       `_previous_run` are the two aggregations that now read a whole tenant's rows.

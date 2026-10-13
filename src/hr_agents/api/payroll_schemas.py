@@ -16,6 +16,7 @@ from hr_agents.models import (
     PayrollRunStatus,
     PayrollTotals,
     StrictModel,
+    UtcDateTime,
 )
 
 
@@ -134,6 +135,8 @@ class RunView(StrictModel):
     status: PayrollRunStatus
     approval_id: UUID | None
     signed_off_by: str | None
+    cancelled_at: UtcDateTime | None = None
+    cancel_reason: str | None = None
     totals: TotalsView
     anomalies: list[AnomalyView]
     blocking_count: int
@@ -149,6 +152,8 @@ class RunView(StrictModel):
             status=run.status,
             approval_id=run.approval_id,
             signed_off_by=run.signed_off_by,
+            cancelled_at=run.cancelled_at,
+            cancel_reason=run.cancel_reason,
             totals=TotalsView.from_model(run.totals),
             anomalies=[AnomalyView.from_model(item) for item in run.anomalies],
             blocking_count=len(run.blocking_anomalies),
