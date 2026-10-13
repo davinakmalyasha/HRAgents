@@ -1159,5 +1159,17 @@
     "unreachable": "Could not reach the server. The key may be fine; the API is not answering.",
     "retry": "Try again",
     "roleNote": "Your role comes from the server, not from this screen. A key that lacks a permission will still be refused when it asks for something."
+  },
+  "palette": {
+    "open": "Search",
+    "title": "Command palette",
+    "description": "Jump to a workspace, a room, or a display preference.",
+    "placeholder": "Where to?",
+    "empty": "Nothing matches that.",
+    "home": "Home",
+    "navigation": "Go to",
+    "actions": "Actions",
+    "switchToEnglish": "Switch to English",
+    "switchToIndonesian": "Ganti ke Bahasa Indonesia"
   }
 }

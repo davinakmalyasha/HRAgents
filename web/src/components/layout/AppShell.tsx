@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 
 import { useSession } from '@/features/auth/session'
 import { isAuthRequired, onUnauthorized } from '@/lib/auth'
 
+import { CommandPalette } from './CommandPalette'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
@@ -22,6 +23,25 @@ export function AppShell() {
     onUnauthorized(() => navigate('/login', { state: { from: location.pathname } }))
     return () => onUnauthorized(null)
   }, [location.pathname, navigate])
+
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  /**
+   * The one keyboard shortcut the shell claims: Cmd/Ctrl+K toggles the palette.
+   * The state lives here and both the key and the topbar button drive it --
+   * two ways into one piece of state, not two components that each think they
+   * own it.
+   */
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey)) {
+        return
+      }
+      event.preventDefault()
+      setPaletteOpen((current) => !current)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   /**
    * The session resolves before anything else mounts.
@@ -47,11 +67,12 @@ export function AppShell() {
     <div className="bg-surface text-ink flex min-h-dvh">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
+        <Topbar onOpenPalette={() => setPaletteOpen(true)} />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">
           <Outlet />
         </main>
       </div>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   )
 }

@@ -1159,5 +1159,17 @@
     "unreachable": "Tidak dapat menghubungi server. Kuncinya mungkin benar; API-nya yang tidak menjawab.",
     "retry": "Coba lagi",
     "roleNote": "Peran Anda berasal dari server, bukan dari layar ini. Kunci yang tidak punya izin tetap akan ditolak saat memintanya."
+  },
+  "palette": {
+    "open": "Cari",
+    "title": "Palet perintah",
+    "description": "Lompat ke ruang kerja, ruang, atau preferensi tampilan.",
+    "placeholder": "Ke mana?",
+    "empty": "Tidak ada yang cocok.",
+    "home": "Beranda",
+    "navigation": "Buka",
+    "actions": "Tindakan",
+    "switchToEnglish": "Switch to English",
+    "switchToIndonesian": "Ganti ke Bahasa Indonesia"
   }
 }

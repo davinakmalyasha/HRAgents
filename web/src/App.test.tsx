@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
@@ -154,5 +154,40 @@ describe('the sign-in route', () => {
 
     expect(screen.getByText(i18n.t('auth.checking'))).toBeInTheDocument()
     expect(screen.queryByLabelText(i18n.t('auth.keyLabel'))).toBeNull()
+  })
+})
+
+describe('the command palette', () => {
+  it('opens with Ctrl+K and navigates to the workspace it finds', async () => {
+    vi.mocked(api.GET).mockImplementation(((path: string) =>
+      Promise.resolve({ data: path === '/v1/session' ? SESSION : [] })) as never)
+    renderAt('/')
+    await screen.findByRole('heading', { name: i18n.t('home.needsYou') })
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    const input = await screen.findByPlaceholderText(i18n.t('palette.placeholder'))
+    /**
+     * The palette searches labels and keywords, but the workspace names come
+     * from the API; with the stubbed empty list the fallback i18n name is what
+     * is displayed, so that is what the search has to match too.
+     */
+    await userEvent.type(input, 'Payroll')
+    await userEvent.keyboard('{Enter}')
+
+    expect(
+      await screen.findByRole('heading', { name: i18n.t('workspaces.payroll.name') }),
+    ).toBeInTheDocument()
+  })
+
+  it('offers no sign-out in the local-operator install', async () => {
+    vi.mocked(api.GET).mockImplementation(((path: string) =>
+      Promise.resolve({ data: path === '/v1/session' ? SESSION : [] })) as never)
+    renderAt('/')
+    await screen.findByRole('heading', { name: i18n.t('home.needsYou') })
+
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+    await screen.findByPlaceholderText(i18n.t('palette.placeholder'))
+
+    expect(screen.queryByText(i18n.t('auth.signOut'))).toBeNull()
   })
 })

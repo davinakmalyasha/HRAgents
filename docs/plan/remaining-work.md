@@ -423,7 +423,10 @@ documented.
 - [x] Design tokens exactly per `product-concept.md` §7 (cool-gray ramp, single accent `#2563EB`,
       amber/red/green ≤5% pixels with icon+label, dark mode = token swap, hex-literal guard test)
 - [x] Inter + JetBrains Mono, 12–30 scale, weights 400/500/600 (self-hosted, offline-safe)
-- [~] Component kit: base shadcn/ui set + StatusBadge/ScoreBar/EmptyState; command palette wiring next
+- [x] Component kit: base shadcn/ui set + StatusBadge/ScoreBar/EmptyState, and the command
+      palette wired: Cmd/Ctrl+K (and a topbar button) opens navigation, the current workspace rooms,
+      theme, language and sign-out -- deliberately no writes, because a fuzzy match plus Enter is
+      how the wrong thing gets run, and no sign-out item when the install runs as the local operator
 
 ### 2.2 Shell, auth, i18n
 - [~] App shell: sidebar workspaces, topbar, responsive layout; three-room layout component

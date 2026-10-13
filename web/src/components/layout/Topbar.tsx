@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
@@ -7,18 +8,41 @@ import { storedApiKey } from '@/lib/auth'
 import { LanguageSwitcher } from './LanguageSwitcher'
 import { ThemeToggle } from './ThemeToggle'
 
-export function Topbar() {
+export function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const { t } = useTranslation()
   return (
     <header className="border-line bg-surface flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-8">
       <span className="text-ink-strong font-medium">{t('app.name')}</span>
       <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="border-line text-ink-muted hover:text-ink-strong hidden items-center gap-2 rounded-md border px-3 py-1.5 text-xs sm:flex"
+          onClick={onOpenPalette}
+        >
+          <Search aria-hidden="true" className="size-3.5" />
+          {t('palette.open')}
+          {/*
+            The hint shows the key that works on this platform. A Mac user
+            pressing Ctrl+K is not wrong, but showing the chord they will reach
+            for is the difference between a shortcut and a rumour.
+          */}
+          <kbd className="border-line text-2xs rounded border px-1 font-mono">
+            {isApplePlatform() ? '⌘K' : 'Ctrl K'}
+          </kbd>
+        </button>
         <Identity />
         <LanguageSwitcher />
         <ThemeToggle />
       </div>
     </header>
   )
+}
+
+function isApplePlatform(): boolean {
+  if (typeof navigator === 'undefined') {
+    return false
+  }
+  return /Mac|iPhone|iPad/.test(navigator.platform ?? '')
 }
 
 /**
