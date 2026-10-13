@@ -7,7 +7,6 @@ resolved. These tests read through fresh adapter instances so a fallback to the
 in-process dicts would fail here rather than in production.
 """
 
-from datetime import date
 from uuid import uuid4
 
 import pytest
@@ -24,6 +23,7 @@ from hr_agents.models import (
     OnboardingTemplate,
     StepKind,
     TemplateStep,
+    business_today,
 )
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
@@ -32,7 +32,7 @@ from hr_agents.services.onboarding import OnboardingError
 from hr_agents.services.people_store import ApprovalStore, TaskStore
 from hr_agents.services.tasks import TaskEngine
 
-TODAY = date.today()
+TODAY = business_today()
 ACTOR = ActorRef.legacy("hr-admin")
 
 

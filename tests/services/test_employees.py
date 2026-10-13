@@ -11,6 +11,7 @@ from hr_agents.models import (
     Employee,
     EmployeeStatus,
     VerificationStatus,
+    business_today,
 )
 from hr_agents.services import (
     ApprovalEngine,
@@ -21,7 +22,7 @@ from hr_agents.services import (
 )
 from hr_agents.services.audit import AuditChain
 
-TODAY = date.today()
+TODAY = business_today()
 
 
 @pytest.fixture

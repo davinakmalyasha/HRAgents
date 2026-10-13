@@ -31,6 +31,7 @@ from hr_agents.models import (
     StrictModel,
     TechnicalEvaluation,
     aggregate_runs,
+    business_today,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -196,7 +197,7 @@ class ApplicationPipeline:
         how the previous version shipped.
         """
         config = config or self._config or PipelineConfig.from_settings()
-        reference_date = config.reference_date or date.today()
+        reference_date = config.reference_date or business_today()
         actions: list[str] = []
 
         self._audit.append_system(

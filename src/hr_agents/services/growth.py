@@ -27,6 +27,7 @@ from hr_agents.models import (
     ReviewSummary,
     SummaryStatus,
     TaskSource,
+    business_today,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -477,7 +478,7 @@ class GrowthService:
         review form is a chore, not someone's request, and that is a different
         claim from who noticed it.
         """
-        moment = as_of or date.today()
+        moment = as_of or business_today()
         horizon = moment + timedelta(days=window_days)
         created: list[GrowthReminder] = []
 

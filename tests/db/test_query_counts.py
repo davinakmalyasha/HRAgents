@@ -38,10 +38,11 @@ from hr_agents.models import (
     ScoreVector,
     ScoringRun,
     TechnicalEvaluation,
+    business_today,
 )
 from hr_agents.services.people_store import EmployeeStore
 
-TODAY = date.today()
+TODAY = business_today()
 
 POPULATION = 40
 """Rows seeded per test. The point is that the count must not depend on it."""

@@ -15,6 +15,7 @@ from hr_agents.models import (
     PayrollRunStatus,
     RateEntry,
     RateTableKind,
+    business_today,
 )
 from hr_agents.models.money import ZERO, add, percent_of, sum_money
 from hr_agents.models.money import money as m
@@ -31,7 +32,7 @@ from hr_agents.services import (
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.payroll import _working_days_in_month as working_days_in
 
-TODAY = date.today()
+TODAY = business_today()
 PERIOD_YEAR = TODAY.year
 PERIOD_MONTH = 6
 

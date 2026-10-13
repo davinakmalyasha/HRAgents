@@ -1,10 +1,10 @@
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
 
 from hr_agents.identity import ActorRef
-from hr_agents.models import ApproverRole, TaskPriority, TaskSource, TaskStatus
+from hr_agents.models import ApproverRole, TaskPriority, TaskSource, TaskStatus, business_today
 from hr_agents.services import TaskEngine, TaskError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import TaskStore
@@ -102,7 +102,7 @@ def test_unknown_task_raises(engine: TaskEngine) -> None:
 
 
 def test_open_tasks_overdue_first_then_due_date(engine: TaskEngine) -> None:
-    today = date.today()
+    today = business_today()
     overdue = engine.create(
         title="overdue", actor=ActorRef.legacy("hr"), due_on=today - timedelta(days=3)
     )
@@ -119,7 +119,7 @@ def test_open_tasks_overdue_first_then_due_date(engine: TaskEngine) -> None:
 
 
 def test_overdue_detection(engine: TaskEngine) -> None:
-    today = date.today()
+    today = business_today()
     engine.create(title="late", actor=ActorRef.legacy("hr"), due_on=today - timedelta(days=1))
     engine.create(title="today", actor=ActorRef.legacy("hr"), due_on=today)
     engine.create(title="future", actor=ActorRef.legacy("hr"), due_on=today + timedelta(days=5))

@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from hr_agents.identity import ActorRef
-from hr_agents.models import Contract, ContractStatus, ContractType, TaskSource
+from hr_agents.models import Contract, ContractStatus, ContractType, TaskSource, business_today
 from hr_agents.services import (
     ContractError,
     ContractService,
@@ -14,7 +14,7 @@ from hr_agents.services import (
 )
 from hr_agents.services.audit import AuditChain
 
-TODAY = date.today()
+TODAY = business_today()
 
 
 @pytest.fixture

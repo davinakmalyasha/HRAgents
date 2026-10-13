@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Iterator
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from hr_agents.errors import DomainCode, DomainError
@@ -30,6 +30,7 @@ from hr_agents.models import (
     StepStatus,
     TemplateStep,
     VerificationStatus,
+    business_today,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -167,7 +168,7 @@ class OnboardingService:
         employee = self._require_employee(employee_id)
 
         template = self._resolve_template(employee, template_id, contract)
-        hire_date = employee.hire_date or date.today()
+        hire_date = employee.hire_date or business_today()
 
         steps: list[OnboardingStepState] = []
         for template_step in template.steps:

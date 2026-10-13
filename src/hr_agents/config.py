@@ -9,8 +9,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from hr_agents.rbac import RoleId
@@ -98,6 +99,27 @@ class Settings(BaseSettings):
     # --- LLM ---
     # PydanticAI model string. The special value "test" runs agents fully offline.
     llm_model: str = "test"
+    # The zone business dates are read in. `date.today()` reads the host's day, so
+    # a UTC server gets the wrong calendar date for seven hours after Jakarta has
+    # already rolled over. Validated here so a typo stops startup rather than
+    # surfacing as an off-by-one in a leave year.
+    timezone: str = "Asia/Jakarta"
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, value: str) -> str:
+        """A zone name the platform recognises, checked at startup.
+
+        The failure this prevents is quiet: an unknown zone would fall back to
+        the default at call time, so an operator who set a bogus name would get
+        Jakarta dates and no error telling them why.
+        """
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError(f"unknown timezone {value!r}") from exc
+        return value
+
     # Independent extraction passes per application (k for the sigma estimate).
     # Below 2 sigma is meaningless — pstdev over one sample is 0.0 — so the
     # pipeline floors this at 2 and the policy engine treats k=1 as no evidence.

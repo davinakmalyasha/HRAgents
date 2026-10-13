@@ -51,10 +51,17 @@ instance, set real values in a `.env` file next to `docker-compose.yml`
 ```bash
 HRAGENTS_API_KEYS=["a-long-random-string"]        # inbound API keys (empty = auth disabled)
 # HRAGENTS_API_PRINCIPALS=[{"key":"...","role":"hr_admin","actor_id":"owner"}]
+HRAGENTS_TIMEZONE=Asia/Jakarta                    # the zone business dates are read in
 POSTGRES_PASSWORD=<strong password>
 MINIO_ROOT_PASSWORD=<strong password>
 HRAGENTS_MESSAGING_SANDBOX=false                  # only after you configure a real provider
 ```
+
+`HRAGENTS_TIMEZONE` decides what "today" means for leave years, probation ends,
+due dates and the sweeps that act on them. It defaults to `Asia/Jakarta`, and an
+unknown zone stops startup rather than silently falling back — a server whose
+host clock is UTC would otherwise be a day off for the seven hours after Jakarta
+has rolled over.
 
 Never commit `.env`; `.dockerignore` keeps it out of the image.
 

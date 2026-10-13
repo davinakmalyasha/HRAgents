@@ -9,7 +9,7 @@ Every read goes through a fresh adapter instance so a fallback to the in-process
 dicts would fail here rather than in production.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -24,13 +24,14 @@ from hr_agents.models import (
     LeaveRequest,
     LeaveType,
     LeaveTypePolicy,
+    business_today,
 )
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.people_store import ApprovalStore
 
-TODAY = date.today()
+TODAY = business_today()
 ACTOR = ActorRef.legacy("hr-admin")
 YEAR = TODAY.year
 

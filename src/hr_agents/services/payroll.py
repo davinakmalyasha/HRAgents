@@ -44,6 +44,7 @@ from hr_agents.models import (
     RateTable,
     RateTableKind,
     Urgency,
+    business_today,
     utc_now,
 )
 from hr_agents.models.money import ZERO, add, money, percent_of, sub
@@ -1191,5 +1192,5 @@ class PayrollService:
 
 
 def current_period() -> tuple[int, int]:
-    today = date.today()
+    today = business_today()
     return today.year, today.month

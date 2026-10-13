@@ -22,6 +22,7 @@ from hr_agents.models import (
     LeaveType,
     LeaveTypePolicy,
     RequestStatus,
+    business_today,
     utc_now,
 )
 from hr_agents.services.approvals import ApprovalEngine, ApprovalError
@@ -259,8 +260,8 @@ class LeaveService:
         """
         employee = self._require_employee(employee_id)
         policy = self.get_policy(leave_type)
-        target_year = year or date.today().year
-        today = date.today()
+        target_year = year or business_today().year
+        today = business_today()
 
         as_of = (
             min(today, date(target_year, 12, 31))
@@ -309,7 +310,7 @@ class LeaveService:
         actor.require_human("adjusting a leave balance", LeaveError)
         self._require_employee(employee_id)
         self.get_policy(leave_type)
-        target_year = year or date.today().year
+        target_year = year or business_today().year
         self._save_adjustment(
             employee_id,
             leave_type,
@@ -587,7 +588,7 @@ class LeaveService:
 
     def on_leave(self, *, on_date: date | None = None) -> list[LeaveRequest]:
         """Who is on approved leave that day (calendar view)."""
-        target = on_date or date.today()
+        target = on_date or business_today()
         return [
             item
             for item in self._iter_requests()

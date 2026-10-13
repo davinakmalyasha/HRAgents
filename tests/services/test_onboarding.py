@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import uuid4
 
 import pytest
@@ -12,6 +12,7 @@ from hr_agents.models import (
     StepKind,
     StepStatus,
     TemplateStep,
+    business_today,
 )
 from hr_agents.services import (
     EmployeeService,
@@ -27,7 +28,7 @@ from hr_agents.services.onboarding import (
     template_hash,
 )
 
-TODAY = date.today()
+TODAY = business_today()
 
 
 @pytest.fixture

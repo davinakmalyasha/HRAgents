@@ -13,6 +13,7 @@ from hr_agents.models import (
     LeaveType,
     LeaveTypePolicy,
     RequestStatus,
+    business_today,
 )
 from hr_agents.rbac import RoleId
 from hr_agents.services import (
@@ -25,7 +26,7 @@ from hr_agents.services import (
 )
 from hr_agents.services.audit import AuditChain
 
-TODAY = date.today()
+TODAY = business_today()
 # Dynamic working-week anchor: the first Monday at least 30 days out.
 WORK_START = TODAY + timedelta(days=((7 - TODAY.weekday()) % 7 or 7) + 28)
 WORK_YEAR = WORK_START.year

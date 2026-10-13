@@ -16,6 +16,7 @@ from hr_agents.models import (
     RateEntry,
     RateTable,
     RateTableKind,
+    business_today,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -149,7 +150,7 @@ class RateTableService:
         effective. Ordering by name or by list position would silently pick an
         arbitrary table whenever an operator keeps more than one version.
         """
-        moment = as_of or date.today()
+        moment = as_of or business_today()
         candidates = [
             table
             for table in self._store.list_all()

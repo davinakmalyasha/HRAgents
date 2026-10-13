@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
 
 
 class ContractType(StrEnum):
@@ -80,7 +80,7 @@ class Contract(StrictModel):
 
     def months_of_service(self, *, as_of: date | None = None) -> int:
         """Completed months since the contract start."""
-        end = as_of or date.today()
+        end = as_of or business_today()
         anchor = min(end, self.end_date) if self.end_date is not None else end
         months = (anchor.year - self.start_date.year) * 12 + (anchor.month - self.start_date.month)
         if anchor.day < self.start_date.day:
@@ -90,7 +90,7 @@ class Contract(StrictModel):
     def days_until_expiry(self, *, as_of: date | None = None) -> int | None:
         if self.end_date is None:
             return None
-        return (self.end_date - (as_of or date.today())).days
+        return (self.end_date - (as_of or business_today())).days
 
     def expired(self, *, as_of: date | None = None) -> bool:
         days = self.days_until_expiry(as_of=as_of)

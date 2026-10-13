@@ -1,15 +1,16 @@
 """Integration tests for the payroll API surface."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 
 from hr_agents.identity import ActorRef
 from hr_agents.main import create_app
+from hr_agents.models import business_today
 from hr_agents.models.money import money as m
 
-TODAY = date.today()
+TODAY = business_today()
 YEAR = TODAY.year
 
 

@@ -17,6 +17,7 @@ from hr_agents.db import growth_tables as gt
 from hr_agents.db import offboarding_tables as ot
 from hr_agents.db import people_tables as pt
 from hr_agents.db.base import Base
+from hr_agents.models import business_today
 
 
 @pytest.fixture
@@ -76,7 +77,7 @@ async def test_employee_core_round_trip(factory: async_sessionmaker[AsyncSession
         id=uuid4(),
         employee_id=employee.id,
         contract_type="pkwt",
-        start_date=date.today(),
+        start_date=business_today(),
         status="active",
         compensation_due=True,
     )

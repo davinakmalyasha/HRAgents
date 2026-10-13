@@ -19,7 +19,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.approval import ApproverRole
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
 from hr_agents.models.employee import DocumentKind
 from hr_agents.models.onboarding import StepStatus
 
@@ -136,7 +136,7 @@ class OffboardingStepState(StrictModel):
             self.required
             and not self.complete
             and self.due_on is not None
-            and self.due_on < date.today()
+            and self.due_on < business_today()
         )
 
 

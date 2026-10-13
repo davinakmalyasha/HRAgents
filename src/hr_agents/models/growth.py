@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.approval import ApproverRole
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
 
 
 class ReviewCycleKind(StrEnum):
@@ -201,7 +201,7 @@ class Goal(StrictModel):
     def is_overdue(self, *, as_of: date | None = None) -> bool:
         if not self.open or self.due_on is None:
             return False
-        return self.due_on < (as_of or date.today())
+        return self.due_on < (as_of or business_today())
 
 
 class GrowthReminder(StrictModel):

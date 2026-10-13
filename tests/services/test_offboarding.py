@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -14,6 +14,7 @@ from hr_agents.models import (
     OffboardingTemplateStep,
     PayrollRunKind,
     StepStatus,
+    business_today,
 )
 from hr_agents.services import (
     ApprovalEngine,
@@ -32,7 +33,7 @@ from hr_agents.services import (
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.offboarding import default_offboarding_template, template_hash
 
-TODAY = date.today()
+TODAY = business_today()
 LAST_DAY = TODAY + timedelta(days=30)
 
 

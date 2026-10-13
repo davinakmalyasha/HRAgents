@@ -20,6 +20,7 @@ from hr_agents.models import (
     ContractType,
     TaskItem,
     TaskPriority,
+    business_today,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -88,7 +89,7 @@ class ContractService:
         updated = contract.model_copy(
             update={
                 "status": ContractStatus.ACTIVE,
-                "signed_on": signed_on or date.today(),
+                "signed_on": signed_on or business_today(),
                 "updated_at": utc_now(),
             }
         )
@@ -101,7 +102,7 @@ class ContractService:
     def refresh_status(self, contract_id: UUID, *, as_of: date | None = None) -> Contract:
         """Recompute status from dates. Idempotent; safe to run on a schedule."""
         contract = self._require(contract_id)
-        today = as_of or date.today()
+        today = as_of or business_today()
 
         if contract.status in {
             ContractStatus.TERMINATED,
@@ -169,7 +170,7 @@ class ContractService:
 
     def expiring(self, *, within_days: int | None = None) -> list[Contract]:
         window = self._warning_days if within_days is None else within_days
-        today = date.today()
+        today = business_today()
         result: list[Contract] = []
         for contract in self._store.list_all():
             days = contract.days_until_expiry(as_of=today)
@@ -181,7 +182,7 @@ class ContractService:
         """Create reminder tasks for expiring contracts (idempotent per contract)."""
         if self._tasks is None:
             raise ContractError("task engine is not configured")
-        today = as_of or date.today()
+        today = as_of or business_today()
         created: list[TaskItem] = []
 
         existing_pairs = {

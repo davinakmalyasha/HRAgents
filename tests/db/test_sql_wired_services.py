@@ -5,7 +5,6 @@ Verifies the composition root: containers built with ``session_factory``
 persist through the adapters and a fresh container reads the same state.
 """
 
-from datetime import date
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -21,6 +20,7 @@ from hr_agents.models import (
     ScoreVector,
     ScoringRun,
     TechnicalEvaluation,
+    business_today,
 )
 from hr_agents.services.ingestion import ApplicationStatus, SubmissionInput
 from hr_agents.services.people import PeopleServices
@@ -98,7 +98,7 @@ def test_people_services_wire_to_db(factory: sessionmaker[Session]) -> None:
         full_name="Sari Dewi",
         actor=ActorRef.legacy("hr-admin"),
         job_title="Finance Staff",
-        hire_date=date.today(),
+        hire_date=business_today(),
     )
 
     fresh = PeopleServices(audit=DbAuditChain(factory), session_factory=factory)

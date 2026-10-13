@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+import os
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
+from zoneinfo import ZoneInfo
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
@@ -20,6 +22,47 @@ class StrictModel(BaseModel):
 def utc_now() -> datetime:
     """Return the current time as a timezone-aware UTC datetime."""
     return datetime.now(UTC)
+
+
+TIMEZONE_ENV = "HRAGENTS_TIMEZONE"
+DEFAULT_TIMEZONE = "Asia/Jakarta"
+
+_timezone: ZoneInfo | None = None
+
+
+def business_timezone() -> ZoneInfo:
+    """The zone business dates are read in.
+
+    Read lazily from ``HRAGENTS_TIMEZONE`` so every entry point gets it -- the API,
+    the scheduler, the scripts -- without each one having to remember to configure
+    it. An install that never sets it behaves as an Indonesian one, which is who
+    the dated rules (THR, PPh 21 periods, leave years) were written for.
+    """
+    global _timezone
+    if _timezone is None:
+        _timezone = ZoneInfo(os.environ.get(TIMEZONE_ENV) or DEFAULT_TIMEZONE)
+    return _timezone
+
+
+def set_business_timezone(name: str | None) -> None:
+    """Pin the zone. Tests use it for determinism; nothing else needs to."""
+    global _timezone
+    _timezone = ZoneInfo(name or os.environ.get(TIMEZONE_ENV) or DEFAULT_TIMEZONE)
+
+
+def business_today(at: datetime | None = None) -> date:
+    """Today, in the business zone.
+
+    ``date.today()`` reads the *host's* calendar day, so on a UTC server every
+    business date is wrong for the seven hours after Jakarta has already rolled
+    over -- a leave request filed "today" lands yesterday, a probation that ends
+    "today" ends tomorrow, and a due-date sweep fires a day early or late.
+    ``at`` exists so the boundary can be tested without waiting for 17:00 UTC.
+    """
+    moment = at or utc_now()
+    if moment.tzinfo is None:
+        raise ValueError("business_today needs an aware datetime or nothing at all")
+    return moment.astimezone(business_timezone()).date()
 
 
 def _ensure_utc(value: datetime) -> datetime:

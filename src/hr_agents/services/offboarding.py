@@ -32,6 +32,7 @@ from hr_agents.models import (
     StepStatus,
     TaskPriority,
     TaskSource,
+    business_today,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -421,7 +422,7 @@ class OffboardingService:
         updated = asset.model_copy(
             update={
                 "status": AssetStatus.RETURNED,
-                "returned_on": returned_on or date.today(),
+                "returned_on": returned_on or business_today(),
                 "returned_by": actor.actor_id,
                 "note": note or asset.note,
                 "updated_at": utc_now(),

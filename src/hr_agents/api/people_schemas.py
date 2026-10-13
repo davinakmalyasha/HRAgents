@@ -29,6 +29,7 @@ from hr_agents.models import (
     TaskSource,
     TaskStatus,
     Urgency,
+    business_today,
 )
 
 # --- employees ---------------------------------------------------------------
@@ -109,7 +110,7 @@ class DocumentView(StrictModel):
         *,
         as_of: date | None = None,
     ) -> DocumentView:
-        today = as_of or date.today()
+        today = as_of or business_today()
         return cls(
             id=document.id,
             employee_id=document.employee_id,

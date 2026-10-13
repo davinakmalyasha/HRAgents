@@ -1,12 +1,13 @@
 """Integration tests for the onboarding API surface."""
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 from fastapi.testclient import TestClient
 
 from hr_agents.main import create_app
+from hr_agents.models import business_today
 
-TODAY = date.today()
+TODAY = business_today()
 
 
 def make_client() -> TestClient:

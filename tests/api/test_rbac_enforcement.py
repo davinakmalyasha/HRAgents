@@ -1,6 +1,5 @@
 """API-level RBAC: role-bound keys gate router access."""
 
-from datetime import date
 from uuid import uuid4
 
 import pytest
@@ -15,6 +14,7 @@ from tests.route_probe import (
 
 from hr_agents.config import ApiPrincipalSettings, Settings
 from hr_agents.main import create_app
+from hr_agents.models import business_today
 from hr_agents.rbac import Permission, Principal, RoleId, has_permission
 
 
@@ -32,7 +32,7 @@ def _settings() -> Settings:
 
 def _payroll_payload() -> dict:
     return {
-        "period_year": date.today().year,
+        "period_year": business_today().year,
         "period_month": 6,
     }
 

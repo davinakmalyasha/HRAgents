@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import ast
 import inspect
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
@@ -36,14 +36,20 @@ from tests.route_probe import write_routes
 from hr_agents.api.deps import ActorDep
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.main import create_app
-from hr_agents.models import ActorProvenance, ActorType, ApprovalSubject, ApproverRole
+from hr_agents.models import (
+    ActorProvenance,
+    ActorType,
+    ApprovalSubject,
+    ApproverRole,
+    business_today,
+)
 from hr_agents.rbac import RoleId
 from hr_agents.services import ApprovalEngine, ApprovalError
 from hr_agents.services.people_store import ApprovalStore
 
 SOURCE_ROOT = Path(__file__).resolve().parent.parent / "src"
 
-TODAY = date.today()
+TODAY = business_today()
 
 
 def test_an_http_write_records_an_authenticated_actor_with_its_role() -> None:

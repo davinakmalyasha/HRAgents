@@ -167,8 +167,12 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 - [x] **`Decimal` money with `ROUND_HALF_UP`**; the 173-hour divisor and 1.5×/2.0× overtime
       multipliers come from verified rate tables; progressive PPh 21 TER brackets; `absence_days`
       proration; and totals-equal-lines is an enforced invariant (commit `9cca50a`).
-- [ ] **Business dates in WIB**: `HRAGENTS_TIMEZONE` (default `Asia/Jakarta`) through the ~20 bare
-      `date.today()` calls. On a UTC host every business date is wrong for 17 hours a day.
+- [x] **Business dates in WIB**: `HRAGENTS_TIMEZONE` (default `Asia/Jakarta`) is read in one place
+      (`models/common.py`: `business_today`, `business_timezone`), and all 28 `date.today()` calls in `src/` now go
+      through it -- models, services and the API alike. Tests anchor to the same helper,
+      `Settings` refuses an unknown zone at startup, and a guard test fails if `date.today()`
+      comes back. The boundary is pinned by construction: 16:59 UTC is the 1st in Jakarta,
+      17:00 UTC is already the 2nd
 - [ ] **A unit of work with optimistic concurrency**: one transaction per service method, a
       `version` column, and a lost-update guard on the ~35 read-modify-write sites. Also what
       makes a mid-loop erasure failure detectable instead of silent.

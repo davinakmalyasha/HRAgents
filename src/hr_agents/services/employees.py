@@ -20,6 +20,7 @@ from hr_agents.models import (
     EmployeeStatus,
     OrgUnit,
     VerificationStatus,
+    business_today,
     utc_now,
 )
 from hr_agents.services.approvals import ApprovalEngine
@@ -66,9 +67,9 @@ class EmployeeService:
             raise EmployeeError("hire_date is required to create an employee")
 
         status = EmployeeStatus.ONBOARDING
-        if probation_end_date is not None and probation_end_date >= date.today():
+        if probation_end_date is not None and probation_end_date >= business_today():
             status = EmployeeStatus.PROBATION
-        elif probation_end_date is None and hire_date <= date.today():
+        elif probation_end_date is None and hire_date <= business_today():
             status = EmployeeStatus.ACTIVE
 
         employee = Employee(
@@ -191,7 +192,7 @@ class EmployeeService:
 
         updates: dict[str, object] = {"status": target, "updated_at": utc_now()}
         if target is EmployeeStatus.OFFBOARDED:
-            updates["offboarded_on"] = date.today()
+            updates["offboarded_on"] = business_today()
         updated = employee.model_copy(update=updates)
         self._store.save_employee(updated)
         self._record(
@@ -303,7 +304,7 @@ class EmployeeService:
         Soonest expiry first, so an expiry sweep and a human reviewing the vault
         read the same order.
         """
-        today = date.today()
+        today = business_today()
         documents = (
             self._store.list_documents(employee_id) if employee_id else self._store.all_documents()
         )
@@ -324,7 +325,7 @@ class EmployeeService:
         )
 
     def expiring_documents(self, *, within_days: int = 60) -> list[EmployeeDocument]:
-        today = date.today()
+        today = business_today()
         result: list[EmployeeDocument] = []
         for document in self._all_documents():
             if document.expires_on is None:

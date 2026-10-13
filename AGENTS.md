@@ -46,7 +46,8 @@ Design tokens are law: hex colors may only appear in `web/src/styles/theme.css`
 ## Test conventions
 
 - No network access; no real LLM calls (the offline `test` model exists for this).
-- No hardcoded dates — anchor to `date.today()`.
+- No hardcoded dates — anchor to `business_today()` (never `date.today()`: the host is UTC
+  while the business day is `HRAGENTS_TIMEZONE`, default `Asia/Jakarta`; a guard test enforces it).
 - In-memory stores and SQLite in tests; Postgres-only paths are covered by CI.
 - Negative tests first for approvals, gates, retention/purge, and overrides.
 

@@ -33,6 +33,7 @@ from hr_agents.models import (
     SubjectKind,
     TechnicalEvaluation,
     Urgency,
+    business_today,
 )
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionInput
 from hr_agents.services.people import PeopleServices
@@ -44,7 +45,7 @@ from hr_agents.services.scheduler import (
     format_report,
 )
 
-TODAY = date.today()
+TODAY = business_today()
 NOW = datetime.combine(TODAY, time(9, 0), tzinfo=UTC)
 FAR = NOW + timedelta(days=30)
 

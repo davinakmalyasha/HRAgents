@@ -20,6 +20,7 @@ from hr_agents.models import (
     TaskItem,
     TaskSource,
     UtcDateTime,
+    business_today,
     utc_now,
 )
 
@@ -87,7 +88,7 @@ def document_expiry_tasks(
     as_of: date | None = None,
 ) -> list[TaskItem]:
     """Create reminder tasks for expiring employee documents (once per document)."""
-    today = as_of or date.today()
+    today = as_of or business_today()
     existing = {(task.related_subject, task.related_id) for task in tasks.open_tasks()}
     created: list[TaskItem] = []
     for document in employees.expiring_documents(within_days=within_days):

@@ -23,6 +23,7 @@ from hr_agents.models import (
     ScoreVector,
     StrictModel,
     VerificationStatus,
+    business_today,
 )
 from hr_agents.services.dimensions import (
     CERT_COUNT_SATURATION,
@@ -310,7 +311,7 @@ def score_candidate(
     The rubric comes from ``job.job_family``. It defaults to engineering, so every job
     created before that field existed is scored exactly as it was.
     """
-    ref = reference_date or date.today()
+    ref = reference_date or business_today()
     weights = job.effective_weights()
     template = template_for(job.job_family)
 

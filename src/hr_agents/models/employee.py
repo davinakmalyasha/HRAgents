@@ -12,6 +12,7 @@ from hr_agents.models.common import (
     StrictModel,
     UtcDateTime,
     VerificationStatus,
+    business_today,
     utc_now,
 )
 
@@ -77,7 +78,7 @@ class EmployeeDocument(StrictModel):
 
     @property
     def expired(self) -> bool:
-        return self.expires_on is not None and self.expires_on < date.today()
+        return self.expires_on is not None and self.expires_on < business_today()
 
 
 class EmergencyContact(StrictModel):

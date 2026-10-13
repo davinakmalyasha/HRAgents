@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -16,6 +16,7 @@ from hr_agents.models import (
     ReviewCycleStatus,
     SummaryStatus,
     TaskSource,
+    business_today,
 )
 from hr_agents.rbac import RoleId
 from hr_agents.services import (
@@ -30,7 +31,7 @@ from hr_agents.services import (
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
 
-TODAY = date.today()
+TODAY = business_today()
 
 
 @pytest.fixture
