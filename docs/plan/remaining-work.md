@@ -181,11 +181,14 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       read, and the refusal leaves as a 409 `stale_write` through a global DomainError
       handler so no router has to learn about it. Two writers who both read and both save now
       get a conflict instead of the second silently winning. The custom adapters share the
-      same check through `db.mapping.check_version`; onboarding is converted (two people
-      holding one checklist: the older copy is refused instead of silently un-completing the
-      other's step). **Remaining:** leave, payroll, application, offers, recruiting and
-      workspace/chat need the same check, and "one transaction per service method" -- what
-      would make a mid-loop erasure failure atomic rather than half-finished -- is still open.
+      same check through `db.mapping.check_version`; onboarding (checklists) and leave
+      (requests, and policies whose JSON blob carries its version in the column beside it)
+      are converted. **Remaining:** payroll, application, offers, recruiting and
+      workspace/chat need the same check; leave balance adjustments and the holiday
+      calendar are set-whole values with no model to carry a version, so they keep
+      last-write-wins and are noted rather than silently claimed. The "one transaction per
+      service method" half -- what would make a mid-loop erasure atomic rather than
+      half-finished -- is still open.
 - [ ] **Schema integrity**: `CHECK` constraints on the enum-like and numeric columns, foreign keys
       on the 8 orphan tables, and `ORDER BY` in the DB adapters instead of 12 Python re-sorts.
 - [~] **Real purge handlers and a fed retention ledger.** Four entities are done and

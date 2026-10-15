@@ -20,6 +20,7 @@ from hr_agents.db.leave_tables import (
     LeavePolicyRecord,
     LeaveRequestRecord,
 )
+from hr_agents.db.mapping import check_version
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models.common import utc_now
 from hr_agents.models.leave import LeaveType, LeaveTypePolicy, RequestStatus
@@ -29,6 +30,16 @@ from hr_agents.services.leave import LeaveRequest, LeaveService
 def _aware(moment: datetime) -> datetime:
     """Stamp a naive datetime as UTC; SQLite drops the tzinfo SQLite has no zone."""
     return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
+
+
+def _policy_from_row(row: LeavePolicyRecord) -> LeaveTypePolicy:
+    """The stored policy with its row version merged in.
+
+    The JSON column holds the policy itself and the version lives beside it in the
+    column every table has, so the model is assembled from both rather than
+    carrying a copy of the version inside the blob.
+    """
+    return LeaveTypePolicy.model_validate({**row.policy, "version": row.version})
 
 
 class DbLeaveService(LeaveService):
@@ -71,6 +82,7 @@ class DbLeaveService(LeaveService):
             if existing is None:
                 session.add(LeaveRequestRecord(id=request.id, **values))
             else:
+                check_version(existing, request)
                 for column, value in values.items():
                     setattr(existing, column, value)
 
@@ -89,6 +101,7 @@ class DbLeaveService(LeaveService):
             approval_id=row.approval_id,
             created_at=_aware(row.created_at),
             updated_at=_aware(row.updated_at),
+            version=row.version,
         )
 
     # --- policies --------------------------------------------------------
@@ -98,12 +111,12 @@ class DbLeaveService(LeaveService):
             row = session.execute(
                 select(LeavePolicyRecord).where(LeavePolicyRecord.leave_type == leave_type.value)
             ).scalar_one_or_none()
-            return None if row is None else LeaveTypePolicy.model_validate(row.policy)
+            return None if row is None else _policy_from_row(row)
 
     def _iter_policies(self) -> Iterator[LeaveTypePolicy]:
         with sync_session_scope(self._session_factory) as session:
             rows = session.execute(select(LeavePolicyRecord)).scalars().all()
-            return iter([LeaveTypePolicy.model_validate(row.policy) for row in rows])
+            return iter([_policy_from_row(row) for row in rows])
 
     def _save_policy(self, policy: LeaveTypePolicy) -> None:
         with sync_session_scope(self._session_factory) as session:
@@ -122,6 +135,7 @@ class DbLeaveService(LeaveService):
                     )
                 )
             else:
+                check_version(existing, policy)
                 existing.policy = payload
                 existing.updated_at = utc_now()
 

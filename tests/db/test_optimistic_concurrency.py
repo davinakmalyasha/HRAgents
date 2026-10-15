@@ -12,17 +12,24 @@ from datetime import timedelta
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
+from tests.actors import hr_admin
 
 from hr_agents.api.problem import domain_problem
+from hr_agents.db.leave import DbLeaveService
 from hr_agents.db.onboarding import DbOnboardingService
 from hr_agents.db.people import DbEmployeeStore
 from hr_agents.errors import StaleRecordError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
+    AccrualMethod,
+    ApproverRole,
     ContractType,
     DocumentKind,
     Employee,
+    LeaveType,
+    LeaveTypePolicy,
     OnboardingPlan,
+    RequestStatus,
     StepKind,
     TemplateStep,
     business_today,
@@ -263,3 +270,77 @@ def test_a_template_edit_from_a_stale_copy_is_refused(
         service._save_template(held.model_copy(update={"name": "Renamed by the loser"}))
 
     assert service.get_template(template.id).name == "Renamed by the first writer"
+
+
+# --- the adapter rollout: leave --------------------------------------------------
+
+
+def leave_service(factory: sessionmaker[Session]) -> DbLeaveService:
+    audit = AuditChain()
+    approvals = ApprovalEngine(ApprovalStore(), audit=audit)
+    employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
+    return DbLeaveService(factory, employees=employees, approvals=approvals, audit=audit)
+
+
+def test_two_decisions_on_one_leave_request_lose_neither(
+    factory: sessionmaker[Session],
+) -> None:
+    """HR reads a pending request, the employee cancels it, HR decides anyway.
+
+    Without the guard the decision overwrote the cancellation and the request
+    looked pending again -- time off nobody planned around, with no record of who
+    undid the withdrawal.
+    """
+    service = leave_service(factory)
+    # Filing or cancelling somebody else's leave keys on `people:write`, so the
+    # actor has to be the role the auth layer could have produced.
+    admin = hr_admin()
+    employee = service._employees.create(
+        full_name="Sari Dewi", actor=admin, hire_date=TODAY - timedelta(days=400)
+    )
+    service.set_policy(policy_annual(), actor=admin)
+    request = service.request(
+        employee_id=employee.id,
+        leave_type=LeaveType.ANNUAL,
+        start_date=TODAY + timedelta(days=30),
+        end_date=TODAY + timedelta(days=32),
+        actor=admin,
+    )
+    held = service.get_request(request.id)  # HR's copy, read before the cancel
+
+    service.cancel(request.id, actor=admin, reason="Trip moved")
+
+    held = held.model_copy(update={"status": RequestStatus.APPROVED})
+    with pytest.raises(StaleRecordError, match="changed after this copy was read"):
+        service._save_request(held)
+
+    survivor = service.get_request(request.id)
+    assert survivor.status is RequestStatus.CANCELLED
+
+
+def test_a_policy_edit_from_a_stale_copy_is_refused(factory: sessionmaker[Session]) -> None:
+    """Policies are stored as a JSON blob; the version lives in the column beside
+    it, so a stale copy is still caught."""
+    service = leave_service(factory)
+    admin = hr_admin()
+    service.set_policy(policy_annual(), actor=admin)
+    held = service.get_policy(LeaveType.ANNUAL)
+
+    service.set_policy(policy_annual().model_copy(update={"days_per_year": 15.0}), actor=admin)
+
+    with pytest.raises(StaleRecordError):
+        service._save_policy(held.model_copy(update={"days_per_year": 21.0}))
+
+    current = service.get_policy(LeaveType.ANNUAL)
+    assert current.days_per_year == 15.0
+
+
+def policy_annual() -> LeaveTypePolicy:
+    return LeaveTypePolicy(
+        leave_type=LeaveType.ANNUAL,
+        name="Annual leave",
+        paid=True,
+        approver_role=ApproverRole.MANAGER,
+        accrual_method=AccrualMethod.LUMP_SUM_ANNUAL,
+        days_per_year=12.0,
+    )

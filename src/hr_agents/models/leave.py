@@ -15,7 +15,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.approval import ApproverRole
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, utc_now
 
 
 class LeaveType(StrEnum):
@@ -47,7 +47,7 @@ class RequestStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-class LeaveTypePolicy(StrictModel):
+class LeaveTypePolicy(Versioned):
     """Operator-configurable policy for one leave type."""
 
     leave_type: LeaveType
@@ -120,7 +120,7 @@ class LeaveBalance(StrictModel):
         return round(max(self.entitled + self.carried_over + self.adjustment - self.used, 0.0), 4)
 
 
-class LeaveRequest(StrictModel):
+class LeaveRequest(Versioned):
     """One leave request. Routes to an approval; only humans decide."""
 
     id: UUID = Field(default_factory=uuid4)
