@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, utc_now
 from hr_agents.models.money import Money
 
 
@@ -72,7 +72,7 @@ class RateEntry(StrictModel):
         return key is None or self.key == key
 
 
-class RateTable(StrictModel):
+class RateTable(Versioned):
     """A versioned, verifiable set of statutory rates."""
 
     id: UUID = Field(default_factory=uuid4)

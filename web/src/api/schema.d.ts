@@ -5044,7 +5044,7 @@ export interface components {
          * @description Machine-readable error kinds. Switch on this rather than on the prose in `title`, which may be reworded.
          * @enum {string}
          */
-        ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
+        ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
         /**
          * ProblemDetail
          * @description The response body. Documents the contract in the OpenAPI document.
@@ -5100,7 +5100,7 @@ export interface components {
                  *     so add a new one instead, and keep the retired value reserved.
                  * @enum {string}
                  */
-                ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
+                ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
             };
         };
         /**

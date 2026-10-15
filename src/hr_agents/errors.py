@@ -40,6 +40,7 @@ class DomainCode(StrEnum):
     RATE_TABLE_UNUSABLE = "rate_table_unusable"
     BLOCKING_ANOMALIES = "blocking_anomalies"
     APPROVAL_ALREADY_DECIDED = "approval_already_decided"
+    STALE_WRITE = "stale_write"
 
 
 class DomainError(Exception):
@@ -65,3 +66,15 @@ class DomainError(Exception):
             self.code = code
         if status is not None:
             self.status = status
+
+
+class StaleRecordError(DomainError, RuntimeError):
+    """The row changed since the caller read it.
+
+    Raised by the persistence guard, not by a service: the caller held a versioned
+    snapshot, another writer saved first, and overwriting would silently discard
+    that change. A conflict is the honest outcome -- the caller reloads and
+    decides again with the current state in front of them.
+    """
+
+    code: DomainCode = DomainCode.STALE_WRITE

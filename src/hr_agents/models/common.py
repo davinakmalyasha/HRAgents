@@ -19,6 +19,18 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
 
+class Versioned(StrictModel):
+    """A model whose row is versioned for optimistic concurrency.
+
+    `save_model` compares this against the stored row and refuses to overwrite a
+    newer state, so two writers that read the same record cannot silently lose one
+    another's change. It is excluded from serialization: it is persistence
+    bookkeeping, and API views are built from `model_dump()`.
+    """
+
+    version: int = Field(default=0, ge=0, exclude=True)
+
+
 def utc_now() -> datetime:
     """Return the current time as a timezone-aware UTC datetime."""
     return datetime.now(UTC)

@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import UtcDateTime, Versioned, utc_now
 
 
 class ApprovalSubject(StrEnum):
@@ -80,7 +80,7 @@ TERMINAL_STATUSES = frozenset(
 )
 
 
-class ApprovalRequest(StrictModel):
+class ApprovalRequest(Versioned):
     """One human decision waiting in a queue."""
 
     id: UUID = Field(default_factory=uuid4)

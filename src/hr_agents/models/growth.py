@@ -21,7 +21,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.approval import ApproverRole
-from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, business_today, utc_now
 
 
 class ReviewCycleKind(StrEnum):
@@ -69,7 +69,7 @@ class GoalStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
-class ReviewCycle(StrictModel):
+class ReviewCycle(Versioned):
     """One review round with an operator-set rating scale."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -100,7 +100,7 @@ class ReviewCycle(StrictModel):
         return target in CYCLE_TRANSITIONS[self.status]
 
 
-class ReviewAssignment(StrictModel):
+class ReviewAssignment(Versioned):
     """One reviewer's form for one employee in a cycle."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -136,7 +136,7 @@ class ReviewAssignment(StrictModel):
         return self.status is not AssignmentStatus.PENDING
 
 
-class ReviewSummary(StrictModel):
+class ReviewSummary(Versioned):
     """Per-employee summary: agent draft → human final text."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -173,7 +173,7 @@ class GoalUpdate(StrictModel):
     at: UtcDateTime = Field(default_factory=utc_now)
 
 
-class Goal(StrictModel):
+class Goal(Versioned):
     """A light OKR-style goal with a progress log."""
 
     id: UUID = Field(default_factory=uuid4)

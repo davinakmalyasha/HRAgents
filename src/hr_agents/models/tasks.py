@@ -14,7 +14,7 @@ from uuid import UUID, uuid4
 from pydantic import Field
 
 from hr_agents.models.approval import ApproverRole
-from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
+from hr_agents.models.common import UtcDateTime, Versioned, business_today, utc_now
 
 
 class TaskStatus(StrEnum):
@@ -40,7 +40,7 @@ class TaskPriority(StrEnum):
     HIGH = "high"
 
 
-class TaskItem(StrictModel):
+class TaskItem(Versioned):
     """One unit of work assigned to a human role."""
 
     id: UUID = Field(default_factory=uuid4)

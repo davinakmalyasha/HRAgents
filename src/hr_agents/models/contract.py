@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
+from hr_agents.models.common import UtcDateTime, Versioned, business_today, utc_now
 
 
 class ContractType(StrEnum):
@@ -37,7 +37,7 @@ PROBATION_MAX_MONTHS = 3
 PROBATION_ALLOWED_TYPES = frozenset({ContractType.PKWTT})
 
 
-class Contract(StrictModel):
+class Contract(Versioned):
     """One employment contract for one employee."""
 
     id: UUID = Field(default_factory=uuid4)

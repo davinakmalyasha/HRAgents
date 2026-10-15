@@ -94,6 +94,7 @@ class ProblemCode(StrEnum):
     nothing at all for anything else.
     """
     STATE_CONFLICT = "state_conflict"
+    STALE_WRITE = "stale_write"
     """The record exists but is not in a state that allows this."""
     INSUFFICIENT_BALANCE = "insufficient_balance"
     TEMPLATE_UNAVAILABLE = "template_unavailable"
@@ -213,6 +214,7 @@ def unprocessable(detail: str, *, code: ProblemCode = ProblemCode.REASON_REQUIRE
 #: own words and never learns what HTTP is.
 _DOMAIN_CODE_TO_PROBLEM: dict[DomainCode, ProblemCode] = {
     DomainCode.STATE_CONFLICT: ProblemCode.STATE_CONFLICT,
+    DomainCode.STALE_WRITE: ProblemCode.STALE_WRITE,
     DomainCode.UNKNOWN_RECORD: ProblemCode.UNKNOWN_RECORD,
     DomainCode.VALIDATION_FAILED: ProblemCode.VALIDATION_FAILED,
     DomainCode.NAMED_HUMAN_REQUIRED: ProblemCode.NAMED_HUMAN_REQUIRED,

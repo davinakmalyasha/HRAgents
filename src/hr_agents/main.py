@@ -25,6 +25,7 @@ from hr_agents.api.problem import (
     PROBLEM_MEDIA_TYPE,
     ProblemCode,
     ProblemDetail,
+    domain_problem,
     problem_uri,
 )
 from hr_agents.api.routers import (
@@ -54,6 +55,7 @@ from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
 from hr_agents.db.messaging import candidate_directory, reply_store
 from hr_agents.db.workspace import DbConversationStore, DbWorkspaceRequestStore
+from hr_agents.errors import DomainError
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
 from hr_agents.models import ApproverRole
@@ -218,6 +220,19 @@ def _validation_problem_response(request: Request, exc: RequestValidationError) 
     )
 
 
+def _domain_problem_response(request: Request, exc: Exception) -> JSONResponse:
+    """A domain refusal that reached the edge without a router mapping it.
+
+    Routers map the errors they know. This is the floor beneath them: a refusal
+    raised deep inside a service or a store save -- a stale write, say -- still
+    leaves as the problem document its own code and status describe, instead of a
+    500 that says nothing about what actually happened.
+    """
+    assert isinstance(exc, DomainError)
+    problem = domain_problem(exc)
+    return _problem_response(request, problem)
+
+
 def _web_dist_path() -> Path | None:
     """The built dashboard directory, or ``None`` when the app was not built."""
     configured = os.environ.get("HRAGENTS_WEB_DIST")
@@ -331,6 +346,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
 
     app.add_exception_handler(HTTPException, _problem_response)  # type: ignore[arg-type]
+    # Domain refusals reach a router that knows their class and maps them itself;
+    # one that bubbles past every handler -- a stale write from deep inside a store
+    # save, for instance -- still leaves as the problem document its code describes
+    # rather than as a 500.
+    app.add_exception_handler(DomainError, _domain_problem_response)
     app.add_exception_handler(
         RequestValidationError,
         _validation_problem_response,  # type: ignore[arg-type]

@@ -173,9 +173,17 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       `Settings` refuses an unknown zone at startup, and a guard test fails if `date.today()`
       comes back. The boundary is pinned by construction: 16:59 UTC is the 1st in Jakarta,
       17:00 UTC is already the 2nd
-- [ ] **A unit of work with optimistic concurrency**: one transaction per service method, a
-      `version` column, and a lost-update guard on the ~35 read-modify-write sites. Also what
-      makes a mid-loop erasure failure detectable instead of silent.
+- [~] **A unit of work with optimistic concurrency.** The lost-update guard ships for the
+      mapper-backed stores (employees, documents, contracts, approvals, tasks, rate tables,
+      consent/retention/erasure/breach, review cycles/assignments/summaries, goals, and the
+      offboarding tables): every tenant table carries a `version` column (migration
+      `0020`), `save_model` refuses to overwrite a row that moved since the copy was
+      read, and the refusal leaves as a 409 `stale_write` through a global DomainError
+      handler so no router has to learn about it. Two writers who both read and both save now
+      get a conflict instead of the second silently winning. **Remaining:** the custom
+      persists (onboarding, leave, payroll, application, offers, recruiting, workspace/chat)
+      need the same check, and "one transaction per service method" -- what would make a
+      mid-loop erasure failure atomic rather than half-finished -- is still open.
 - [ ] **Schema integrity**: `CHECK` constraints on the enum-like and numeric columns, foreign keys
       on the 8 orphan tables, and `ORDER BY` in the DB adapters instead of 12 Python re-sorts.
 - [~] **Real purge handlers and a fed retention ledger.** Four entities are done and

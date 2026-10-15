@@ -12,6 +12,7 @@ from hr_agents.models.common import (
     StrictModel,
     UtcDateTime,
     VerificationStatus,
+    Versioned,
     business_today,
     utc_now,
 )
@@ -57,7 +58,7 @@ class DocumentKind(StrEnum):
     OTHER = "other"
 
 
-class OrgUnit(StrictModel):
+class OrgUnit(Versioned):
     """A department/team node in the organization."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -67,7 +68,7 @@ class OrgUnit(StrictModel):
     created_at: UtcDateTime = Field(default_factory=utc_now)
 
 
-class EmployeeDocument(StrictModel):
+class EmployeeDocument(Versioned):
     """A stored employee document with expiry and verification state."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -92,7 +93,7 @@ class EmergencyContact(StrictModel):
     phone: str | None = Field(default=None, max_length=32)
 
 
-class Employee(StrictModel):
+class Employee(Versioned):
     """An employee record. Personal data is minimized to what HR operations need."""
 
     id: UUID = Field(default_factory=uuid4)

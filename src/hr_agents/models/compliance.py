@@ -19,7 +19,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, utc_now
 
 
 class SubjectKind(StrEnum):
@@ -41,7 +41,7 @@ class LawfulBasis(StrEnum):
     LEGITIMATE_INTEREST = "legitimate_interest"
 
 
-class ConsentGrant(StrictModel):
+class ConsentGrant(Versioned):
     """One consent-registry entry: evidence of a grant, refusal, or revocation.
 
     ``purpose`` is operator-defined and intentionally free-form (e.g.
@@ -95,7 +95,7 @@ class PurgeAction(StrEnum):
     ANONYMIZE = "anonymize"
 
 
-class RetentionPolicy(StrictModel):
+class RetentionPolicy(Versioned):
     """Operator-owned retention rule for one entity kind. No default legal value."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -115,7 +115,7 @@ class RetentionPolicy(StrictModel):
     note: str | None = Field(default=None, max_length=1000)
 
 
-class RetentionRecord(StrictModel):
+class RetentionRecord(Versioned):
     """One tracked record awaiting (or past) its retention expiry.
 
     The compliance ledger is the source of truth for what happened: a record
@@ -270,7 +270,7 @@ class ErasureDisposition(StrictModel):
     detail: str = Field(default="", max_length=1000)
 
 
-class ErasureRequest(StrictModel):
+class ErasureRequest(Versioned):
     """A data-subject erasure request and its human decision trail."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -383,7 +383,7 @@ class BreachNotification(StrictModel):
     note: str | None = Field(default=None, max_length=1000)
 
 
-class BreachIncident(StrictModel):
+class BreachIncident(Versioned):
     """A personal-data breach with its checklist and notification log."""
 
     id: UUID = Field(default_factory=uuid4)

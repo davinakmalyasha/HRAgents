@@ -17,6 +17,7 @@ from sqlalchemy.orm import DeclarativeBase as OrmBase
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.session import sync_session_scope
+from hr_agents.errors import StaleRecordError
 
 
 def _db_value(value: Any) -> Any:
@@ -64,12 +65,43 @@ def add_model(factory: sessionmaker[Session], model: BaseModel, record_cls: type
 
 
 def save_model(factory: sessionmaker[Session], model: BaseModel, record_cls: type[OrmBase]) -> None:
+    """Write a model back, refusing to overwrite a row that moved underneath it.
+
+    The version check is what turns a lost update into a conflict: the model
+    carries the version it was read at, the row carries the current one, and a
+    mismatch means somebody else saved in between. Silently writing would discard
+    their change -- and on a step completion or a mid-loop erasure, nobody would
+    ever find out.
+
+    Models without a `version` field (the not-yet-versioned adapters) save as
+    before: this guards what is versioned rather than pretending to guard the rest.
+    """
     pk = getattr(model, "id", None)
     with sync_session_scope(factory) as session:
         row = session.get(record_cls, pk)
         if row is None:
             raise KeyError(f"unknown {record_cls.__tablename__} {pk}")
+        expected = getattr(model, "version", None)
+        if expected is not None:
+            # `version` lives on the tenant mixin, which the declarative base does
+            # not declare; these typed aliases keep the attribute access checked
+            # without annotating the generic layer with a column every table has.
+            versioned_row: Any = row
+            versioned_model: Any = model
+            stored = int(versioned_row.version)
+            if stored != expected:
+                raise StaleRecordError(
+                    f"{record_cls.__tablename__} {pk} changed after this copy was read "
+                    f"(stored version {stored}, this copy holds {expected}); reload and "
+                    "decide again"
+                )
+            versioned_row.version = stored + 1
+            # Keep the caller's instance current so a second save in the same unit
+            # of work compares against what it just wrote.
+            versioned_model.version = stored + 1
         for name, value in _row_values(model, record_cls).items():
+            if name == "version":
+                continue
             setattr(row, name, value)
         session.flush()
 

@@ -19,7 +19,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.approval import ApproverRole
-from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, business_today, utc_now
 from hr_agents.models.employee import DocumentKind
 from hr_agents.models.onboarding import StepStatus
 
@@ -72,7 +72,7 @@ class OffboardingTemplateStep(StrictModel):
         return self
 
 
-class OffboardingTemplate(StrictModel):
+class OffboardingTemplate(Versioned):
     """A reusable exit checklist (e.g., 'Resignation — standard')."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -149,7 +149,7 @@ class HandoverNote(StrictModel):
     created_at: UtcDateTime = Field(default_factory=utc_now)
 
 
-class OffboardingPlan(StrictModel):
+class OffboardingPlan(Versioned):
     """An exit checklist instance for one employee."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -195,7 +195,7 @@ class AssetStatus(StrEnum):
     WRITTEN_OFF = "written_off"
 
 
-class OffboardingAsset(StrictModel):
+class OffboardingAsset(Versioned):
     """A company asset tracked for return during offboarding."""
 
     id: UUID = Field(default_factory=uuid4)

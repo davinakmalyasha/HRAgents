@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import Index, Table, Uuid, event, text
+from sqlalchemy import Index, Integer, Table, Uuid, event, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Mapper, mapped_column
 
 from hr_agents.tenancy import DEFAULT_TENANT_ID
@@ -43,6 +43,18 @@ class TenantScoped:
         nullable=False,
         default=DEFAULT_TENANT_ID,
         server_default=_TENANT_SERVER_DEFAULT,
+    )
+
+    version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        doc=(
+            "Optimistic-concurrency token. `save_model` refuses to overwrite a row "
+            "whose version moved since the caller read it, so a lost update is a "
+            "conflict rather than a silent overwrite."
+        ),
     )
 
 
