@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.people_schemas import (
     ApprovalCreate,
     ApprovalDecisionRequest,
@@ -37,6 +37,7 @@ from hr_agents.api.people_schemas import (
     TaskView,
 )
 from hr_agents.api.problem import conflict, domain_problem, not_found
+from hr_agents.api.schemas import Page
 from hr_agents.models import (
     ApprovalStatus,
     ApproverRole,
@@ -119,15 +120,21 @@ def create_employee(payload: EmployeeCreate, people: PeopleDep, actor: ActorDep)
     return EmployeeView.from_model(employee)
 
 
-@employees_router.get("", response_model=list[EmployeeView])
+@employees_router.get("", response_model=Page[EmployeeView])
 def list_employees(
     people: PeopleDep,
+    paging: PaginationDep,
     employee_status: Annotated[EmployeeStatus | None, Query(alias="status")] = None,
-) -> list[EmployeeView]:
-    return [
-        EmployeeView.from_model(employee)
-        for employee in people.employees.list_employees(status=employee_status)
-    ]
+) -> Page[EmployeeView]:
+    employees, total = people.employees.page_employees(
+        limit=paging.limit, offset=paging.offset, status=employee_status
+    )
+    return Page.of(
+        [EmployeeView.from_model(employee) for employee in employees],
+        total=total,
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @employees_router.get("/{employee_id}", response_model=EmployeeView)

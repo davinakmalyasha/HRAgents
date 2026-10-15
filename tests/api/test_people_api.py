@@ -48,8 +48,46 @@ def test_list_employees_filtered_by_status() -> None:
         response = client.get("/v1/employees", params={"status": "onboarding"})
 
     assert response.status_code == 200
-    names = [item["full_name"] for item in response.json()]
+    body = response.json()
+    names = [item["full_name"] for item in body["items"]]
     assert names == ["Future One"]
+    assert body["total"] == 1
+
+
+def test_list_employees_pages_with_limit_and_offset() -> None:
+    with make_client() as client:
+        for name in ("Ana", "Budi", "Citra"):
+            create_employee(client, full_name=name)
+
+        first = client.get("/v1/employees", params={"limit": 2, "offset": 0})
+        second = client.get("/v1/employees", params={"limit": 2, "offset": 2})
+        beyond = client.get("/v1/employees", params={"limit": 2, "offset": 10})
+
+    assert first.status_code == 200
+    first_body = first.json()
+    assert first_body["total"] == 3
+    assert first_body["limit"] == 2
+    assert first_body["offset"] == 0
+    assert [item["full_name"] for item in first_body["items"]] == ["Ana", "Budi"]
+
+    second_body = second.json()
+    assert [item["full_name"] for item in second_body["items"]] == ["Citra"]
+    assert second_body["total"] == 3
+
+    beyond_body = beyond.json()
+    assert beyond_body["items"] == []
+    assert beyond_body["total"] == 3
+
+
+def test_list_employees_rejects_invalid_pagination() -> None:
+    with make_client() as client:
+        too_small = client.get("/v1/employees", params={"limit": 0})
+        too_big = client.get("/v1/employees", params={"limit": 201})
+        negative = client.get("/v1/employees", params={"offset": -1})
+
+    assert too_small.status_code == 422
+    assert too_big.status_code == 422
+    assert negative.status_code == 422
 
 
 def test_employee_lifecycle_transition() -> None:

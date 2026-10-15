@@ -119,6 +119,49 @@ def test_employee_store_vault_reads_the_database_soonest_expiry_first(
     assert fresh.list_documents(uuid4()) == []
 
 
+def test_employee_store_paged_read_orders_and_counts_in_one_read(
+    factory: sessionmaker[Session],
+) -> None:
+    """``page_employees`` slices, orders and counts where the rows live.
+
+    SQLite exercises the same SQL path the Postgres CI job runs: WHERE for the
+    status filter, ORDER BY (lower(name), id) and OFFSET/LIMIT, plus the count
+    over the same predicate.
+    """
+    store = DbEmployeeStore(factory)
+    for name in ("Citra", "Ana", "Budi"):
+        _add_employee(store, name=name)
+    _add_employee(store, name="Ana")
+
+    fresh = DbEmployeeStore(factory)
+    page, total = fresh.page_employees(limit=2, offset=1)
+    assert total == 4
+    assert [item.full_name for item in page] == ["Ana", "Budi"]
+
+    page_two, total_two = fresh.page_employees(limit=10, offset=2)
+    assert total_two == 4
+    assert [item.full_name for item in page_two] == ["Budi", "Citra"]
+
+    assert [item.full_name for item in fresh.page_employees(limit=10, offset=0)[0]] == [
+        "Ana",
+        "Ana",
+        "Budi",
+        "Citra",
+    ]
+
+    probation, probation_total = fresh.page_employees(
+        limit=10, offset=0, status=EmployeeStatus.PROBATION
+    )
+    assert probation == []
+    assert probation_total == 0
+
+    everything, everything_total = fresh.page_employees(
+        limit=10, offset=0, status=EmployeeStatus.ACTIVE
+    )
+    assert everything_total == 4
+    assert len(everything) == 4
+
+
 def test_contract_store_round_trip(factory: sessionmaker[Session]) -> None:
     employees = DbEmployeeStore(factory)
     employee = _add_employee(employees)

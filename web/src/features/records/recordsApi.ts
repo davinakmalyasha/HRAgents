@@ -1,4 +1,5 @@
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 import type { components } from '@/api/schema'
 
 import type { RecordsContract, RecordsDocument, RecordsEmployee, RecordsOrgUnit } from './records'
@@ -25,10 +26,12 @@ export async function createOrgUnit(body: OrgUnitCreate): Promise<RecordsOrgUnit
 }
 
 export async function listEmployees(status?: EmployeeStatus): Promise<RecordsEmployee[]> {
-  const { data } = await api.GET('/v1/employees', {
-    params: { query: status === undefined ? {} : { status } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/employees', {
+      params: { query: { status, limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function createEmployee(body: EmployeeCreate): Promise<RecordsEmployee | null> {

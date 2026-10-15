@@ -154,3 +154,33 @@ class ApplicationSummary(StrictModel):
             s_tech=record.s_tech,
             hours_waiting=round(hours, 4),
         )
+
+
+class Page[T](StrictModel):
+    """One slice of a list endpoint, with enough context to fetch the rest.
+
+    ``total`` counts the filtered collection before slicing, so a client can
+    render "24 of 137" and compute the next offset without another endpoint.
+    Ordering is defined per endpoint and stable; an offset past the end
+    returns empty ``items`` with ``total`` unchanged.
+    """
+
+    items: list[T]
+    total: int = Field(ge=0)
+    limit: int = Field(ge=1)
+    offset: int = Field(ge=0)
+
+    @classmethod
+    def of(cls, items: list[T], *, total: int, limit: int, offset: int) -> Page[T]:
+        """Wrap items the store already paged (and counted) in one read."""
+        return cls(items=items, total=total, limit=limit, offset=offset)
+
+    @classmethod
+    def slice(cls, items: list[T], *, limit: int, offset: int) -> Page[T]:
+        """Page a fully-filtered in-memory collection at the route."""
+        return cls(
+            items=items[offset : offset + limit],
+            total=len(items),
+            limit=limit,
+            offset=offset,
+        )

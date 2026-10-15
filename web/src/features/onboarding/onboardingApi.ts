@@ -1,4 +1,5 @@
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 import type { components } from '@/api/schema'
 
 import type {
@@ -103,15 +104,21 @@ export async function documentStatus(planId: string): Promise<Record<string, str
 }
 
 export async function listEmployees(status?: string): Promise<EmployeeView[]> {
-  const { data } = await api.GET('/v1/employees', {
-    params: {
-      query:
-        status === undefined
-          ? {}
-          : { status: status as 'active' | 'probation' | 'notice_period' | 'offboarded' },
-    },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/employees', {
+      params: {
+        query: {
+          status:
+            status === undefined
+              ? undefined
+              : (status as 'active' | 'probation' | 'notice_period' | 'offboarded'),
+          limit,
+          offset,
+        },
+      },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function createEmployee(body: EmployeeCreate): Promise<EmployeeView | null> {

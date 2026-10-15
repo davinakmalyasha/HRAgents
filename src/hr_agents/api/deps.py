@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Query, Request, status
 
 from hr_agents.api.auth import (
     current_actor,
@@ -26,8 +27,32 @@ ActorDep = Annotated[ActorRef, Depends(current_actor)]
 
 Authorization stays declarative: the route already declares its permission via
 ``dependencies=[Depends(require_permission(...))]``, so this only answers *who*.
-Splitting the two keeps the gate visible where a reviewer looks for it, instead
-of hiding it inside the parameter that happens to carry the name.
+Splitting the two keeps the gate visible where a reviewer looks for it,
+instead of hiding it inside the parameter that happens to carry the name.
+"""
+
+
+@dataclass(frozen=True)
+class Pagination:
+    """The shared limit/offset pair every paged list endpoint accepts."""
+
+    limit: int
+    offset: int
+
+
+def pagination(
+    limit: Annotated[int, Query(ge=1, le=200, description="Maximum items to return.")] = 100,
+    offset: Annotated[int, Query(ge=0, description="Items to skip before the slice.")] = 0,
+) -> Pagination:
+    return Pagination(limit=limit, offset=offset)
+
+
+PaginationDep = Annotated[Pagination, Depends(pagination)]
+"""Limits live here, not in each route: one ceiling, one default, one doc string.
+
+A paged response always mirrors these values back inside its ``Page`` envelope,
+so a client learns the effective page size from the body even when the
+request omitted the parameters.
 """
 
 
@@ -96,6 +121,8 @@ async def require_api_key(request: Request) -> Principal:
 
 __all__ = [
     "ActorDep",
+    "Pagination",
+    "PaginationDep",
     "current_actor",
     "current_principal",
     "get_audit",
@@ -104,6 +131,7 @@ __all__ = [
     "get_queue_backend",
     "get_store",
     "lookup_principal",
+    "pagination",
     "require_actor",
     "require_api_key",
     "require_permission",

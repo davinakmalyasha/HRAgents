@@ -18,6 +18,7 @@ from hr_agents.models import (
     Contract,
     Employee,
     EmployeeDocument,
+    EmployeeStatus,
     ErasureRequest,
     Goal,
     OffboardingAsset,
@@ -34,6 +35,16 @@ from hr_agents.models import (
     TaskItem,
     utc_now,
 )
+
+
+def _employee_order(employee: Employee) -> tuple[str, str]:
+    """Name first, id as tiebreak: OFFSET paging needs a total order.
+
+    Two employees may share a name; a sort on the name alone leaves their
+    relative order to whichever store implements the read, and an OFFSET
+    evaluated against an unstable order can skip or repeat rows.
+    """
+    return (employee.full_name.lower(), str(employee.id))
 
 
 class EmployeeStore:
@@ -57,7 +68,17 @@ class EmployeeStore:
         return self._employees.get(employee_id)
 
     def list_employees(self) -> list[Employee]:
-        return sorted(self._employees.values(), key=lambda item: item.full_name.lower())
+        return sorted(self._employees.values(), key=_employee_order)
+
+    def page_employees(
+        self, *, limit: int, offset: int, status: EmployeeStatus | None = None
+    ) -> tuple[list[Employee], int]:
+        """Paged edition of ``list_employees``; the Pg adapter pushes it to SQL."""
+        employees = [
+            item for item in self._employees.values() if status is None or item.status is status
+        ]
+        employees.sort(key=_employee_order)
+        return employees[offset : offset + limit], len(employees)
 
     def anonymize_employee(self, employee_id: UUID) -> Employee | None:
         """Blank the personal fields, keep the operational record.

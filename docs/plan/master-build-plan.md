@@ -663,8 +663,13 @@ not a style opinion.
    raises a blocking `thr_bpjs_unmodelled` anomaly for a named human to settle.
 6. **No `CHECK` constraint exists anywhere in 35 tables** and 8 tables have no foreign
    keys, so a direct write or a restore can produce states the domain cannot represent.
-7. **43 of 45 list endpoints are unpaginated**, and nearly every DB list is
-   `select(Table)` with no `LIMIT` followed by a Python `sorted`.
+7. ~~**43 of 45 list endpoints are unpaginated**~~ **Migration in progress.** The contract is now
+   `Page[T]` (`items`/`total`/`limit`/`offset`; `limit` ≤ 200, default 100) via `PaginationDep`,
+   and `GET /v1/employees` is the reference migration: predicate, ORDER BY (name, id) and
+   LIMIT/OFFSET all reach SQL in one read (`DbEmployeeStore.page_employees`), the in-memory store
+   honours the same contract, and the web walks pages through `fetchAllPages` so no screen
+   silently truncates at the first page. The remaining 48 list endpoints still answer bare
+   `list[...]` and still read whole tables; each migration follows the employees seam.
 8. **No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
    version predicate and no unit of work, so two concurrent `complete_step` calls
    silently lose one. A mid-loop erasure failure leaves a half-erased state.

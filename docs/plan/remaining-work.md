@@ -288,12 +288,19 @@ Remaining in this area:
       cancellation), `cancel_run` records both, the run view exposes them, the XLSX review
       packet's Run info sheet prints them, and migration `0019` adds the columns. A
       cancelled run is no longer a status with no why wherever it is read.
-- [ ] **No pagination on 43 of 45 list endpoints**, and most DB lists are
-      `select(Table)` with no `LIMIT` followed by a Python `sorted`. `active_plans` and
-      `_previous_run` are the two aggregations that now read a whole tenant's rows.
-- [ ] **No optimistic concurrency.** `db/mapping.py` read-modify-writes with no version
-      predicate, so two concurrent `complete_step` calls lose one; a mid-loop erasure
-      failure leaves a half-erased state.
+- [x] **No optimistic concurrency.** Every tenant table now carries `version` (migration
+      `0020`), `Versioned` models exclude it from dumps, every persisting adapter raises
+      `StaleRecordError` -> 409 `stale_write` naming both versions when a caller writes a
+      row someone else changed. Set-whole writes (leave balance adjustments, holiday
+      calendar, interviewer availability) are deliberately still last-write-wins; the
+      erasure half-loop atomicity is tracked under the unit-of-work item below.
+- [~] **Pagination.** The `Page[T]` envelope (`items`/`total`/`limit`/`offset`, shared
+      `PaginationDep`, `limit` ≤ 200 default 100) is the contract, but only `GET /v1/employees`
+      is migrated so far — with WHERE/ORDER BY/LIMIT/OFFSET pushed into SQL and a count in the
+      same read, the in-memory store mirroring it, the web fetching all pages via
+      `fetchAllPages`, and the OpenAPI/TS artifacts regenerated. The remaining 48 list
+      endpoints still answer bare arrays and read whole tables (`active_plans` and
+      `_previous_run` being the two worst aggregations); migrate them onto the same seam.
 - [ ] **No `CHECK` constraint exists anywhere in the tables.** The payroll money columns
       are `Numeric(18,2)` so the database rejects a third decimal place, but no other
       invariant is enforced below the application.

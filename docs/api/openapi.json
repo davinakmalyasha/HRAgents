@@ -6015,6 +6015,41 @@
         "title": "OverrideView",
         "type": "object"
       },
+      "Page_EmployeeView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EmployeeView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[EmployeeView]",
+        "type": "object"
+      },
       "PayrollRunKind": {
         "enum": [
           "monthly",
@@ -18445,6 +18480,33 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -18452,11 +18514,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/EmployeeView"
-                  },
-                  "title": "Response List Employees V1 Employees Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_EmployeeView_"
                 }
               }
             },

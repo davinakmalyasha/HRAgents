@@ -402,6 +402,12 @@ class EmployeeService:
             employees = [item for item in employees if item.status is status]
         return employees
 
+    def page_employees(
+        self, *, limit: int, offset: int, status: EmployeeStatus | None = None
+    ) -> tuple[list[Employee], int]:
+        """Paged listing and total, as one store read the adapter can push down."""
+        return self._store.page_employees(limit=limit, offset=offset, status=status)
+
     def on_probation(self) -> list[Employee]:
         return self.list_employees(status=EmployeeStatus.PROBATION)
 

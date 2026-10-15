@@ -4952,6 +4952,17 @@ export interface components {
             /** Reviewer Role */
             reviewer_role: string;
         };
+        /** Page[EmployeeView] */
+        Page_EmployeeView_: {
+            /** Items */
+            items: components["schemas"]["EmployeeView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /**
          * PayrollRunKind
          * @enum {string}
@@ -12841,6 +12852,10 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["EmployeeStatus"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -12854,7 +12869,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EmployeeView"][];
+                    "application/json": components["schemas"]["Page_EmployeeView_"];
                 };
             };
             /** @description The request could not be understood. */

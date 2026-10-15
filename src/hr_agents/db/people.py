@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -27,6 +27,7 @@ from hr_agents.models import (
     Contract,
     Employee,
     EmployeeDocument,
+    EmployeeStatus,
     OrgUnit,
     RateTable,
     TaskItem,
@@ -58,7 +59,37 @@ class DbEmployeeStore(EmployeeStore):
 
     def list_employees(self) -> list[Employee]:
         employees = list_models(self._session_factory, Employee, pt.EmployeeRecord)
-        return sorted(employees, key=lambda item: item.full_name.lower())
+        return sorted(employees, key=lambda item: (item.full_name.lower(), str(item.id)))
+
+    def page_employees(
+        self, *, limit: int, offset: int, status: EmployeeStatus | None = None
+    ) -> tuple[list[Employee], int]:
+        """Predicate, ORDER BY and LIMIT/OFFSET all reach SQL in one transaction.
+
+        The ordering mirrors the in-memory contract ``(lower(full_name), id)``.
+        The id tiebreak is doubly load-bearing here: the database evaluates
+        OFFSET without a Python stable sort behind it, so equal names must not
+        leave the slice boundaries undefined.
+        """
+        where: list[ColumnElement[bool]] = []
+        if status is not None:
+            where.append(pt.EmployeeRecord.status == status.value)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(pt.EmployeeRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(pt.EmployeeRecord)
+                    .where(*where)
+                    .order_by(func.lower(pt.EmployeeRecord.full_name), pt.EmployeeRecord.id)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(Employee, row) for row in rows], int(total or 0)
 
     def add_org_unit(self, unit: OrgUnit) -> None:
         add_model(self._session_factory, unit, pt.OrgUnitRecord)
