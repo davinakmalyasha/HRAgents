@@ -16,6 +16,7 @@ from tests.actors import finance, hr_admin
 from tests.db.test_sql_payroll_adapter import _seed as seed_full_rates
 
 from hr_agents.api.problem import domain_problem
+from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.leave import DbLeaveService
 from hr_agents.db.onboarding import DbOnboardingService
 from hr_agents.db.payroll import DbPayrollService
@@ -41,8 +42,10 @@ from hr_agents.models.payroll import PayrollInput, PayrollRun, PayrollRunStatus
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
+from hr_agents.services.ingestion import ApplicationStatus, SubmissionInput
 from hr_agents.services.people_store import ApprovalStore, RateTableStore, TaskStore
 from hr_agents.services.rate_tables import RateTableService
+from hr_agents.services.recruiting import RecruitingServices
 from hr_agents.services.tasks import TaskEngine
 
 HUMAN = ActorRef.legacy("hr-admin")
@@ -430,3 +433,59 @@ def test_recomputing_a_draft_run_still_works(factory: sessionmaker[Session]) -> 
 
     assert again.lines
     assert again.version == run.version + 1
+
+
+# --- the adapter rollout: applications -------------------------------------------
+
+
+def test_two_screeners_moving_one_card_lose_neither(factory: sessionmaker[Session]) -> None:
+    """Two people drag the same pipeline card; the older copy is refused.
+
+    Without the guard the second drag overwrote the first, and the timeline kept
+    both events -- so the record said a move happened that the status no longer
+    showed.
+    """
+    applications = DbApplicationStore(factory)
+    services = RecruitingServices(
+        audit=AuditChain(), applications=applications, session_factory=factory
+    )
+    job = services.jobs.create(title="Backend Engineer", actor=HUMAN)
+    record, created = applications.submit(
+        SubmissionInput(
+            job_id=job.id,
+            source_channel="api",
+            consent_granted=True,
+            candidate_name="Budi Santoso",
+        )
+    )
+    assert created is True
+    held = applications.get(record.id)
+    assert held is not None
+
+    applications.set_status(record.id, ApplicationStatus.EVALUATED, event="first.drag")
+
+    held.status = ApplicationStatus.REJECTED
+    with pytest.raises(StaleRecordError, match="changed after this copy was read"):
+        applications._persist(held)
+
+    survivor = applications.get(record.id)
+    assert survivor is not None
+    assert survivor.status is ApplicationStatus.EVALUATED
+
+
+def test_sequential_moves_still_work(factory: sessionmaker[Session]) -> None:
+    applications = DbApplicationStore(factory)
+    services = RecruitingServices(
+        audit=AuditChain(), applications=applications, session_factory=factory
+    )
+    job = services.jobs.create(title="Backend Engineer", actor=HUMAN)
+    record, _ = applications.submit(
+        SubmissionInput(job_id=job.id, source_channel="api", consent_granted=True)
+    )
+
+    applications.set_status(record.id, ApplicationStatus.PROCESSING, event="moved")
+    moved = applications.set_status(record.id, ApplicationStatus.EVALUATED, event="moved")
+
+    assert moved is not None
+    assert moved.status is ApplicationStatus.EVALUATED
+    assert moved.version == 2

@@ -78,6 +78,7 @@ class ApplicationRecord:
     recommendation: Recommendation | None = None
     priority_score: float = 0.0
     timeline: list[tuple[datetime, str]] = field(default_factory=list)
+    version: int = 0
 
     def note(self, event: str) -> None:
         self.timeline.append((datetime.now(UTC), event))

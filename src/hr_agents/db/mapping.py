@@ -64,7 +64,7 @@ def add_model(factory: sessionmaker[Session], model: BaseModel, record_cls: type
         session.flush()
 
 
-def check_version(row: Any, model: BaseModel) -> None:
+def check_version(row: Any, model: object) -> None:
     """The optimistic-concurrency check, for hand-written persist paths.
 
     `save_model` runs this itself. Adapters that copy columns by hand -- the
@@ -72,8 +72,11 @@ def check_version(row: Any, model: BaseModel) -> None:
     every guarded writer refuses a stale write the same way and names the same two
     numbers.
 
-    A model without a `version` field is not guarded; that is a statement about
-    which adapters have been converted, not a claim that the rest are safe.
+    `model` is any object with `id` and `version` attributes: pydantic models get
+    them from `Versioned`, and the recruitment records are dataclasses whose field
+    plays the same role. A model without a `version` is not guarded; that is a
+    statement about which adapters have been converted, not a claim that the rest
+    are safe.
     """
     expected = getattr(model, "version", None)
     if expected is None:

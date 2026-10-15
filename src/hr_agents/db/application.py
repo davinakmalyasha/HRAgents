@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from hr_agents.db.mapping import check_version
 from hr_agents.db.session import sync_session_scope
 from hr_agents.db.tables import Application, Candidate
 from hr_agents.models import ERASED_NAME, ConsentRecord, Recommendation
@@ -89,6 +90,10 @@ class DbApplicationStore(ApplicationStore):
             row = session.get(Application, record.id)
             if row is None:
                 raise KeyError(f"unknown application {record.id}")
+            # Two screeners moving the same card, or a stage move racing an
+            # evaluation: the older copy is refused rather than silently
+            # overwriting the newer state.
+            check_version(row, record)
             row.status = record.status.value
             row.s_tech = record.s_tech
             row.sigma = record.sigma
@@ -136,6 +141,7 @@ class DbApplicationStore(ApplicationStore):
             ),
             priority_score=row.priority_score or 0.0,
             timeline=timeline,
+            version=row.version,
         )
 
     # retention purges
