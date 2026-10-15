@@ -15,7 +15,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.approval import ApproverRole
-from hr_agents.models.common import StrictModel, UtcDateTime, business_today, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, business_today, utc_now
 from hr_agents.models.contract import ContractType
 from hr_agents.models.employee import DocumentKind
 
@@ -70,7 +70,7 @@ class TemplateStep(StrictModel):
         return self
 
 
-class OnboardingTemplate(StrictModel):
+class OnboardingTemplate(Versioned):
     """A reusable checklist definition (e.g., 'Engineering PKWT', 'Finance PKWTT')."""
 
     id: UUID = Field(default_factory=uuid4)
@@ -152,7 +152,7 @@ class OnboardingStepState(StrictModel):
         )
 
 
-class OnboardingPlan(StrictModel):
+class OnboardingPlan(Versioned):
     """An onboarding checklist instance for one employee."""
 
     id: UUID = Field(default_factory=uuid4)

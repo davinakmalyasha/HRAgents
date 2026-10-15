@@ -14,11 +14,24 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.api.problem import domain_problem
+from hr_agents.db.onboarding import DbOnboardingService
 from hr_agents.db.people import DbEmployeeStore
 from hr_agents.errors import StaleRecordError
 from hr_agents.identity import ActorRef
-from hr_agents.models import Employee, business_today
+from hr_agents.models import (
+    ContractType,
+    DocumentKind,
+    Employee,
+    OnboardingPlan,
+    StepKind,
+    TemplateStep,
+    business_today,
+)
+from hr_agents.services.approvals import ApprovalEngine
+from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
+from hr_agents.services.people_store import ApprovalStore, TaskStore
+from hr_agents.services.tasks import TaskEngine
 
 HUMAN = ActorRef.legacy("hr-admin")
 TODAY = business_today()
@@ -161,3 +174,92 @@ def test_the_app_registers_a_handler_for_unmapped_domain_errors() -> None:
     app = create_app()
 
     assert DomainError in app.exception_handlers
+
+
+# --- the adapter rollout: onboarding, the plan's own example -------------------
+
+
+def onboarding(factory: sessionmaker[Session]) -> DbOnboardingService:
+    audit = AuditChain()
+    approvals = ApprovalEngine(ApprovalStore(), audit=audit)
+    employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
+    tasks = TaskEngine(TaskStore(), audit=audit)
+    return DbOnboardingService(factory, employees=employees, tasks=tasks, audit=audit)
+
+
+def plan_for(service: DbOnboardingService) -> OnboardingPlan:
+    employee = service._employees.create(full_name="Sari Dewi", actor=HUMAN, hire_date=TODAY)
+    template = service.create_template(
+        name="Engineering PKWT",
+        description="Standard hire",
+        steps=[
+            TemplateStep(
+                key="collect_ktp",
+                title="Collect KTP",
+                kind=StepKind.DOCUMENT,
+                document_kind=DocumentKind.KTP,
+            ),
+            TemplateStep(key="sign_contract", title="Sign contract", kind=StepKind.CONTRACT),
+        ],
+        applies_to_contract_types=[ContractType.PKWT],
+        applies_to_roles=["engineering"],
+        actor=HUMAN,
+    )
+    return service.start_plan(employee_id=employee.id, template_id=template.id, actor=HUMAN)
+
+
+def test_a_step_completed_from_a_stale_snapshot_is_refused(
+    factory: sessionmaker[Session],
+) -> None:
+    """The scenario the plan names: two people open one checklist, both act.
+
+    Whoever holds the older copy is refused instead of silently un-completing the
+    step the other person just closed.
+    """
+    service = onboarding(factory)
+    plan = plan_for(service)
+    held = service.get_plan(plan.id)  # read before the first writer lands
+
+    service.complete_step(plan.id, "collect_ktp", actor=HUMAN)
+
+    held.steps = [
+        step.model_copy(update={"complete": True}) if step.key == "sign_contract" else step
+        for step in held.steps
+    ]
+    with pytest.raises(StaleRecordError, match="changed after this copy was read"):
+        service._save_plan(held)
+
+    survived = service.get_plan(plan.id)
+    first = next(step for step in survived.steps if step.key == "collect_ktp")
+    second = next(step for step in survived.steps if step.key == "sign_contract")
+    assert first.complete is True, "the first writer's step must survive"
+    assert second.complete is False, "the losing write must not land"
+
+
+def test_sequential_steps_still_work(factory: sessionmaker[Session]) -> None:
+    """Every service call reloads the plan, so the guard must not turn ordinary
+    use -- two steps completed one after another -- into a conflict."""
+    service = onboarding(factory)
+    plan = plan_for(service)
+
+    service.complete_step(plan.id, "collect_ktp", actor=HUMAN)
+    done = service.complete_step(plan.id, "sign_contract", actor=HUMAN)
+
+    assert all(step.complete for step in done.steps)
+    assert done.version == 2
+
+
+def test_a_template_edit_from_a_stale_copy_is_refused(
+    factory: sessionmaker[Session],
+) -> None:
+    service = onboarding(factory)
+    plan_for(service)
+    (template,) = [item for item in service._iter_templates()]
+    held = service.get_template(template.id)
+
+    service._save_template(template.model_copy(update={"name": "Renamed by the first writer"}))
+
+    with pytest.raises(StaleRecordError):
+        service._save_template(held.model_copy(update={"name": "Renamed by the loser"}))
+
+    assert service.get_template(template.id).name == "Renamed by the first writer"

@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from hr_agents.db.mapping import check_version
 from hr_agents.db.onboarding_tables import OnboardingPlanRecord, OnboardingTemplateRecord
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models.onboarding import (
@@ -69,6 +70,7 @@ class DbOnboardingService(OnboardingService):
             if existing is None:
                 session.add(OnboardingTemplateRecord(id=template.id, **values))
             else:
+                check_version(existing, template)
                 for column, value in values.items():
                     setattr(existing, column, value)
 
@@ -84,6 +86,7 @@ class DbOnboardingService(OnboardingService):
             active=row.active,
             created_at=_aware(row.created_at),
             updated_at=_aware(row.updated_at),
+            version=row.version,
         )
 
     # --- plans -----------------------------------------------------------
@@ -117,6 +120,7 @@ class DbOnboardingService(OnboardingService):
             if existing is None:
                 session.add(OnboardingPlanRecord(id=plan.id, **values))
             else:
+                check_version(existing, plan)
                 for column, value in values.items():
                     setattr(existing, column, value)
 
@@ -131,4 +135,5 @@ class DbOnboardingService(OnboardingService):
             steps=[OnboardingStepState.model_validate(step) for step in row.steps],
             started_at=_aware(row.started_at),
             completed_at=_optional_aware(row.completed_at),
+            version=row.version,
         )
