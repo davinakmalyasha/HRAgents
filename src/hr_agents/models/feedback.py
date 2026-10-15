@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from hr_agents.models.common import EvidenceRef, StrictModel
+from hr_agents.models.common import EvidenceRef, StrictModel, Versioned
 from hr_agents.models.evaluation import ScoreDimension
 
 
@@ -25,7 +25,7 @@ class FeedbackGrowthArea(StrictModel):
     text: str = Field(min_length=1, max_length=500)
 
 
-class FeedbackReport(StrictModel):
+class FeedbackReport(Versioned):
     """Candidate-facing report. Internal notes and raw scores must not appear."""
 
     candidate_name: str = Field(min_length=1, max_length=200)

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import tables as t
+from hr_agents.db.mapping import check_version
 from hr_agents.db.session import sync_session_scope
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
@@ -51,6 +52,20 @@ from hr_agents.services.recruiting import (
 
 def _aware(value: datetime) -> datetime:
     return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+def _job_from_row(row: t.Job) -> JobSpecification:
+    """The stored spec with its row version merged in."""
+    return JobSpecification.model_validate({**row.spec, "version": row.version})
+
+
+def _feedback_from_row(row: t.FeedbackReportRecord) -> FeedbackReport:
+    """The stored report with its row version merged in.
+
+    Feedback is keyed by candidate, so the JSON column is the model and the
+    version lives beside it rather than inside the document.
+    """
+    return FeedbackReport.model_validate({**row.report, "version": row.version})
 
 
 class DbDocumentService(DocumentService):
@@ -120,12 +135,12 @@ class DbJobService(JobService):
     def _load_job(self, job_id: UUID) -> JobSpecification | None:
         with sync_session_scope(self._session_factory) as session:
             row = session.get(t.Job, job_id)
-            return None if row is None else JobSpecification.model_validate(row.spec)
+            return None if row is None else _job_from_row(row)
 
     def _iter_jobs(self) -> Iterator[JobSpecification]:
         with sync_session_scope(self._session_factory) as session:
             rows = session.execute(select(t.Job)).scalars().all()
-            return iter([JobSpecification.model_validate(row.spec) for row in rows])
+            return iter([_job_from_row(row) for row in rows])
 
     def _persist_job(self, job: JobSpecification) -> None:
         spec = job.model_dump(mode="json")
@@ -150,6 +165,9 @@ class DbJobService(JobService):
                     )
                 )
             else:
+                # A stale job edit is refused: two people editing one spec, and the
+                # one who read first silently reverting the other.
+                check_version(row, job)
                 row.title = job.title
                 row.seniority = job.seniority.value
                 row.status = job.status.value
@@ -221,6 +239,8 @@ class DbEvaluationService(EvaluationService):
             if row is None:
                 row = t.Evaluation(id=evaluation.id, document={})
                 session.add(row)
+            else:
+                check_version(row, record)
             row.candidate_id = evaluation.candidate_id
             row.application_id = record.application_id
             row.job_id = evaluation.job_id
@@ -272,7 +292,7 @@ class DbEvaluationService(EvaluationService):
     def _load_feedback(self, candidate_id: UUID) -> FeedbackReport | None:
         with sync_session_scope(self._session_factory) as session:
             row = session.get(t.FeedbackReportRecord, candidate_id)
-            return None if row is None else FeedbackReport.model_validate(row.report)
+            return None if row is None else _feedback_from_row(row)
 
     def _persist_feedback(
         self, candidate_id: UUID, report: FeedbackReport, *, actor: ActorRef
@@ -289,6 +309,7 @@ class DbEvaluationService(EvaluationService):
                     )
                 )
             else:
+                check_version(row, report)
                 row.language = report.language
                 row.report = report.model_dump(mode="json")
                 row.saved_by = actor.actor_id
@@ -319,6 +340,7 @@ class DbEvaluationService(EvaluationService):
             policy=policy,
             source=row.source or "pipeline",
             registered_at=_aware(row.created_at),
+            version=row.version,
         )
 
     @staticmethod
@@ -398,6 +420,10 @@ class DbSchedulingService(SchedulingService):
             if row is None:
                 row = t.ScheduleProposal(id=proposal.id, status=proposal.status.value, payload={})
                 session.add(row)
+            else:
+                # A confirmation or supersession decided from a stale copy must not
+                # reopen a proposal somebody already answered.
+                check_version(row, proposal)
             row.candidate_id = payload.candidate_id
             row.job_id = payload.job_id
             row.status = proposal.status.value
@@ -424,6 +450,7 @@ class DbSchedulingService(SchedulingService):
             decided_at=None if row.decided_at is None else _aware(row.decided_at),
             created_by=row.created_by or "system",
             created_at=_aware(row.created_at),
+            version=row.version,
         )
 
 
@@ -486,6 +513,10 @@ class DbCommunicationService(CommunicationService):
                     id=item.id, kind=item.kind.value, channel=item.channel.value
                 )
                 session.add(row)
+            else:
+                # A dispatch recorded while somebody else edited the draft is
+                # refused rather than silently reverting the body that went out.
+                check_version(row, item)
             row.candidate_id = item.candidate_id
             row.application_id = item.application_id
             row.evaluation_id = item.evaluation_id
@@ -537,4 +568,5 @@ class DbCommunicationService(CommunicationService):
             send_attempts=row.send_attempts,
             last_error=row.last_error,
             created_at=_aware(row.created_at),
+            version=row.version,
         )

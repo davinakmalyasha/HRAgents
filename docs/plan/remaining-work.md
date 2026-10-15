@@ -184,11 +184,12 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       same check through `db.mapping.check_version`; onboarding (checklists), leave
       (requests, and policies whose JSON blob carries its version in the column beside it),
       payroll (runs -- a stale recompute can no longer overwrite an approved run), applications
-      (two screeners dragging one card) and offers (a stale copy cannot reopen one already
-      acted on; revisions stay append-only and unversioned). **Remaining:** recruiting (jobs,
-      evaluations, feedback, availability, proposals, communications -- six persist paths)
-      and workspace/chat need the same check; leave balance adjustments and the holiday
-      calendar are set-whole values with no model to carry a version, so they keep
+      (two screeners dragging one card), offers (a stale copy cannot reopen one already
+      acted on; revisions stay append-only and unversioned) and recruiting (job specs,
+      evaluations, feedback reports, proposals and communications -- availability is a
+      set-whole write with no model to carry a version). **Remaining:** workspace/chat
+      (conversations and handoffs) needs the same check; leave balance adjustments, the
+      holiday calendar and interviewer availability are set-whole values, so they keep
       last-write-wins and are noted rather than silently claimed. The "one transaction per
       service method" half -- what would make a mid-loop erasure atomic rather than
       half-finished -- is still open.

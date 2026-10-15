@@ -21,6 +21,7 @@ from hr_agents.db.leave import DbLeaveService
 from hr_agents.db.onboarding import DbOnboardingService
 from hr_agents.db.payroll import DbPayrollService
 from hr_agents.db.people import DbEmployeeStore
+from hr_agents.db.recruiting import DbEvaluationService, DbJobService
 from hr_agents.errors import StaleRecordError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
@@ -29,6 +30,7 @@ from hr_agents.models import (
     ContractType,
     DocumentKind,
     Employee,
+    FeedbackReport,
     LeaveType,
     LeaveTypePolicy,
     OnboardingPlan,
@@ -489,3 +491,68 @@ def test_sequential_moves_still_work(factory: sessionmaker[Session]) -> None:
     assert moved is not None
     assert moved.status is ApplicationStatus.EVALUATED
     assert moved.version == 2
+
+
+# --- the adapter rollout: recruiting ---------------------------------------------
+
+
+def job_service(factory: sessionmaker[Session]) -> DbJobService:
+    return DbJobService(session_factory=factory, audit=AuditChain())
+
+
+def test_two_editors_of_one_job_spec_lose_neither(factory: sessionmaker[Session]) -> None:
+    """The second editor read the spec before the first saved; their write is
+    refused instead of silently reverting the change they never saw."""
+    service = job_service(factory)
+    job = service.create(title="Backend Engineer", actor=HUMAN)
+    held = service.get(job.id)
+
+    service.update(job.id, actor=HUMAN, title="Senior Backend Engineer")
+
+    with pytest.raises(StaleRecordError, match="changed after this copy was read"):
+        service._persist_job(held.model_copy(update={"title": "Backend Engineer (stale)"}))
+
+    survivor = service.get(job.id)
+    assert survivor.title == "Senior Backend Engineer"
+
+
+def test_a_stale_feedback_report_is_refused(factory: sessionmaker[Session]) -> None:
+    """Feedback is keyed by candidate and stored as a JSON report; the version is
+    the column beside it, so a stale copy is still caught and the saved report
+    survives."""
+    audit = AuditChain()
+    applications = DbApplicationStore(factory)
+    services = RecruitingServices(audit=audit, applications=applications, session_factory=factory)
+    job = services.jobs.create(title="Backend Engineer", actor=HUMAN)
+    # feedback_reports.candidate_id is a foreign key, so the candidate has to be
+    # a real row rather than a random id.
+    application, _ = applications.submit(
+        SubmissionInput(job_id=job.id, source_channel="api", consent_granted=True)
+    )
+    candidate_id = application.candidate_id
+    service = DbEvaluationService(session_factory=factory, audit=audit, applications=applications)
+    report = FeedbackReport(
+        candidate_name="Budi Santoso",
+        job_title="Backend Engineer",
+        summary="First summary",
+        process_note="Two interviews and a written exercise.",
+        correction_notice="Tell us if anything here is wrong.",
+    )
+    service.save_feedback(candidate_id, report, actor=HUMAN)
+    held = service.feedback_for(candidate_id)
+
+    service.save_feedback(
+        candidate_id,
+        report.model_copy(update={"summary": "Saved by the first writer"}),
+        actor=HUMAN,
+    )
+
+    with pytest.raises(StaleRecordError):
+        service.save_feedback(
+            candidate_id,
+            held.model_copy(update={"summary": "Saved by the loser"}),
+            actor=HUMAN,
+        )
+
+    survivor = service.feedback_for(candidate_id)
+    assert survivor.summary == "Saved by the first writer"

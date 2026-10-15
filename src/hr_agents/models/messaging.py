@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 from pydantic import EmailStr, Field
 
 from hr_agents.models.candidate import Channel
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, utc_now
 
 
 class MessageDirection(StrEnum):
@@ -80,7 +80,7 @@ class CommunicationPreview(StrictModel):
     channel: Channel = Channel.EMAIL
 
 
-class CandidateCommunication(StrictModel):
+class CandidateCommunication(Versioned):
     """A candidate-facing message, queued only behind a named human.
 
     Dispatch is carried by a transport bridge (SMTP/IMAP) or by a human via the

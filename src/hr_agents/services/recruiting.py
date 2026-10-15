@@ -65,9 +65,9 @@ from hr_agents.models import (
     SchedulingPayload,
     ScoreDimension,
     Seniority,
-    StrictModel,
     TechnicalEvaluation,
     TimeSlot,
+    Versioned,
     utc_now,
 )
 from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
@@ -426,6 +426,7 @@ class EvaluationRecord:
     policy: PolicyEvaluation
     source: str = "pipeline"
     registered_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    version: int = 0
 
 
 @dataclass
@@ -1346,7 +1347,7 @@ class CommunicationService:
 # --- scheduling -----------------------------------------------------------------
 
 
-class SchedulingProposalRecord(StrictModel):
+class SchedulingProposalRecord(Versioned):
     """A stored proposal with its approval requirement and provenance."""
 
     id: UUID = Field(default_factory=uuid4)

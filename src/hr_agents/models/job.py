@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 from pydantic import Field, model_validator
 
 from hr_agents.models.candidate import Location
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import UtcDateTime, Versioned, utc_now
 from hr_agents.models.evaluation import DEFAULT_DIMENSION_WEIGHTS, ScoreDimension
 
 
@@ -49,7 +49,7 @@ class JobFamily(StrEnum):
     GENERAL = "general"
 
 
-class JobSpecification(StrictModel):
+class JobSpecification(Versioned):
     """A structured, scoreable job definition.
 
     Dimension weights override the platform defaults per role; when provided,
