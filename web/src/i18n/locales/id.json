@@ -536,7 +536,8 @@
       "network": "Tidak dapat menghubungi server. Periksa koneksi Anda lalu coba lagi.",
       "failed": "Terjadi kesalahan.",
       "rateLimited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi."
-    }
+    },
+    "skipToContent": "Lompat ke konten"
   },
   "onboarding": {
     "plansTitle": "Rencana onboarding",

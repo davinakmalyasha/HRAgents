@@ -258,7 +258,7 @@ screams "you have something to do."
 | `bg-subtle` | `#F8F9FA` | Sidebar, table stripes |
 | `border` | `#E9ECEF` | Dividers, card borders |
 | `border-strong` | `#DEE2E6` | Inputs, focus outlines (with accent) |
-| `text-muted` | `#868E96` | Secondary text, metadata |
+| `text-muted` | `#667085` | Secondary text, metadata (darkened from `#868E96` for WCAG AA 4.5:1 on `bg`/`bg-subtle`) |
 | `text` | `#343A40` | Body text |
 | `text-strong` | `#212529` | Headings, numbers |
 

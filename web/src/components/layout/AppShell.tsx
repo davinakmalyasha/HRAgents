@@ -10,6 +10,7 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 
 export function AppShell() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const session = useSession()
@@ -65,10 +66,25 @@ export function AppShell() {
 
   return (
     <div className="bg-surface text-ink flex min-h-dvh">
+      {/*
+        Keyboard users land here first. The sidebar renders every workspace and
+        three rooms, so without this the only way into the page is through
+        fourteen links that are not the content.
+      */}
+      <a
+        href="#main-content"
+        className="bg-surface text-ink-strong border-line sr-only rounded-md border px-3 py-2 text-sm focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
+      >
+        {t('common.skipToContent')}
+      </a>
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenPalette={() => setPaletteOpen(true)} />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 focus:outline-none md:px-8"
+        >
           <Outlet />
         </main>
       </div>

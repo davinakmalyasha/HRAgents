@@ -275,8 +275,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       its workspace queue (`?room=queue`), empty states celebrate zero work
 - [~] Three-rooms workspace layout component (Board / Queue / Chat) — structure + placeholders;
       a workspace data endpoint lands with the chat UI slice
-- [~] Accessibility pass: focus rings, reduced motion, icon+label status primitives in place;
-      full WCAG AA audit later
+- [x] Accessibility pass: focus rings, reduced motion, icon+label status primitives; skip link and
+      main landmark; text contrast verified at WCAG AA across all workspaces in light and dark
+      (muted ink darkened to `#667085`, status tone confined to the hidden glyph, inactive tabs
+      moved off `text-foreground/60`); regression-guarded by `theme.contrast.test.ts`; the
+      axe/screen-reader sweep stays in `polish-backlog.md`
 - [ ] Mobile-first check at 390px viewport (queues, approvals, chat)
 
 ### 6.1 Shell & auth

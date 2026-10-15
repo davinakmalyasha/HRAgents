@@ -101,8 +101,10 @@ function ProposalItem({
       ) : null}
 
       {status === 'reconciliation' ? (
-        <p className="text-waiting text-2xs flex items-center gap-1">
-          <span aria-hidden="true">▲</span>
+        <p className="text-2xs text-ink flex items-center gap-1">
+          <span aria-hidden="true" className="text-waiting">
+            ▲
+          </span>
           {t('scheduling.reconciliationHint')}
         </p>
       ) : null}

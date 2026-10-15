@@ -114,7 +114,9 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       body is reviewed after queueing and before dispatch — nothing can be sent unreviewed)
 - [ ] Motion pass (reduced-motion aware), skeleton loaders, optimistic updates where safe
 - [ ] Empty states, error states, and offline states for every workspace
-- [ ] Accessibility audit (axe + manual keyboard/screen-reader pass) on all workspaces
+- [ ] Accessibility audit (axe + screen-reader pass) on all workspaces — the manual keyboard and
+      WCAG AA contrast pass is done (2026-10, light+dark, all boards + palette), see
+      `theme.contrast.test.ts`
 - [ ] EN/ID microcopy review with a native HR speaker; date/number/currency formatting audit
 - [ ] Design token audit against `product-concept.md` §7 (no rogue colors/spacing)
 

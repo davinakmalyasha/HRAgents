@@ -191,3 +191,21 @@ describe('the command palette', () => {
     expect(screen.queryByText(i18n.t('auth.signOut'))).toBeNull()
   })
 })
+
+describe('accessibility landmarks', () => {
+  it('offers a skip link that targets the main landmark', async () => {
+    /**
+     * The sidebar renders every workspace and three rooms, so without this the
+     * only way into the page by keyboard is through fourteen links that are not
+     * the content. The assertion pins both halves: the link, and the landmark it
+     * has to land on -- a skip link pointing at a missing id is worse than none.
+     */
+    renderAt('/')
+    await screen.findByRole('heading', { name: i18n.t('home.needsYou') })
+
+    const link = screen.getByRole('link', { name: i18n.t('common.skipToContent') })
+
+    expect(link).toHaveAttribute('href', '#main-content')
+    expect(document.querySelector('#main-content')).not.toBeNull()
+  })
+})

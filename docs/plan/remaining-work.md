@@ -467,8 +467,10 @@ documented.
       configured principal", documented in deployment.md. Service accounts keep using
       keys without the dashboard
 - [x] i18n from day one: English + Bahasa Indonesia locale files, language switcher, key-parity test
-- [ ] Accessibility: WCAG AA, keyboard navigation, reduced motion, icon+label on every status color
-      (baseline in place: focus rings, reduced-motion CSS, icon+label StatusBadge)
+- [x] Accessibility: WCAG AA text contrast verified across every board in light and dark (muted ink
+      darkened to `#667085`, status tone stays on the hidden glyph, inactive tabs off
+      `text-foreground/60`), skip link + main landmark, keyboard traversal; token regression test
+      `theme.contrast.test.ts`. The axe/screen-reader sweep stays in polish-backlog.md
 - [x] Mobile-first check at 390px: approvals, compliance, growth and records were driven at
       390px in a browser with a DOM probe for horizontal overflow (none anywhere) and a clean
       console; dialogs and the chat transcript are still unverified

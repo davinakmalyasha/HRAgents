@@ -19,6 +19,12 @@ interface StatusBadgeProps {
 /**
  * Status is never color-only: the tone always renders its icon and label.
  * Status colors are deliberately confined to this component (and ScoreBar).
+ *
+ * The tone color sits on the icon only. WCAG AA needs 4.5:1 for the 12px label
+ * and the amber/green tokens measure 3.2-3.3:1 as text on light surfaces; as an
+ * aria-hidden glyph the icon only needs the 3:1 UI-component ratio, which every
+ * tone clears on both --bg and --bg-subtle. The label inherits its surrounding
+ * text color, which the neutral ramp already holds at >=4.5:1.
  */
 export function StatusBadge({ tone, labelKey, className }: StatusBadgeProps) {
   const { t } = useTranslation()
@@ -27,14 +33,12 @@ export function StatusBadge({ tone, labelKey, className }: StatusBadgeProps) {
   return (
     <span
       role="status"
-      className={cn(
-        'text-2xs inline-flex items-center gap-1 font-medium',
-        toneClassName,
-        className,
-      )}
+      className={cn('text-2xs inline-flex items-center gap-1 font-medium', className)}
     >
-      <span aria-hidden="true">{icon}</span>
-      <span>{t(labelKey)}</span>
+      <span aria-hidden="true" className={toneClassName}>
+        {icon}
+      </span>
+      <span className="text-ink">{t(labelKey)}</span>
     </span>
   )
 }
