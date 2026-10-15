@@ -505,7 +505,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 8.9 Compliance (cross-cutting) `DONE` (Wave 1 core: consent, retention, erasure, breach, audit verify)
 - [x] Approval/task audit trails for every HR operation
 - [x] Consent registry: purpose-scoped grants/refusals/revocations with expiry, lawful basis, capture evidence, and `active` checks (`has_active_consent`); agents may record evidence, only humans revoke
-- [x] Retention engine: per-entity operator policies (months + delete/anonymize action, **no hardcoded statutory window**), record ledger with anchor dates + overrides, deterministic scan (due / held / uncovered), dry-run and scheduled purge (`by="system"`), per-record purge handlers for store mutation, full audit trail
+- [x] Retention engine: per-entity operator policies (months + delete/anonymize action, **no hardcoded statutory window**), record ledger with anchor dates + overrides, deterministic scan (due / held / uncovered), dry-run and scheduled purge (`by="system"`), per-record purge handlers for store mutation (consent, employee, document; candidate/application/payroll still report an honest `skipped` until their store operations exist), full audit trail
 - [x] Legal holds: human-only, reason required, never auto-purged by retention or erasure; reported per record
 - [x] Erasure workflow (UU PDP / GDPR shape): request → human identity verification → Data Protection approval (shared engine; agents can request, never decide) → **separate** human execution; per-record dispositions (deleted / anonymized / retained under hold) and consent revocation
 - [x] **Honest erasure outcomes**: `_apply_purge` returns `None` when no store handler is registered, so

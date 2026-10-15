@@ -178,9 +178,16 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       makes a mid-loop erasure failure detectable instead of silent.
 - [ ] **Schema integrity**: `CHECK` constraints on the enum-like and numeric columns, foreign keys
       on the 8 orphan tables, and `ORDER BY` in the DB adapters instead of 12 Python re-sorts.
-- [ ] **Real purge handlers for candidate, application, employee, document, and payroll records**,
-      and feed the retention ledger from the services that create records (today it is
-      operator-manual, so `execute_purge` finds nothing to do).
+- [~] **Real purge handlers and a fed retention ledger.** The ledger is now fed
+      by the services that create the records -- employee creation and document
+      upload register `employee` and `document` rows -- and those two entities
+      have handlers: anonymize blanks the personal fields and keeps the row the
+      dependents point at, document purge deletes the rows, and a `delete` that
+      would cascade-destroy history is carried out as anonymize with the
+      substitution recorded. Candidate, application and payroll still have no
+      handler and report an honest `skipped`; their records carry the subject id
+      of a person, so the handler contract is ready when the store operations
+      are.
 - [ ] **Consolidate the 13 `_record` audit methods, 6 state-transition formats, and the triplicated
       approval→status sync** behind one auditor, one declarative state machine, and one
       `ApprovalEngine.await_decision()`.

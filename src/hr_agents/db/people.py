@@ -13,7 +13,14 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
 
 from hr_agents.db import people_tables as pt
-from hr_agents.db.mapping import add_model, get_model, list_models, model_from_row, save_model
+from hr_agents.db.mapping import (
+    add_model,
+    delete_model,
+    get_model,
+    list_models,
+    model_from_row,
+    save_model,
+)
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
     ApprovalRequest,
@@ -65,6 +72,9 @@ class DbEmployeeStore(EmployeeStore):
 
     def add_document(self, document: EmployeeDocument) -> None:
         add_model(self._session_factory, document, pt.EmployeeDocumentRecord)
+
+    def delete_document(self, document_id: UUID) -> bool:
+        return delete_model(self._session_factory, pt.EmployeeDocumentRecord, document_id)
 
     def list_documents(self, employee_id: UUID) -> list[EmployeeDocument]:
         """One employee's vault, in the same order as the whole-vault read.

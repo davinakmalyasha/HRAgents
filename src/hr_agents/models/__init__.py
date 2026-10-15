@@ -77,6 +77,7 @@ from hr_agents.models.compliance import (
 from hr_agents.models.contract import Contract, ContractStatus, ContractType
 from hr_agents.models.employee import (
     EMPLOYEE_TRANSITIONS,
+    ERASED_NAME,
     DocumentKind,
     EmergencyContact,
     Employee,
@@ -208,6 +209,7 @@ __all__ = [
     "DEFAULT_DIMENSION_WEIGHTS",
     "DEFAULT_SLA_HOURS",
     "EMPLOYEE_TRANSITIONS",
+    "ERASED_NAME",
     "EXPIRABLE_OFFER_STATUSES",
     "TERMINAL_OFFER_STATUSES",
     "TERMINAL_PROPOSAL_STATUSES",

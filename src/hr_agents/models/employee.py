@@ -16,6 +16,11 @@ from hr_agents.models.common import (
     utc_now,
 )
 
+# What an erased employee's name becomes. Erasure is not deletion: leave, contracts and
+# payroll rows reference this record, and a nameless row would read as a data error
+# rather than as the decision it was.
+ERASED_NAME = "[erased]"
+
 
 class EmployeeStatus(StrEnum):
     """Lifecycle states for an employee record."""

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from hr_agents.models import PurgeAction, RecordEntity, RetentionRecord
 from hr_agents.services.approvals import ApprovalEngine
@@ -31,6 +32,7 @@ from hr_agents.services.people_store import (
     TaskStore,
 )
 from hr_agents.services.rate_tables import RateTableService
+from hr_agents.services.retention import RetentionLedger
 from hr_agents.services.tasks import TaskEngine
 
 if TYPE_CHECKING:
@@ -55,6 +57,75 @@ def _consent_purge_handler(store: ComplianceStore) -> PurgeHandler:
             return f"redacted capture evidence on {redacted} consent grant(s)"
         removed = sum(store.delete_consent(grant.id) for grant in grants)
         return f"deleted {removed} consent grant(s) for subject {record.subject_id}"
+
+    return handler
+
+
+def _subject_uuid(record: RetentionRecord) -> UUID | None:
+    """The subject id as a UUID, or None when an operator tracked something else.
+
+    The ledger accepts any string as a subject id, so a handler cannot assume it
+    parses. Returning None lets the handler say "not a record I can act on"
+    instead of raising and aborting the sweep for every record behind it.
+    """
+    try:
+        return UUID(record.subject_id)
+    except ValueError:
+        return None
+
+
+def _employee_purge_handler(store: EmployeeStore) -> PurgeHandler:
+    """Blank an erased employee's identity, keep the operational record.
+
+    `delete` is carried out as anonymize and says so in the detail: deleting the
+    employee row cascades into leave, onboarding, payroll lines, documents and
+    contracts, so following the policy literally would destroy the history it was
+    written to protect. The ledger and the audit chain both record the
+    substitution rather than pretending the policy was followed literally.
+    """
+
+    def handler(record: RetentionRecord, action: PurgeAction) -> str:
+        employee_id = _subject_uuid(record)
+        if employee_id is None:
+            return f"subject {record.subject_id!r} is not an employee id; nothing to remove"
+        employee = store.anonymize_employee(employee_id)
+        if employee is None:
+            return f"no employee record for subject {record.subject_id}; nothing to remove"
+        if action is PurgeAction.DELETE:
+            return (
+                "anonymized rather than deleted: deleting this row cascades into "
+                "leave, onboarding, payroll lines, documents and contracts"
+            )
+        return (
+            "blanked name, contact details, job title, work location and emergency "
+            "contact; kept the operational record"
+        )
+
+    return handler
+
+
+def _document_purge_handler(store: EmployeeStore) -> PurgeHandler:
+    """Delete every document filed under an erased subject.
+
+    `anonymize` is carried out as delete, and the detail says why: a document's
+    filename, hash and content *are* the personal data, so there is no
+    non-personal remainder to keep.
+    """
+
+    def handler(record: RetentionRecord, action: PurgeAction) -> str:
+        employee_id = _subject_uuid(record)
+        if employee_id is None:
+            return f"subject {record.subject_id!r} is not an employee id; nothing to remove"
+        documents = store.list_documents(employee_id)
+        if not documents:
+            return f"no documents on file for subject {record.subject_id}; nothing to remove"
+        removed = sum(store.delete_document(document.id) for document in documents)
+        if action is PurgeAction.ANONYMIZE:
+            return (
+                f"deleted {removed} document(s): a document has no non-personal "
+                "remainder, so anonymizing and deleting are the same act"
+            )
+        return f"deleted {removed} document(s)"
 
     return handler
 
@@ -123,11 +194,18 @@ class PeopleServices:
             growth_store = DbGrowthStore(self.session_factory)
             offboarding_store = DbOffboardingStore(self.session_factory)
 
+        # The services that create records are built before the compliance engine
+        # they report to, so the ledger is late-bound rather than holding a direct
+        # reference that would make this ordering a hard constraint.
+        ledger = RetentionLedger()
+
         approvals = ApprovalEngine(approval_store, audit=self.audit)
         tasks = TaskEngine(task_store, audit=self.audit)
         self.approvals = approvals
         self.tasks = tasks
-        self.employees = EmployeeService(employee_store, audit=self.audit, approvals=approvals)
+        self.employees = EmployeeService(
+            employee_store, audit=self.audit, approvals=approvals, retention=ledger
+        )
         self.contracts = ContractService(contract_store, audit=self.audit, tasks=tasks)
         self.rate_tables = RateTableService(rate_table_store, audit=self.audit)
         leave: LeaveService
@@ -176,7 +254,8 @@ class PeopleServices:
             )
         self.payroll = payroll
         self.compliance = ComplianceService(compliance_store, approvals=approvals, audit=self.audit)
-        self._register_purge_handlers(compliance_store)
+        ledger.bind(self.compliance.track_record)
+        self._register_purge_handlers(compliance_store, employee_store)
         self.growth = GrowthService(
             growth_store, employees=self.employees, tasks=tasks, audit=self.audit
         )
@@ -188,7 +267,9 @@ class PeopleServices:
             audit=self.audit,
         )
 
-    def _register_purge_handlers(self, compliance_store: ComplianceStore) -> None:
+    def _register_purge_handlers(
+        self, compliance_store: ComplianceStore, employee_store: EmployeeStore
+    ) -> None:
         """Attach the store-backed purge implementations the compliance engine calls.
 
         Registered here, at the composition root, because that is the only place
@@ -198,4 +279,10 @@ class PeopleServices:
         """
         self.compliance.register_purge_handler(
             RecordEntity.CONSENT, _consent_purge_handler(compliance_store)
+        )
+        self.compliance.register_purge_handler(
+            RecordEntity.EMPLOYEE, _employee_purge_handler(employee_store)
+        )
+        self.compliance.register_purge_handler(
+            RecordEntity.DOCUMENT, _document_purge_handler(employee_store)
         )

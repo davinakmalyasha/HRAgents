@@ -93,3 +93,22 @@ def list_models[ModelT: BaseModel](
     with sync_session_scope(factory) as session:
         rows = session.execute(select(record_cls)).scalars().all()
         return [model_from_row(model_cls, row) for row in rows]
+
+
+def delete_model(
+    factory: sessionmaker[Session],
+    record_cls: type[OrmBase],
+    model_id: Any,
+) -> bool:
+    """Delete one row by primary key. True when a row was actually removed.
+
+    The return value is the point: a purge handler that reported a deletion it
+    did not perform would put a false statement in the audit chain, and "the row
+    was already gone" is a different outcome from "I removed it".
+    """
+    with sync_session_scope(factory) as session:
+        row = session.get(record_cls, model_id)
+        if row is None:
+            return False
+        session.delete(row)
+        return True

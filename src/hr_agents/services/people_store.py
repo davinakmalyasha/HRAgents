@@ -11,6 +11,7 @@ from datetime import date
 from uuid import UUID
 
 from hr_agents.models import (
+    ERASED_NAME,
     ApprovalRequest,
     BreachIncident,
     ConsentGrant,
@@ -31,6 +32,7 @@ from hr_agents.models import (
     ReviewCycle,
     ReviewSummary,
     TaskItem,
+    utc_now,
 )
 
 
@@ -56,6 +58,43 @@ class EmployeeStore:
 
     def list_employees(self) -> list[Employee]:
         return sorted(self._employees.values(), key=lambda item: item.full_name.lower())
+
+    def anonymize_employee(self, employee_id: UUID) -> Employee | None:
+        """Blank the personal fields, keep the operational record.
+
+        What erasure means for an employee: the name, contact details, job
+        title, work location and the emergency contact -- who is a third party
+        whose data was never theirs to consent away -- all go. `hire_date`,
+        `status`, `org_unit_id` and `id` stay, because leave, contracts and
+        payroll rows reference this record and a documented payroll history is
+        itself a legal obligation.
+
+        Deliberately does not touch documents: those are tracked as their own
+        ledger records under their own retention policy, and deleting them here
+        would let an employee-record expiry shorten a document retention window
+        an operator set on purpose.
+        """
+        employee = self.get_employee(employee_id)
+        if employee is None:
+            return None
+        anonymized = employee.model_copy(
+            update={
+                "employee_number": None,
+                "full_name": ERASED_NAME,
+                "email": None,
+                "phone": None,
+                "job_title": None,
+                "work_location": None,
+                "emergency_contact": None,
+                "updated_at": utc_now(),
+            }
+        )
+        self.save_employee(anonymized)
+        return anonymized
+
+    def delete_document(self, document_id: UUID) -> bool:
+        """Remove a document's row. True when one was there."""
+        return self._documents.pop(document_id, None) is not None
 
     # org units
     def add_org_unit(self, unit: OrgUnit) -> None:

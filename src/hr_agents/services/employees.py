@@ -19,6 +19,8 @@ from hr_agents.models import (
     EmployeeDocument,
     EmployeeStatus,
     OrgUnit,
+    RecordEntity,
+    SubjectKind,
     VerificationStatus,
     business_today,
     utc_now,
@@ -26,6 +28,7 @@ from hr_agents.models import (
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import EmployeeStore
+from hr_agents.services.retention import RetentionLedger
 
 
 class EmployeeError(DomainError, RuntimeError):
@@ -41,10 +44,12 @@ class EmployeeService:
         *,
         audit: AuditChain | None = None,
         approvals: ApprovalEngine | None = None,
+        retention: RetentionLedger | None = None,
     ) -> None:
         self._store = store
         self._audit = audit or AuditChain()
         self._approvals = approvals
+        self._retention = retention
 
     # --- creation & updates ---------------------------------------------
 
@@ -87,6 +92,22 @@ class EmployeeService:
         )
         self._store.add_employee(employee)
         self._record(employee, action="employee.created", actor=actor)
+        """
+        The retention ledger learns about this record the moment it exists.
+
+        Until services reported here the only writer was the operator endpoint,
+        so a real install accumulated employees that no retention scan could
+        see, and `execute_purge` reported nothing to do for an entity whose
+        policy said records were due.
+        """
+        if self._retention is not None:
+            self._retention.track(
+                entity=RecordEntity.EMPLOYEE,
+                subject_kind=SubjectKind.EMPLOYEE,
+                subject_id=str(employee.id),
+                actor=actor,
+                label=employee.full_name,
+            )
         return employee
 
     def update_contact(
@@ -235,6 +256,20 @@ class EmployeeService:
             actor=actor,
             extra={"kind": kind.value, "document_id": str(document.id)},
         )
+        if self._retention is not None:
+            """
+            Tracked against the *person*, not the document id: erasure is a
+            request about somebody, so a handler looks up everything filed under
+            their subject id. The document id travels in the label for a human
+            reading the ledger.
+            """
+            self._retention.track(
+                entity=RecordEntity.DOCUMENT,
+                subject_kind=SubjectKind.EMPLOYEE,
+                subject_id=str(employee.id),
+                actor=actor,
+                label=filename or document.storage_key,
+            )
         return document
 
     def mark_document_verified(
