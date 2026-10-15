@@ -17,7 +17,7 @@ from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.policy_assistant import PolicyResult, validate_policy_answer
 from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
-from hr_agents.models import AuditActor, StrictModel, UtcDateTime, utc_now
+from hr_agents.models import AuditActor, StrictModel, UtcDateTime, Versioned, utc_now
 from hr_agents.rbac import Principal, RoleId
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.front_door import FrontDoor, RouteDecision, RouteReason
@@ -41,7 +41,7 @@ class ChatTurn(StrictModel):
     at: UtcDateTime = Field(default_factory=utc_now)
 
 
-class ConversationRecord(StrictModel):
+class ConversationRecord(Versioned):
     id: UUID = Field(default_factory=uuid4)
     workspace: WorkspaceId
     owner: str

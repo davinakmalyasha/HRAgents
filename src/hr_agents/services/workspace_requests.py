@@ -16,7 +16,7 @@ from pydantic import Field
 
 from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
-from hr_agents.models import StrictModel, UtcDateTime, utc_now
+from hr_agents.models import UtcDateTime, Versioned, utc_now
 from hr_agents.rbac import Principal
 from hr_agents.services.audit import AuditChain
 from hr_agents.workspaces import WorkspaceId, WorkspaceRegistry
@@ -32,7 +32,7 @@ class HandoffError(DomainError, RuntimeError):
     """Raised for invalid handoff requests."""
 
 
-class WorkspaceRequest(StrictModel):
+class WorkspaceRequest(Versioned):
     """One cross-workspace request: a queue item, never a decision."""
 
     id: UUID = Field(default_factory=uuid4)

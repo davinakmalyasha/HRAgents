@@ -22,6 +22,7 @@ from hr_agents.db.onboarding import DbOnboardingService
 from hr_agents.db.payroll import DbPayrollService
 from hr_agents.db.people import DbEmployeeStore
 from hr_agents.db.recruiting import DbEvaluationService, DbJobService
+from hr_agents.db.workspace import DbConversationStore, DbWorkspaceRequestStore
 from hr_agents.errors import StaleRecordError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
@@ -43,12 +44,20 @@ from hr_agents.models.money import money
 from hr_agents.models.payroll import PayrollInput, PayrollRun, PayrollRunStatus
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.chat import ChatTurn, ConversationRecord
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.ingestion import ApplicationStatus, SubmissionInput
 from hr_agents.services.people_store import ApprovalStore, RateTableStore, TaskStore
 from hr_agents.services.rate_tables import RateTableService
 from hr_agents.services.recruiting import RecruitingServices
 from hr_agents.services.tasks import TaskEngine
+from hr_agents.services.workspace_requests import (
+    RequestStatus as HandoffStatus,
+)
+from hr_agents.services.workspace_requests import (
+    WorkspaceRequest,
+)
+from hr_agents.workspaces import WorkspaceId
 
 HUMAN = ActorRef.legacy("hr-admin")
 TODAY = business_today()
@@ -556,3 +565,60 @@ def test_a_stale_feedback_report_is_refused(factory: sessionmaker[Session]) -> N
 
     survivor = service.feedback_for(candidate_id)
     assert survivor.summary == "Saved by the first writer"
+
+
+# --- the adapter rollout: workspace and chat --------------------------------------
+
+
+def test_two_turns_appended_at_once_do_not_erase_each_other(
+    factory: sessionmaker[Session],
+) -> None:
+    """Turns are appended by load-append-persist, so a stale copy holds a
+    transcript missing the other writer's turn -- writing it back would erase a
+    turn the person watched arrive."""
+    store = DbConversationStore(factory)
+    conversation = ConversationRecord(workspace=WorkspaceId.POLICY, owner="hr-admin")
+    store._persist(conversation)
+    held = store.get(conversation.id)
+    assert held is not None
+
+    current = store.get(conversation.id)
+    assert current is not None
+    current.turns = [*current.turns, ChatTurn(role="user", text="What is our notice period?")]
+    store._persist(current)
+
+    held.turns = [*held.turns, ChatTurn(role="user", text="And the probation length?")]
+    with pytest.raises(StaleRecordError, match="changed after this copy was read"):
+        store._persist(held)
+
+    survivor = store.get(conversation.id)
+    assert survivor is not None
+    assert [turn.text for turn in survivor.turns] == ["What is our notice period?"]
+
+
+def test_two_people_answering_one_handoff_lose_neither(
+    factory: sessionmaker[Session],
+) -> None:
+    store = DbWorkspaceRequestStore(factory)
+    request = WorkspaceRequest(
+        source_workspace=WorkspaceId.POLICY,
+        target_workspace=WorkspaceId.RECORDS,
+        text="Confirm Sari's probation end date",
+        requested_by="hr-admin",
+    )
+    store._persist(request)
+    held = store.get(request.id)
+    assert held is not None
+
+    first = store.get(request.id)
+    assert first is not None
+    first.status = HandoffStatus.CLAIMED
+    store._persist(first)
+
+    held.status = HandoffStatus.CLOSED
+    with pytest.raises(StaleRecordError):
+        store._persist(held)
+
+    survivor = store.get(request.id)
+    assert survivor is not None
+    assert survivor.status is HandoffStatus.CLAIMED

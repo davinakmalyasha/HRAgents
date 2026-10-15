@@ -15,6 +15,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from hr_agents.db.mapping import check_version
 from hr_agents.db.session import sync_session_scope
 from hr_agents.db.workspace_tables import ChatConversationRecord, WorkspaceRequestRecord
 from hr_agents.services.chat import ChatTurn, ConversationRecord, ConversationStore
@@ -62,6 +63,9 @@ class DbConversationStore(ConversationStore):
             if existing is None:
                 session.add(ChatConversationRecord(**self._values(record)))
             else:
+                # Two turns appended at once: the second writer held a transcript
+                # without the first turn, and writing it back would erase it.
+                check_version(existing, record)
                 for column, value in self._values(record).items():
                     setattr(existing, column, value)
 
@@ -87,6 +91,7 @@ class DbConversationStore(ConversationStore):
             turns=[ChatTurn.model_validate(turn) for turn in row.turns],
             created_at=_aware(row.created_at),
             updated_at=_aware(row.updated_at),
+            version=row.version,
         )
 
 
@@ -122,6 +127,9 @@ class DbWorkspaceRequestStore(WorkspaceRequestStore):
             if existing is None:
                 session.add(WorkspaceRequestRecord(id=record.id, **values))
             else:
+                # Two people answering one handoff: the older copy is refused
+                # rather than silently reopening a request that was answered.
+                check_version(existing, record)
                 for column, value in values.items():
                     setattr(existing, column, value)
 
@@ -136,4 +144,5 @@ class DbWorkspaceRequestStore(WorkspaceRequestStore):
             requested_by=row.requested_by,
             created_at=_aware(row.created_at),
             updated_at=_aware(row.updated_at),
+            version=row.version,
         )

@@ -185,14 +185,14 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       (requests, and policies whose JSON blob carries its version in the column beside it),
       payroll (runs -- a stale recompute can no longer overwrite an approved run), applications
       (two screeners dragging one card), offers (a stale copy cannot reopen one already
-      acted on; revisions stay append-only and unversioned) and recruiting (job specs,
-      evaluations, feedback reports, proposals and communications -- availability is a
-      set-whole write with no model to carry a version). **Remaining:** workspace/chat
-      (conversations and handoffs) needs the same check; leave balance adjustments, the
-      holiday calendar and interviewer availability are set-whole values, so they keep
-      last-write-wins and are noted rather than silently claimed. The "one transaction per
-      service method" half -- what would make a mid-loop erasure atomic rather than
-      half-finished -- is still open.
+      acted on; revisions stay append-only and unversioned), recruiting (job specs,
+      evaluations, feedback reports, proposals and communications) and workspace/chat
+      (conversations -- where a stale transcript write would erase a turn somebody watched
+      arrive -- and the handoff queue). **Every persist path with a model to carry a version
+      is guarded.** Three set-whole writes keep last-write-wins and say so rather than being
+      silently claimed: leave balance adjustments, the holiday calendar and interviewer
+      availability. The "one transaction per service method" half -- what would make a
+      mid-loop erasure atomic rather than half-finished -- is still open.
 - [ ] **Schema integrity**: `CHECK` constraints on the enum-like and numeric columns, foreign keys
       on the 8 orphan tables, and `ORDER BY` in the DB adapters instead of 12 Python re-sorts.
 - [~] **Real purge handlers and a fed retention ledger.** Four entities are done and
