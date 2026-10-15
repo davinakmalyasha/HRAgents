@@ -12,11 +12,13 @@ from datetime import timedelta
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
-from tests.actors import hr_admin
+from tests.actors import finance, hr_admin
+from tests.db.test_sql_payroll_adapter import _seed as seed_full_rates
 
 from hr_agents.api.problem import domain_problem
 from hr_agents.db.leave import DbLeaveService
 from hr_agents.db.onboarding import DbOnboardingService
+from hr_agents.db.payroll import DbPayrollService
 from hr_agents.db.people import DbEmployeeStore
 from hr_agents.errors import StaleRecordError
 from hr_agents.identity import ActorRef
@@ -34,10 +36,13 @@ from hr_agents.models import (
     TemplateStep,
     business_today,
 )
+from hr_agents.models.money import money
+from hr_agents.models.payroll import PayrollInput, PayrollRun, PayrollRunStatus
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
-from hr_agents.services.people_store import ApprovalStore, TaskStore
+from hr_agents.services.people_store import ApprovalStore, RateTableStore, TaskStore
+from hr_agents.services.rate_tables import RateTableService
 from hr_agents.services.tasks import TaskEngine
 
 HUMAN = ActorRef.legacy("hr-admin")
@@ -344,3 +349,84 @@ def policy_annual() -> LeaveTypePolicy:
         accrual_method=AccrualMethod.LUMP_SUM_ANNUAL,
         days_per_year=12.0,
     )
+
+
+# --- the adapter rollout: payroll -------------------------------------------------
+
+
+def payroll_service(
+    factory: sessionmaker[Session],
+) -> tuple[DbPayrollService, EmployeeService]:
+    audit = AuditChain()
+    approvals = ApprovalEngine(ApprovalStore(), audit=audit)
+    employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
+    rates = RateTableService(RateTableStore(), audit=audit)
+    return (
+        DbPayrollService(
+            factory,
+            employees=employees,
+            rate_tables=rates,
+            approvals=approvals,
+            audit=audit,
+        ),
+        employees,
+    )
+
+
+def computed_run(
+    factory: sessionmaker[Session],
+) -> tuple[DbPayrollService, PayrollRun]:
+    service, employees = payroll_service(factory)
+    seed_full_rates(service._rate_tables)
+    employee = employees.create(
+        full_name="Sari Dewi", actor=HUMAN, hire_date=TODAY - timedelta(days=400)
+    )
+    run = service.create_run(period_year=TODAY.year, period_month=6, actor=HUMAN)
+    service.set_inputs(
+        run.id,
+        inputs=[
+            PayrollInput(employee_id=employee.id, base_salary=money("5000000")),
+        ],
+        actor=HUMAN,
+    )
+    return service, service.compute(run.id, actor=HUMAN)
+
+
+def test_a_stale_recompute_cannot_overwrite_an_approved_run(
+    factory: sessionmaker[Session],
+) -> None:
+    """The figures a human approved must be the figures that stay.
+
+    An operator holding a draft copy while finance signs the run off would
+    otherwise be able to recompute it -- or blank its lines -- after the sign-off
+    the packet and the audit chain already recorded.
+    """
+    service, computed = computed_run(factory)
+    stale = service.get_run(computed.id)  # taken while still editable
+
+    submitted = service.submit_for_signoff(computed.id, actor=HUMAN)
+    assert submitted.approval_id is not None
+    service._approvals.decide(
+        submitted.approval_id, actor=finance(), approve=True, reason="figures checked"
+    )
+    approved = service.apply_decision(submitted.approval_id, actor=HUMAN)
+    assert approved.status is PayrollRunStatus.APPROVED
+
+    overwrite = stale.model_copy(update={"status": PayrollRunStatus.DRAFT, "lines": []})
+    with pytest.raises(StaleRecordError, match="changed after this copy was read"):
+        service._save_run(overwrite)
+
+    survivor = service.get_run(computed.id)
+    assert survivor.status is PayrollRunStatus.APPROVED
+    assert survivor.lines, "an approved run's lines must survive a stale writer"
+
+
+def test_recomputing_a_draft_run_still_works(factory: sessionmaker[Session]) -> None:
+    """Recompute-while-draft is a feature; the guard must not mistake sequential
+    use for a conflict."""
+    service, run = computed_run(factory)
+
+    again = service.compute(run.id, actor=HUMAN)
+
+    assert again.lines
+    assert again.version == run.version + 1

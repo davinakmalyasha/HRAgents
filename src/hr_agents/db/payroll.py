@@ -18,6 +18,7 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from hr_agents.db.mapping import check_version
 from hr_agents.db.payroll_tables import PayrollLineRecord, PayrollRunRecord
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models.payroll import (
@@ -113,6 +114,9 @@ class DbPayrollService(PayrollService):
                 row = PayrollRunRecord(id=run.id, **values)
                 session.add(row)
             else:
+                # A run recomputed or signed off from a stale copy is refused: the
+                # figures a human approved must be the figures that stay.
+                check_version(row, run)
                 for column, value in values.items():
                     setattr(row, column, value)
             # Lines are replaced wholesale rather than merged. A recomputed run has a
@@ -161,6 +165,7 @@ class DbPayrollService(PayrollService):
             cancel_reason=row.cancel_reason,
             created_at=_aware(row.created_at),
             updated_at=_aware(row.updated_at),
+            version=row.version,
         )
 
     @staticmethod

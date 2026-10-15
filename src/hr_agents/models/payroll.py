@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, utc_now
 from hr_agents.models.money import ZERO, Money, add, sub, sum_money
 
 
@@ -180,7 +180,7 @@ class PayrollTotals(StrictModel):
     employer_cost: Money = Field(default=ZERO, ge=0.0)
 
 
-class PayrollRun(StrictModel):
+class PayrollRun(Versioned):
     """One payroll period: inputs → computed lines → human sign-off → export."""
 
     id: UUID = Field(default_factory=uuid4)
