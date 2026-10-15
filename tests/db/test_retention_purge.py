@@ -14,7 +14,9 @@ from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
 
+from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.people import DbEmployeeStore
+from hr_agents.db.tables import Candidate
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     DocumentKind,
@@ -26,10 +28,24 @@ from hr_agents.models import (
     SubjectKind,
     business_today,
 )
-from hr_agents.services import ComplianceService
+from hr_agents.services import (
+    ApprovalEngine,
+    ApprovalStore,
+    ComplianceService,
+)
+from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
+from hr_agents.services.ingestion import (
+    ApplicationRecord,
+    ApplicationStore,
+    SubmissionInput,
+)
 from hr_agents.services.people import PeopleServices
-from hr_agents.services.people_store import EmployeeStore
+from hr_agents.services.people_store import ComplianceStore, EmployeeStore
+from hr_agents.services.recruiting import (
+    RecruitingServices,
+    register_recruitment_purge_handlers,
+)
 from hr_agents.services.retention import RetentionLedger
 
 HUMAN = ActorRef.legacy("hr-admin")
@@ -328,3 +344,146 @@ def add_documents_via(store: DbEmployeeStore, employee: Employee) -> None:
                 sha256="b" * 64,
             )
         )
+
+
+# --- recruitment: the candidate is the person ----------------------------------
+
+
+def recruit(
+    factory: sessionmaker[Session], *, candidate_name: str = "Budi Santoso"
+) -> tuple[DbApplicationStore, ApplicationRecord]:
+    """One submission through the real store, so candidate and application rows exist."""
+    applications = DbApplicationStore(factory)
+    services = RecruitingServices(
+        audit=AuditChain(), applications=applications, session_factory=factory
+    )
+    job = services.jobs.create(title="Backend Engineer", actor=HUMAN)
+    record, created = applications.submit(
+        SubmissionInput(
+            job_id=job.id,
+            source_channel="api",
+            consent_granted=True,
+            candidate_name=candidate_name,
+            candidate_emails=["budi@example.com"],
+        )
+    )
+    assert created is True
+    return applications, record
+
+
+def compliance_over(applications: ApplicationStore) -> ComplianceService:
+    audit = AuditChain()
+    compliance = ComplianceService(
+        ComplianceStore(), approvals=ApprovalEngine(ApprovalStore(), audit=audit), audit=audit
+    )
+    register_recruitment_purge_handlers(compliance, applications)
+    return compliance
+
+
+def test_candidate_anonymize_blanks_the_row_and_keeps_it(
+    factory: sessionmaker[Session],
+) -> None:
+    """The funnel cascades off the candidate row, so erasure blanks, never deletes."""
+    applications, record = recruit(factory)
+    compliance = compliance_over(applications)
+    compliance.track_record(
+        entity=RecordEntity.CANDIDATE,
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id=str(record.candidate_id),
+        actor=HUMAN,
+        label="Budi Santoso",
+    )
+    set_policy(compliance, RecordEntity.CANDIDATE, months=1)
+    (tracked,) = compliance.list_records()
+    backdate(compliance, tracked, days=60)
+
+    report = compliance.execute_purge(actor=SWEEP)
+
+    with factory() as session:
+        row = session.get(Candidate, record.candidate_id)
+        assert row is not None
+        assert row.full_name == "[erased]"
+        assert row.primary_email is None
+        assert row.location is None
+        assert row.profile == {}
+        assert row.deleted_at is None, "anonymize is not a deletion"
+    (outcome,) = report.purged
+    assert "blanked candidate name" in outcome.detail
+
+
+def test_candidate_delete_is_carried_out_as_a_soft_delete(factory: sessionmaker[Session]) -> None:
+    """A hard delete would cascade into applications and evaluations, so the
+    handler marks the row deleted instead and records the substitution."""
+    applications, record = recruit(factory)
+    compliance = compliance_over(applications)
+    compliance.set_policy(
+        entity=RecordEntity.CANDIDATE,
+        name="candidate records",
+        retention_months=1,
+        expiry_action=PurgeAction.DELETE,
+        actor=HUMAN,
+    )
+    compliance.track_record(
+        entity=RecordEntity.CANDIDATE,
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id=str(record.candidate_id),
+        actor=HUMAN,
+    )
+    (tracked,) = compliance.list_records()
+    backdate(compliance, tracked, days=60)
+
+    report = compliance.execute_purge(actor=SWEEP)
+
+    with factory() as session:
+        row = session.get(Candidate, record.candidate_id)
+        assert row is not None
+        assert row.deleted_at is not None
+        assert row.full_name == "[erased]"
+    (outcome,) = report.purged
+    assert "marked the row deleted" in outcome.detail
+
+
+def test_application_rows_report_that_they_name_nobody(factory: sessionmaker[Session]) -> None:
+    """The application entity gets a handler so a sweep never logs a missing one.
+
+    Its rows hold job, status, scores and timeline -- records about a process.
+    The handler says so and marks the ledger row satisfied rather than deleting
+    the funnel entry and its evaluations along with it.
+    """
+    applications, record = recruit(factory)
+    compliance = compliance_over(applications)
+    compliance.track_record(
+        entity=RecordEntity.APPLICATION,
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id=str(record.candidate_id),
+        actor=HUMAN,
+    )
+    set_policy(compliance, RecordEntity.APPLICATION, months=1)
+    (tracked,) = compliance.list_records()
+    backdate(compliance, tracked, days=60)
+
+    report = compliance.execute_purge(actor=SWEEP)
+
+    assert applications.get(record.id) is not None, "the funnel entry must survive"
+    (outcome,) = report.purged
+    assert "name nobody" in outcome.detail
+
+
+def test_memory_backend_says_it_stores_no_candidate() -> None:
+    """The in-memory store keeps no candidate row, so the honest answer is that
+    there is nothing on this backend to erase -- not a pretend mutation."""
+    compliance = compliance_over(ApplicationStore())
+    compliance.track_record(
+        entity=RecordEntity.CANDIDATE,
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id=str(uuid4()),
+        actor=HUMAN,
+    )
+    set_policy(compliance, RecordEntity.CANDIDATE, months=1)
+    (tracked,) = compliance.list_records()
+    backdate(compliance, tracked, days=60)
+
+    report = compliance.execute_purge(actor=SWEEP)
+
+    (outcome,) = report.purged
+    assert "not stored on this backend" in outcome.detail

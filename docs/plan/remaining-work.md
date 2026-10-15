@@ -178,16 +178,20 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       makes a mid-loop erasure failure detectable instead of silent.
 - [ ] **Schema integrity**: `CHECK` constraints on the enum-like and numeric columns, foreign keys
       on the 8 orphan tables, and `ORDER BY` in the DB adapters instead of 12 Python re-sorts.
-- [~] **Real purge handlers and a fed retention ledger.** The ledger is now fed
-      by the services that create the records -- employee creation and document
-      upload register `employee` and `document` rows -- and those two entities
-      have handlers: anonymize blanks the personal fields and keeps the row the
-      dependents point at, document purge deletes the rows, and a `delete` that
-      would cascade-destroy history is carried out as anonymize with the
-      substitution recorded. Candidate, application and payroll still have no
-      handler and report an honest `skipped`; their records carry the subject id
-      of a person, so the handler contract is ready when the store operations
-      are.
+- [~] **Real purge handlers and a fed retention ledger.** Four entities are done and
+      the fifth is a deliberate decision. The ledger is fed by the services that
+      create records: employee creation, document upload, and application submission
+      (a system actor -- ingestion is machine-facing) register `employee`,
+      `document` and `candidate` rows. Handlers: employee anonymize blanks
+      the personal fields and keeps the row the dependents point at; a `delete` that
+      would cascade-destroy history is carried out as anonymize (employee) or a soft
+      delete (candidate, via `candidates.deleted_at`) with the substitution recorded;
+      document purge deletes the rows; and the application handler reports that its
+      rows name nobody -- the person lives on the candidate row and the consent
+      registry -- so a sweep never logs a missing handler and never deletes a funnel
+      entry out from under its evaluations and offers. Payroll records still report an
+      honest `skipped`: a run is a tax record, and erasing the person from it means
+      deciding what a pseudonymous line looks like, which is the next decision here.
 - [ ] **Consolidate the 13 `_record` audit methods, 6 state-transition formats, and the triplicated
       approval→status sync** behind one auditor, one declarative state machine, and one
       `ApprovalEngine.await_decision()`.

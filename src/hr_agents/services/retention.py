@@ -15,14 +15,29 @@ that every future wiring change has to preserve.
 from __future__ import annotations
 
 from collections.abc import Callable
+from uuid import UUID
 
 from hr_agents.identity import ActorRef
-from hr_agents.models import RecordEntity, SubjectKind
+from hr_agents.models import RecordEntity, RetentionRecord, SubjectKind
 
 # The compliance service's own signature, as a type, so this module does not
 # import it (which would close a cycle: compliance imports the models, the
 # services import compliance).
 TrackFn = Callable[..., object]
+
+
+def subject_uuid(record: RetentionRecord) -> UUID | None:
+    """The subject id as a UUID, or None when an operator tracked something else.
+
+    Every handler that acts on a record by id needs this first: the ledger
+    accepts any string as a subject id, so a handler cannot assume it parses.
+    Returning None lets the handler say "not a record I can act on" instead of
+    raising and aborting the sweep for every record behind it.
+    """
+    try:
+        return UUID(record.subject_id)
+    except ValueError:
+        return None
 
 
 class RetentionLedger:

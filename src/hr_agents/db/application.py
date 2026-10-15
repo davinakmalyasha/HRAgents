@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.session import sync_session_scope
 from hr_agents.db.tables import Application, Candidate
-from hr_agents.models import ConsentRecord, Recommendation
+from hr_agents.models import ERASED_NAME, ConsentRecord, Recommendation
 from hr_agents.services.ingestion import (
     ApplicationRecord,
     ApplicationStatus,
@@ -137,3 +137,31 @@ class DbApplicationStore(ApplicationStore):
             priority_score=row.priority_score or 0.0,
             timeline=timeline,
         )
+
+    # retention purges
+
+    def anonymize_candidate(self, candidate_id: UUID, *, soft_delete: bool = False) -> bool:
+        """Blank a candidate row's identity, keeping the row its funnel points at.
+
+        `delete` arrives here as ``soft_delete`` and says so in the handler's
+        detail: the ``applications`` and ``evaluations`` tables cascade off this
+        row, so a hard delete would take the entire hiring history with it. The
+        ``candidates.deleted_at`` column exists for exactly this state -- the
+        person's data is gone, the record of the process is not.
+
+        Returns False when no row matched, so the handler can say "nothing to
+        remove" instead of reporting a mutation that did not happen.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            row = session.get(Candidate, candidate_id)
+            if row is None:
+                return False
+            row.full_name = ERASED_NAME
+            row.primary_email = None
+            row.location = None
+            row.profile = {}
+            row.field_confidence = {}
+            if soft_delete:
+                row.deleted_at = datetime.now(UTC)
+            session.flush()
+            return True

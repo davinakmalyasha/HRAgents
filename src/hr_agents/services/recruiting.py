@@ -57,7 +57,10 @@ from hr_agents.models import (
     PolicyDecision,
     PolicyEvaluation,
     ProposalStatus,
+    PurgeAction,
     Recommendation,
+    RecordEntity,
+    RetentionRecord,
     SchedulingChannel,
     SchedulingPayload,
     ScoreDimension,
@@ -70,9 +73,11 @@ from hr_agents.models import (
 from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
 from hr_agents.services.approvals import ApprovalError
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.compliance import ComplianceService, PurgeHandler
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
 from hr_agents.services.offers import OfferService
 from hr_agents.services.policy import evaluate_policy
+from hr_agents.services.retention import subject_uuid
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session, sessionmaker
@@ -1819,3 +1824,82 @@ __all__ = [
     "compose_rejection_body",
     "synthesize_feedback",
 ]
+
+
+def register_recruitment_purge_handlers(
+    compliance: ComplianceService, store: ApplicationStore
+) -> None:
+    """Attach the candidate and application purge handlers.
+
+    Registered at the composition root because that is the only place the
+    compliance engine and the application store both exist -- the recruiting
+    services are built before either.
+
+    Neither handler fabricates a mutation. What erasure means here is on the
+    candidate row, and the two entities report honestly about the rest: an
+    application row names nobody, and a candidate the backend does not store
+    cannot be blanked.
+    """
+    compliance.register_purge_handler(RecordEntity.CANDIDATE, _candidate_purge_handler(store))
+    compliance.register_purge_handler(RecordEntity.APPLICATION, _application_purge_handler())
+
+
+def _candidate_purge_handler(store: ApplicationStore) -> PurgeHandler:
+    """Blank a candidate's identity, keeping the funnel that points at the row.
+
+    `delete` arrives as a soft delete and says so in the detail: applications and
+    evaluations cascade off the candidate row, so following the policy literally
+    would take the entire hiring history with it. The ``candidates.deleted_at``
+    column exists for exactly this state.
+
+    The in-memory backend stores no candidate record at all (only the submission
+    payload, which is discarded), so there it reports that rather than pretending
+    to have removed something.
+    """
+
+    def handler(record: RetentionRecord, action: PurgeAction) -> str:
+        candidate_id = subject_uuid(record)
+        if candidate_id is None:
+            return f"subject {record.subject_id!r} is not a candidate id; nothing to remove"
+        anonymize = getattr(store, "anonymize_candidate", None)
+        if anonymize is None:
+            return (
+                "candidate rows are not stored on this backend, so a candidate record "
+                "exists nowhere to erase"
+            )
+        removed = anonymize(candidate_id, soft_delete=action is PurgeAction.DELETE)
+        if not removed:
+            return f"no candidate record for subject {record.subject_id}; nothing to remove"
+        if action is PurgeAction.DELETE:
+            return (
+                "blanked candidate identity and marked the row deleted: applications, "
+                "evaluations and offers cascade off it, so a hard delete would take "
+                "the hiring history with it"
+            )
+        return "blanked candidate name, email, location and parsed profile"
+
+    return handler
+
+
+def _application_purge_handler() -> PurgeHandler:
+    """Report what an application row actually holds.
+
+    An application names nobody: job, status, source, scores and timeline are
+    records about a process, and the person's data lives on the candidate row and
+    the consent registry, which have their own handlers. Deleting the row would
+    cascade into its evaluations and offers -- the funnel entry going is not the
+    same as the person being erased -- so the handler reports instead of acting,
+    and no sweep goes by with a missing-handler error.
+
+    Returning a detail (rather than None) marks the ledger row satisfied, the
+    same way the consent handler treats "no grant on record".
+    """
+
+    def handler(record: RetentionRecord, action: PurgeAction) -> str:
+        return (
+            f"nothing to remove from {record.entity.value} rows: they name nobody. "
+            "The person's data is on the candidate record and the consent registry, "
+            "which have their own handlers"
+        )
+
+    return handler

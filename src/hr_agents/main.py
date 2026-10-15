@@ -64,7 +64,10 @@ from hr_agents.services.chat import ChatService, ConversationStore
 from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
 from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.people import PeopleServices
-from hr_agents.services.recruiting import RecruitingServices
+from hr_agents.services.recruiting import (
+    RecruitingServices,
+    register_recruitment_purge_handlers,
+)
 from hr_agents.services.workspace_requests import HandoffService, WorkspaceRequestStore
 from hr_agents.workspaces import default_registry
 
@@ -307,6 +310,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.onboarding = people_services.onboarding
     app.state.leave = people_services.leave
     app.state.compliance = people_services.compliance
+    # Candidate and application purge handlers. Registered here because this is
+    # the only place the compliance engine and the application store both exist:
+    # the recruiting services are built before either is reachable from the other.
+    register_recruitment_purge_handlers(people_services.compliance, store)
     app.state.growth = people_services.growth
     app.state.offboarding = people_services.offboarding
     # Messaging transports are resolved here so the API, the worker CLI, and the

@@ -18,6 +18,7 @@ from hr_agents.identity import ActorRef
 from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Principal
 from hr_agents.services import ApplicationStore, AuditChain
+from hr_agents.services.compliance import ComplianceService
 from hr_agents.services.dispatch import EvaluationDispatcher
 
 ActorDep = Annotated[ActorRef, Depends(current_actor)]
@@ -32,6 +33,10 @@ of hiding it inside the parameter that happens to carry the name.
 
 def get_store(request: Request) -> ApplicationStore:
     return request.app.state.store
+
+
+def get_compliance(request: Request) -> ComplianceService:
+    return request.app.state.compliance
 
 
 def get_audit(request: Request) -> AuditChain:

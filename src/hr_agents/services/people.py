@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
-from uuid import UUID
 
 from hr_agents.models import PurgeAction, RecordEntity, RetentionRecord
 from hr_agents.services.approvals import ApprovalEngine
@@ -32,7 +31,7 @@ from hr_agents.services.people_store import (
     TaskStore,
 )
 from hr_agents.services.rate_tables import RateTableService
-from hr_agents.services.retention import RetentionLedger
+from hr_agents.services.retention import RetentionLedger, subject_uuid
 from hr_agents.services.tasks import TaskEngine
 
 if TYPE_CHECKING:
@@ -61,19 +60,6 @@ def _consent_purge_handler(store: ComplianceStore) -> PurgeHandler:
     return handler
 
 
-def _subject_uuid(record: RetentionRecord) -> UUID | None:
-    """The subject id as a UUID, or None when an operator tracked something else.
-
-    The ledger accepts any string as a subject id, so a handler cannot assume it
-    parses. Returning None lets the handler say "not a record I can act on"
-    instead of raising and aborting the sweep for every record behind it.
-    """
-    try:
-        return UUID(record.subject_id)
-    except ValueError:
-        return None
-
-
 def _employee_purge_handler(store: EmployeeStore) -> PurgeHandler:
     """Blank an erased employee's identity, keep the operational record.
 
@@ -85,7 +71,7 @@ def _employee_purge_handler(store: EmployeeStore) -> PurgeHandler:
     """
 
     def handler(record: RetentionRecord, action: PurgeAction) -> str:
-        employee_id = _subject_uuid(record)
+        employee_id = subject_uuid(record)
         if employee_id is None:
             return f"subject {record.subject_id!r} is not an employee id; nothing to remove"
         employee = store.anonymize_employee(employee_id)
@@ -113,7 +99,7 @@ def _document_purge_handler(store: EmployeeStore) -> PurgeHandler:
     """
 
     def handler(record: RetentionRecord, action: PurgeAction) -> str:
-        employee_id = _subject_uuid(record)
+        employee_id = subject_uuid(record)
         if employee_id is None:
             return f"subject {record.subject_id!r} is not an employee id; nothing to remove"
         documents = store.list_documents(employee_id)

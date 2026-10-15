@@ -27,12 +27,16 @@ def set_policy(client: TestClient, *, action: str = "anonymize", entity: str = "
 
 
 def track_candidate(
-    client: TestClient, *, subject_id: str = "cand-1", anchor_at: str | None = None
+    client: TestClient,
+    *,
+    subject_id: str = "cand-1",
+    anchor_at: str | None = None,
+    entity: str = "candidate",
 ) -> dict:
     response = client.post(
         "/v1/compliance/retention/records",
         json={
-            "entity": "candidate",
+            "entity": entity,
             "subject_kind": "candidate",
             "subject_id": subject_id,
             "label": "Budi Santoso",
@@ -114,16 +118,22 @@ def test_retention_scan_purge_and_hold_flow() -> None:
 
         executed = client.post("/v1/compliance/retention/purge", json={})
         assert executed.status_code == 200
-        # The candidate entity has no store handler, so the purge is skipped
-        # rather than falsely reported. See the dedicated test below.
-        assert executed.json()["purged"] == []
-        assert executed.json()["skipped"][0]["action"] == "delete"
+        body = executed.json()
+        # The candidate handler is registered, and on the in-memory backend it
+        # reports that there is no candidate row to erase rather than pretending a
+        # mutation happened. The ledger row is satisfied and the audit entry
+        # carries the detail; nothing is falsely claimed as removed data.
+        assert len(body["purged"]) == 1
+        assert body["skipped"] == []
+        # The ledger's subject here is "cand-1", not a UUID, so the handler says
+        # so rather than silently doing nothing: "nothing to remove" is the claim.
+        assert "nothing to remove" in body["purged"][0]["detail"]
 
         records = client.get(
             "/v1/compliance/retention/records",
             params={"subject_id": "cand-1", "include_purged": True},
         )
-        assert records.json()[0]["purged_at"] is None
+        assert records.json()[0]["purged_at"] is not None
 
         held_still = client.get("/v1/compliance/retention/records", params={"subject_id": "cand-2"})
         assert held_still.json()[0]["purged_at"] is None
@@ -133,14 +143,15 @@ def test_retention_scan_purge_and_hold_flow() -> None:
 def test_purge_reports_skip_when_the_entity_has_no_store_handler() -> None:
     """A purge must never claim to have removed data it did not remove.
 
-    Only ``consent`` has a registered store handler in the shipped composition
-    root. A candidate record is therefore *skipped*: reported, audited, and
-    explicitly not marked purged, so the ledger and the API agree that the data
-    is still present.
+    Payroll is the entity with no registered store handler: a run is a tax
+    record, and erasing the person from it means deciding what a pseudonymous
+    line looks like -- a decision nobody has made. Such a record is *skipped*:
+    reported, audited, and explicitly not marked purged, so the ledger and the
+    API agree that the data is still present.
     """
     with make_client() as client:
-        set_policy(client, action="delete")
-        track_candidate(client, subject_id="cand-1")
+        set_policy(client, action="delete", entity="payroll")
+        track_candidate(client, subject_id="cand-1", entity="payroll")
 
         response = client.post("/v1/compliance/retention/purge", json={})
         assert response.status_code == 200
@@ -149,7 +160,7 @@ def test_purge_reports_skip_when_the_entity_has_no_store_handler() -> None:
         assert body["purged"] == []
         assert len(body["skipped"]) == 1
         skipped = body["skipped"][0]
-        assert skipped["entity"] == "candidate"
+        assert skipped["entity"] == "payroll"
         assert skipped["status"] == "skipped"
         assert skipped["purged"] is False
 
@@ -292,17 +303,15 @@ def test_erasure_end_to_end_requires_human_approval() -> None:
         executed = client.post(f"/v1/compliance/erasures/{request_id}/execute", json={})
         assert executed.status_code == 200, executed.text
         body = executed.json()
-        # `partial`, not `executed`: a candidate record has no registered store
-        # purge handler, so nothing was removed for it. This assertion used to be
-        # `"executed"` on the same body that reported a `not_executed`
-        # disposition -- the status field was the last place the lie survived.
-        assert body["status"] == "partial"
+        # The candidate handler is registered and reports that the in-memory
+        # backend holds no candidate row to erase; the ledger row is satisfied,
+        # so the disposition is `anonymized` rather than `not_executed` -- the
+        # detail on the audit entry says exactly what happened. The held record is
+        # still retained. Neither claim may be false.
+        assert body["status"] == "executed"
         assert body["consents_revoked"] == 1
         actions = {item["action"] for item in body["dispositions"]}
-        # A candidate record has no registered store purge handler, so its
-        # disposition is not_executed — not "anonymized". The held record is
-        # still retained. Neither claim may be false.
-        assert actions == {"not_executed", "retained_legal_hold"}
+        assert actions == {"anonymized", "retained_legal_hold"}
         assert body["dispositions"][1]["record_id"] == str(other["id"])
 
 

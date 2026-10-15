@@ -150,7 +150,14 @@ def test_audit_chain_has_submission_entries() -> None:
 
     assert app.state.audit.verify() == -1
     actions = [entry.action for entry in app.state.audit.entries]
-    assert actions == ["application.received", "application.received"]
+    """Per submission: the candidate is registered with the retention ledger the
+    moment the row exists, then the receipt is written."""
+    assert actions == [
+        "compliance.record_tracked",
+        "application.received",
+        "compliance.record_tracked",
+        "application.received",
+    ]
 
 
 # --- manual stage moves ---------------------------------------------------------------
@@ -252,3 +259,43 @@ def test_stage_move_unknown_application_404() -> None:
         )
 
     assert response.status_code == 404
+
+
+def test_submission_registers_a_candidate_with_the_retention_ledger() -> None:
+    """A candidate nobody tracked is a candidate no retention sweep can reach.
+
+    The feed is what makes the purge real for this domain: before it, the only
+    writer to the ledger was the operator endpoint, so `execute_purge` found
+    nothing to do for applications that had been accumulating for months.
+    """
+    from hr_agents.models import RecordEntity
+
+    app = create_app()
+    job_id = str(uuid4())
+    with TestClient(app) as client:
+        accepted = client.post("/v1/applications", json=make_payload(job_id))
+        records = client.app.state.compliance.list_records(  # type: ignore[attr-defined]
+            entity=RecordEntity.CANDIDATE
+        )
+
+    assert accepted.status_code == 202
+    candidate_id = accepted.json()["candidate_id"]
+    assert [(row.subject_id, row.label) for row in records] == [(candidate_id, "Budi Santoso")]
+
+
+def test_an_idempotent_replay_does_not_track_twice() -> None:
+    """The replay returns the earlier application; tracking it again would put a
+    second ledger row against the same person for one submission."""
+    from hr_agents.models import RecordEntity
+
+    app = create_app()
+    headers = {"Idempotency-Key": "ledger-replay-1"}
+    with TestClient(app) as client:
+        first = client.post("/v1/applications", json=make_payload(str(uuid4())), headers=headers)
+        client.post("/v1/applications", json=make_payload(str(uuid4())), headers=headers)
+        records = client.app.state.compliance.list_records(  # type: ignore[attr-defined]
+            entity=RecordEntity.CANDIDATE
+        )
+
+    assert first.status_code == 202
+    assert len(records) == 1

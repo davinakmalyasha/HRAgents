@@ -8,7 +8,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
-from hr_agents.api.deps import ActorDep, get_audit, get_dispatcher, get_store, require_permission
+from hr_agents.api.deps import (
+    ActorDep,
+    get_audit,
+    get_compliance,
+    get_dispatcher,
+    get_store,
+    require_permission,
+)
 from hr_agents.api.problem import domain_problem
 from hr_agents.api.schemas import (
     ApplicationAccepted,
@@ -20,8 +27,11 @@ from hr_agents.api.schemas import (
     BatchSubmissionRequest,
     StageChangeRequest,
 )
+from hr_agents.identity import ActorRef
+from hr_agents.models import RecordEntity, SubjectKind
 from hr_agents.rbac import Permission
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionConflictError
+from hr_agents.services.compliance import ComplianceService
 from hr_agents.services.dispatch import DispatchSkipped, EvaluationDispatcher
 from hr_agents.services.ingestion import ApplicationStatus
 from hr_agents.services.stages import StageTransitionError, StageTransitionService
@@ -35,6 +45,7 @@ router = APIRouter(
 StoreDep = Annotated[ApplicationStore, Depends(get_store)]
 AuditDep = Annotated[AuditChain, Depends(get_audit)]
 DispatcherDep = Annotated[EvaluationDispatcher, Depends(get_dispatcher)]
+ComplianceDep = Annotated[ComplianceService, Depends(get_compliance)]
 
 
 async def _submit_one(
@@ -42,6 +53,7 @@ async def _submit_one(
     store: ApplicationStore,
     audit: AuditChain,
     dispatcher: EvaluationDispatcher,
+    compliance: ComplianceService,
     idempotency_key: str | None,
 ) -> ApplicationAccepted:
     record, created = store.submit(submission.to_input(), idempotency_key=idempotency_key)
@@ -54,6 +66,18 @@ async def _submit_one(
             status=record.status.value,
             queued_at=record.received_at,
         )
+
+    # The retention ledger learns about the person the moment the record exists.
+    # A system actor, because ingestion is machine-facing (a webhook, the careers
+    # page) and the audit entry below says the same thing; a person who submits
+    # through the dashboard is authenticated on top of that.
+    compliance.track_record(
+        entity=RecordEntity.CANDIDATE,
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id=str(record.candidate_id),
+        actor=ActorRef.system("ingestion"),
+        label=submission.candidate.full_name if submission.candidate is not None else "",
+    )
 
     message_id: str | None = None
     skip_reason: str | None = None
@@ -95,10 +119,11 @@ async def submit_application(
     store: StoreDep,
     audit: AuditDep,
     dispatcher: DispatcherDep,
+    compliance: ComplianceDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ApplicationAccepted:
     try:
-        return await _submit_one(submission, store, audit, dispatcher, idempotency_key)
+        return await _submit_one(submission, store, audit, dispatcher, compliance, idempotency_key)
     except SubmissionConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
@@ -111,13 +136,19 @@ async def submit_application(
     dependencies=[Depends(require_permission(Permission.RECRUITING_WRITE))],
 )
 async def submit_batch(
-    payload: BatchSubmissionRequest, store: StoreDep, audit: AuditDep, dispatcher: DispatcherDep
+    payload: BatchSubmissionRequest,
+    store: StoreDep,
+    audit: AuditDep,
+    dispatcher: DispatcherDep,
+    compliance: ComplianceDep,
 ) -> BatchAccepted:
     results: list[BatchItemResult] = []
     accepted = 0
     for submission in payload.items:
         try:
-            response = await _submit_one(submission, store, audit, dispatcher, idempotency_key=None)
+            response = await _submit_one(
+                submission, store, audit, dispatcher, compliance, idempotency_key=None
+            )
         except SubmissionConflictError as exc:
             results.append(BatchItemResult(status="conflict", error=str(exc)))
             continue
