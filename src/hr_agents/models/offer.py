@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field, model_validator
 
-from hr_agents.models.common import StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import StrictModel, UtcDateTime, Versioned, utc_now
 from hr_agents.models.contract import ContractType
 
 
@@ -79,7 +79,7 @@ class OfferRevision(StrictModel):
     note: str = Field(default="", max_length=500)
 
 
-class Offer(StrictModel):
+class Offer(Versioned):
     """A full offer record: terms, status trail, and acceptance outcome."""
 
     id: UUID = Field(default_factory=uuid4)

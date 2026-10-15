@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 from hr_agents.db import offers_tables as ot
+from hr_agents.db.mapping import check_version
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import Offer, OfferRevision, OfferStatus, OfferTerms
 from hr_agents.services.approvals import ApprovalEngine
@@ -84,6 +85,10 @@ class DbOfferService(OfferService):
                     created_by=offer.created_by,
                 )
                 session.add(row)
+            else:
+                # An offer accepted while somebody else still held the pre-decision
+                # copy must not be reopened by the stale writer.
+                check_version(row, offer)
             row.application_id = offer.application_id
             row.candidate_id = offer.candidate_id
             row.job_id = offer.job_id
@@ -188,4 +193,5 @@ class DbOfferService(OfferService):
             accepted_at=None if row.accepted_at is None else _aware(row.accepted_at),
             declined_at=None if row.declined_at is None else _aware(row.declined_at),
             decline_reason=row.decline_reason,
+            version=row.version,
         )

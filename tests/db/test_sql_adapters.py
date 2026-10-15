@@ -32,6 +32,7 @@ from hr_agents.db.recruiting import (
     DbJobService,
     DbSchedulingService,
 )
+from hr_agents.errors import StaleRecordError
 from hr_agents.identity import ActorProvenance, ActorRef
 from hr_agents.messaging.contacts import InMemoryCandidateDirectory
 from hr_agents.messaging.store import ReplyStore, reply_dedup_key
@@ -772,3 +773,55 @@ def test_listing_offers_batches_their_revisions(factory: sessionmaker[Session]) 
     assert len(selects) == 2, f"expected 2 SELECTs, got {len(selects)}: {selects}"
     # And the grouped read still produces the same history as the single-offer one.
     assert [item.revision_index for item in batched[0].revisions] == [1, 2]
+
+
+def test_a_stale_offer_copy_is_refused(factory: sessionmaker[Session]) -> None:
+    """An offer accepted while somebody still held the pre-decision copy.
+
+    The stale writer must not be able to reopen it: the status a person already
+    acted on is the status that stays.
+    """
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id),
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    communications = DbCommunicationService(
+        evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
+    )
+    offers = DbOfferService(
+        evaluations=evaluations,
+        communications=communications,
+        session_factory=factory,
+        audit=audit,
+        applications=applications,
+    )
+    terms = OfferTerms(
+        position_title=job.title,
+        employment_type=ContractType.PKWTT,
+        start_date=date(2026, 11, 1),
+        salary_amount=25_000_000.0,
+        salary_currency="IDR",
+    )
+    created = offers.create(record.id, terms, actor=ActorRef.legacy("hr-admin"))
+    held = offers.get(created.id)
+
+    offers.revise(
+        created.id,
+        terms.model_copy(update={"salary_amount": 27_000_000.0}),
+        actor=ActorRef.legacy("hr-admin"),
+        note="negotiated",
+    )
+
+    held.status = OfferStatus.WITHDRAWN
+    with pytest.raises(StaleRecordError, match="changed after this copy was read"):
+        offers._persist(held)
+
+    survivor = offers.get(created.id)
+    assert survivor.status is OfferStatus.DRAFT
+    assert survivor.terms.salary_amount == 27_000_000.0
