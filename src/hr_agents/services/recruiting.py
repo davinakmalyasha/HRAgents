@@ -338,7 +338,7 @@ class JobService:
         return job
 
     def list_all(self, *, status: JobStatus | None = None) -> list[JobSpecification]:
-        jobs = sorted(self._iter_jobs(), key=lambda item: item.created_at)
+        jobs = sorted(self._iter_jobs(), key=lambda item: (item.created_at, str(item.id)))
         if status is not None:
             jobs = [job for job in jobs if job.status is status]
         return jobs

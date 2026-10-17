@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 import type { ApplicationSummary } from './pipeline'
 
@@ -8,8 +9,10 @@ export function useJobs() {
   return useQuery({
     queryKey: ['jobs'],
     queryFn: async () => {
-      const { data } = await api.GET('/v1/jobs')
-      return data ?? []
+      return fetchAllPages(async (limit, offset) => {
+        const { data } = await api.GET('/v1/jobs', { params: { query: { limit, offset } } })
+        return data ?? undefined
+      })
     },
   })
 }
@@ -18,10 +21,14 @@ export function useApplications(jobId: string | null) {
   return useQuery({
     queryKey: ['applications', jobId ?? 'all'],
     queryFn: async (): Promise<ApplicationSummary[]> => {
-      const { data } = await api.GET('/v1/applications', {
-        params: { query: jobId === null ? {} : { job_id: jobId } },
+      return fetchAllPages(async (limit, offset) => {
+        const { data } = await api.GET('/v1/applications', {
+          params: {
+            query: { limit, offset, ...(jobId === null ? {} : { job_id: jobId }) },
+          },
+        })
+        return data ?? undefined
       })
-      return data ?? []
     },
   })
 }
@@ -30,10 +37,12 @@ export function useGatedApplications() {
   return useQuery({
     queryKey: ['applications', 'status', 'gated'],
     queryFn: async (): Promise<ApplicationSummary[]> => {
-      const { data } = await api.GET('/v1/applications', {
-        params: { query: { status: 'gated' } },
+      return fetchAllPages(async (limit, offset) => {
+        const { data } = await api.GET('/v1/applications', {
+          params: { query: { status: 'gated', limit, offset } },
+        })
+        return data ?? undefined
       })
-      return data ?? []
     },
   })
 }

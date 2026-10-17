@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from hr_agents.api.deps import (
     ActorDep,
+    PaginationDep,
     get_audit,
     get_compliance,
     get_dispatcher,
@@ -25,6 +26,7 @@ from hr_agents.api.schemas import (
     BatchAccepted,
     BatchItemResult,
     BatchSubmissionRequest,
+    Page,
     StageChangeRequest,
 )
 from hr_agents.identity import ActorRef
@@ -162,21 +164,25 @@ async def submit_batch(
 
 @router.get(
     "",
-    response_model=list[ApplicationSummary],
+    response_model=Page[ApplicationSummary],
     summary="Pipeline applications, ranked by priority",
 )
 def list_applications(
     store: StoreDep,
+    paging: PaginationDep,
     job_id: UUID | None = None,
     application_status: Annotated[ApplicationStatus | None, Query(alias="status")] = None,
-    limit: Annotated[int, Query(ge=1, le=500)] = 200,
-) -> list[ApplicationSummary]:
+) -> Page[ApplicationSummary]:
     now = datetime.now(UTC)
     records = store.list_for_job(job_id) if job_id is not None else store.list_all()
     if application_status is not None:
         records = [record for record in records if record.status is application_status]
-    ranked = sorted(records, key=lambda record: record.priority_score, reverse=True)
-    return [ApplicationSummary.from_record(record, now=now) for record in ranked[:limit]]
+    ranked = sorted(records, key=lambda record: (-record.priority_score, str(record.id)))
+    return Page.slice(
+        [ApplicationSummary.from_record(record, now=now) for record in ranked],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get(

@@ -153,7 +153,8 @@ def test_job_crud_flow() -> None:
 
         listed = client.get("/v1/jobs")
         assert listed.status_code == 200
-        assert len(listed.json()) == 1
+        assert len(listed.json()["items"]) == 1
+        assert listed.json()["total"] == 1
 
         fetched = client.get(f"/v1/jobs/{job_id}")
         assert fetched.json()["title"] == "Backend Engineer"

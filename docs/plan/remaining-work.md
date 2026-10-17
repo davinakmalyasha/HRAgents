@@ -295,12 +295,13 @@ Remaining in this area:
       calendar, interviewer availability) are deliberately still last-write-wins; the
       erasure half-loop atomicity is tracked under the unit-of-work item below.
 - [~] **Pagination.** The `Page[T]` envelope (`items`/`total`/`limit`/`offset`, shared
-      `PaginationDep`, `limit` ≤ 200 default 100) is the contract, but only `GET /v1/employees`
-      is migrated so far — with WHERE/ORDER BY/LIMIT/OFFSET pushed into SQL and a count in the
-      same read, the in-memory store mirroring it, the web fetching all pages via
-      `fetchAllPages`, and the OpenAPI/TS artifacts regenerated. The remaining 48 list
-      endpoints still answer bare arrays and read whole tables (`active_plans` and
-      `_previous_run` being the two worst aggregations); migrate them onto the same seam.
+      `PaginationDep`, `limit` ≤ 200 default 100) is the contract. Migrated: `GET /v1/employees`
+      (the reference — WHERE/ORDER BY/LIMIT/OFFSET pushed into SQL with the count in the same
+      read, in-memory store mirroring it), `GET /v1/applications` (priority-ranked, the ad-hoc
+      `limit` gone) and `GET /v1/jobs`. The web walks pages via `fetchAllPages` and the
+      OpenAPI/TS artifacts are regenerated. The remaining 45 list endpoints still answer bare
+      arrays and read whole tables (`active_plans` and `_previous_run` being the two worst
+      aggregations); migrate them onto the same seam.
 - [ ] **No `CHECK` constraint exists anywhere in the tables.** The payroll money columns
       are `Numeric(18,2)` so the database rejects a third decimal place, but no other
       invariant is enforced below the application.

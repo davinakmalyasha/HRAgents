@@ -6015,6 +6015,41 @@
         "title": "OverrideView",
         "type": "object"
       },
+      "Page_ApplicationSummary_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ApplicationSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ApplicationSummary]",
+        "type": "object"
+      },
       "Page_EmployeeView_": {
         "additionalProperties": false,
         "properties": {
@@ -6048,6 +6083,41 @@
           "offset"
         ],
         "title": "Page[EmployeeView]",
+        "type": "object"
+      },
+      "Page_JobView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[JobView]",
         "type": "object"
       },
       "PayrollRunKind": {
@@ -10327,14 +10397,29 @@
             }
           },
           {
+            "description": "Maximum items to return.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
-              "default": 200,
-              "maximum": 500,
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
               "minimum": 1,
               "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
               "type": "integer"
             }
           }
@@ -10344,11 +10429,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ApplicationSummary"
-                  },
-                  "title": "Response List Applications V1 Applications Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ApplicationSummary_"
                 }
               }
             },
@@ -23359,7 +23440,7 @@
         "parameters": [
           {
             "in": "query",
-            "name": "job_status",
+            "name": "status",
             "required": false,
             "schema": {
               "anyOf": [
@@ -23370,7 +23451,34 @@
                   "type": "null"
                 }
               ],
-              "title": "Job Status"
+              "title": "Status"
+            }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
             }
           }
         ],
@@ -23379,11 +23487,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/JobView"
-                  },
-                  "title": "Response List Jobs V1 Jobs Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_JobView_"
                 }
               }
             },

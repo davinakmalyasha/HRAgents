@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import conflict, not_found
 from hr_agents.api.recruitment_schemas import (
     JobCreate,
@@ -15,6 +15,7 @@ from hr_agents.api.recruitment_schemas import (
     JobUpdate,
     JobView,
 )
+from hr_agents.api.schemas import Page
 from hr_agents.models import JobStatus
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import JobService, RecruitingError
@@ -33,9 +34,17 @@ def get_jobs(request: Request) -> JobService:
 JobsDep = Annotated[JobService, Depends(get_jobs)]
 
 
-@router.get("", response_model=list[JobView], summary="List job specifications")
-def list_jobs(jobs: JobsDep, job_status: JobStatus | None = None) -> list[JobView]:
-    return [JobView.from_model(job) for job in jobs.list_all(status=job_status)]
+@router.get("", response_model=Page[JobView], summary="List job specifications")
+def list_jobs(
+    jobs: JobsDep,
+    paging: PaginationDep,
+    job_status: Annotated[JobStatus | None, Query(alias="status")] = None,
+) -> Page[JobView]:
+    return Page.slice(
+        [JobView.from_model(job) for job in jobs.list_all(status=job_status)],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(

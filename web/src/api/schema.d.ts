@@ -4952,10 +4952,32 @@ export interface components {
             /** Reviewer Role */
             reviewer_role: string;
         };
+        /** Page[ApplicationSummary] */
+        Page_ApplicationSummary_: {
+            /** Items */
+            items: components["schemas"]["ApplicationSummary"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[EmployeeView] */
         Page_EmployeeView_: {
             /** Items */
             items: components["schemas"]["EmployeeView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[JobView] */
+        Page_JobView_: {
+            /** Items */
+            items: components["schemas"]["JobView"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -6608,7 +6630,10 @@ export interface operations {
             query?: {
                 job_id?: string | null;
                 status?: components["schemas"]["ApplicationStatus"] | null;
+                /** @description Maximum items to return. */
                 limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -6622,7 +6647,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApplicationSummary"][];
+                    "application/json": components["schemas"]["Page_ApplicationSummary_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -16666,7 +16691,11 @@ export interface operations {
     list_jobs_v1_jobs_get: {
         parameters: {
             query?: {
-                job_status?: components["schemas"]["JobStatus"] | null;
+                status?: components["schemas"]["JobStatus"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -16680,7 +16709,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobView"][];
+                    "application/json": components["schemas"]["Page_JobView_"];
                 };
             };
             /** @description The request could not be understood. */

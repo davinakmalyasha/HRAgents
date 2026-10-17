@@ -49,13 +49,20 @@ def test_pipeline_lists_and_filters_by_job() -> None:
 
         everything = client.get("/v1/applications")
         assert everything.status_code == 200
-        assert {item["application_id"] for item in everything.json()} == {first, second, third}
+        everything_body = everything.json()
+        assert everything_body["total"] == 3
+        assert {item["application_id"] for item in everything_body["items"]} == {
+            first,
+            second,
+            third,
+        }
 
         scoped = client.get("/v1/applications", params={"job_id": str(job_a)})
-        assert {item["application_id"] for item in scoped.json()} == {first, second}
+        assert {item["application_id"] for item in scoped.json()["items"]} == {first, second}
 
         empty = client.get("/v1/applications", params={"job_id": str(uuid4())})
-        assert empty.json() == []
+        assert empty.json()["items"] == []
+        assert empty.json()["total"] == 0
 
 
 def test_pipeline_ranks_by_priority() -> None:
@@ -72,7 +79,7 @@ def test_pipeline_ranks_by_priority() -> None:
         app.state.store._persist(record)
 
         ranked = client.get("/v1/applications", params={"job_id": str(job)}).json()
-        assert [item["application_id"] for item in ranked] == [second, first]
+        assert [item["application_id"] for item in ranked["items"]] == [second, first]
 
 
 def test_pipeline_summary_carries_stage_and_scores() -> None:
@@ -80,7 +87,7 @@ def test_pipeline_summary_carries_stage_and_scores() -> None:
 
     with TestClient(app) as client:
         application_id = _submit(client, uuid4())
-        summary = client.get("/v1/applications").json()[0]
+        summary = client.get("/v1/applications").json()["items"][0]
 
         assert summary["application_id"] == application_id
         assert summary["status"] == "queued"
@@ -121,15 +128,32 @@ def test_pipeline_filters_by_status() -> None:
         app.state.store.set_status(UUID(first), ApplicationStatus.GATED, event="evaluation.gated")
 
         gated = client.get("/v1/applications", params={"status": "gated"}).json()
-        assert [item["application_id"] for item in gated] == [first]
+        assert [item["application_id"] for item in gated["items"]] == [first]
 
         queued = client.get("/v1/applications", params={"status": "queued"}).json()
-        assert [item["application_id"] for item in queued] == [second]
+        assert [item["application_id"] for item in queued["items"]] == [second]
 
 
-def test_pipeline_limit_is_bounded() -> None:
+def test_pipeline_pagination_is_bounded_and_slices() -> None:
     app = create_app()
 
     with TestClient(app) as client:
+        job = str(uuid4())
+        for _ in range(3):
+            _submit(client, UUID(job))
+
+        full = client.get("/v1/applications", params={"job_id": job}).json()
+        all_ids = [item["application_id"] for item in full["items"]]
+        assert full["total"] == 3
+
+        page = client.get(
+            "/v1/applications", params={"job_id": job, "limit": 2, "offset": 1}
+        ).json()
+        assert page["total"] == 3
+        assert page["limit"] == 2
+        assert page["offset"] == 1
+        assert [item["application_id"] for item in page["items"]] == all_ids[1:3]
+
         assert client.get("/v1/applications", params={"limit": 0}).status_code == 422
-        assert client.get("/v1/applications", params={"limit": 501}).status_code == 422
+        assert client.get("/v1/applications", params={"limit": 201}).status_code == 422
+        assert client.get("/v1/applications", params={"offset": -1}).status_code == 422
