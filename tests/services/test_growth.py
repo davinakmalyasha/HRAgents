@@ -131,6 +131,23 @@ def make_assignment(
 
 
 _EMPLOYEE = uuid4()
+"""Repointed at a real row by the autouse fixture below.
+
+Growth writes reference employees with real foreign keys now; this module was
+written when the id was never resolved. The fixture keeps every existing call
+site honest without rewriting twenty signatures: each test gets a real
+employee in its own service instance, and the shared id points at it.
+"""
+
+
+@pytest.fixture(autouse=True)
+def _real_employee(
+    employees: EmployeeService, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    employee = employees.create(
+        full_name="Sari Dewi", actor=hr_admin(), hire_date=TODAY - timedelta(days=400)
+    )
+    monkeypatch.setattr(request.module, "_EMPLOYEE", employee.id)
 
 
 # --- cycles ------------------------------------------------------------------
@@ -705,8 +722,40 @@ def test_a_goal_whose_owner_is_gone_is_not_broadened_by_that(
     "allow", or a deleted employee would silently hand the goal to whoever asks.
     """
     orphan_id = uuid4()
-    goal = _goal_for(service, orphan_id)
+    # Built through the store, not `create_goal`: creation now resolves the
+    # employee and returns a shaped 404, so an orphan row can only arrive by
+    # restore or replay -- which is exactly the state this read path defends.
+    goal = Goal(employee_id=orphan_id, title="Ship it", created_by="Rina")
+    service._store.add_goal(goal)
     _stranger_id, stranger = as_employee(employees, "Budi Santoso")
 
     with pytest.raises(GrowthError, match="cannot update goal progress for employee"):
         service.update_progress(goal.id, percent=30.0, actor=stranger)
+
+
+# --- employee references -------------------------------------------------------
+
+
+def test_growth_writes_refuse_an_unknown_employee(service: GrowthService) -> None:
+    """The FK has a shaped error in front of it: 404, not an integrity 500.
+
+    Before the foreign key these paths happily wrote a row nothing could
+    resolve; the lookup makes the reference checkable at creation time and
+    answers the same way `EmployeeService.get` does.
+    """
+    cycle = make_cycle(service)
+    stranger = uuid4()
+
+    with pytest.raises(GrowthError) as assignment_error:
+        service.add_assignment(
+            cycle.id, employee_id=stranger, reviewer_id="lead-1", actor=hr_admin()
+        )
+    assert assignment_error.value.status == 404
+
+    with pytest.raises(GrowthError) as summary_error:
+        service.draft_summary(cycle.id, stranger, draft_text="draft", actor=hr_admin())
+    assert summary_error.value.status == 404
+
+    with pytest.raises(GrowthError) as goal_error:
+        service.create_goal(employee_id=stranger, title="Ship it", actor=hr_admin())
+    assert goal_error.value.status == 404

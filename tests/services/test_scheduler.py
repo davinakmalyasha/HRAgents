@@ -285,8 +285,18 @@ def seed_due_review(people: PeopleServices) -> None:
         kind=ReviewCycleKind.MID_YEAR,
         submission_due_on=NOW.date() + timedelta(days=1),
     )
+    # Growth rows reference employees with real foreign keys: the reviewee has
+    # to be a row, not an invented id.
+    employee = people.employees.create(
+        full_name="Sari Dewi",
+        actor=ActorRef.legacy("hr-admin"),
+        hire_date=NOW.date() - timedelta(days=200),
+    )
     people.growth.add_assignment(
-        cycle.id, employee_id=uuid4(), reviewer_id="lead-1", actor=ActorRef.legacy("hr-admin")
+        cycle.id,
+        employee_id=employee.id,
+        reviewer_id="lead-1",
+        actor=ActorRef.legacy("hr-admin"),
     )
     people.growth.activate_cycle(cycle.id, actor=ActorRef.legacy("hr-admin"))
 

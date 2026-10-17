@@ -685,8 +685,9 @@ not a style opinion.
    Migration `0022` adds thirteen named FKs (growth cycles, the three `approval_id`
    columns, onboarding/offboarding parents, the offboarding final pay run, the
    schedule-proposal self-reference) and exposed two latent payload-serialization crashes
-   that are fixed. Four references deliberately stay loose and are named in
-   remaining-work: growth employee ids (needs a lookup first), `leave_requests.document_id`,
+   that are fixed; `0024` follows with the growth employee references after
+   `GrowthService` gained the shaped-404 lookup they needed. Three references deliberately
+   stay loose and are named in remaining-work: `leave_requests.document_id`,
    `evaluations.application_id`, `scheduling_availability.interviewer_id`.
 7. ~~**43 of 45 list endpoints are unpaginated**~~ **Done, with a named residual.** All 49 list
    routes answer `Page[T]` (`items`/`total`/`limit`/`offset`; `limit` ≤ 200, default 100 via

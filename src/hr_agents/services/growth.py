@@ -16,6 +16,7 @@ from hr_agents.models import (
     CYCLE_TRANSITIONS,
     ApproverRole,
     AssignmentStatus,
+    Employee,
     Goal,
     GoalStatus,
     GoalUpdate,
@@ -31,7 +32,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
-from hr_agents.services.employees import EmployeeService
+from hr_agents.services.employees import EmployeeError, EmployeeService
 from hr_agents.services.people_store import GrowthStore
 from hr_agents.services.tasks import TaskEngine
 
@@ -203,6 +204,7 @@ class GrowthService:
         due_on: date | None = None,
     ) -> ReviewAssignment:
         cycle = self.get_cycle(cycle_id)
+        self._require_employee(employee_id)
         if cycle.status not in {ReviewCycleStatus.DRAFT, ReviewCycleStatus.ACTIVE}:
             raise GrowthError(f"cycle is {cycle.status.value}; assignments are closed")
         duplicate = next(
@@ -363,6 +365,7 @@ class GrowthService:
     ) -> ReviewSummary:
         """Create or refresh an agent/human draft. Never finalizes."""
         cycle = self.get_cycle(cycle_id)
+        self._require_employee(employee_id)
         if cycle.status not in {ReviewCycleStatus.ACTIVE, ReviewCycleStatus.REVIEWING}:
             raise GrowthError(f"cycle is {cycle.status.value}; summaries are closed")
         submitted = [
@@ -567,6 +570,7 @@ class GrowthService:
         due_on: date | None = None,
     ) -> Goal:
         actor.require_human("create a goal", GrowthError)
+        self._require_employee(employee_id)
         if cycle_id is not None:
             self.get_cycle(cycle_id)
         goal = Goal(
@@ -726,6 +730,23 @@ class GrowthService:
         if assignment.reviewer_id == actor.actor_id:
             return True
         return actor.role == "hr_admin"
+
+    def _require_employee(self, employee_id: UUID) -> Employee:
+        """Growth rows reference employees; an unknown id is a shaped 404.
+
+        Before the foreign key existed, a mistyped or stale employee id simply
+        produced a row nothing could resolve. The lookup turns that into the
+        same answer `EmployeeService.get` gives, instead of letting the database
+        raise an integrity error the API would report as a 500.
+        """
+        try:
+            return self._employees.get(employee_id)
+        except EmployeeError as exc:
+            raise GrowthError(
+                f"unknown employee {employee_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            ) from exc
 
     def _record(
         self,

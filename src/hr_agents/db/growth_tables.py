@@ -70,7 +70,11 @@ class ReviewAssignmentRecord(TenantScoped, Base):
         ForeignKey("review_cycles.id", name="fk_review_assignments_cycle"),
         nullable=False,
     )
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("employees.id", name="fk_review_assignments_employee"),
+        nullable=False,
+    )
     reviewer_id: Mapped[str] = mapped_column(String(200), nullable=False)
     reviewer_role: Mapped[str] = mapped_column(String(40), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False)
@@ -109,7 +113,11 @@ class ReviewSummaryRecord(TenantScoped, Base):
         ForeignKey("review_cycles.id", name="fk_review_summaries_cycle"),
         nullable=False,
     )
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("employees.id", name="fk_review_summaries_employee"),
+        nullable=False,
+    )
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     agent_draft: Mapped[str] = mapped_column(Text, nullable=False, default="")
     draft_by: Mapped[str | None] = mapped_column(String(200))
@@ -134,7 +142,11 @@ class GoalRecord(TenantScoped, Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("employees.id", name="fk_goals_employee"),
+        nullable=False,
+    )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     metric: Mapped[str | None] = mapped_column(Text)

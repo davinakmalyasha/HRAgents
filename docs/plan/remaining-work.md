@@ -329,11 +329,13 @@ Remaining in this area:
       run, and the schedule-proposal self-reference. Wiring them exposed and fixed two
       latent crashes: nested `Decimal`/date scalars in JSON-column payloads, and the
       DB-backed audit chain storing payloads the hash had canonicalised as strings.
-      Deliberately still loose, all named: growth rows' `employee_id` (creation does no
-      employee lookup, so the FK would turn a shaped 404 into a 500 — add the lookup
-      first), `leave_requests.document_id` (ambiguous target), `evaluations.application_id`
-      (legacy-nullable), and `scheduling_availability.interviewer_id` (no interviewer
-      table to point at).
+      Migration `0024` then closed the growth employee references: `GrowthService` now
+      resolves the employee at assignment/summary/goal creation and answers a shaped
+      404, so the FK guards a path that already behaves (the defensive read for a goal
+      whose owner is gone — a restore-only state — keeps its test, built through the
+      store). Deliberately still loose, all named: `leave_requests.document_id`
+      (ambiguous target), `evaluations.application_id` (legacy-nullable), and
+      `scheduling_availability.interviewer_id` (no interviewer table to point at).
 
 ---
 

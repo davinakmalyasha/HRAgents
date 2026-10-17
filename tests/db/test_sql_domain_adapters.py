@@ -214,9 +214,15 @@ def test_growth_store_round_trip(factory: sessionmaker[Session]) -> None:
     DbGrowthStore(factory).save_cycle(loaded_cycle)
     assert DbGrowthStore(factory).list_cycles()[0].description == "First half"
 
+    # Growth rows reference employees (and cycles) with real foreign keys now,
+    # so the subject must be a row in the same database.
+    employees = DbEmployeeStore(factory)
+    subject = Employee(full_name="Sari Dewi", status=EmployeeStatus.ACTIVE)
+    employees.add_employee(subject)
+
     assignment = ReviewAssignment(
         cycle_id=cycle.id,
-        employee_id=uuid4(),
+        employee_id=subject.id,
         reviewer_id="lead-1",
     )
     store.add_assignment(assignment)
