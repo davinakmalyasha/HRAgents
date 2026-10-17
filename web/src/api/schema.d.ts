@@ -584,6 +584,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/compliance/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Calendar
+         * @description The compliance calendar for a window: derived deadlines plus operator dates.
+         *
+         *     Two sources, merged and sorted by due date. Derived deadlines come from
+         *     records the product already keeps; operator entries carry the statutory or
+         *     policy dates the product must not invent. ``overdue`` is computed against
+         *     the business day, so clients do not re-derive the timezone rule.
+         */
+        get: operations["list_calendar_v1_compliance_calendar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compliance/calendar/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Calendar Entry */
+        post: operations["create_calendar_entry_v1_compliance_calendar_entries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/compliance/calendar/entries/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Calendar Entry
+         * @description Remove one operator date. A reason is required and lands in the trail.
+         */
+        delete: operations["remove_calendar_entry_v1_compliance_calendar_entries__entry_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/compliance/consents": {
         parameters: {
             query?: never;
@@ -3341,6 +3403,85 @@ export interface components {
          *     overrode something.
          */
         ByActor: Record<string, never>;
+        /**
+         * CalendarEntryCategory
+         * @description What kind of obligation an operator-entered calendar date is.
+         * @enum {string}
+         */
+        CalendarEntryCategory: "tax" | "bpjs" | "labour" | "thr" | "reporting" | "other";
+        /**
+         * CalendarEntryCreate
+         * @description One operator-entered calendar date.
+         *
+         *     ``source_note`` is required and means what it says: the product ships no
+         *     statutory dates, so every entry must name where the date came from.
+         */
+        CalendarEntryCreate: {
+            category: components["schemas"]["CalendarEntryCategory"];
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /**
+             * Jurisdiction
+             * @default ID
+             */
+            jurisdiction: string;
+            /** Notes */
+            notes?: string | null;
+            /** Source Note */
+            source_note: string;
+            /** Title */
+            title: string;
+        };
+        /** CalendarEntryRemove */
+        CalendarEntryRemove: {
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * CalendarItemView
+         * @description One row of the calendar: a derived deadline or an operator entry.
+         *
+         *     ``overdue`` is computed at read time against the business day, so a client
+         *     never has to know the timezone the server dates by.
+         */
+        CalendarItemView: {
+            /** Category */
+            category?: string | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /** Entry Id */
+            entry_id?: string | null;
+            /** Kind */
+            kind: string;
+            /** Notes */
+            notes?: string | null;
+            /** Overdue */
+            overdue: boolean;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "deadline" | "entry";
+            /** Source Note */
+            source_note?: string | null;
+            /** Subject Id */
+            subject_id?: string | null;
+            /** Subject Name */
+            subject_name?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /** CandidateInput */
         CandidateInput: {
             /** Emails */
@@ -5023,6 +5164,17 @@ export interface components {
         Page_BreachView_: {
             /** Items */
             items: components["schemas"]["BreachView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[CalendarItemView] */
+        Page_CalendarItemView_: {
+            /** Items */
+            items: components["schemas"]["CalendarItemView"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -10456,6 +10608,327 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BreachView"];
                 };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_calendar_v1_compliance_calendar_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_CalendarItemView_"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_calendar_entry_v1_compliance_calendar_entries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarEntryCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarItemView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    remove_calendar_entry_v1_compliance_calendar_entries__entry_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarEntryRemove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description The request could not be understood. */
             400: {

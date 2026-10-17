@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import date
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import Field
@@ -16,6 +17,9 @@ from hr_agents.models import (
     BreachNotification,
     BreachStatus,
     BreachStepState,
+    CalendarDeadline,
+    CalendarEntryCategory,
+    ComplianceCalendarEntry,
     ConsentGrant,
     DispositionAction,
     ErasureDisposition,
@@ -529,3 +533,69 @@ class AuditVerifyView(StrictModel):
     @classmethod
     def from_model(cls, report: AuditVerificationReport) -> AuditVerifyView:
         return cls(**report.model_dump())
+
+
+class CalendarEntryCreate(StrictModel):
+    """One operator-entered calendar date.
+
+    ``source_note`` is required and means what it says: the product ships no
+    statutory dates, so every entry must name where the date came from.
+    """
+
+    title: str = Field(min_length=1, max_length=200)
+    due_on: date
+    category: CalendarEntryCategory
+    jurisdiction: str = Field(default="ID", min_length=2, max_length=2)
+    source_note: str = Field(min_length=1, max_length=500)
+    notes: str | None = Field(default=None, max_length=1000)
+
+
+class CalendarEntryRemove(StrictModel):
+    reason: str = Field(min_length=1, max_length=1000)
+
+
+class CalendarItemView(StrictModel):
+    """One row of the calendar: a derived deadline or an operator entry.
+
+    ``overdue`` is computed at read time against the business day, so a client
+    never has to know the timezone the server dates by.
+    """
+
+    source: Literal["deadline", "entry"]
+    kind: str
+    due_on: date
+    overdue: bool
+    subject_id: str | None = None
+    subject_name: str | None = None
+    detail: str = ""
+    entry_id: UUID | None = None
+    title: str | None = None
+    category: str | None = None
+    source_note: str | None = None
+    notes: str | None = None
+
+    @classmethod
+    def from_deadline(cls, deadline: CalendarDeadline, *, today: date) -> CalendarItemView:
+        return cls(
+            source="deadline",
+            kind=deadline.kind.value,
+            due_on=deadline.due_on,
+            overdue=deadline.due_on < today,
+            subject_id=deadline.subject_id,
+            subject_name=deadline.subject_name,
+            detail=deadline.detail,
+        )
+
+    @classmethod
+    def from_entry(cls, entry: ComplianceCalendarEntry, *, today: date) -> CalendarItemView:
+        return cls(
+            source="entry",
+            kind=entry.category.value,
+            due_on=entry.due_on,
+            overdue=entry.due_on < today,
+            entry_id=entry.id,
+            title=entry.title,
+            category=entry.category.value,
+            source_note=entry.source_note,
+            notes=entry.notes,
+        )

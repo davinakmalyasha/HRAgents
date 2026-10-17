@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     Index,
     Integer,
@@ -156,3 +157,19 @@ class BreachIncidentTable(TenantScoped, Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class ComplianceCalendarEntryTable(TenantScoped, Base):
+    __tablename__ = "compliance_calendar_entries"
+    __table_args__ = (Index("ix_calendar_due_on", "due_on"),)
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    due_on: Mapped[date] = mapped_column(Date, nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    jurisdiction: Mapped[str] = mapped_column(String(2), nullable=False, default="ID")
+    source_note: Mapped[str] = mapped_column(Text, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

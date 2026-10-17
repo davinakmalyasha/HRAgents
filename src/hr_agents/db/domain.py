@@ -14,10 +14,18 @@ from sqlalchemy.orm import Session, sessionmaker
 from hr_agents.db import compliance_tables as ct
 from hr_agents.db import growth_tables as gt
 from hr_agents.db import offboarding_tables as ot
-from hr_agents.db.mapping import add_model, get_model, list_models, model_from_row, save_model
+from hr_agents.db.mapping import (
+    add_model,
+    delete_model,
+    get_model,
+    list_models,
+    model_from_row,
+    save_model,
+)
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
     BreachIncident,
+    ComplianceCalendarEntry,
     ConsentGrant,
     ErasureRequest,
     Goal,
@@ -166,6 +174,27 @@ class DbComplianceStore(ComplianceStore):
     def list_incidents(self) -> list[BreachIncident]:
         incidents = list_models(self._session_factory, BreachIncident, ct.BreachIncidentTable)
         return sorted(incidents, key=lambda item: item.discovered_at)
+
+    # calendar entries
+    def add_calendar_entry(self, entry: ComplianceCalendarEntry) -> None:
+        add_model(self._session_factory, entry, ct.ComplianceCalendarEntryTable)
+
+    def get_calendar_entry(self, entry_id: UUID) -> ComplianceCalendarEntry | None:
+        return get_model(
+            self._session_factory,
+            ComplianceCalendarEntry,
+            ct.ComplianceCalendarEntryTable,
+            entry_id,
+        )
+
+    def list_calendar_entries(self) -> list[ComplianceCalendarEntry]:
+        entries = list_models(
+            self._session_factory, ComplianceCalendarEntry, ct.ComplianceCalendarEntryTable
+        )
+        return sorted(entries, key=lambda item: (item.due_on, str(item.id)))
+
+    def delete_calendar_entry(self, entry_id: UUID) -> bool:
+        return delete_model(self._session_factory, ct.ComplianceCalendarEntryTable, entry_id)
 
 
 class DbGrowthStore(GrowthStore):

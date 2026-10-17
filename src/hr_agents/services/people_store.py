@@ -14,6 +14,7 @@ from hr_agents.models import (
     ERASED_NAME,
     ApprovalRequest,
     BreachIncident,
+    ComplianceCalendarEntry,
     ConsentGrant,
     Contract,
     Employee,
@@ -260,6 +261,7 @@ class ComplianceStore:
         self._records: dict[UUID, RetentionRecord] = {}
         self._erasures: dict[UUID, ErasureRequest] = {}
         self._incidents: dict[UUID, BreachIncident] = {}
+        self._calendar: dict[UUID, ComplianceCalendarEntry] = {}
 
     # consent
     def add_consent(self, consent: ConsentGrant) -> None:
@@ -355,6 +357,20 @@ class ComplianceStore:
 
     def list_incidents(self) -> list[BreachIncident]:
         return sorted(self._incidents.values(), key=lambda item: item.discovered_at)
+
+    # calendar entries
+    def add_calendar_entry(self, entry: ComplianceCalendarEntry) -> None:
+        self._calendar[entry.id] = entry
+
+    def get_calendar_entry(self, entry_id: UUID) -> ComplianceCalendarEntry | None:
+        return self._calendar.get(entry_id)
+
+    def list_calendar_entries(self) -> list[ComplianceCalendarEntry]:
+        return sorted(self._calendar.values(), key=lambda item: (item.due_on, str(item.id)))
+
+    def delete_calendar_entry(self, entry_id: UUID) -> bool:
+        """Remove an operator date. Returns False when it was already gone."""
+        return self._calendar.pop(entry_id, None) is not None
 
 
 class GrowthStore:

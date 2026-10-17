@@ -14,6 +14,7 @@ from hr_agents.services.ast_analysis import (
     resolve_repo_path,
 )
 from hr_agents.services.audit import AuditChain, AuditChainError
+from hr_agents.services.calendar import CalendarError, CalendarService
 from hr_agents.services.compliance import (
     ComplianceError,
     ComplianceService,
@@ -137,6 +138,8 @@ __all__ = [
     "AuditChain",
     "AuditChainError",
     "AuditSummary",
+    "CalendarError",
+    "CalendarService",
     "CommunicationService",
     "ComplianceError",
     "ComplianceService",

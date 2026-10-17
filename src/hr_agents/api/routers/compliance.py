@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -16,6 +16,9 @@ from hr_agents.api.compliance_schemas import (
     BreachTemplateView,
     BreachTransition,
     BreachView,
+    CalendarEntryCreate,
+    CalendarEntryRemove,
+    CalendarItemView,
     ConsentCreate,
     ConsentRevoke,
     ConsentStatusView,
@@ -40,8 +43,9 @@ from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import conflict, domain_problem, not_found
 from hr_agents.api.schemas import Page
 from hr_agents.errors import DomainError
-from hr_agents.models import AuditEntry, RecordEntity, SubjectKind, UtcDateTime
+from hr_agents.models import AuditEntry, RecordEntity, SubjectKind, UtcDateTime, business_today
 from hr_agents.rbac import Permission
+from hr_agents.services.calendar import CalendarError, CalendarService
 from hr_agents.services.compliance import (
     ComplianceError,
     ComplianceService,
@@ -571,3 +575,91 @@ def verify_audit(compliance: ComplianceDep, actor: ActorDep) -> AuditVerifyView:
     self-declared actor could still reach the response unchallenged.
     """
     return AuditVerifyView.from_model(compliance.verify_audit_chain(actor=actor))
+
+
+# --- calendar ----------------------------------------------------------------
+
+
+def get_calendar(request: Request) -> CalendarService:
+    return request.app.state.people.calendar
+
+
+CalendarDep = Annotated[CalendarService, Depends(get_calendar)]
+
+
+@router.get("/calendar", response_model=Page[CalendarItemView])
+def list_calendar(
+    calendar: CalendarDep,
+    paging: PaginationDep,
+    start: Annotated[date, Query()],
+    end: Annotated[date, Query()],
+) -> Page[CalendarItemView]:
+    """The compliance calendar for a window: derived deadlines plus operator dates.
+
+    Two sources, merged and sorted by due date. Derived deadlines come from
+    records the product already keeps; operator entries carry the statutory or
+    policy dates the product must not invent. ``overdue`` is computed against
+    the business day, so clients do not re-derive the timezone rule.
+    """
+    if end < start:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="end must not be before start",
+        )
+    today = business_today()
+    items = [
+        CalendarItemView.from_deadline(deadline, today=today)
+        for deadline in calendar.deadlines(start=start, end=end)
+    ] + [
+        CalendarItemView.from_entry(entry, today=today)
+        for entry in calendar.entries(start=start, end=end)
+    ]
+    ordered = sorted(
+        items,
+        key=lambda item: (
+            item.due_on,
+            item.source,
+            item.kind,
+            str(item.entry_id or item.subject_id or ""),
+        ),
+    )
+    return Page.slice(ordered, limit=paging.limit, offset=paging.offset)
+
+
+@router.post(
+    "/calendar/entries",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CalendarItemView,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
+def create_calendar_entry(
+    payload: CalendarEntryCreate, calendar: CalendarDep, actor: ActorDep
+) -> CalendarItemView:
+    try:
+        entry = calendar.add_entry(
+            title=payload.title,
+            due_on=payload.due_on,
+            category=payload.category,
+            jurisdiction=payload.jurisdiction,
+            source_note=payload.source_note,
+            notes=payload.notes,
+            actor=actor,
+        )
+    except CalendarError as exc:
+        raise domain_problem(exc) from exc
+    return CalendarItemView.from_entry(entry, today=business_today())
+
+
+@router.delete(
+    "/calendar/entries/{entry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_WRITE))],
+)
+def remove_calendar_entry(
+    entry_id: UUID, payload: CalendarEntryRemove, calendar: CalendarDep, actor: ActorDep
+) -> None:
+    """Remove one operator date. A reason is required and lands in the trail."""
+    try:
+        calendar.remove_entry(entry_id=entry_id, actor=actor, reason=payload.reason)
+    except CalendarError as exc:
+        raise domain_problem(exc) from exc

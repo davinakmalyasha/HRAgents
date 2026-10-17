@@ -13,6 +13,8 @@ from hr_agents.db.domain import (
 from hr_agents.models import (
     ApproverRole,
     BreachIncident,
+    CalendarEntryCategory,
+    ComplianceCalendarEntry,
     ConsentGrant,
     ErasureRequest,
     Goal,
@@ -289,3 +291,35 @@ def test_offboarding_store_round_trip(factory: sessionmaker[Session]) -> None:
     loaded_asset.status = AssetStatus.RETURNED
     DbOffboardingStore(factory).save_asset(loaded_asset)
     assert DbOffboardingStore(factory).list_assets()[0].status is AssetStatus.RETURNED
+
+
+def test_calendar_entries_round_trip_and_delete(factory: sessionmaker[Session]) -> None:
+    """The operator calendar survives a restart and a removal is a real DELETE.
+
+    A Postgres adapter that inherited the in-memory dict would answer an empty
+    calendar after every deploy while the operator's statutory dates sat in the
+    table -- the same inheritance failure the consent methods above were caught
+    by, in a surface whose whole point is not forgetting a date.
+    """
+    store = DbComplianceStore(factory)
+    entry = ComplianceCalendarEntry(
+        title="PPh 21 monthly filing",
+        due_on=date(2026, 11, 10),
+        category=CalendarEntryCategory.TAX,
+        source_note="DJP announcement 2026-01",
+        created_by="hr-admin",
+    )
+    store.add_calendar_entry(entry)
+
+    fresh = DbComplianceStore(factory)
+    loaded = fresh.get_calendar_entry(entry.id)
+    assert loaded is not None
+    assert loaded.title == "PPh 21 monthly filing"
+    assert loaded.due_on == date(2026, 11, 10)
+    assert loaded.category is CalendarEntryCategory.TAX
+    assert loaded.source_note == "DJP announcement 2026-01"
+    assert [item.id for item in fresh.list_calendar_entries()] == [entry.id]
+
+    assert fresh.delete_calendar_entry(entry.id) is True
+    assert fresh.get_calendar_entry(entry.id) is None
+    assert fresh.delete_calendar_entry(entry.id) is False

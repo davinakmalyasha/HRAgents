@@ -14,6 +14,7 @@ Design rules encoded here:
 
 from __future__ import annotations
 
+from datetime import date
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -437,3 +438,54 @@ class AuditVerificationReport(StrictModel):
     head_hash: str | None = None
     checked_at: UtcDateTime = Field(default_factory=utc_now)
     checked_by: str = Field(default="system", max_length=200)
+
+
+class CalendarEntryCategory(StrEnum):
+    """What kind of obligation an operator-entered calendar date is."""
+
+    TAX = "tax"
+    BPJS = "bpjs"
+    LABOUR = "labour"
+    THR = "thr"
+    REPORTING = "reporting"
+    OTHER = "other"
+
+
+class CalendarDeadlineKind(StrEnum):
+    """Deadlines derived from records the product already keeps."""
+
+    PROBATION_END = "probation_end"
+    CONTRACT_EXPIRY = "contract_expiry"
+    DOCUMENT_EXPIRY = "document_expiry"
+
+
+class ComplianceCalendarEntry(Versioned):
+    """Operator-entered date on the compliance calendar.
+
+    No such date ships with the product: filing windows and payout deadlines
+    differ by jurisdiction, scheme and company size, and a hardcoded one would
+    be wrong exactly where a person is legally exposed. ``source_note`` is
+    required for the same reason a rate table must be verified -- the date has
+    to name where it came from, so the next reader can check it.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    title: str = Field(min_length=1, max_length=200)
+    due_on: date
+    category: CalendarEntryCategory
+    jurisdiction: str = Field(default="ID", max_length=2)
+    source_note: str = Field(min_length=1, max_length=500)
+    notes: str | None = Field(default=None, max_length=1000)
+    created_by: str = Field(min_length=1, max_length=200)
+    created_at: UtcDateTime = Field(default_factory=utc_now)
+    updated_at: UtcDateTime = Field(default_factory=utc_now)
+
+
+class CalendarDeadline(StrictModel):
+    """One computed deadline, with the subject it belongs to."""
+
+    kind: CalendarDeadlineKind
+    due_on: date
+    subject_id: str = Field(min_length=1, max_length=200)
+    subject_name: str = Field(default="", max_length=200)
+    detail: str = Field(default="", max_length=200)

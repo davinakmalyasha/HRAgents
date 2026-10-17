@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from hr_agents.models import PurgeAction, RecordEntity, RetentionRecord
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.calendar import CalendarService
 from hr_agents.services.compliance import ComplianceService, PurgeHandler
 from hr_agents.services.contracts import ContractService
 from hr_agents.services.employees import EmployeeService
@@ -135,6 +136,7 @@ class PeopleServices:
     leave: LeaveService = field(init=False)
     payroll: PayrollService = field(init=False)
     compliance: ComplianceService = field(init=False)
+    calendar: CalendarService = field(init=False)
     growth: GrowthService = field(init=False)
     offboarding: OffboardingService = field(init=False)
 
@@ -244,6 +246,12 @@ class PeopleServices:
         self.compliance = ComplianceService(compliance_store, approvals=approvals, audit=self.audit)
         ledger.bind(self.compliance.track_record)
         self._register_purge_handlers(compliance_store, employee_store, payroll)
+        self.calendar = CalendarService(
+            compliance_store,
+            employees=self.employees,
+            contracts=self.contracts,
+            audit=self.audit,
+        )
         self.growth = GrowthService(
             growth_store, employees=self.employees, tasks=tasks, audit=self.audit
         )
