@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    ForeignKey,
     Index,
     String,
     Text,
@@ -51,17 +52,27 @@ class OffboardingPlanRecord(TenantScoped, Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("employees.id", name="fk_offboarding_plans_employee"),
+        nullable=False,
+    )
     reason: Mapped[str] = mapped_column(String(24), nullable=False)
     last_working_day: Mapped[date] = mapped_column(Date, nullable=False)
-    template_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    template_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("offboarding_templates.id", name="fk_offboarding_plans_template"),
+        nullable=False,
+    )
     template_name: Mapped[str] = mapped_column(Text, nullable=False)
     template_version_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     steps: Mapped[list[dict[str, Any]]] = mapped_column(JSONVariant, nullable=False, default=list)
     handover_notes: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONVariant, nullable=False, default=list
     )
-    final_pay_run_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    final_pay_run_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("payroll_runs.id", name="fk_offboarding_plans_final_pay_run")
+    )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -76,8 +87,14 @@ class OffboardingAssetRecord(TenantScoped, Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
-    employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
-    plan_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    employee_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("employees.id", name="fk_offboarding_assets_employee"),
+        nullable=False,
+    )
+    plan_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("offboarding_plans.id", name="fk_offboarding_assets_plan")
+    )
     name: Mapped[str] = mapped_column(Text, nullable=False)
     asset_code: Mapped[str | None] = mapped_column(String(80))
     category: Mapped[str] = mapped_column(String(80), nullable=False, default="")

@@ -10,12 +10,15 @@ from hr_agents.db.domain import (
     DbGrowthStore,
     DbOffboardingStore,
 )
+from hr_agents.db.people import DbEmployeeStore
 from hr_agents.models import (
     ApproverRole,
     BreachIncident,
     CalendarEntryCategory,
     ComplianceCalendarEntry,
     ConsentGrant,
+    Employee,
+    EmployeeStatus,
     ErasureRequest,
     Goal,
     OffboardingAsset,
@@ -258,7 +261,12 @@ def test_offboarding_store_round_trip(factory: sessionmaker[Session]) -> None:
     assert loaded_template.steps[0].key == "handover"
     assert [item.id for item in DbOffboardingStore(factory).list_templates()] == [template.id]
 
-    employee_id = uuid4()
+    # offboarding_plans.employee_id is a foreign key, so the employee must be a
+    # real row in the same database.
+    employees = DbEmployeeStore(factory)
+    employee = Employee(full_name="Sari Dewi", status=EmployeeStatus.ACTIVE)
+    employees.add_employee(employee)
+    employee_id = employee.id
     step_state = OffboardingStepState(
         key="handover",
         title="Handover",

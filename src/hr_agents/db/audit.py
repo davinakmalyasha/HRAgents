@@ -10,6 +10,7 @@ never holds the whole log in memory.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -31,6 +32,19 @@ VERIFY_PAGE_SIZE = 500
 
 def _is_postgres(session: Session) -> bool:
     return session.get_bind().dialect.name == "postgresql"
+
+
+def _json_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """The payload as the JSON column and the hash both understand it.
+
+    ``AuditEntry.compute_hash`` canonicalises with ``default=str``, so a
+    Decimal, date or UUID in a payload enters the hash as its string form; the
+    JSON column has no such fallback and would refuse the write. Round-tripping
+    through ``json.dumps(default=str)`` stores exactly what the hash covered --
+    the same convention ``canonical_json`` uses -- so verification still matches
+    after a restart.
+    """
+    return json.loads(json.dumps(payload, default=str))
 
 
 class DbAuditChain(AuditChain):
@@ -78,7 +92,7 @@ class DbAuditChain(AuditChain):
                     action=entry.action,
                     subject_type=entry.subject_type,
                     subject_id=entry.subject_id,
-                    payload=entry.payload,
+                    payload=_json_payload(entry.payload),
                     prev_hash=entry.prev_hash,
                     entry_hash=entry.entry_hash,
                 )

@@ -59,7 +59,9 @@ class LeaveRequestRecord(TenantScoped, Base):
     reason: Mapped[str | None] = mapped_column(Text)
     document_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
     status: Mapped[str] = mapped_column(String(32), nullable=False)
-    approval_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    approval_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("approvals.id", name="fk_leave_requests_approval")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

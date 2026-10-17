@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.payroll import DbPayrollService
-from hr_agents.db.people import DbEmployeeStore
+from hr_agents.db.people import DbApprovalStore, DbEmployeeStore
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     Employee,
@@ -31,7 +31,7 @@ from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.payroll import PayrollError
-from hr_agents.services.people_store import ApprovalStore, RateTableStore
+from hr_agents.services.people_store import RateTableStore
 from hr_agents.services.rate_tables import RateTableService
 
 TODAY = business_today()
@@ -44,9 +44,12 @@ def _parts(
     factory: sessionmaker[Session],
 ) -> tuple[DbPayrollService, EmployeeService, RateTableService]:
     audit = AuditChain()
-    approvals = ApprovalEngine(ApprovalStore(), audit=audit)
+    # The approval engine writes through the database: a signed-off run persists
+    # its approval_id, and `payroll_runs.approval_id` is a foreign key enforced
+    # on SQLite (conftest sets the pragma) and Postgres alike.
+    approvals = ApprovalEngine(DbApprovalStore(factory), audit=audit)
     # payroll_lines.employee_id is a foreign key, so the employee has to be a real
-    # row rather than an in-memory one: SQLite does not enforce FKs unless asked.
+    # row rather than an in-memory one.
     employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     rates = RateTableService(RateTableStore(), audit=audit)
     return (

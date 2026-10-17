@@ -11,6 +11,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Float,
+    ForeignKey,
     Index,
     String,
     Text,
@@ -57,7 +58,11 @@ class ReviewAssignmentRecord(TenantScoped, Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
-    cycle_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    cycle_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("review_cycles.id", name="fk_review_assignments_cycle"),
+        nullable=False,
+    )
     employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     reviewer_id: Mapped[str] = mapped_column(String(200), nullable=False)
     reviewer_role: Mapped[str] = mapped_column(String(40), nullable=False)
@@ -86,7 +91,11 @@ class ReviewSummaryRecord(TenantScoped, Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
-    cycle_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    cycle_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("review_cycles.id", name="fk_review_summaries_cycle"),
+        nullable=False,
+    )
     employee_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     agent_draft: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -115,7 +124,9 @@ class GoalRecord(TenantScoped, Base):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     metric: Mapped[str | None] = mapped_column(Text)
-    cycle_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    cycle_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("review_cycles.id", name="fk_goals_cycle")
+    )
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     progress_percent: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     start_on: Mapped[date | None] = mapped_column(Date)

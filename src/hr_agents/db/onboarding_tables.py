@@ -86,7 +86,11 @@ class OnboardingPlanRecord(TenantScoped, Base):
     employee_id: Mapped[UUID] = mapped_column(
         ForeignKey("employees.id", ondelete="CASCADE"), nullable=False
     )
-    template_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    template_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("onboarding_templates.id", name="fk_onboarding_plans_template"),
+        nullable=False,
+    )
     template_name: Mapped[str] = mapped_column(Text, nullable=False)
     template_version_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     steps: Mapped[list[dict[str, Any]]] = mapped_column(JSONVariant, nullable=False, default=list)

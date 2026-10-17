@@ -15,10 +15,12 @@ from uuid import uuid4
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.leave import DbLeaveService
-from hr_agents.db.people import DbEmployeeStore
+from hr_agents.db.people import DbApprovalStore, DbEmployeeStore
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     AccrualMethod,
+    ApprovalRequest,
+    ApprovalSubject,
     ApproverRole,
     Employee,
     LeaveRequest,
@@ -30,7 +32,6 @@ from hr_agents.models import (
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.employees import EmployeeService
-from hr_agents.services.people_store import ApprovalStore
 
 TODAY = business_today()
 ACTOR = ActorRef.legacy("hr-admin")
@@ -39,10 +40,13 @@ YEAR = TODAY.year
 
 def _service(factory: sessionmaker[Session]) -> DbLeaveService:
     audit = AuditChain()
-    approvals = ApprovalEngine(ApprovalStore(), audit=audit)
+    # The approval engine must write through the database too: a leave request
+    # persists its approval_id, and `leave_requests.approval_id` is a foreign
+    # key the tests enforce (conftest sets `PRAGMA foreign_keys=ON` on SQLite,
+    # and CI runs the same suite on Postgres).
+    approvals = ApprovalEngine(DbApprovalStore(factory), audit=audit)
     # The employee must be a real row: leave_requests.employee_id is a foreign
-    # key, and SQLite does not enforce foreign keys unless asked to -- so an
-    # in-memory employee passed locally and failed on Postgres in CI.
+    # key, so an in-memory employee passed locally and failed on Postgres in CI.
     employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     return DbLeaveService(factory, employees=employees, approvals=approvals, audit=audit)
 
@@ -106,20 +110,27 @@ def test_leave_request_round_trip(factory: sessionmaker[Session]) -> None:
 
 def test_leave_request_update_persists(factory: sessionmaker[Session]) -> None:
     """An approved request must not revert to draft when the process restarts."""
-    from hr_agents.models import RequestStatus
-
     service = _service(factory)
     employee = _employee(service)
     record = _request(employee)
+    approval = ApprovalRequest(
+        subject=ApprovalSubject.LEAVE_REQUEST,
+        subject_id=str(record.id),
+        title="Approve annual leave",
+        summary="3 days",
+        requested_by="hr-admin",
+        assignee_role=ApproverRole.MANAGER,
+    )
+    DbApprovalStore(factory).add(approval)
     service._save_request(record)
     service._save_request(
-        record.model_copy(update={"status": RequestStatus.APPROVED, "approval_id": uuid4()})
+        record.model_copy(update={"status": RequestStatus.APPROVED, "approval_id": approval.id})
     )
 
     loaded = _service(factory)._load_request(record.id)
     assert loaded is not None
     assert loaded.status is RequestStatus.APPROVED
-    assert loaded.approval_id is not None
+    assert loaded.approval_id == approval.id
 
 
 def test_policy_round_trip(factory: sessionmaker[Session]) -> None:

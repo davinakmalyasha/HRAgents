@@ -7,9 +7,10 @@ to JSON, scalars (dates, UUIDs, enums-as-str) pass through natively.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -20,19 +21,32 @@ from hr_agents.db.session import sync_session_scope
 from hr_agents.errors import StaleRecordError
 
 
-def _db_value(value: Any) -> Any:
+def _db_value(value: Any, *, nested: bool = False) -> Any:
+    """Coerce one model value for a row column.
+
+    ``nested`` marks values inside a dict/list -- i.e. bound for a JSON column,
+    which (unlike a Numeric column) cannot carry a Decimal and has no json.dumps
+    fallback of its own. There, every scalar is converted the way JSON would
+    have carried it: Decimal to float (the number FastAPI already produced for
+    the in-memory stores' responses), datetimes and dates to ISO strings, UUIDs
+    to their canonical string. Top-level values pass through untouched so a
+    Numeric column receives the exact Decimal.
+    """
     if isinstance(value, BaseModel):
         return value.model_dump(mode="json")
     if isinstance(value, list):
-        return [_db_value(item) for item in value]
+        return [_db_value(item, nested=True) for item in value]
     if isinstance(value, dict):
-        return {key: _db_value(item) for key, item in value.items()}
-    if isinstance(value, Decimal):
-        # Kept as a Decimal for a Numeric column rather than stringified. Pydantic's
-        # `mode="json"` turns a Decimal into a *string*, so a model holding money in
-        # a nested JSON document round-trips as text -- correct, but it means the
-        # numeric columns must receive the Decimal itself to bind to `Numeric`.
-        return value
+        return {key: _db_value(item, nested=True) for key, item in value.items()}
+    if nested:
+        if isinstance(value, Decimal):
+            return float(value)
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if isinstance(value, date):
+            return value.isoformat()
+        if isinstance(value, UUID):
+            return str(value)
     return value
 
 

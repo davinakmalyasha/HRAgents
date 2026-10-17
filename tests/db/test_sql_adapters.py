@@ -879,3 +879,35 @@ def test_a_stale_offer_copy_is_refused(factory: sessionmaker[Session]) -> None:
     survivor = offers.get(created.id)
     assert survivor.status is OfferStatus.DRAFT
     assert survivor.terms.salary_amount == 27_000_000.0
+
+
+def test_audit_payloads_with_non_json_scalars_survive_and_still_verify(
+    factory: sessionmaker[Session],
+) -> None:
+    """Money and dates in a payload are stored as the hash saw them.
+
+    ``compute_hash`` canonicalises with ``default=str``, so a Decimal enters
+    the hash as text. The JSON column had no such fallback and refused the
+    write; storing the string forms keeps the chain verifiable after a restart
+    instead of turning a signed-off payroll export into a 500.
+    """
+    from decimal import Decimal
+
+    chain = DbAuditChain(factory)
+    committed_at = datetime(2026, 3, 10, 9, 0, tzinfo=UTC)
+    chain.append(
+        actor=_actor(),
+        action="payroll.packet_exported",
+        subject_type="payroll_run",
+        subject_id="run-1",
+        payload={
+            "net": Decimal("1234567.89"),
+            "exported_at": committed_at,
+        },
+    )
+
+    reopened = DbAuditChain(factory)
+    assert reopened.verify() == -1, "stored payload must hash identically to the append"
+    (entry,) = reopened.entries
+    assert entry.payload["net"] == "1234567.89"
+    assert entry.payload["exported_at"] == str(committed_at)

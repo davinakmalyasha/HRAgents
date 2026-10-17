@@ -393,3 +393,31 @@ def test_document_vault_pages_with_the_filters_in_sql(factory: sessionmaker[Sess
     assert others.id not in {item.id for item in mine}
     assert [item.id for item in mine][-1] == forever.id, "no-expiry documents sort last"
     assert far.id in {item.id for item in mine}
+
+
+def test_approval_payloads_with_non_json_scalars_persist(factory: sessionmaker[Session]) -> None:
+    """A sign-off payload carries money as a Decimal, and the column is JSON.
+
+    ``submit_for_signoff`` puts the run's net into the approval payload; the
+    JSON column cannot serialize a Decimal, and its absence from this path was
+    only visible once the approvals table became the FK target. Nested scalars
+    now travel the way JSON carries them (Decimal to number, date to string).
+    """
+    from datetime import date
+    from decimal import Decimal
+
+    store = DbApprovalStore(factory)
+    request = ApprovalRequest(
+        subject=ApprovalSubject.PAYROLL_RUN,
+        subject_id="run-1",
+        title="Approve payroll",
+        summary="figures checked",
+        requested_by="hr-admin",
+        assignee_role=ApproverRole.FINANCE,
+        payload={"net": Decimal("1234567.89"), "due_on": date(2026, 3, 31), "run": 12},
+    )
+    store.add(request)
+
+    loaded = DbApprovalStore(factory).get(request.id)
+    assert loaded is not None
+    assert loaded.payload == {"net": 1234567.89, "due_on": "2026-03-31", "run": 12}

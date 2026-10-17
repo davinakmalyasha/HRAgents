@@ -74,7 +74,9 @@ class PayrollRunRecord(TenantScoped, Base):
     rate_table_ids: Mapped[dict[str, Any]] = mapped_column(
         JSONVariant, nullable=False, default=dict
     )
-    approval_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    approval_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("approvals.id", name="fk_payroll_runs_approval")
+    )
     signed_off_by: Mapped[str | None] = mapped_column(String(200))
     signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

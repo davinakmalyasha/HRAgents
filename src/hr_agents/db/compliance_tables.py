@@ -11,6 +11,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    ForeignKey,
     Index,
     Integer,
     String,
@@ -115,7 +116,9 @@ class ErasureRequestTable(TenantScoped, Base):
     identity_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     identity_method: Mapped[str | None] = mapped_column(String(120))
     status: Mapped[str] = mapped_column(String(32), nullable=False)
-    approval_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    approval_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("approvals.id", name="fk_erasure_requests_approval")
+    )
     decided_by: Mapped[str | None] = mapped_column(String(200))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     decision_reason: Mapped[str | None] = mapped_column(Text)

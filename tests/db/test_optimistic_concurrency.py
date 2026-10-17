@@ -20,7 +20,7 @@ from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.leave import DbLeaveService
 from hr_agents.db.onboarding import DbOnboardingService
 from hr_agents.db.payroll import DbPayrollService
-from hr_agents.db.people import DbEmployeeStore
+from hr_agents.db.people import DbApprovalStore, DbEmployeeStore
 from hr_agents.db.recruiting import DbEvaluationService, DbJobService
 from hr_agents.db.workspace import DbConversationStore, DbWorkspaceRequestStore
 from hr_agents.errors import StaleRecordError
@@ -296,7 +296,9 @@ def test_a_template_edit_from_a_stale_copy_is_refused(
 
 def leave_service(factory: sessionmaker[Session]) -> DbLeaveService:
     audit = AuditChain()
-    approvals = ApprovalEngine(ApprovalStore(), audit=audit)
+    # A persisted request carries an approval_id foreign key, so the engine
+    # writes approvals through the database as production does.
+    approvals = ApprovalEngine(DbApprovalStore(factory), audit=audit)
     employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     return DbLeaveService(factory, employees=employees, approvals=approvals, audit=audit)
 
@@ -372,7 +374,9 @@ def payroll_service(
     factory: sessionmaker[Session],
 ) -> tuple[DbPayrollService, EmployeeService]:
     audit = AuditChain()
-    approvals = ApprovalEngine(ApprovalStore(), audit=audit)
+    # A signed-off run persists its approval_id foreign key, so approvals must
+    # live in the same database.
+    approvals = ApprovalEngine(DbApprovalStore(factory), audit=audit)
     employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     rates = RateTableService(RateTableStore(), audit=audit)
     return (
