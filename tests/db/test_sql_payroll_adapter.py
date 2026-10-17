@@ -485,3 +485,28 @@ def test_notes_survive_a_restart(factory: sessionmaker[Session]) -> None:
     )
     service.compute(run.id, actor=ACTOR)
     assert _parts(factory)[0].get_run(run.id).lines[0].notes == ["Backdated correction"]
+
+
+def test_page_runs_orders_and_pages_in_sql(factory: sessionmaker[Session]) -> None:
+    """Period order, LIMIT/OFFSET and the count all reach SQL together.
+
+    Two runs of the same period are the normal case (monthly plus THR), and the
+    route shows the older period first; paging a run list must never reorder
+    them between requests.
+    """
+    service, _, _ = _parts(factory)
+    service.create_run(period_year=YEAR, period_month=11, actor=ACTOR)
+    service.create_run(period_year=YEAR, period_month=9, actor=ACTOR)
+    service.create_run(period_year=YEAR - 1, period_month=12, actor=ACTOR)
+
+    fresh = _parts(factory)[0]
+    first, total = fresh.page_runs(limit=2, offset=0)
+    assert total == 3
+    assert [(run.period_year, run.period_month) for run in first] == [
+        (YEAR - 1, 12),
+        (YEAR, 9),
+    ]
+
+    rest, still_total = fresh.page_runs(limit=2, offset=2)
+    assert still_total == 3
+    assert [(run.period_year, run.period_month) for run in rest] == [(YEAR, 11)]

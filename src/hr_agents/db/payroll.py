@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.mapping import check_version
@@ -89,6 +89,27 @@ class DbPayrollService(PayrollService):
             # Materialised inside the session: a lazy iterator would read through a
             # closed session.
             return iter([self._to_run(session, row) for row in rows])
+
+    def page_runs(self, *, limit: int, offset: int) -> tuple[list[PayrollRun], int]:
+        """ORDER BY (year, month, created_at, id) and LIMIT/OFFSET in SQL."""
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(select(func.count()).select_from(PayrollRunRecord))
+            rows = (
+                session.execute(
+                    select(PayrollRunRecord)
+                    .order_by(
+                        PayrollRunRecord.period_year,
+                        PayrollRunRecord.period_month,
+                        PayrollRunRecord.created_at,
+                        PayrollRunRecord.id,
+                    )
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_run(session, row) for row in rows], int(total or 0)
 
     def _save_run(self, run: PayrollRun) -> None:
         with sync_session_scope(self._session_factory) as session:

@@ -149,6 +149,60 @@ def test_audit_chain_persists_and_verifies(factory: sessionmaker[Session]) -> No
     assert [entry.seq for entry in reopened.entries] == [0, 1]
 
 
+def test_audit_chain_pages_the_trail_in_sql(factory: sessionmaker[Session]) -> None:
+    """Newest-first paging with filters, count and LIMIT all in SQL.
+
+    The viewer used to materialize the entire chain on every read. This pins
+    the persisted behaviour: ``seq DESC`` order, exact-match filters (the actor
+    filter reading the JSON snapshot's id), inclusive time bounds, and a total
+    that counts the filtered set rather than the whole log.
+    """
+    chain = DbAuditChain(factory)
+    chain.append(
+        actor=_actor("hr-admin"),
+        action="employee.created",
+        subject_type="employee",
+        subject_id="emp-1",
+    )
+    chain.append(
+        actor=_actor("manager-1"),
+        action="leave.approved",
+        subject_type="leave_request",
+        subject_id="leave-1",
+    )
+    chain.append(
+        actor=_actor("hr-admin"),
+        action="employee.updated",
+        subject_type="employee",
+        subject_id="emp-1",
+    )
+
+    fresh = DbAuditChain(factory)
+
+    newest_first, total = fresh.page_entries(limit=2, offset=0)
+    assert total == 3
+    assert [entry.seq for entry in newest_first] == [2, 1]
+
+    second_page, still_total = fresh.page_entries(limit=2, offset=2)
+    assert still_total == 3
+    assert [entry.seq for entry in second_page] == [0]
+
+    by_actor, actor_total = fresh.page_entries(actor="hr-admin", limit=10, offset=0)
+    assert actor_total == 2
+    assert [entry.seq for entry in by_actor] == [2, 0]
+
+    by_action, action_total = fresh.page_entries(action="leave.approved", limit=10, offset=0)
+    assert action_total == 1
+    assert by_action[0].actor.actor_id == "manager-1"
+
+    boundary = by_action[0].created_at
+    inclusive, inclusive_total = fresh.page_entries(
+        since=boundary, until=boundary, limit=10, offset=0
+    )
+    assert inclusive_total == 1, "since/until are inclusive so a caller can page from a boundary"
+    assert [entry.seq for entry in inclusive] == [1]
+
+
 def test_audit_chain_detects_tampering(factory: sessionmaker[Session]) -> None:
     chain = DbAuditChain(factory)
     chain.append(actor=_actor(), action="a", subject_type="x", subject_id="1")

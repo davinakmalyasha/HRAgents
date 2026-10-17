@@ -6,6 +6,7 @@ the generic mapping helpers; behavior contracts stay in ``services/people_store`
 
 from __future__ import annotations
 
+from datetime import timedelta
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -24,6 +25,8 @@ from hr_agents.db.mapping import (
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
     ApprovalRequest,
+    ApprovalStatus,
+    ApproverRole,
     Contract,
     Employee,
     EmployeeDocument,
@@ -32,6 +35,8 @@ from hr_agents.models import (
     RateTable,
     TaskItem,
     TaskStatus,
+    VerificationStatus,
+    business_today,
 )
 from hr_agents.models.tasks import TERMINAL_STATUSES
 from hr_agents.services.people_store import (
@@ -122,6 +127,57 @@ class DbEmployeeStore(EmployeeStore):
         """The whole vault, soonest expiry first (records workspace, expiry sweep)."""
         return self._read_documents()
 
+    def page_documents(
+        self,
+        *,
+        employee_id: UUID | None,
+        expiring_within_days: int | None,
+        status: VerificationStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[EmployeeDocument], int]:
+        """Paged vault read: owner, status and expiry window all filter in SQL.
+
+        Ordering mirrors the in-memory contract ``(no-expiry last, expires_on,
+        id)``; the count runs over the same predicate in the same transaction,
+        so a page and its total cannot disagree.
+        """
+        where: list[ColumnElement[bool]] = []
+        if employee_id is not None:
+            where.append(pt.EmployeeDocumentRecord.employee_id == employee_id)
+        if status is not None:
+            where.append(pt.EmployeeDocumentRecord.status == status.value)
+        if expiring_within_days is not None:
+            today = business_today()
+            where.extend(
+                [
+                    pt.EmployeeDocumentRecord.expires_on.is_not(None),
+                    pt.EmployeeDocumentRecord.expires_on >= today,
+                    pt.EmployeeDocumentRecord.expires_on
+                    <= today + timedelta(days=expiring_within_days),
+                ]
+            )
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(pt.EmployeeDocumentRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(pt.EmployeeDocumentRecord)
+                    .where(*where)
+                    .order_by(
+                        pt.EmployeeDocumentRecord.expires_on.is_(None),
+                        pt.EmployeeDocumentRecord.expires_on,
+                        pt.EmployeeDocumentRecord.id,
+                    )
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(EmployeeDocument, row) for row in rows], int(total or 0)
+
     def _read_documents(
         self, *, where: ColumnElement[bool] | None = None
     ) -> list[EmployeeDocument]:
@@ -187,6 +243,41 @@ class DbApprovalStore(ApprovalStore):
     def list_all(self) -> list[ApprovalRequest]:
         requests = list_models(self._session_factory, ApprovalRequest, pt.ApprovalRecord)
         return sorted(requests, key=lambda item: item.created_at)
+
+    def page_approvals(
+        self,
+        *,
+        role: ApproverRole | None,
+        status: ApprovalStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ApprovalRequest], int]:
+        """Active-queue predicate, ORDER BY (created_at, id) and LIMIT in SQL."""
+        where: list[ColumnElement[bool]] = [
+            pt.ApprovalRecord.status.in_(
+                [ApprovalStatus.PENDING.value, ApprovalStatus.ESCALATED.value]
+            )
+        ]
+        if role is not None:
+            where.append(pt.ApprovalRecord.assignee_role == role.value)
+        if status is not None:
+            where.append(pt.ApprovalRecord.status == status.value)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(pt.ApprovalRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(pt.ApprovalRecord)
+                    .where(*where)
+                    .order_by(pt.ApprovalRecord.created_at, pt.ApprovalRecord.id)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(ApprovalRequest, row) for row in rows], int(total or 0)
 
 
 class DbTaskStore(TaskStore):

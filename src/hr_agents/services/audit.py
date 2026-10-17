@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from hr_agents.identity import ActorRef
@@ -80,6 +81,38 @@ class AuditChain:
         verification report were paying a full materialization to take a length.
         """
         return len(self._entries)
+
+    def page_entries(
+        self,
+        *,
+        actor: str | None = None,
+        action: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[AuditEntry], int]:
+        """A newest-first slice of the trail; filters are exact matches.
+
+        ``since`` and ``until`` are inclusive so a caller can page by the
+        boundary timestamp it already has. The Postgres chain runs the same
+        predicate with ``ORDER BY seq DESC`` and LIMIT/OFFSET in SQL; this
+        mirrors it over the in-memory list, and both order by sequence number.
+        """
+        matched = [
+            entry
+            for entry in self._entries
+            if (actor is None or entry.actor.actor_id == actor)
+            and (action is None or entry.action == action)
+            and (subject_type is None or entry.subject_type == subject_type)
+            and (subject_id is None or entry.subject_id == subject_id)
+            and (since is None or entry.created_at >= since)
+            and (until is None or entry.created_at <= until)
+        ]
+        newest_first = list(reversed(matched))
+        return newest_first[offset : offset + limit], len(newest_first)
 
     def append(
         self,

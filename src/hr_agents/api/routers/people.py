@@ -231,21 +231,16 @@ def list_documents(
     document_status: Annotated[VerificationStatus | None, Query(alias="status")] = None,
 ) -> Page[DocumentView]:
     """The document vault, soonest expiry first, with the records filters."""
-    documents = people.employees.document_vault(
+    documents, total = people.employees.page_documents(
         employee_id=employee_id,
         expiring_within_days=expiring_within_days,
         status=document_status,
+        limit=paging.limit,
+        offset=paging.offset,
     )
-    ordered = sorted(
-        documents,
-        key=lambda document: (
-            document.expires_on is None,
-            document.expires_on or date.min,
-            str(document.id),
-        ),
-    )
-    return Page.slice(
-        [DocumentView.from_model(document) for document in ordered],
+    return Page.of(
+        [DocumentView.from_model(document) for document in documents],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -432,16 +427,15 @@ def list_approvals(
     role: Annotated[ApproverRole | None, Query()] = None,
     approval_status: Annotated[ApprovalStatus | None, Query(alias="status")] = None,
 ) -> Page[ApprovalView]:
-    if role is not None:
-        requests = people.approvals.pending_for(role)
-    else:
-        requests = [r for r in people.approvals._store.list_all() if r.active]
-
-    if approval_status is not None:
-        requests = [r for r in requests if r.status is approval_status]
-    ordered = sorted(requests, key=lambda request: (request.created_at, str(request.id)))
-    return Page.slice(
-        [ApprovalView.from_model(request) for request in ordered],
+    requests, total = people.approvals.page_approvals(
+        role=role,
+        status=approval_status,
+        limit=paging.limit,
+        offset=paging.offset,
+    )
+    return Page.of(
+        [ApprovalView.from_model(request) for request in requests],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

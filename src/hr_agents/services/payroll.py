@@ -322,6 +322,19 @@ class PayrollService:
             key=lambda run: (run.period_year, run.period_month, run.created_at),
         )
 
+    def page_runs(self, *, limit: int, offset: int) -> tuple[list[PayrollRun], int]:
+        """Paged run list; the Postgres adapter orders, limits and counts in SQL.
+
+        Order is ``(year, month, created_at, id)``: the id tiebreak keeps OFFSET
+        stable for runs created in the same period, which is the normal case
+        when a monthly and a THR run are prepared back to back.
+        """
+        ordered = sorted(
+            self._iter_runs(),
+            key=lambda run: (run.period_year, run.period_month, run.created_at, str(run.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     def set_inputs(
         self, run_id: UUID, *, inputs: list[PayrollInput], actor: ActorRef
     ) -> PayrollRun:

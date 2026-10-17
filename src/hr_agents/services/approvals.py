@@ -342,6 +342,17 @@ class ApprovalEngine:
             key=lambda item: item.created_at,
         )
 
+    def page_approvals(
+        self,
+        *,
+        role: ApproverRole | None,
+        status: ApprovalStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ApprovalRequest], int]:
+        """Paged edition of the queue read; the store owns how it is executed."""
+        return self._store.page_approvals(role=role, status=status, limit=limit, offset=offset)
+
     def find_by_subject(self, subject: ApprovalSubject, subject_id: str) -> ApprovalRequest | None:
         """The most recent request for one domain object, if any."""
         matches = [

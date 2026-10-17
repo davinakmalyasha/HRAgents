@@ -1,6 +1,6 @@
 """People store adapter tests on in-memory SQLite."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -31,6 +31,8 @@ from hr_agents.models import (
     RateTableKind,
     TaskItem,
     TaskStatus,
+    VerificationStatus,
+    business_today,
 )
 
 
@@ -260,3 +262,134 @@ def test_rate_table_store_round_trip(factory: sessionmaker[Session]) -> None:
     persisted = DbRateTableStore(factory).list_all()
     assert persisted[0].verified is True
     assert persisted[0].verified_by == "hr-admin"
+
+
+def test_approval_queue_pages_in_sql(factory: sessionmaker[Session]) -> None:
+    """The active-queue read keeps its three rules where the rows live.
+
+    Active means pending or escalated; a role narrows to one approver's queue;
+    a status narrows further. All three go into SQL together with
+    ``(created_at, id)`` ordering, LIMIT/OFFSET and the count, so paging a
+    decided-heavy queue never loads the decided rows.
+    """
+    store = DbApprovalStore(factory)
+    base = datetime(2026, 1, 1, 9, 0, tzinfo=UTC)
+
+    def seed(index: int, *, role: ApproverRole, status: ApprovalStatus) -> ApprovalRequest:
+        decided = status not in {ApprovalStatus.PENDING, ApprovalStatus.ESCALATED}
+        moment = base + timedelta(minutes=index)
+        request = ApprovalRequest(
+            subject=ApprovalSubject.LEAVE_REQUEST,
+            subject_id=f"leave-{index}",
+            title=f"Approve leave {index}",
+            summary="3 days",
+            requested_by="hr-admin",
+            assignee_role=role,
+            status=status,
+            created_at=moment,
+            decided_by="manager-1" if decided else None,
+            decided_at=moment if decided else None,
+        )
+        store.add(request)
+        return request
+
+    seed(1, role=ApproverRole.MANAGER, status=ApprovalStatus.PENDING)
+    seed(2, role=ApproverRole.MANAGER, status=ApprovalStatus.ESCALATED)
+    seed(3, role=ApproverRole.FINANCE, status=ApprovalStatus.PENDING)
+    seed(4, role=ApproverRole.MANAGER, status=ApprovalStatus.APPROVED)
+
+    fresh = DbApprovalStore(factory)
+    everything, total = fresh.page_approvals(role=None, status=None, limit=10, offset=0)
+    assert total == 3, "an approved request is not part of the active queue"
+    assert [item.subject_id for item in everything] == ["leave-1", "leave-2", "leave-3"]
+
+    manager_page, manager_total = fresh.page_approvals(
+        role=ApproverRole.MANAGER, status=None, limit=1, offset=1
+    )
+    assert manager_total == 2
+    assert [item.subject_id for item in manager_page] == ["leave-2"]
+
+    escalated, escalated_total = fresh.page_approvals(
+        role=None, status=ApprovalStatus.ESCALATED, limit=10, offset=0
+    )
+    assert escalated_total == 1
+    assert [item.subject_id for item in escalated] == ["leave-2"]
+
+    decided, decided_total = fresh.page_approvals(
+        role=None, status=ApprovalStatus.APPROVED, limit=10, offset=0
+    )
+    assert decided_total == 0
+    assert decided == []
+
+
+def test_document_vault_pages_with_the_filters_in_sql(factory: sessionmaker[Session]) -> None:
+    """Owner, status and the expiry window reach SQL with page and count.
+
+    The vault is the biggest list in the records workspace, and its filters
+    used to run in Python after every row was mapped. The window is inclusive
+    from today: an already-lapsed document matches the unfiltered list (a human
+    must fix it) but never the "expiring within N days" view.
+    """
+    store = DbEmployeeStore(factory)
+    employee = _add_employee(store)
+    other = _add_employee(store, "Budi")
+    today = business_today()
+
+    def document(
+        name: str,
+        *,
+        owner: Employee,
+        expires_in: int | None,
+        status: VerificationStatus = VerificationStatus.CLAIMED,
+    ) -> EmployeeDocument:
+        doc = EmployeeDocument(
+            employee_id=owner.id,
+            kind=DocumentKind.KTP,
+            storage_key=f"docs/{name}.pdf",
+            sha256="e" * 64,
+            expires_on=None if expires_in is None else today + timedelta(days=expires_in),
+            status=status,
+        )
+        store.add_document(doc)
+        return doc
+
+    stale = document("stale", owner=employee, expires_in=-10)
+    others = document("other", owner=other, expires_in=3)
+    soon = document("soon", owner=employee, expires_in=5)
+    verified = document(
+        "verified", owner=employee, expires_in=6, status=VerificationStatus.VERIFIED
+    )
+    far = document("far", owner=employee, expires_in=40)
+    forever = document("forever", owner=employee, expires_in=None)
+
+    fresh = DbEmployeeStore(factory)
+    page, total = fresh.page_documents(
+        employee_id=None, expiring_within_days=None, status=None, limit=3, offset=1
+    )
+    assert total == 6
+    assert [item.id for item in page] == [others.id, soon.id, verified.id]
+
+    window, window_total = fresh.page_documents(
+        employee_id=None, expiring_within_days=5, status=None, limit=10, offset=0
+    )
+    assert window_total == 2
+    assert [item.id for item in window] == [others.id, soon.id]
+    assert stale.id not in {item.id for item in window}
+
+    verified_only, verified_total = fresh.page_documents(
+        employee_id=None,
+        expiring_within_days=None,
+        status=VerificationStatus.VERIFIED,
+        limit=10,
+        offset=0,
+    )
+    assert verified_total == 1
+    assert [item.id for item in verified_only] == [verified.id]
+
+    mine, mine_total = fresh.page_documents(
+        employee_id=employee.id, expiring_within_days=None, status=None, limit=10, offset=0
+    )
+    assert mine_total == 5
+    assert others.id not in {item.id for item in mine}
+    assert [item.id for item in mine][-1] == forever.id, "no-expiry documents sort last"
+    assert far.id in {item.id for item in mine}

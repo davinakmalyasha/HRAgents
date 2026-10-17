@@ -162,14 +162,13 @@ def list_requests(
     pending_only: Annotated[bool, Query()] = False,
 ) -> Page[LeaveRequestView]:
     if pending_only:
-        requests = leave.pending_requests()
-    elif employee_id is not None:
-        requests = leave.requests_for(employee_id)
-    else:
-        requests = leave.pending_requests()
-    ordered = sorted(requests, key=lambda item: (item.start_date, str(item.id)))
-    return Page.slice(
-        [LeaveRequestView.from_model(request) for request in ordered],
+        employee_id = None
+    requests, total = leave.page_requests(
+        employee_id=employee_id, limit=paging.limit, offset=paging.offset
+    )
+    return Page.of(
+        [LeaveRequestView.from_model(request) for request in requests],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

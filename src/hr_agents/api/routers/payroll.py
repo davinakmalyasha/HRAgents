@@ -54,12 +54,10 @@ def create_run(payload: RunCreate, payroll: PayrollDep, actor: ActorDep) -> RunV
 
 @router.get("/runs", response_model=Page[RunView])
 def list_runs(payroll: PayrollDep, paging: PaginationDep) -> Page[RunView]:
-    ordered = sorted(
-        payroll.list_runs(),
-        key=lambda run: (run.period_year, run.period_month, run.created_at, str(run.id)),
-    )
-    return Page.slice(
-        [RunView.from_model(run) for run in ordered],
+    runs, total = payroll.page_runs(limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [RunView.from_model(run) for run in runs],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

@@ -301,12 +301,13 @@ Remaining in this area:
       silently truncates, and `/v1/queue` keeps its own envelope until it can move to cursor
       paging. OpenAPI + generated TS client regenerated; the api suites assert slicing,
       constant totals and 422 bounds.
-- [ ] **List reads still materialise whole tables.** Only `GET /v1/employees` pushes its
-      predicate, ORDER BY, LIMIT/OFFSET and count into SQL
-      (`DbEmployeeStore.page_employees`); the other adapters load every row and slice in
-      Python after the fact, `active_plans` and `_previous_run` being the two worst
-      aggregations. Push the seam down per table, heaviest first: leave requests, approvals,
-      documents, audit entries, payroll runs.
+- [~] **List reads materialise whole tables.** The five heaviest reads are pushed down —
+      employees (the reference), leave requests, approvals, the document vault, audit entries
+      and payroll runs all run their predicate, ORDER BY, LIMIT/OFFSET and count in SQL, with
+      the in-memory stores mirroring the same contract and an id tiebreak wherever keys can
+      tie. The remaining list endpoints still load every row and slice in Python after the
+      fact, and `active_plans` / `_previous_run` remain the two worst aggregations — push
+      those next.
 - [ ] **No `CHECK` constraint exists anywhere in the tables.** The payroll money columns
       are `Numeric(18,2)` so the database rejects a third decimal place, but no other
       invariant is enforced below the application.

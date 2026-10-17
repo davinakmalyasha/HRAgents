@@ -24,6 +24,7 @@ from hr_agents.models import (
     LeaveRequest,
     LeaveType,
     LeaveTypePolicy,
+    RequestStatus,
     business_today,
 )
 from hr_agents.services.approvals import ApprovalEngine
@@ -65,14 +66,21 @@ def _policy() -> LeaveTypePolicy:
     )
 
 
-def _request(employee: Employee, *, days: float = 3.0) -> LeaveRequest:
+def _request(
+    employee: Employee,
+    *,
+    days: float = 3.0,
+    start_in_days: int = 30,
+    status: RequestStatus = RequestStatus.DRAFT,
+) -> LeaveRequest:
     return LeaveRequest(
         employee_id=employee.id,
         leave_type=LeaveType.ANNUAL,
-        start_date=TODAY + timedelta(days=30),
-        end_date=TODAY + timedelta(days=30 + int(days) - 1),
+        start_date=TODAY + timedelta(days=start_in_days),
+        end_date=TODAY + timedelta(days=start_in_days + int(days) - 1),
         days=days,
         reason="Family event",
+        status=status,
     )
 
 
@@ -225,3 +233,42 @@ def test_requests_for_survives_a_restart(factory: sessionmaker[Session]) -> None
     # `pending_requests` reads across every employee's rows, which is the other
     # cross-row aggregation that had no seam before.
     assert fresh.pending_requests() == []
+
+
+def test_page_requests_pushes_predicate_order_and_limit_into_sql(
+    factory: sessionmaker[Session],
+) -> None:
+    """The paged read keeps the two filters apart and counts in the same call.
+
+    `page_requests(employee_id=None)` is the pending sweep; an id is that
+    employee's whole history. Both order by ``(start_date, id)`` in the
+    database, so OFFSET cannot shuffle rows whose dates collide.
+    """
+    service = _service(factory)
+    employee = _employee(service)
+    other = _employee(service, "Budi")
+    for start_in_days in (3, 1, 2):
+        service._save_request(
+            _request(employee, start_in_days=start_in_days, status=RequestStatus.PENDING)
+        )
+    service._save_request(_request(other, start_in_days=5, status=RequestStatus.PENDING))
+    draft = _request(employee, start_in_days=0)
+    service._save_request(draft)
+
+    fresh = _service(factory)
+    pending_page, pending_total = fresh.page_requests(employee_id=None, limit=2, offset=1)
+    assert pending_total == 4
+    assert [item.start_date for item in pending_page] == [
+        TODAY + timedelta(days=2),
+        TODAY + timedelta(days=3),
+    ]
+
+    mine, mine_total = fresh.page_requests(employee_id=employee.id, limit=10, offset=0)
+    assert mine_total == 4, "the employee filter ignores status; the draft is theirs too"
+    assert [item.employee_id for item in mine] == [employee.id] * 4
+    assert [item.start_date for item in mine] == [
+        TODAY + timedelta(days=0),
+        TODAY + timedelta(days=1),
+        TODAY + timedelta(days=2),
+        TODAY + timedelta(days=3),
+    ]

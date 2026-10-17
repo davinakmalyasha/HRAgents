@@ -576,6 +576,24 @@ class LeaveService:
             key=lambda item: item.start_date,
         )
 
+    def page_requests(
+        self, *, employee_id: UUID | None, limit: int, offset: int
+    ) -> tuple[list[LeaveRequest], int]:
+        """One paged read: an employee's requests, or everyone's pending ones.
+
+        The Postgres adapter overrides this so the predicate, ORDER BY and
+        LIMIT/OFFSET reach SQL; this implementation mirrors the same contract
+        over the in-memory dict, and both agree on ``(start_date, id)`` order.
+        """
+        if employee_id is None:
+            matched = [
+                item for item in self._iter_requests() if item.status is RequestStatus.PENDING
+            ]
+        else:
+            matched = [item for item in self._iter_requests() if item.employee_id == employee_id]
+        matched.sort(key=lambda item: (item.start_date, str(item.id)))
+        return matched[offset : offset + limit], len(matched)
+
     def overlapping(self, employee_id: UUID, start: date, end: date) -> list[LeaveRequest]:
         """Active (non-cancelled/rejected) requests overlapping the range."""
         return [

@@ -10,11 +10,12 @@ never holds the whole log in memory.
 
 from __future__ import annotations
 
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.sql.elements import ColumnElement
 
 from hr_agents.db.session import sync_session_scope
 from hr_agents.db.tables import AuditLog
@@ -101,6 +102,53 @@ class DbAuditChain(AuditChain):
         """
         with sync_session_scope(self._session_factory) as session:
             return session.execute(select(func.count()).select_from(AuditLog)).scalar_one()
+
+    def page_entries(
+        self,
+        *,
+        actor: str | None = None,
+        action: str | None = None,
+        subject_type: str | None = None,
+        subject_id: str | None = None,
+        since: datetime | None = None,
+        until: datetime | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[AuditEntry], int]:
+        """Newest-first slice with filters, ORDER BY and LIMIT/OFFSET in SQL.
+
+        The viewer used to materialize and validate the whole chain on every
+        read; the count runs over the same predicate in the same session, so a
+        page and its total cannot disagree. The actor filter reads the JSON
+        snapshot by its id, which is the only stable key an entry carries.
+        """
+        where: list[ColumnElement[bool]] = []
+        if actor is not None:
+            where.append(AuditLog.actor["actor_id"].as_string() == actor)
+        if action is not None:
+            where.append(AuditLog.action == action)
+        if subject_type is not None:
+            where.append(AuditLog.subject_type == subject_type)
+        if subject_id is not None:
+            where.append(AuditLog.subject_id == subject_id)
+        if since is not None:
+            where.append(AuditLog.created_at >= since)
+        if until is not None:
+            where.append(AuditLog.created_at <= until)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(select(func.count()).select_from(AuditLog).where(*where))
+            rows = (
+                session.execute(
+                    select(AuditLog)
+                    .where(*where)
+                    .order_by(AuditLog.seq.desc())
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_entry(row) for row in rows], int(total or 0)
 
     @property
     def last_hash(self) -> str | None:

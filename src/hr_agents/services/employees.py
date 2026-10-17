@@ -359,6 +359,24 @@ class EmployeeService:
             key=lambda doc: (doc.expires_on is None, doc.expires_on or date.min),
         )
 
+    def page_documents(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        expiring_within_days: int | None = None,
+        status: VerificationStatus | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[EmployeeDocument], int]:
+        """Paged vault read; predicates, ordering and slicing are the store's."""
+        return self._store.page_documents(
+            employee_id=employee_id,
+            expiring_within_days=expiring_within_days,
+            status=status,
+            limit=limit,
+            offset=offset,
+        )
+
     def expiring_documents(self, *, within_days: int = 60) -> list[EmployeeDocument]:
         today = business_today()
         result: list[EmployeeDocument] = []

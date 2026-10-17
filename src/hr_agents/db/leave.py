@@ -11,7 +11,7 @@ from collections.abc import Iterable, Iterator
 from datetime import UTC, date, datetime
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.leave_tables import (
@@ -85,6 +85,35 @@ class DbLeaveService(LeaveService):
                 check_version(existing, request)
                 for column, value in values.items():
                     setattr(existing, column, value)
+
+    def page_requests(
+        self, *, employee_id: UUID | None, limit: int, offset: int
+    ) -> tuple[list[LeaveRequest], int]:
+        """Paged read with the predicate, ORDER BY and LIMIT/OFFSET in SQL.
+
+        ``(start_date, id)`` ordering matches the in-memory contract; the id
+        tiebreak keeps OFFSET stable for requests that start the same day.
+        """
+        if employee_id is None:
+            where = LeaveRequestRecord.status == RequestStatus.PENDING.value
+        else:
+            where = LeaveRequestRecord.employee_id == employee_id
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(LeaveRequestRecord).where(where)
+            )
+            rows = (
+                session.execute(
+                    select(LeaveRequestRecord)
+                    .where(where)
+                    .order_by(LeaveRequestRecord.start_date, LeaveRequestRecord.id)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_request(row) for row in rows], int(total or 0)
 
     @staticmethod
     def _to_request(row: LeaveRequestRecord) -> LeaveRequest:

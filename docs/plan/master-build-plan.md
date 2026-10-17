@@ -680,9 +680,12 @@ not a style opinion.
    routes answer `Page[T]` (`items`/`total`/`limit`/`offset`; `limit` ≤ 200, default 100 via
    `PaginationDep`) with deterministic ordering (id tiebreaks where keys can tie), the web
    fetches every page through `fetchAllPages`, and OpenAPI + the generated TS client were
-   regenerated. Residual: only the employees adapter pushes WHERE/ORDER BY/LIMIT/OFFSET into
-   SQL (`DbEmployeeStore.page_employees`); the other adapters still read whole tables and slice
-   in Python — tracked in remaining-work as "List reads still materialise whole tables".
+   regenerated. The paged reads for the heaviest tables — employees, leave requests, approvals,
+   the document vault, audit entries and payroll runs — run predicate, ORDER BY, LIMIT/OFFSET
+   and count in SQL, with the in-memory stores mirroring the same contract. Residual: the
+   remaining list endpoints still read whole tables and slice in Python, and `active_plans` /
+   `_previous_run` stay the two worst aggregations — tracked in remaining-work as "List reads
+   materialise whole tables".
 8. **No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
    version predicate and no unit of work, so two concurrent `complete_step` calls
    silently lose one. A mid-loop erasure failure leaves a half-erased state.

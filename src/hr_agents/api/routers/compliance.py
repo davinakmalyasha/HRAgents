@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from datetime import date, datetime
 from typing import Annotated
 from uuid import UUID
@@ -43,7 +42,7 @@ from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import conflict, domain_problem, not_found
 from hr_agents.api.schemas import Page
 from hr_agents.errors import DomainError
-from hr_agents.models import AuditEntry, RecordEntity, SubjectKind, UtcDateTime, business_today
+from hr_agents.models import RecordEntity, SubjectKind, UtcDateTime, business_today
 from hr_agents.rbac import Permission
 from hr_agents.services.calendar import CalendarError, CalendarService
 from hr_agents.services.compliance import (
@@ -547,20 +546,19 @@ def list_audit_entries(
     Filters are exact matches on the indexed columns. `since`/`until` are inclusive so a
     caller can page by the boundary timestamp it already has.
     """
-    entries: Iterable[AuditEntry] = request.app.state.audit.entries
-    matched = [
-        entry
-        for entry in entries
-        if (actor is None or entry.actor.actor_id == actor)
-        and (action is None or entry.action == action)
-        and (subject_type is None or entry.subject_type == subject_type)
-        and (subject_id is None or entry.subject_id == subject_id)
-        and (since is None or entry.created_at >= since)
-        and (until is None or entry.created_at <= until)
-    ]
-    newest_first = list(reversed(matched))
-    return Page.slice(
-        [AuditEntryView.from_model(entry) for entry in newest_first],
+    entries, total = request.app.state.audit.page_entries(
+        actor=actor,
+        action=action,
+        subject_type=subject_type,
+        subject_id=subject_id,
+        since=since,
+        until=until,
+        limit=paging.limit,
+        offset=paging.offset,
+    )
+    return Page.of(
+        [AuditEntryView.from_model(entry) for entry in entries],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

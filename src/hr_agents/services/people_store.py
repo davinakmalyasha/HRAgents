@@ -13,6 +13,8 @@ from uuid import UUID
 from hr_agents.models import (
     ERASED_NAME,
     ApprovalRequest,
+    ApprovalStatus,
+    ApproverRole,
     BreachIncident,
     ComplianceCalendarEntry,
     ConsentGrant,
@@ -34,6 +36,8 @@ from hr_agents.models import (
     ReviewCycle,
     ReviewSummary,
     TaskItem,
+    VerificationStatus,
+    business_today,
     utc_now,
 )
 
@@ -154,6 +158,40 @@ class EmployeeStore:
             key=lambda doc: (doc.expires_on is None, doc.expires_on or date.min),
         )
 
+    def page_documents(
+        self,
+        *,
+        employee_id: UUID | None,
+        expiring_within_days: int | None,
+        status: VerificationStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[EmployeeDocument], int]:
+        """Paged vault read; the Postgres adapter pushes the same rules into SQL.
+
+        Filters: owner, verification status, and an inclusive expiry window
+        starting today -- "expiring within N days" has never meant "already
+        lapsed". Order is ``(no-expiry last, expires_on, id)``: the id tiebreak
+        keeps OFFSET stable for documents that expire the same day.
+        """
+        today = business_today()
+        documents = self.list_documents(employee_id) if employee_id else self.all_documents()
+        matched: list[EmployeeDocument] = []
+        for document in documents:
+            if status is not None and document.status is not status:
+                continue
+            if expiring_within_days is not None:
+                if document.expires_on is None:
+                    continue
+                days = (document.expires_on - today).days
+                if not 0 <= days <= expiring_within_days:
+                    continue
+            matched.append(document)
+        matched.sort(
+            key=lambda doc: (doc.expires_on is None, doc.expires_on or date.min, str(doc.id))
+        )
+        return matched[offset : offset + limit], len(matched)
+
 
 class ContractStore:
     def __init__(self) -> None:
@@ -194,6 +232,32 @@ class ApprovalStore:
 
     def list_all(self) -> list[ApprovalRequest]:
         return sorted(self._requests.values(), key=lambda item: item.created_at)
+
+    def page_approvals(
+        self,
+        *,
+        role: ApproverRole | None,
+        status: ApprovalStatus | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ApprovalRequest], int]:
+        """Paged active queue, one role's when ``role`` names one.
+
+        A request is active while it is pending or escalated -- the same rule
+        the engine's ``pending_for`` applies -- and ``status`` narrows the
+        slice further. The Postgres adapter pushes the same predicate, the
+        ``(created_at, id)`` order and LIMIT/OFFSET into SQL.
+        """
+        active = {ApprovalStatus.PENDING, ApprovalStatus.ESCALATED}
+        matched = [
+            item
+            for item in self._requests.values()
+            if item.status in active
+            and (role is None or item.assignee_role is role)
+            and (status is None or item.status is status)
+        ]
+        matched.sort(key=lambda item: (item.created_at, str(item.id)))
+        return matched[offset : offset + limit], len(matched)
 
 
 class TaskStore:
