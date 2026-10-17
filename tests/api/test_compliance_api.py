@@ -144,15 +144,16 @@ def test_retention_scan_purge_and_hold_flow() -> None:
 def test_purge_reports_skip_when_the_entity_has_no_store_handler() -> None:
     """A purge must never claim to have removed data it did not remove.
 
-    Payroll is the entity with no registered store handler: a run is a tax
-    record, and erasing the person from it means deciding what a pseudonymous
-    line looks like -- a decision nobody has made. Such a record is *skipped*:
-    reported, audited, and explicitly not marked purged, so the ledger and the
-    API agree that the data is still present.
+    ``other`` is the entity with no registered store handler: the ledger
+    accepts operator-tracked records of any kind, and for something nothing
+    knows how to erase, the only honest outcome is *skipped*: reported,
+    audited, and explicitly not marked purged, so the ledger and the API agree
+    that the data is still present. (Every specific entity -- consent,
+    employee, document, candidate, application, payroll -- has a handler.)
     """
     with make_client() as client:
-        set_policy(client, action="delete", entity="payroll")
-        track_candidate(client, subject_id="cand-1", entity="payroll")
+        set_policy(client, action="delete", entity="other")
+        track_candidate(client, subject_id="cand-1", entity="other")
 
         response = client.post("/v1/compliance/retention/purge", json={})
         assert response.status_code == 200
@@ -161,7 +162,7 @@ def test_purge_reports_skip_when_the_entity_has_no_store_handler() -> None:
         assert body["purged"] == []
         assert len(body["skipped"]) == 1
         skipped = body["skipped"][0]
-        assert skipped["entity"] == "payroll"
+        assert skipped["entity"] == "other"
         assert skipped["status"] == "skipped"
         assert skipped["purged"] is False
 

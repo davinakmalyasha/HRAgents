@@ -508,7 +508,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 8.9 Compliance (cross-cutting) `DONE` (Wave 1 core: consent, retention, erasure, breach, audit verify)
 - [x] Approval/task audit trails for every HR operation
 - [x] Consent registry: purpose-scoped grants/refusals/revocations with expiry, lawful basis, capture evidence, and `active` checks (`has_active_consent`); agents may record evidence, only humans revoke
-- [x] Retention engine: per-entity operator policies (months + delete/anonymize action, **no hardcoded statutory window**), record ledger with anchor dates + overrides, deterministic scan (due / held / uncovered), dry-run and scheduled purge (`by="system"`), per-record purge handlers for store mutation (consent, employee, document, candidate, application; payroll still reports an honest `skipped` until erasing a person from a tax record is decided), and the ledger is fed by the services that create the records, full audit trail
+- [x] Retention engine: per-entity operator policies (months + delete/anonymize action, **no hardcoded statutory window**), record ledger with anchor dates + overrides, deterministic scan (due / held / uncovered), dry-run and scheduled purge (`by="system"`), per-record purge handlers for store mutation (consent, employee, document, candidate, application, and payroll — HR's decision: a tax record keeps its figures under the erasure pseudonym, so payroll blanks the free-text name at export and keeps amounts, ids and periods), and the ledger is fed by the services that create the records, full audit trail
 - [x] Legal holds: human-only, reason required, never auto-purged by retention or erasure; reported per record
 - [x] Erasure workflow (UU PDP / GDPR shape): request → human identity verification → Data Protection approval (shared engine; agents can request, never decide) → **separate** human execution; per-record dispositions (deleted / anonymized / retained under hold) and consent revocation
 - [x] **Honest erasure outcomes**: `_apply_purge` returns `None` when no store handler is registered, so
@@ -516,8 +516,14 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       Previously every erasure reported success and deleted zero bytes, in both the API response and
       the audit chain. `consent` is the one entity with a real handler today; the rest are refused,
       loudly
-- [ ] Register purge handlers for candidate, application, employee, document, and payroll records —
-      and feed the retention ledger from the services that create them (today it is operator-manual)
+- [x] ~~Register purge handlers for candidate, application, employee, document, and payroll
+      records — and feed the retention ledger from the services that create them (today it is
+      operator-manual)~~ All five entities have handlers (`PeopleServices` registers
+      consent/employee/document/payroll, `register_recruitment_purge_handlers` covers
+      candidate/application) and the ledger is fed where records are born: at employee
+      creation, document filing and application submission — and for payroll, at export,
+      when a run stops being a draft (tracking a recomputable draft would enrol rows whose
+      figures later change). The operator endpoint remains for anything else
 - [x] Breach workflow: operator-editable checklist templates (starter default, not legal advice), materialized steps with configurable offsets, notification log, forward-only status lifecycle (close requires all required steps + closure note), overdue-step reporting
 - [x] Audit-chain verifier: end-to-end hash chain check with first-invalid-sequence reporting (`GET /v1/compliance/audit/verify`)
 - [x] API: 27 endpoints (consents, retention policies/records/scan/purge/holds, erasures + decision sync/execute, breaches + template/steps/notifications/status/overdue, audit verify)

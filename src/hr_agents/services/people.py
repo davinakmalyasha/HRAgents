@@ -19,7 +19,7 @@ from hr_agents.services.growth import GrowthService
 from hr_agents.services.leave import LeaveService
 from hr_agents.services.offboarding import OffboardingService
 from hr_agents.services.onboarding import OnboardingService
-from hr_agents.services.payroll import PayrollService
+from hr_agents.services.payroll import PayrollService, payroll_purge_handler
 from hr_agents.services.people_store import (
     ApprovalStore,
     ComplianceStore,
@@ -227,6 +227,7 @@ class PeopleServices:
                 rate_tables=self.rate_tables,
                 approvals=approvals,
                 audit=self.audit,
+                retention=ledger,
             )
         else:
             from hr_agents.db.payroll import DbPayrollService
@@ -237,11 +238,12 @@ class PeopleServices:
                 rate_tables=self.rate_tables,
                 approvals=approvals,
                 audit=self.audit,
+                retention=ledger,
             )
         self.payroll = payroll
         self.compliance = ComplianceService(compliance_store, approvals=approvals, audit=self.audit)
         ledger.bind(self.compliance.track_record)
-        self._register_purge_handlers(compliance_store, employee_store)
+        self._register_purge_handlers(compliance_store, employee_store, payroll)
         self.growth = GrowthService(
             growth_store, employees=self.employees, tasks=tasks, audit=self.audit
         )
@@ -254,7 +256,10 @@ class PeopleServices:
         )
 
     def _register_purge_handlers(
-        self, compliance_store: ComplianceStore, employee_store: EmployeeStore
+        self,
+        compliance_store: ComplianceStore,
+        employee_store: EmployeeStore,
+        payroll: PayrollService,
     ) -> None:
         """Attach the store-backed purge implementations the compliance engine calls.
 
@@ -272,3 +277,4 @@ class PeopleServices:
         self.compliance.register_purge_handler(
             RecordEntity.DOCUMENT, _document_purge_handler(employee_store)
         )
+        self.compliance.register_purge_handler(RecordEntity.PAYROLL, payroll_purge_handler(payroll))

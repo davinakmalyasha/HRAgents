@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
+from tests.services.test_payroll import seed_verified_tables
 
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.people import DbEmployeeStore
@@ -22,12 +23,16 @@ from hr_agents.models import (
     DocumentKind,
     Employee,
     EmployeeDocument,
+    PayrollInput,
+    PayrollRun,
+    PayrollRunStatus,
     PurgeAction,
     RecordEntity,
     RetentionRecord,
     SubjectKind,
     business_today,
 )
+from hr_agents.models.money import money as m
 from hr_agents.services import (
     ApprovalEngine,
     ApprovalStore,
@@ -40,6 +45,7 @@ from hr_agents.services.ingestion import (
     ApplicationStore,
     SubmissionInput,
 )
+from hr_agents.services.payroll import payroll_purge_handler
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.people_store import ComplianceStore, EmployeeStore
 from hr_agents.services.recruiting import (
@@ -487,3 +493,140 @@ def test_memory_backend_says_it_stores_no_candidate() -> None:
 
     (outcome,) = report.purged
     assert "not stored on this backend" in outcome.detail
+
+
+# --- payroll: pseudonymize the money, keep the trail ---------------------------
+
+
+def _exported_payroll(services: PeopleServices) -> tuple[Employee, PayrollRun]:
+    """One employee, one computed-then-exported run, verified tables.
+
+    Export is the tracking moment: the run is approved and frozen, so this is
+    the state a purge can meaningfully act on.
+    """
+    seed_verified_tables(services.rate_tables)
+    employee = make_employee(services.employees)
+    run = services.payroll.create_run(period_year=TODAY.year, period_month=6, actor=HUMAN)
+    services.payroll.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(10_000_000))],
+        actor=HUMAN,
+    )
+    computed = services.payroll.compute(run.id, actor=HUMAN)
+    approved = computed.model_copy(update={"status": PayrollRunStatus.APPROVED})
+    services.payroll._save_run(approved)
+    services.payroll.mark_exported(computed.id, actor=HUMAN)
+    return employee, computed
+
+
+def test_exporting_a_run_tracks_its_lines_for_retention() -> None:
+    services = PeopleServices()
+    employee, _ = _exported_payroll(services)
+
+    rows = services.compliance.list_records(entity=RecordEntity.PAYROLL)
+
+    assert [row.subject_id for row in rows] == [str(employee.id)]
+    assert rows[0].subject_kind is SubjectKind.EMPLOYEE
+    assert f"{TODAY.year}-06" in rows[0].label
+
+
+def test_payroll_purge_pseudonymizes_lines_and_keeps_the_figures() -> None:
+    services = PeopleServices()
+    _, computed = _exported_payroll(services)
+    before = computed.lines[0]
+
+    set_policy(services.compliance, RecordEntity.PAYROLL, months=1)
+    (tracked,) = services.compliance.list_records(entity=RecordEntity.PAYROLL)
+    backdate(services.compliance, tracked, days=60)
+
+    report = services.compliance.execute_purge(actor=SWEEP)
+
+    (outcome,) = [item for item in report.purged if item.entity is RecordEntity.PAYROLL]
+    assert "pseudonymized" in outcome.detail
+    after = services.payroll.get_run(computed.id).lines[0]
+    assert after.employee_name == "[erased]"
+    assert after.employee_id == before.employee_id
+    assert after.gross == before.gross
+    assert after.net == before.net
+    assert after.total_deductions == before.total_deductions
+    assert after.pph21 == before.pph21
+
+
+def test_payroll_delete_is_carried_out_as_pseudonym_and_says_so() -> None:
+    """A payroll row is a tax record: deleting it destroys figures a third
+    party may need to reconcile. The handler does the safe equivalent and the
+    detail names the substitution instead of pretending."""
+    services = PeopleServices()
+    _, computed = _exported_payroll(services)
+
+    services.compliance.set_policy(
+        entity=RecordEntity.PAYROLL,
+        name="payroll records",
+        retention_months=1,
+        expiry_action=PurgeAction.DELETE,
+        actor=HUMAN,
+    )
+    (tracked,) = services.compliance.list_records(entity=RecordEntity.PAYROLL)
+    backdate(services.compliance, tracked, days=60)
+
+    report = services.compliance.execute_purge(actor=SWEEP)
+
+    (outcome,) = [item for item in report.purged if item.entity is RecordEntity.PAYROLL]
+    assert "rather than deleted" in outcome.detail
+    survivor = services.payroll.get_run(computed.id).lines[0]
+    assert survivor.employee_name == "[erased]"
+    assert survivor.net > 0
+
+
+def test_a_second_payroll_purge_reports_lines_already_pseudonymized() -> None:
+    services = PeopleServices()
+    _, computed = _exported_payroll(services)
+    set_policy(services.compliance, RecordEntity.PAYROLL, months=1)
+    (tracked,) = services.compliance.list_records(entity=RecordEntity.PAYROLL)
+    backdate(services.compliance, tracked, days=60)
+    services.compliance.execute_purge(actor=SWEEP)
+
+    handler = payroll_purge_handler(services.payroll)
+    detail = handler(tracked, PurgeAction.ANONYMIZE)
+
+    assert "already carry the erasure pseudonym" in detail
+    assert services.payroll.get_run(computed.id).lines[0].employee_name == "[erased]"
+
+
+def test_payroll_purge_touches_only_the_named_employee() -> None:
+    services = PeopleServices()
+    seed_verified_tables(services.rate_tables)
+    sari = make_employee(services.employees, full_name="Sari Dewi")
+    budi = make_employee(services.employees, full_name="Budi Santoso")
+    run = services.payroll.create_run(period_year=TODAY.year, period_month=6, actor=HUMAN)
+    services.payroll.set_inputs(
+        run.id,
+        inputs=[
+            PayrollInput(employee_id=sari.id, base_salary=m(10_000_000)),
+            PayrollInput(employee_id=budi.id, base_salary=m(8_000_000)),
+        ],
+        actor=HUMAN,
+    )
+    computed = services.payroll.compute(run.id, actor=HUMAN)
+
+    services.compliance.track_record(
+        entity=RecordEntity.PAYROLL,
+        subject_kind=SubjectKind.EMPLOYEE,
+        subject_id=str(sari.id),
+        actor=HUMAN,
+    )
+    set_policy(services.compliance, RecordEntity.PAYROLL, months=1)
+    (tracked,) = services.compliance.list_records(entity=RecordEntity.PAYROLL)
+    backdate(services.compliance, tracked, days=60)
+
+    services.compliance.execute_purge(actor=SWEEP)
+
+    names = {line.employee_name for line in services.payroll.get_run(computed.id).lines}
+    assert names == {"[erased]", "Budi Santoso"}
+    handler = payroll_purge_handler(services.payroll)
+    unknown = tracked.model_copy(update={"subject_id": str(uuid4())})
+    assert "nothing to remove" in handler(unknown, PurgeAction.ANONYMIZE)
+    assert "not an employee id" in handler(
+        tracked.model_copy(update={"subject_id": "subject-without-uuid"}),
+        PurgeAction.ANONYMIZE,
+    )

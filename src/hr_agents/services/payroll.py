@@ -29,6 +29,7 @@ from openpyxl import Workbook
 from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.models import (
+    ERASED_NAME,
     AnomalySeverity,
     ApprovalStatus,
     ApprovalSubject,
@@ -40,9 +41,13 @@ from hr_agents.models import (
     PayrollRun,
     PayrollRunKind,
     PayrollRunStatus,
+    PurgeAction,
     RateEntry,
     RateTable,
     RateTableKind,
+    RecordEntity,
+    RetentionRecord,
+    SubjectKind,
     Urgency,
     business_today,
     utc_now,
@@ -50,8 +55,10 @@ from hr_agents.models import (
 from hr_agents.models.money import ZERO, add, money, percent_of, sub
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.compliance import PurgeHandler
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.rate_tables import RateTableError, RateTableService
+from hr_agents.services.retention import RetentionLedger, subject_uuid
 
 NET_DEVIATION_THRESHOLD = 0.30
 MAX_OVERTIME_HOURS = 60.0
@@ -243,11 +250,13 @@ class PayrollService:
         rate_tables: RateTableService,
         approvals: ApprovalEngine,
         audit: AuditChain | None = None,
+        retention: RetentionLedger | None = None,
     ) -> None:
         self._employees = employees
         self._rate_tables = rate_tables
         self._approvals = approvals
         self._audit = audit or AuditChain()
+        self._retention = retention or RetentionLedger()
         self._runs: dict[UUID, PayrollRun] = {}
 
     # --- persistence primitives -----------------------------------------
@@ -1015,6 +1024,18 @@ class PayrollService:
             update={"status": PayrollRunStatus.EXPORTED, "exported_at": utc_now()}
         )
         self._save_run(updated)
+        # Export is where a run stops being a draft: it is approved, frozen and
+        # handed to the provider, so this is the first moment a tracked retention
+        # record describes figures that cannot change. Tracking earlier would
+        # enrol drafts whose lines a recompute overwrites.
+        for line in updated.lines:
+            self._retention.track(
+                entity=RecordEntity.PAYROLL,
+                subject_kind=SubjectKind.EMPLOYEE,
+                subject_id=str(line.employee_id),
+                actor=actor,
+                label=f"payroll {updated.period_year}-{updated.period_month:02d}",
+            )
         self._record(
             updated,
             action="payroll.packet_exported",
@@ -1047,6 +1068,38 @@ class PayrollService:
             updated, action="payroll.run_cancelled", actor=actor, payload={"reason": reason}
         )
         return updated
+
+    # --- erasure ---------------------------------------------------------
+
+    def lines_referencing(self, employee_id: UUID) -> int:
+        """How many computed lines name this employee, across every run."""
+        return sum(
+            1 for run in self._iter_runs() for line in run.lines if line.employee_id == employee_id
+        )
+
+    def pseudonymize_employee(self, employee_id: UUID) -> int:
+        """Blank one employee's name on every line; keep the money trail.
+
+        The erasure semantics HR chose for a payroll record: the row is a tax
+        figure a third party may need to reconcile years later, so the identity
+        is what goes. Amounts, employee id, period, rate-table provenance and
+        run history all survive under ``ERASED_NAME``. Returns the number of
+        lines rewritten; zero means every referencing line already carries the
+        pseudonym.
+        """
+        rewritten = 0
+        for run in list(self._iter_runs()):
+            changed = False
+            lines: list[PayrollLine] = []
+            for line in run.lines:
+                if line.employee_id == employee_id and line.employee_name != ERASED_NAME:
+                    line = line.model_copy(update={"employee_name": ERASED_NAME})
+                    changed = True
+                    rewritten += 1
+                lines.append(line)
+            if changed:
+                self._save_run(run.model_copy(update={"lines": lines, "updated_at": utc_now()}))
+        return rewritten
 
     # --- export ----------------------------------------------------------
 
@@ -1199,6 +1252,35 @@ class PayrollService:
                 **payload,
             },
         )
+
+
+def payroll_purge_handler(payroll: PayrollService) -> PurgeHandler:
+    """Pseudonymize an erased employee's payroll lines; keep the trail.
+
+    `delete` is carried out as anonymize and the detail says why: a payroll row
+    is a tax record whose amounts a third party may need to reconcile, so the
+    identity is blanked rather than the row destroyed -- the same substitution
+    the employee handler makes one level up.
+    """
+
+    def handler(record: RetentionRecord, action: PurgeAction) -> str:
+        employee_id = subject_uuid(record)
+        if employee_id is None:
+            return f"subject {record.subject_id!r} is not an employee id; nothing to remove"
+        referencing = payroll.lines_referencing(employee_id)
+        if referencing == 0:
+            return f"no payroll lines for subject {record.subject_id}; nothing to remove"
+        rewritten = payroll.pseudonymize_employee(employee_id)
+        if rewritten == 0:
+            return f"{referencing} payroll line(s) already carry the erasure pseudonym"
+        if action is PurgeAction.DELETE:
+            return (
+                f"pseudonymized {rewritten} payroll line(s) rather than deleted: a payroll "
+                "row is a tax record, so amounts and periods survive under the pseudonym"
+            )
+        return f"pseudonymized {rewritten} payroll line(s); amounts, ids and run history kept"
+
+    return handler
 
 
 def current_period() -> tuple[int, int]:
