@@ -115,7 +115,7 @@ def test_offer_full_flow() -> None:
 
     assert submitted.status_code == 200
     assert submitted.json()["status"] == "pending_approval"
-    assert any(item["subject"] == "offer" for item in pending.json())
+    assert any(item["subject"] == "offer" for item in pending.json()["items"])
 
     assert approved.status_code == 200, approved.text
     assert approved.json()["status"] == "approved"
@@ -129,9 +129,10 @@ def test_offer_full_flow() -> None:
     assert accepted.json()["accepted_at"] is not None
 
     messages = communications.json()
-    assert len(messages) == 1
-    assert messages[0]["kind"] == "offer"
-    assert "Backend Engineer" in messages[0]["body"]
+    assert messages["total"] == 1
+    assert len(messages["items"]) == 1
+    assert messages["items"][0]["kind"] == "offer"
+    assert "Backend Engineer" in messages["items"][0]["body"]
 
 
 def test_offer_guards_and_terminal_states() -> None:
@@ -198,6 +199,38 @@ def test_offer_refuses_a_caller_supplied_actor() -> None:
     assert decided.json()["decided_by"] == "local-dev"
 
 
+def test_list_offers_pages_the_unpaged_read_and_keeps_the_filter() -> None:
+    with make_client() as client:
+        created: list[dict] = []
+        application_id = ""
+        for index in range(3):
+            application = seeded_application(client)
+            application_id = application["application_id"]
+            response = client.post(
+                "/v1/offers",
+                json={
+                    "application_id": application_id,
+                    "terms": terms_payload(position_title=f"Engineer {index}"),
+                },
+            )
+            assert response.status_code == 201, response.text
+            created.append(response.json())
+
+        full = client.get("/v1/offers").json()
+        page = client.get("/v1/offers", params={"limit": 2, "offset": 1}).json()
+        filtered = client.get("/v1/offers", params={"application_id": application_id}).json()
+
+    all_ids = [item["id"] for item in full["items"]]
+    assert full["total"] == 3
+    assert len(full["items"]) == 3
+    assert page["total"] == 3
+    assert page["limit"] == 2
+    assert page["offset"] == 1
+    assert [item["id"] for item in page["items"]] == all_ids[1:3]
+    assert [item["id"] for item in filtered["items"]] == [created[2]["id"]]
+    assert filtered["total"] == 1
+
+
 def test_offer_withdrawal_withdraws_the_approval() -> None:
     with make_client() as client:
         application = seeded_application(client)
@@ -224,4 +257,5 @@ def test_offer_withdrawal_withdraws_the_approval() -> None:
     assert "reason is required" in without_reason.json()["title"]
     assert withdrawn.status_code == 200, withdrawn.text
     assert withdrawn.json()["status"] == "withdrawn"
-    assert approvals.json() == []
+    assert approvals.json()["items"] == []
+    assert approvals.json()["total"] == 0

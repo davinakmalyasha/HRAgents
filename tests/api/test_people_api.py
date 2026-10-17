@@ -123,7 +123,8 @@ def test_add_document_and_list_contracts() -> None:
     assert document.status_code == 201
     assert document.json()["kind"] == "ktp"
     assert contracts.status_code == 200
-    assert contracts.json() == []
+    assert contracts.json()["items"] == []
+    assert contracts.json()["total"] == 0
 
 
 def test_employee_documents_are_listed_per_employee() -> None:
@@ -153,9 +154,11 @@ def test_employee_documents_are_listed_per_employee() -> None:
         unknown = client.get(f"/v1/employees/{uuid4()}/documents")
 
     assert mine.status_code == 200
-    kinds = sorted(document["kind"] for document in mine.json())
+    body = mine.json()
+    kinds = sorted(document["kind"] for document in body["items"])
     assert kinds == ["ktp", "npwp"]
-    assert all(document["employee_id"] == employee["id"] for document in mine.json())
+    assert body["total"] == 2
+    assert all(document["employee_id"] == employee["id"] for document in body["items"])
     assert unknown.status_code == 404
 
 
@@ -196,11 +199,63 @@ def test_document_vault_filters_and_expiry_windows() -> None:
 
     assert vault.status_code == 200
     # Soonest expiry first, and the no-expiry document last.
-    assert [document["kind"] for document in vault.json()] == ["ktp", "npwp", "bank_account"]
+    kinds = [document["kind"] for document in vault.json()["items"]]
+    assert kinds == ["ktp", "npwp", "bank_account"]
     assert soon["days_to_expiry"] == 10
-    assert [document["kind"] for document in expiring.json()] == ["ktp"]
-    assert len(scoped.json()) == 3
-    assert other.json() == []
+    assert [document["kind"] for document in expiring.json()["items"]] == ["ktp"]
+    assert len(scoped.json()["items"]) == 3
+    assert other.json()["items"] == []
+    assert other.json()["total"] == 0
+
+
+def test_document_vault_pages_with_limit_and_offset() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        for kind, days in (("ktp", 5), ("npwp", 20), ("bank_account", 40)):
+            created = client.post(
+                f"/v1/employees/{employee['id']}/documents",
+                json={
+                    "kind": kind,
+                    "storage_key": f"employees/{kind}.pdf",
+                    "sha256": "a" * 64,
+                    "expires_on": (TODAY + timedelta(days=days)).isoformat(),
+                },
+            )
+            assert created.status_code == 201, created.text
+
+        unpaged = client.get("/v1/documents")
+        first = client.get("/v1/documents", params={"limit": 2, "offset": 0})
+        second = client.get("/v1/documents", params={"limit": 2, "offset": 2})
+        beyond = client.get("/v1/documents", params={"limit": 2, "offset": 10})
+
+    whole = unpaged.json()
+    assert whole["total"] == 3
+    assert [document["kind"] for document in whole["items"]] == ["ktp", "npwp", "bank_account"]
+
+    first_body = first.json()
+    assert first_body["total"] == 3
+    assert first_body["limit"] == 2
+    assert first_body["offset"] == 0
+    assert [document["kind"] for document in first_body["items"]] == ["ktp", "npwp"]
+
+    second_body = second.json()
+    assert second_body["total"] == 3
+    assert [document["kind"] for document in second_body["items"]] == ["bank_account"]
+
+    beyond_body = beyond.json()
+    assert beyond_body["items"] == []
+    assert beyond_body["total"] == 3
+
+
+def test_document_vault_rejects_invalid_pagination() -> None:
+    with make_client() as client:
+        too_small = client.get("/v1/documents", params={"limit": 0})
+        too_big = client.get("/v1/documents", params={"limit": 201})
+        negative = client.get("/v1/documents", params={"offset": -1})
+
+    assert too_small.status_code == 422
+    assert too_big.status_code == 422
+    assert negative.status_code == 422
 
 
 def test_document_verification_refuses_a_caller_supplied_actor() -> None:
@@ -249,7 +304,7 @@ def test_document_verification_refuses_a_caller_supplied_actor() -> None:
     assert rejected.status_code == 200
     assert rejected.json()["status"] == "failed"
     assert unknown.status_code == 404
-    assert [document["id"] for document in filtered.json()] == [document["id"]]
+    assert [document["id"] for document in filtered.json()["items"]] == [document["id"]]
 
 
 def test_org_units_report_headcount_and_reject_unknown_parents() -> None:
@@ -272,8 +327,8 @@ def test_org_units_report_headcount_and_reject_unknown_parents() -> None:
 
     assert child["parent_id"] == root["id"]
     assert listed.status_code == 200
-    assert [unit["name"] for unit in listed.json()] == ["Engineering", "Platform"]
-    assert all(unit["headcount"] == 0 for unit in listed.json())
+    assert [unit["name"] for unit in listed.json()["items"]] == ["Engineering", "Platform"]
+    assert all(unit["headcount"] == 0 for unit in listed.json()["items"])
     assert orphan.status_code == 409
 
 
@@ -298,7 +353,7 @@ def test_contract_lifecycle_via_api() -> None:
     assert activated.status_code == 200
     assert activated.json()["status"] == "active"
     assert expiring.status_code == 200
-    assert any(item["id"] == contract_id for item in expiring.json())
+    assert any(item["id"] == contract_id for item in expiring.json()["items"])
 
 
 def test_pkwt_without_end_date_rejected() -> None:
@@ -337,7 +392,7 @@ def test_approval_flow_via_api() -> None:
         )
 
     assert queue_response.status_code == 200
-    assert any(item["id"] == approval_id for item in queue_response.json())
+    assert any(item["id"] == approval_id for item in queue_response.json()["items"])
     assert decided.status_code == 200
     assert decided.json()["action"] == "approved"
     assert decided.json()["request"]["status"] == "approved"
@@ -410,10 +465,10 @@ def test_tasks_flow_via_api() -> None:
         completed = client.post(f"/v1/tasks/{task_id}/complete", json={})
         after = client.get("/v1/tasks")
 
-    assert any(item["id"] == task_id for item in overdue.json())
+    assert any(item["id"] == task_id for item in overdue.json()["items"])
     assert completed.status_code == 200
     assert completed.json()["status"] == "done"
-    assert all(item["id"] != task_id for item in after.json())
+    assert all(item["id"] != task_id for item in after.json()["items"])
 
 
 def test_rate_table_unverified_gate_via_api() -> None:
@@ -427,7 +482,7 @@ def test_rate_table_unverified_gate_via_api() -> None:
     assert created.status_code == 201
     assert created.json()["verified"] is False
     assert created.json()["usable"] is False
-    assert any(item["id"] == created.json()["id"] for item in unverified.json())
+    assert any(item["id"] == created.json()["id"] for item in unverified.json()["items"])
 
 
 def test_unknown_employee_returns_404() -> None:

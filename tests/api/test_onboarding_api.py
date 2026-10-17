@@ -213,7 +213,7 @@ def test_tasks_created_for_onboarding_steps() -> None:
                 "template_id": template["id"],
             },
         )
-        tasks = client.get("/v1/tasks").json()
+        tasks = client.get("/v1/tasks").json()["items"]
 
     titles = [task["title"] for task in tasks]
     assert any(title == "[Onboarding] Collect KTP" for title in titles)
@@ -228,9 +228,57 @@ def test_templates_listing() -> None:
         create_template(client)
         response = client.get("/v1/onboarding/templates")
 
+    body = response.json()
     assert response.status_code == 200
-    assert len(response.json()) == 1
-    assert response.json()[0]["step_count"] == 2
+    assert body["total"] == 1
+    assert len(body["items"]) == 1
+    assert body["items"][0]["step_count"] == 2
+
+
+def test_plans_list_pages_with_limit_and_offset() -> None:
+    with make_client() as client:
+        template = create_template(client)
+        for _ in range(2):
+            employee = create_employee(client)
+            started = client.post(
+                "/v1/onboarding/plans",
+                json={"employee_id": employee["id"], "template_id": template["id"]},
+            )
+            assert started.status_code == 201, started.text
+
+        everything = client.get("/v1/onboarding/plans")
+        first = client.get("/v1/onboarding/plans", params={"limit": 1, "offset": 0})
+        second = client.get("/v1/onboarding/plans", params={"limit": 1, "offset": 1})
+        beyond = client.get("/v1/onboarding/plans", params={"limit": 1, "offset": 5})
+
+    full = everything.json()
+    assert full["total"] == 2
+    assert len(full["items"]) == 2
+
+    first_body = first.json()
+    assert first_body["items"] == full["items"][:1]
+    assert first_body["total"] == 2
+    assert first_body["limit"] == 1
+    assert first_body["offset"] == 0
+
+    second_body = second.json()
+    assert second_body["items"] == full["items"][1:]
+    assert second_body["total"] == 2
+
+    beyond_body = beyond.json()
+    assert beyond_body["items"] == []
+    assert beyond_body["total"] == 2
+
+
+def test_templates_list_rejects_invalid_pagination() -> None:
+    with make_client() as client:
+        too_small = client.get("/v1/onboarding/templates", params={"limit": 0})
+        too_big = client.get("/v1/onboarding/templates", params={"limit": 201})
+        negative = client.get("/v1/onboarding/templates", params={"offset": -1})
+
+    assert too_small.status_code == 422
+    assert too_big.status_code == 422
+    assert negative.status_code == 422
 
 
 def test_starter_template_is_served_and_saves_as_a_template() -> None:
@@ -253,7 +301,7 @@ def test_starter_template_is_served_and_saves_as_a_template() -> None:
     assert len(body["steps"]) > 0
     assert {step["key"] for step in body["steps"]} >= {"collect_ktp", "sign_contract"}
     assert created.status_code == 201, created.text
-    assert listed.json()[0]["step_count"] == len(body["steps"])
+    assert listed.json()["items"][0]["step_count"] == len(body["steps"])
 
 
 def test_creating_a_template_from_the_starter_unblocks_starting_a_plan() -> None:

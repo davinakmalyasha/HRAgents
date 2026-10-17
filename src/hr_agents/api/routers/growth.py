@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.growth_schemas import (
     AssignmentCreate,
     AssignmentSkip,
@@ -28,6 +28,7 @@ from hr_agents.api.growth_schemas import (
     SummaryView,
 )
 from hr_agents.api.problem import conflict, not_found
+from hr_agents.api.schemas import Page
 from hr_agents.models import GoalStatus, ReviewCycleStatus
 from hr_agents.rbac import Permission
 from hr_agents.services.growth import GrowthError, GrowthService
@@ -63,11 +64,19 @@ def create_cycle(payload: CycleCreate, growth: GrowthDep, actor: ActorDep) -> Cy
     return CycleView.from_model(cycle)
 
 
-@router.get("/cycles", response_model=list[CycleView])
+@router.get("/cycles", response_model=Page[CycleView])
 def list_cycles(
-    growth: GrowthDep, cycle_status: ReviewCycleStatus | None = None
-) -> list[CycleView]:
-    return [CycleView.from_model(item) for item in growth.list_cycles(status=cycle_status)]
+    growth: GrowthDep,
+    paging: PaginationDep,
+    cycle_status: ReviewCycleStatus | None = None,
+) -> Page[CycleView]:
+    cycles = growth.list_cycles(status=cycle_status)
+    ordered = sorted(cycles, key=lambda cycle: (cycle.created_at, str(cycle.id)))
+    return Page.slice(
+        [CycleView.from_model(cycle) for cycle in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/cycles/{cycle_id}", response_model=CycleView)
@@ -169,17 +178,27 @@ def add_assignment(
     return AssignmentView.from_model(assignment)
 
 
-@router.get("/cycles/{cycle_id}/assignments", response_model=list[AssignmentView])
-def list_assignments(cycle_id: UUID, growth: GrowthDep) -> list[AssignmentView]:
+@router.get("/cycles/{cycle_id}/assignments", response_model=Page[AssignmentView])
+def list_assignments(
+    cycle_id: UUID, growth: GrowthDep, paging: PaginationDep
+) -> Page[AssignmentView]:
     try:
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
         raise not_found(str(exc)) from exc
-    return [AssignmentView.from_model(item) for item in growth.list_assignments(cycle_id)]
+    assignments = growth.list_assignments(cycle_id)
+    ordered = sorted(assignments, key=lambda item: (item.created_at, str(item.id)))
+    return Page.slice(
+        [AssignmentView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@router.get("/assignments/mine", response_model=list[AssignmentView])
-def my_assignments(growth: GrowthDep, actor: ActorDep) -> list[AssignmentView]:
+@router.get("/assignments/mine", response_model=Page[AssignmentView])
+def my_assignments(
+    growth: GrowthDep, paging: PaginationDep, actor: ActorDep
+) -> Page[AssignmentView]:
     """The caller's own outstanding forms.
 
     `reviewer_id` is the authenticated principal's id, minted server-side. Without
@@ -187,18 +206,26 @@ def my_assignments(growth: GrowthDep, actor: ActorDep) -> list[AssignmentView]:
     which leaves the caller typing a string that decides whose reviews they see --
     and the honest UI would have to ask a person to do it.
     """
-    return [
-        AssignmentView.from_model(item) for item in growth.assignments_for_reviewer(actor.actor_id)
-    ]
+    assignments = growth.assignments_for_reviewer(actor.actor_id)
+    ordered = sorted(assignments, key=lambda item: (item.created_at, str(item.id)))
+    return Page.slice(
+        [AssignmentView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@router.get("/assignments", response_model=list[AssignmentView])
+@router.get("/assignments", response_model=Page[AssignmentView])
 def assignments_for_reviewer(
-    growth: GrowthDep, reviewer_id: Annotated[str, Query(min_length=1)]
-) -> list[AssignmentView]:
-    return [
-        AssignmentView.from_model(item) for item in growth.assignments_for_reviewer(reviewer_id)
-    ]
+    growth: GrowthDep, paging: PaginationDep, reviewer_id: Annotated[str, Query(min_length=1)]
+) -> Page[AssignmentView]:
+    assignments = growth.assignments_for_reviewer(reviewer_id)
+    ordered = sorted(assignments, key=lambda item: (item.created_at, str(item.id)))
+    return Page.slice(
+        [AssignmentView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(
@@ -269,13 +296,19 @@ def get_summary(summary_id: UUID, growth: GrowthDep) -> SummaryView:
         raise not_found(str(exc)) from exc
 
 
-@router.get("/cycles/{cycle_id}/summaries", response_model=list[SummaryView])
-def list_summaries(cycle_id: UUID, growth: GrowthDep) -> list[SummaryView]:
+@router.get("/cycles/{cycle_id}/summaries", response_model=Page[SummaryView])
+def list_summaries(cycle_id: UUID, growth: GrowthDep, paging: PaginationDep) -> Page[SummaryView]:
     try:
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
         raise not_found(str(exc)) from exc
-    return [SummaryView.from_model(item) for item in growth.list_summaries(cycle_id)]
+    summaries = growth.list_summaries(cycle_id)
+    ordered = sorted(summaries, key=lambda item: (item.created_at, str(item.id)))
+    return Page.slice(
+        [SummaryView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(
@@ -310,19 +343,31 @@ def create_goal(payload: GoalCreate, growth: GrowthDep, actor: ActorDep) -> Goal
     return GoalView.from_model(goal)
 
 
-@router.get("/goals", response_model=list[GoalView])
+@router.get("/goals", response_model=Page[GoalView])
 def list_goals(
     growth: GrowthDep,
+    paging: PaginationDep,
     employee_id: UUID | None = None,
     goal_status: GoalStatus | None = None,
-) -> list[GoalView]:
+) -> Page[GoalView]:
     goals = growth.list_goals(employee_id=employee_id, status=goal_status)
-    return [GoalView.from_model(item) for item in goals]
+    ordered = sorted(goals, key=lambda goal: (goal.created_at, str(goal.id)))
+    return Page.slice(
+        [GoalView.from_model(goal) for goal in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@router.get("/goals/overdue", response_model=list[GoalView])
-def overdue_goals(growth: GrowthDep) -> list[GoalView]:
-    return [GoalView.from_model(item) for item in growth.overdue_goals()]
+@router.get("/goals/overdue", response_model=Page[GoalView])
+def overdue_goals(growth: GrowthDep, paging: PaginationDep) -> Page[GoalView]:
+    goals = growth.overdue_goals()
+    ordered = sorted(goals, key=lambda goal: (goal.created_at, str(goal.id)))
+    return Page.slice(
+        [GoalView.from_model(goal) for goal in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/goals/{goal_id}", response_model=GoalView)
@@ -401,10 +446,12 @@ def cancel_goal(goal_id: UUID, payload: GoalAction, growth: GrowthDep, actor: Ac
 
 @router.post(
     "/reminders/run",
-    response_model=list[ReminderView],
+    response_model=Page[ReminderView],
     dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
 )
-def run_reminders(payload: RemindersRun, growth: GrowthDep, actor: ActorDep) -> list[ReminderView]:
+def run_reminders(
+    payload: RemindersRun, growth: GrowthDep, paging: PaginationDep, actor: ActorDep
+) -> Page[ReminderView]:
     """Run the reminder sweep now, on top of the daily scheduler.
 
     The reminders themselves are system-sourced: a missed review form is not the
@@ -415,4 +462,8 @@ def run_reminders(payload: RemindersRun, growth: GrowthDep, actor: ActorDep) -> 
     created = growth.run_reminders(
         as_of=payload.as_of, window_days=payload.window_days, actor=actor
     )
-    return [ReminderView.from_model(item) for item in created]
+    return Page.slice(
+        [ReminderView.from_model(item) for item in created],
+        limit=paging.limit,
+        offset=paging.offset,
+    )

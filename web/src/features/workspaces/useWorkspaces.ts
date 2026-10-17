@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 import type { WorkspaceId } from '@/lib/workspaces'
 
@@ -16,11 +17,12 @@ export function useWorkspaces() {
   return useQuery({
     queryKey: ['workspaces'],
     queryFn: async (): Promise<WorkspaceMeta[]> => {
-      const { data } = await api.GET('/v1/workspaces')
-      if (data === undefined) {
-        throw new Error('workspaces unavailable')
-      }
-      return data
+      return fetchAllPages(async (limit, offset) => {
+        const { data } = await api.GET('/v1/workspaces', {
+          params: { query: { limit, offset } },
+        })
+        return data ?? undefined
+      })
     },
   })
 }

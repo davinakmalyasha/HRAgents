@@ -245,13 +245,15 @@ def test_handoff_is_queued_and_listed() -> None:
 
         listed = client.get("/v1/chat/handoffs", params={"workspace": "onboarding"})
         assert listed.status_code == 200
-        assert [item["id"] for item in listed.json()] == [body["id"]]
+        assert [item["id"] for item in listed.json()["items"]] == [body["id"]]
+        assert listed.json()["total"] == 1
 
         every = client.get("/v1/chat/handoffs")
-        assert [item["id"] for item in every.json()] == [body["id"]]
+        assert [item["id"] for item in every.json()["items"]] == [body["id"]]
 
         empty = client.get("/v1/chat/handoffs", params={"workspace": "payroll"})
-        assert empty.json() == []
+        assert empty.json()["items"] == []
+        assert empty.json()["total"] == 0
 
 
 def test_self_target_handoff_returns_422() -> None:

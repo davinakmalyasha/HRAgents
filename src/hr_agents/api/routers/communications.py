@@ -13,7 +13,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import (
     bad_request,
     domain_problem,
@@ -29,6 +29,7 @@ from hr_agents.api.recruitment_schemas import (
     WhatsappDispatchLinkRequest,
     WhatsappDispatchLinkView,
 )
+from hr_agents.api.schemas import Page
 from hr_agents.messaging.store import ReplyStore
 from hr_agents.messaging.whatsapp import ManualWhatsappLinks, WhatsappLinkError
 from hr_agents.rbac import Permission
@@ -58,22 +59,38 @@ RepliesDep = Annotated[ReplyStore, Depends(get_replies)]
 
 @router.get(
     "/candidates/{candidate_id}/communications",
-    response_model=list[CommunicationView],
+    response_model=Page[CommunicationView],
     summary="Candidate communication history (queued and sent)",
 )
 def list_communications(
-    candidate_id: UUID, communications: CommunicationsDep
-) -> list[CommunicationView]:
-    return [CommunicationView.from_model(item) for item in communications.list_for(candidate_id)]
+    candidate_id: UUID, communications: CommunicationsDep, paging: PaginationDep
+) -> Page[CommunicationView]:
+    ordered = sorted(
+        communications.list_for(candidate_id),
+        key=lambda item: (item.created_at, str(item.id)),
+    )
+    return Page.slice(
+        [CommunicationView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get(
     "/candidates/{candidate_id}/replies",
-    response_model=list[ReplyView],
+    response_model=Page[ReplyView],
     summary="Inbound candidate replies captured by the messaging transport",
 )
-def list_replies(candidate_id: UUID, replies: RepliesDep) -> list[ReplyView]:
-    return [ReplyView.from_model(item) for item in replies.list_for(candidate_id)]
+def list_replies(candidate_id: UUID, replies: RepliesDep, paging: PaginationDep) -> Page[ReplyView]:
+    ordered = sorted(
+        replies.list_for(candidate_id),
+        key=lambda item: (item.received_at, str(item.id)),
+    )
+    return Page.slice(
+        [ReplyView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(

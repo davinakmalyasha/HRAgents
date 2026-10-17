@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 export type RunView = components['schemas']['RunView']
 export type LineView = components['schemas']['LineView']
@@ -130,8 +131,12 @@ export function cancellationNote(run: RunView): string | null {
 }
 
 export async function listRuns(): Promise<RunView[]> {
-  const { data } = await api.GET('/v1/payroll/runs')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/payroll/runs', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function getRun(runId: string): Promise<RunView | null> {

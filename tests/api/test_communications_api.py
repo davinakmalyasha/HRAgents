@@ -160,7 +160,8 @@ def test_rejection_flow_queues_and_records_dispatch() -> None:
     assert body["application_id"] == application["application_id"]
 
     assert history.status_code == 200
-    assert len(history.json()) == 1
+    assert history.json()["total"] == 1
+    assert len(history.json()["items"]) == 1
 
     assert sent.status_code == 200
     assert sent.json()["status"] == "sent"
@@ -272,9 +273,11 @@ def test_rejection_preview_renders_the_message_without_queueing_anything() -> No
     assert body["body"] == queued.json()["body"]
     # The preview itself stored nothing: only the explicit queue did.
     assert history.status_code == 200
-    assert history.json() == []
+    assert history.json()["items"] == []
+    assert history.json()["total"] == 0
     assert queued.status_code == 201, queued.text
-    assert len(after.json()) == 1
+    assert len(after.json()["items"]) == 1
+    assert after.json()["total"] == 1
 
 
 def test_rejection_preview_reports_the_gates_that_block_queueing() -> None:
@@ -341,7 +344,7 @@ def test_rejection_preview_reports_the_gates_that_block_queueing() -> None:
     assert duplicate.json()["blockers"] == [
         "an active rejection message already exists for this candidate"
     ]
-    assert len(queued.json()) == 1
+    assert len(queued.json()["items"]) == 1
 
 
 def test_rejection_preview_unknown_candidate_and_agent_actor() -> None:
@@ -370,8 +373,8 @@ def test_rejection_preview_unknown_candidate_and_agent_actor() -> None:
     # queue, which is asserted separately.
     assert unknown.json()["can_queue"] is False
     assert claimed.status_code == 422
-    assert history.json() == []
-    assert history.json() == []
+    assert history.json()["items"] == []
+    assert history.json()["items"] == []
 
 
 def test_rejection_unknown_candidate_is_404() -> None:
@@ -504,7 +507,7 @@ def test_transport_dispatch_evidence_is_visible_on_the_message() -> None:
         )
         history = client.get(f"/v1/candidates/{application['candidate_id']}/communications")
 
-    body = history.json()[0]
+    body = history.json()["items"][0]
     assert body["status"] == "sent"
     assert body["recipient"] == "budi@example.com"
     assert body["provider"] == "email.smtp"
@@ -576,10 +579,12 @@ def test_inbound_replies_are_listed_per_candidate() -> None:
         theirs = client.get(f"/v1/candidates/{uuid4()}/replies")
 
     assert mine.status_code == 200
-    assert len(mine.json()) == 1
-    assert mine.json()[0]["sender"] == "budi@example.com"
-    assert mine.json()[0]["body"] == "Saya tertarik, terima kasih."
-    assert theirs.json() == []
+    assert mine.json()["total"] == 1
+    assert len(mine.json()["items"]) == 1
+    assert mine.json()["items"][0]["sender"] == "budi@example.com"
+    assert mine.json()["items"][0]["body"] == "Saya tertarik, terima kasih."
+    assert theirs.json()["items"] == []
+    assert theirs.json()["total"] == 0
 
 
 # --- manual links (WhatsApp) --------------------------------------------------------
@@ -641,9 +646,9 @@ def test_manual_link_is_composed_and_never_marks_the_message_sent() -> None:
     assert body["provider"] == "whatsapp.manual_links"
     assert body["url"].startswith("https://wa.me/6281234567890?text=")
     assert body["body"] == "We would like to offer you the role."
-    assert history.json()[0]["status"] == "queued"
-    assert history.json()[0]["sent_by"] is None
-    assert history.json()[0]["recipient_phone"] == "0812-3456-7890"
+    assert history.json()["items"][0]["status"] == "queued"
+    assert history.json()["items"][0]["sent_by"] is None
+    assert history.json()["items"][0]["recipient_phone"] == "0812-3456-7890"
 
 
 def test_manual_link_needs_a_number() -> None:
@@ -747,4 +752,5 @@ def test_employee_cannot_read_or_queue_communications(monkeypatch: pytest.Monkey
     assert listed.status_code == 403
     assert queued.status_code == 403
     assert admin.status_code == 200
-    assert admin.json() == []
+    assert admin.json()["items"] == []
+    assert admin.json()["total"] == 0

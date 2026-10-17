@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.offboarding_schemas import (
     AssetCreate,
     AssetMissing,
@@ -24,6 +24,7 @@ from hr_agents.api.offboarding_schemas import (
     TemplateView,
 )
 from hr_agents.api.problem import conflict, not_found
+from hr_agents.api.schemas import Page
 from hr_agents.rbac import Permission
 from hr_agents.services.offboarding import (
     OffboardingError,
@@ -73,9 +74,16 @@ def create_template(
     return TemplateView.from_model(template)
 
 
-@router.get("/templates", response_model=list[TemplateView])
-def list_templates(offboarding: OffboardingDep) -> list[TemplateView]:
-    return [TemplateView.from_model(item) for item in offboarding.list_templates()]
+@router.get("/templates", response_model=Page[TemplateView])
+def list_templates(offboarding: OffboardingDep, paging: PaginationDep) -> Page[TemplateView]:
+    templates = sorted(
+        offboarding.list_templates(), key=lambda item: (item.name.lower(), str(item.id))
+    )
+    return Page.slice(
+        [TemplateView.from_model(item) for item in templates],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/templates/{template_id}", response_model=TemplateView)
@@ -109,9 +117,14 @@ def start_plan(payload: PlanCreate, offboarding: OffboardingDep, actor: ActorDep
     return PlanView.from_model(plan)
 
 
-@router.get("/plans", response_model=list[PlanView])
-def list_plans(offboarding: OffboardingDep) -> list[PlanView]:
-    return [PlanView.from_model(item) for item in offboarding.active_plans()]
+@router.get("/plans", response_model=Page[PlanView])
+def list_plans(offboarding: OffboardingDep, paging: PaginationDep) -> Page[PlanView]:
+    plans = sorted(offboarding.active_plans(), key=lambda item: (item.started_at, str(item.id)))
+    return Page.slice(
+        [PlanView.from_model(item) for item in plans],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/plans/{plan_id}", response_model=PlanView)
@@ -122,9 +135,19 @@ def get_plan(plan_id: UUID, offboarding: OffboardingDep) -> PlanView:
         raise not_found(str(exc)) from exc
 
 
-@router.get("/employees/{employee_id}/plans", response_model=list[PlanView])
-def plans_for_employee(employee_id: UUID, offboarding: OffboardingDep) -> list[PlanView]:
-    return [PlanView.from_model(item) for item in offboarding.plans_for_employee(employee_id)]
+@router.get("/employees/{employee_id}/plans", response_model=Page[PlanView])
+def plans_for_employee(
+    employee_id: UUID, offboarding: OffboardingDep, paging: PaginationDep
+) -> Page[PlanView]:
+    plans = sorted(
+        offboarding.plans_for_employee(employee_id),
+        key=lambda item: (item.started_at, str(item.id)),
+    )
+    return Page.slice(
+        [PlanView.from_model(item) for item in plans],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(
@@ -271,25 +294,53 @@ def register_asset(payload: AssetCreate, offboarding: OffboardingDep, actor: Act
     return AssetView.from_model(asset)
 
 
-@router.get("/assets", response_model=list[AssetView])
+@router.get("/assets", response_model=Page[AssetView])
 def list_assets(
     offboarding: OffboardingDep,
+    paging: PaginationDep,
     employee_id: UUID | None = None,
     plan_id: UUID | None = None,
-) -> list[AssetView]:
-    assets = offboarding.list_assets(employee_id=employee_id, plan_id=plan_id)
-    return [AssetView.from_model(item) for item in assets]
+) -> Page[AssetView]:
+    assets = sorted(
+        offboarding.list_assets(employee_id=employee_id, plan_id=plan_id),
+        key=lambda item: (item.created_at, str(item.id)),
+    )
+    return Page.slice(
+        [AssetView.from_model(item) for item in assets],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@router.get("/employees/{employee_id}/assets", response_model=list[AssetView])
-def employee_assets(employee_id: UUID, offboarding: OffboardingDep) -> list[AssetView]:
-    return [AssetView.from_model(item) for item in offboarding.list_assets(employee_id=employee_id)]
+@router.get("/employees/{employee_id}/assets", response_model=Page[AssetView])
+def employee_assets(
+    employee_id: UUID, offboarding: OffboardingDep, paging: PaginationDep
+) -> Page[AssetView]:
+    assets = sorted(
+        offboarding.list_assets(employee_id=employee_id),
+        key=lambda item: (item.created_at, str(item.id)),
+    )
+    return Page.slice(
+        [AssetView.from_model(item) for item in assets],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@router.get("/employees/{employee_id}/clearance", response_model=list[AssetView])
-def asset_clearance(employee_id: UUID, offboarding: OffboardingDep) -> list[AssetView]:
+@router.get("/employees/{employee_id}/clearance", response_model=Page[AssetView])
+def asset_clearance(
+    employee_id: UUID, offboarding: OffboardingDep, paging: PaginationDep
+) -> Page[AssetView]:
     """Assets that still block exit clearance for this employee."""
-    return [AssetView.from_model(item) for item in offboarding.asset_clearance(employee_id)]
+    assets = sorted(
+        offboarding.asset_clearance(employee_id),
+        key=lambda item: (item.created_at, str(item.id)),
+    )
+    return Page.slice(
+        [AssetView.from_model(item) for item in assets],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(

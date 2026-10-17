@@ -41,8 +41,10 @@ def test_returns_entries_newest_first() -> None:
         response = client.get("/v1/compliance/audit/entries", params={"limit": 2})
 
     assert response.status_code == 200
-    rows = response.json()
+    body = response.json()
+    rows = body["items"]
     assert len(rows) == 2
+    assert body["total"] >= 2
     assert rows[0]["seq"] > rows[1]["seq"]
 
 
@@ -52,7 +54,7 @@ def test_an_entry_carries_what_the_chain_recorded() -> None:
         rows = client.get(
             "/v1/compliance/audit/entries",
             params={"action": "compliance.consent_recorded"},
-        ).json()
+        ).json()["items"]
 
     assert len(rows) == 2
     entry = rows[0]
@@ -73,36 +75,41 @@ def test_filters_are_exact_matches() -> None:
         record_two_consents(client)
         by_action = client.get(
             "/v1/compliance/audit/entries", params={"action": "compliance.consent_recorded"}
-        ).json()
-        by_actor = client.get("/v1/compliance/audit/entries", params={"actor": "local-dev"}).json()
+        ).json()["items"]
+        by_actor = client.get("/v1/compliance/audit/entries", params={"actor": "local-dev"}).json()[
+            "items"
+        ]
         by_subject = client.get(
             "/v1/compliance/audit/entries", params={"subject_type": "consent"}
-        ).json()
+        ).json()["items"]
         nobody = client.get("/v1/compliance/audit/entries", params={"actor": "someone-else"})
 
     assert len(by_action) == 2
     assert by_actor == by_action
     assert len(by_subject) == 2
     assert nobody.status_code == 200
-    assert nobody.json() == []
+    assert nobody.json()["items"] == []
+    assert nobody.json()["total"] == 0
 
 
 def test_a_time_window_is_inclusive_at_both_ends() -> None:
     """Inclusive so a caller can page by the boundary timestamp it already holds."""
     with make_client() as client:
         record_two_consents(client)
-        rows = client.get("/v1/compliance/audit/entries", params={"limit": 1}).json()
+        rows = client.get("/v1/compliance/audit/entries", params={"limit": 1}).json()["items"]
         boundary = rows[0]["created_at"]
 
-        at_boundary = client.get("/v1/compliance/audit/entries", params={"since": boundary}).json()
+        at_boundary = client.get("/v1/compliance/audit/entries", params={"since": boundary}).json()[
+            "items"
+        ]
         just_after = client.get(
             "/v1/compliance/audit/entries",
             params={"since": boundary, "until": boundary},
-        ).json()
+        ).json()["items"]
         before = client.get(
             "/v1/compliance/audit/entries",
             params={"until": (rows[-1]["created_at"][:10] + "T00:00:00Z")},
-        ).json()
+        ).json()["items"]
 
     assert len(at_boundary) == 1
     assert len(just_after) == 1
@@ -110,18 +117,43 @@ def test_a_time_window_is_inclusive_at_both_ends() -> None:
 
 
 def test_the_limit_is_capped_and_validated() -> None:
-    """The chain grows forever; a viewer that can pull all of it is an easy way to take
-    the process down. Out-of-range values are a 422, not a silent clamp.
+    """The chain grows forever; a viewer that can pull all of it in one page is an easy
+    way to take the process down. Out-of-range values are a 422, not a silent clamp.
     """
     with make_client() as client:
         record_two_consents(client)
         too_many = client.get("/v1/compliance/audit/entries", params={"limit": 1000})
+        over_ceiling = client.get("/v1/compliance/audit/entries", params={"limit": 201})
         zero = client.get("/v1/compliance/audit/entries", params={"limit": 0})
+        negative_offset = client.get("/v1/compliance/audit/entries", params={"offset": -1})
         one = client.get("/v1/compliance/audit/entries", params={"limit": 1})
 
     assert too_many.status_code == 422
+    assert over_ceiling.status_code == 422
     assert zero.status_code == 422
-    assert len(one.json()) == 1
+    assert negative_offset.status_code == 422
+    assert len(one.json()["items"]) == 1
+
+
+def test_offset_slices_the_same_total() -> None:
+    """Offset walks the same newest-first read the unpaged call returned, and `total`
+    counts the filtered window before slicing -- so a client can compute the next page.
+    """
+    with make_client() as client:
+        record_two_consents(client)
+        full = client.get("/v1/compliance/audit/entries", params={"limit": 200}).json()
+        first = client.get("/v1/compliance/audit/entries", params={"limit": 1, "offset": 0}).json()
+        second = client.get("/v1/compliance/audit/entries", params={"limit": 1, "offset": 1}).json()
+        past_end = client.get(
+            "/v1/compliance/audit/entries", params={"limit": 5, "offset": 500}
+        ).json()
+
+    assert full["total"] == len(full["items"]) >= 2
+    assert first["items"] == full["items"][:1]
+    assert second["items"] == full["items"][1:2]
+    assert second["total"] == full["total"]
+    assert past_end["items"] == []
+    assert past_end["total"] == full["total"]
 
 
 def test_reading_the_trail_needs_compliance_read() -> None:
@@ -146,7 +178,7 @@ def test_reading_the_trail_does_not_write_to_it() -> None:
     with make_client() as client:
         record_two_consents(client)
         before = client.get("/v1/compliance/audit/verify").json()
-        read = client.get("/v1/compliance/audit/entries", params={"limit": 50}).json()
+        read = client.get("/v1/compliance/audit/entries", params={"limit": 50}).json()["items"]
         after = client.get("/v1/compliance/audit/verify").json()
 
     assert before["intact"] is True
@@ -172,7 +204,8 @@ def test_a_future_window_returns_nothing_rather_than_everything() -> None:
         )
 
     assert future.status_code == 200
-    assert future.json() == []
+    assert future.json()["items"] == []
+    assert future.json()["total"] == 0
 
 
 def test_the_same_filter_is_stable_across_calls() -> None:
@@ -181,8 +214,8 @@ def test_the_same_filter_is_stable_across_calls() -> None:
     """
     with make_client() as client:
         record_two_consents(client)
-        first = client.get("/v1/compliance/audit/entries", params={"limit": 5}).json()
-        second = client.get("/v1/compliance/audit/entries", params={"limit": 5}).json()
+        first = client.get("/v1/compliance/audit/entries", params={"limit": 5}).json()["items"]
+        second = client.get("/v1/compliance/audit/entries", params={"limit": 5}).json()["items"]
 
     assert [row["seq"] for row in first] == [row["seq"] for row in second]
 
@@ -191,11 +224,11 @@ def test_entries_can_be_paged_by_sequence_without_gaps() -> None:
     """Paging with `until` below the oldest row seen must not skip or duplicate."""
     with make_client() as client:
         record_two_consents(client)
-        page_one = client.get("/v1/compliance/audit/entries", params={"limit": 1}).json()
+        page_one = client.get("/v1/compliance/audit/entries", params={"limit": 1}).json()["items"]
         page_two = client.get(
             "/v1/compliance/audit/entries",
             params={"limit": 1, "until": page_one[-1]["created_at"]},
-        ).json()
+        ).json()["items"]
 
     assert len(page_one) == 1
     assert len(page_two) == 1
@@ -208,7 +241,7 @@ def test_window_arithmetic_documentation_case() -> None:
     """
     with make_client() as client:
         record_two_consents(client)
-        start = client.get("/v1/compliance/audit/entries", params={"limit": 1}).json()[0]
+        start = client.get("/v1/compliance/audit/entries", params={"limit": 1}).json()["items"][0]
         yesterday = datetime.fromisoformat(start["created_at"].replace("Z", "+00:00")) - timedelta(
             days=1
         )
@@ -218,7 +251,8 @@ def test_window_arithmetic_documentation_case() -> None:
         )
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
+    assert response.json()["total"] == 0
 
 
 def test_the_trail_requires_its_own_permission() -> None:

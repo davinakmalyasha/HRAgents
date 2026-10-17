@@ -12,7 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import domain_problem, not_found
 from hr_agents.api.recruitment_schemas import (
     OfferAcceptanceRequest,
@@ -23,6 +23,7 @@ from hr_agents.api.recruitment_schemas import (
     OfferSubmitRequest,
     OfferView,
 )
+from hr_agents.api.schemas import Page
 from hr_agents.rbac import Permission
 from hr_agents.services.offers import OfferError, OfferService
 from hr_agents.services.recruiting import RecruitingError
@@ -41,9 +42,19 @@ def get_offers(request: Request) -> OfferService:
 OffersDep = Annotated[OfferService, Depends(get_offers)]
 
 
-@router.get("", response_model=list[OfferView], summary="List offers (filter by application)")
-def list_offers(offers: OffersDep, application_id: UUID | None = None) -> list[OfferView]:
-    return [OfferView.from_model(offer) for offer in offers.list_all(application_id=application_id)]
+@router.get("", response_model=Page[OfferView], summary="List offers (filter by application)")
+def list_offers(
+    offers: OffersDep, paging: PaginationDep, application_id: UUID | None = None
+) -> Page[OfferView]:
+    ordered = sorted(
+        offers.list_all(application_id=application_id),
+        key=lambda offer: (offer.created_at, str(offer.id)),
+    )
+    return Page.slice(
+        [OfferView.from_model(offer) for offer in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(

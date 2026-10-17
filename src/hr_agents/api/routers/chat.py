@@ -22,7 +22,8 @@ from hr_agents.api.chat_schemas import (
     HandoffRequest,
     HandoffView,
 )
-from hr_agents.api.deps import get_principal, require_permission
+from hr_agents.api.deps import PaginationDep, get_principal, require_permission
+from hr_agents.api.schemas import Page
 from hr_agents.rbac import Permission, Principal
 from hr_agents.services.chat import ChatError, ChatService, ChatWorkspaceMismatch
 from hr_agents.services.workspace_requests import HandoffError, HandoffService
@@ -109,14 +110,23 @@ def request_handoff(
 
 @router.get(
     "/handoffs",
-    response_model=list[HandoffView],
+    response_model=Page[HandoffView],
     summary="Open handoffs, optionally filtered to one workspace",
 )
 def list_handoffs(
     handoffs: HandoffDep,
+    paging: PaginationDep,
     workspace: WorkspaceId | None = None,
-) -> list[HandoffView]:
-    return [HandoffView.from_model(record) for record in handoffs.open_for(workspace)]
+) -> Page[HandoffView]:
+    ordered = sorted(
+        handoffs.open_for(workspace),
+        key=lambda item: (item.created_at, str(item.id)),
+    )
+    return Page.slice(
+        [HandoffView.from_model(record) for record in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/stream", summary="Ask HR over server-sent events")

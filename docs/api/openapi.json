@@ -6050,6 +6050,391 @@
         "title": "Page[ApplicationSummary]",
         "type": "object"
       },
+      "Page_ApprovalView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ApprovalView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ApprovalView]",
+        "type": "object"
+      },
+      "Page_AssetView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssetView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[AssetView]",
+        "type": "object"
+      },
+      "Page_AssignmentView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AssignmentView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[AssignmentView]",
+        "type": "object"
+      },
+      "Page_AuditEntryView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntryView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[AuditEntryView]",
+        "type": "object"
+      },
+      "Page_BalanceView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BalanceView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[BalanceView]",
+        "type": "object"
+      },
+      "Page_BreachView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BreachView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[BreachView]",
+        "type": "object"
+      },
+      "Page_CommunicationView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CommunicationView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[CommunicationView]",
+        "type": "object"
+      },
+      "Page_ConsentView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConsentView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ConsentView]",
+        "type": "object"
+      },
+      "Page_ContractView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContractView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ContractView]",
+        "type": "object"
+      },
+      "Page_CycleView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CycleView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[CycleView]",
+        "type": "object"
+      },
+      "Page_DocumentView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[DocumentView]",
+        "type": "object"
+      },
       "Page_EmployeeView_": {
         "additionalProperties": false,
         "properties": {
@@ -6085,6 +6470,111 @@
         "title": "Page[EmployeeView]",
         "type": "object"
       },
+      "Page_ErasureView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ErasureView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ErasureView]",
+        "type": "object"
+      },
+      "Page_GoalView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GoalView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[GoalView]",
+        "type": "object"
+      },
+      "Page_HandoffView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HandoffView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[HandoffView]",
+        "type": "object"
+      },
       "Page_JobView_": {
         "additionalProperties": false,
         "properties": {
@@ -6118,6 +6608,531 @@
           "offset"
         ],
         "title": "Page[JobView]",
+        "type": "object"
+      },
+      "Page_LeaveRequestView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LeaveRequestView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[LeaveRequestView]",
+        "type": "object"
+      },
+      "Page_OfferView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OfferView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[OfferView]",
+        "type": "object"
+      },
+      "Page_OrgUnitView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrgUnitView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[OrgUnitView]",
+        "type": "object"
+      },
+      "Page_OverdueStepView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OverdueStepView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[OverdueStepView]",
+        "type": "object"
+      },
+      "Page_OverrideView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OverrideView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[OverrideView]",
+        "type": "object"
+      },
+      "Page_RateTableView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RateTableView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RateTableView]",
+        "type": "object"
+      },
+      "Page_RecordView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RecordView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RecordView]",
+        "type": "object"
+      },
+      "Page_ReminderView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReminderView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ReminderView]",
+        "type": "object"
+      },
+      "Page_ReplyView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReplyView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ReplyView]",
+        "type": "object"
+      },
+      "Page_RunView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[RunView]",
+        "type": "object"
+      },
+      "Page_SchedulingProposalView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SchedulingProposalView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[SchedulingProposalView]",
+        "type": "object"
+      },
+      "Page_SummaryView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SummaryView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[SummaryView]",
+        "type": "object"
+      },
+      "Page_TaskView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TaskView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[TaskView]",
+        "type": "object"
+      },
+      "Page_TimeSlot_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TimeSlot"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[TimeSlot]",
+        "type": "object"
+      },
+      "Page_WorkspaceView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[WorkspaceView]",
         "type": "object"
       },
       "PayrollRunKind": {
@@ -10288,6 +11303,216 @@
         "title": "TemplateView",
         "type": "object"
       },
+      "hr_agents__api__schemas__Page_PlanView___1": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/hr_agents__api__onboarding_schemas__PlanView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[PlanView]",
+        "type": "object"
+      },
+      "hr_agents__api__schemas__Page_PlanView___2": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/hr_agents__api__offboarding_schemas__PlanView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[PlanView]",
+        "type": "object"
+      },
+      "hr_agents__api__schemas__Page_PolicyView___1": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/hr_agents__api__leave_schemas__PolicyView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[PolicyView]",
+        "type": "object"
+      },
+      "hr_agents__api__schemas__Page_PolicyView___2": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/hr_agents__api__compliance_schemas__PolicyView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[PolicyView]",
+        "type": "object"
+      },
+      "hr_agents__api__schemas__Page_TemplateView___1": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/hr_agents__api__onboarding_schemas__TemplateView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[TemplateView]",
+        "type": "object"
+      },
+      "hr_agents__api__schemas__Page_TemplateView___2": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/hr_agents__api__offboarding_schemas__TemplateView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[TemplateView]",
+        "type": "object"
+      },
       "hr_agents__models__leave__RequestStatus": {
         "enum": [
           "draft",
@@ -11247,6 +12472,33 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -11254,11 +12506,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ApprovalView"
-                  },
-                  "title": "Response List Approvals V1 Approvals Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ApprovalView_"
                 }
               }
             },
@@ -11498,16 +12746,41 @@
       "post": {
         "description": "Run the SLA escalation sweep now, on top of the scheduler.\n\nThis route used to be declared as ``/{approval_id}/escalate-overdue`` while\nthe handler took no such parameter. FastAPI ignores an unmatched path\nparameter, so the id was decorative: any caller holding ``approvals:read``\ncould pass a random UUID and escalate *every* overdue approval in the tenant,\nincluding a finance-assigned payroll sign-off. And because the handler had no\nactor, the chain recorded the mutations as ``system:approval-engine`` -- so the\naudit trail said a timer had expired an approval that a person had triggered.\n\nTwo things changed: the route is what it always meant to be (a global sweep,\nno fake id), and the caller is recorded as the caller.",
         "operationId": "escalate_overdue_v1_approvals_escalate_overdue_post",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ApprovalView"
-                  },
-                  "title": "Response Escalate Overdue V1 Approvals Escalate Overdue Post",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ApprovalView_"
                 }
               }
             },
@@ -11770,6 +13043,33 @@
               "title": "Candidate Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -11777,11 +13077,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CommunicationView"
-                  },
-                  "title": "Response List Communications V1 Candidates  Candidate Id  Communications Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_CommunicationView_"
                 }
               }
             },
@@ -12466,6 +13762,33 @@
               "title": "Candidate Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -12473,11 +13796,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ReplyView"
-                  },
-                  "title": "Response List Replies V1 Candidates  Candidate Id  Replies Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ReplyView_"
                 }
               }
             },
@@ -12865,6 +14184,33 @@
               ],
               "title": "Workspace"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -12872,11 +14218,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/HandoffView"
-                  },
-                  "title": "Response List Handoffs V1 Chat Handoffs Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_HandoffView_"
                 }
               }
             },
@@ -13554,7 +14896,7 @@
     },
     "/v1/compliance/audit/entries": {
       "get": {
-        "description": "The audit trail itself, newest first.\n\nNewest first because a viewer is nearly always answering \"what just happened\" rather\nthan reading the chain from the beginning; the sequence number is on every row, so the\norder is never ambiguous. `limit` is capped: the chain grows forever and a viewer that\ncan request all of it is an easy way to take the process down.\n\nFilters are exact matches on the indexed columns. `since`/`until` are inclusive so a\ncaller can page by the boundary timestamp it already has.",
+        "description": "The audit trail itself, newest first.\n\nNewest first because a viewer is nearly always answering \"what just happened\" rather\nthan reading the chain from the beginning; the sequence number is on every row, so the\norder is never ambiguous. The window comes from the shared pagination dependency:\nthe chain grows forever and a viewer that can request all of it in one page is an\neasy way to take the process down.\n\nFilters are exact matches on the indexed columns. `since`/`until` are inclusive so a\ncaller can page by the boundary timestamp it already has.",
         "operationId": "list_audit_entries_v1_compliance_audit_entries_get",
         "parameters": [
           {
@@ -13656,14 +14998,29 @@
             }
           },
           {
+            "description": "Maximum items to return.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 100,
-              "maximum": 500,
+              "description": "Maximum items to return.",
+              "maximum": 200,
               "minimum": 1,
               "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
               "type": "integer"
             }
           }
@@ -13673,11 +15030,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AuditEntryView"
-                  },
-                  "title": "Response List Audit Entries V1 Compliance Audit Entries Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_AuditEntryView_"
                 }
               }
             },
@@ -13909,16 +15262,41 @@
     "/v1/compliance/breaches": {
       "get": {
         "operationId": "list_breaches_v1_compliance_breaches_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/BreachView"
-                  },
-                  "title": "Response List Breaches V1 Compliance Breaches Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_BreachView_"
                 }
               }
             },
@@ -14174,6 +15552,33 @@
               ],
               "title": "As Of"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -14181,11 +15586,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/OverdueStepView"
-                  },
-                  "title": "Response Overdue Breach Steps V1 Compliance Breaches Overdue Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_OverdueStepView_"
                 }
               }
             },
@@ -15007,6 +16408,33 @@
               ],
               "title": "Subject Id"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -15014,11 +16442,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ConsentView"
-                  },
-                  "title": "Response List Consents V1 Compliance Consents Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ConsentView_"
                 }
               }
             },
@@ -15534,16 +16958,41 @@
     "/v1/compliance/erasures": {
       "get": {
         "operationId": "list_erasures_v1_compliance_erasures_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ErasureView"
-                  },
-                  "title": "Response List Erasures V1 Compliance Erasures Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ErasureView_"
                 }
               }
             },
@@ -16463,16 +17912,41 @@
     "/v1/compliance/retention/policies": {
       "get": {
         "operationId": "list_policies_v1_compliance_retention_policies_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/hr_agents__api__compliance_schemas__PolicyView"
-                  },
-                  "title": "Response List Policies V1 Compliance Retention Policies Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/hr_agents__api__schemas__Page_PolicyView___2"
                 }
               }
             },
@@ -16897,6 +18371,33 @@
               "title": "Include Purged",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -16904,11 +18405,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RecordView"
-                  },
-                  "title": "Response List Records V1 Compliance Retention Records Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_RecordView_"
                 }
               }
             },
@@ -17442,6 +18939,33 @@
               ],
               "title": "Expiring Within Days"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -17449,11 +18973,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ContractView"
-                  },
-                  "title": "Response List Contracts V1 Contracts Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ContractView_"
                 }
               }
             },
@@ -18154,6 +19674,33 @@
               ],
               "title": "Status"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -18161,11 +19708,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DocumentView"
-                  },
-                  "title": "Response List Documents V1 Documents Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_DocumentView_"
                 }
               }
             },
@@ -18974,6 +20517,33 @@
               "title": "Employee Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -18981,11 +20551,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ContractView"
-                  },
-                  "title": "Response Employee Contracts V1 Employees  Employee Id  Contracts Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ContractView_"
                 }
               }
             },
@@ -19108,6 +20674,33 @@
               "title": "Employee Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -19115,11 +20708,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/DocumentView"
-                  },
-                  "title": "Response Employee Documents V1 Employees  Employee Id  Documents Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_DocumentView_"
                 }
               }
             },
@@ -19650,6 +21239,33 @@
               "title": "Evaluation Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -19657,11 +21273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/OverrideView"
-                  },
-                  "title": "Response List Overrides V1 Evaluations  Evaluation Id  Overrides Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_OverrideView_"
                 }
               }
             },
@@ -19922,6 +21534,33 @@
               "title": "Reviewer Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -19929,11 +21568,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AssignmentView"
-                  },
-                  "title": "Response Assignments For Reviewer V1 Growth Assignments Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_AssignmentView_"
                 }
               }
             },
@@ -20047,16 +21682,41 @@
       "get": {
         "description": "The caller's own outstanding forms.\n\n`reviewer_id` is the authenticated principal's id, minted server-side. Without\nthis route the only way to list them is to pass that id as a query parameter,\nwhich leaves the caller typing a string that decides whose reviews they see --\nand the honest UI would have to ask a person to do it.",
         "operationId": "my_assignments_v1_growth_assignments_mine_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AssignmentView"
-                  },
-                  "title": "Response My Assignments V1 Growth Assignments Mine Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_AssignmentView_"
                 }
               }
             },
@@ -20465,6 +22125,33 @@
               ],
               "title": "Cycle Status"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -20472,11 +22159,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/CycleView"
-                  },
-                  "title": "Response List Cycles V1 Growth Cycles Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_CycleView_"
                 }
               }
             },
@@ -20995,6 +22678,33 @@
               "title": "Cycle Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -21002,11 +22712,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AssignmentView"
-                  },
-                  "title": "Response List Assignments V1 Growth Cycles  Cycle Id  Assignments Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_AssignmentView_"
                 }
               }
             },
@@ -21687,6 +23393,33 @@
               "title": "Cycle Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -21694,11 +23427,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SummaryView"
-                  },
-                  "title": "Response List Summaries V1 Growth Cycles  Cycle Id  Summaries Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_SummaryView_"
                 }
               }
             },
@@ -21844,6 +23573,33 @@
               ],
               "title": "Goal Status"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -21851,11 +23607,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GoalView"
-                  },
-                  "title": "Response List Goals V1 Growth Goals Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_GoalView_"
                 }
               }
             },
@@ -22094,16 +23846,41 @@
     "/v1/growth/goals/overdue": {
       "get": {
         "operationId": "overdue_goals_v1_growth_goals_overdue_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/GoalView"
-                  },
-                  "title": "Response Overdue Goals V1 Growth Goals Overdue Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_GoalView_"
                 }
               }
             },
@@ -22907,6 +24684,35 @@
       "post": {
         "description": "Run the reminder sweep now, on top of the daily scheduler.\n\nThe reminders themselves are system-sourced: a missed review form is not the\nreviewer's fault, and the task says so. But somebody pressed this button, and\nthe chain used to say ``system:scheduler`` for that -- the same defect the\napproval escalation sweep had, where a human action was filed as a timer.",
         "operationId": "run_reminders_v1_growth_reminders_run_post",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -22922,11 +24728,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ReminderView"
-                  },
-                  "title": "Response Run Reminders V1 Growth Reminders Run Post",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_ReminderView_"
                 }
               }
             },
@@ -24161,6 +25963,33 @@
               "title": "Pending Only",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -24168,11 +25997,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/LeaveRequestView"
-                  },
-                  "title": "Response List Requests V1 Leave Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_LeaveRequestView_"
                 }
               }
             },
@@ -24570,6 +26395,33 @@
               ],
               "title": "Year"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -24577,11 +26429,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/BalanceView"
-                  },
-                  "title": "Response Employee Balances V1 Leave Balances  Employee Id  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_BalanceView_"
                 }
               }
             },
@@ -25015,6 +26863,33 @@
               ],
               "title": "On Date"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -25022,11 +26897,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/LeaveRequestView"
-                  },
-                  "title": "Response Calendar V1 Leave Calendar Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_LeaveRequestView_"
                 }
               }
             },
@@ -25269,16 +27140,41 @@
     "/v1/leave/policies": {
       "get": {
         "operationId": "list_policies_v1_leave_policies_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/hr_agents__api__leave_schemas__PolicyView"
-                  },
-                  "title": "Response List Policies V1 Leave Policies Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/hr_agents__api__schemas__Page_PolicyView___1"
                 }
               }
             },
@@ -25821,6 +27717,33 @@
               ],
               "title": "Plan Id"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -25828,11 +27751,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AssetView"
-                  },
-                  "title": "Response List Assets V1 Offboarding Assets Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_AssetView_"
                 }
               }
             },
@@ -26501,6 +28420,33 @@
               "title": "Employee Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -26508,11 +28454,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AssetView"
-                  },
-                  "title": "Response Employee Assets V1 Offboarding Employees  Employee Id  Assets Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_AssetView_"
                 }
               }
             },
@@ -26636,6 +28578,33 @@
               "title": "Employee Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -26643,11 +28612,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AssetView"
-                  },
-                  "title": "Response Asset Clearance V1 Offboarding Employees  Employee Id  Clearance Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_AssetView_"
                 }
               }
             },
@@ -26770,6 +28735,33 @@
               "title": "Employee Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -26777,11 +28769,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/hr_agents__api__offboarding_schemas__PlanView"
-                  },
-                  "title": "Response Plans For Employee V1 Offboarding Employees  Employee Id  Plans Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/hr_agents__api__schemas__Page_PlanView___2"
                 }
               }
             },
@@ -26894,16 +28882,41 @@
     "/v1/offboarding/plans": {
       "get": {
         "operationId": "list_plans_v1_offboarding_plans_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/hr_agents__api__offboarding_schemas__PlanView"
-                  },
-                  "title": "Response List Plans V1 Offboarding Plans Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/hr_agents__api__schemas__Page_PlanView___2"
                 }
               }
             },
@@ -28270,16 +30283,41 @@
     "/v1/offboarding/templates": {
       "get": {
         "operationId": "list_templates_v1_offboarding_templates_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/hr_agents__api__offboarding_schemas__TemplateView"
-                  },
-                  "title": "Response List Templates V1 Offboarding Templates Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/hr_agents__api__schemas__Page_TemplateView___2"
                 }
               }
             },
@@ -28783,6 +30821,33 @@
               ],
               "title": "Application Id"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -28790,11 +30855,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/OfferView"
-                  },
-                  "title": "Response List Offers V1 Offers Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_OfferView_"
                 }
               }
             },
@@ -29871,6 +31932,33 @@
               "title": "Active Only",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -29878,11 +31966,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/hr_agents__api__onboarding_schemas__PlanView"
-                  },
-                  "title": "Response List Plans V1 Onboarding Plans Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/hr_agents__api__schemas__Page_PlanView___1"
                 }
               }
             },
@@ -30832,16 +32916,41 @@
     "/v1/onboarding/templates": {
       "get": {
         "operationId": "list_templates_v1_onboarding_templates_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/hr_agents__api__onboarding_schemas__TemplateView"
-                  },
-                  "title": "Response List Templates V1 Onboarding Templates Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/hr_agents__api__schemas__Page_TemplateView___1"
                 }
               }
             },
@@ -31200,16 +33309,41 @@
       "get": {
         "description": "Org units with their direct headcount (the workspace nests them itself).",
         "operationId": "list_org_units_v1_org_units_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/OrgUnitView"
-                  },
-                  "title": "Response List Org Units V1 Org Units Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_OrgUnitView_"
                 }
               }
             },
@@ -31579,16 +33713,41 @@
     "/v1/payroll/runs": {
       "get": {
         "operationId": "list_runs_v1_payroll_runs_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RunView"
-                  },
-                  "title": "Response List Runs V1 Payroll Runs Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_RunView_"
                 }
               }
             },
@@ -32927,16 +35086,41 @@
     "/v1/rate-tables": {
       "get": {
         "operationId": "list_rate_tables_v1_rate_tables_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RateTableView"
-                  },
-                  "title": "Response List Rate Tables V1 Rate Tables Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_RateTableView_"
                 }
               }
             },
@@ -33175,16 +35359,41 @@
     "/v1/rate-tables/unverified": {
       "get": {
         "operationId": "unverified_rate_tables_v1_rate_tables_unverified_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RateTableView"
-                  },
-                  "title": "Response Unverified Rate Tables V1 Rate Tables Unverified Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_RateTableView_"
                 }
               }
             },
@@ -33709,6 +35918,35 @@
     "/v1/scheduling/availability": {
       "post": {
         "operationId": "set_availability_v1_scheduling_availability_post",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -33724,11 +35962,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/TimeSlot"
-                  },
-                  "title": "Response Set Availability V1 Scheduling Availability Post",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_TimeSlot_"
                 }
               }
             },
@@ -33841,16 +36075,41 @@
     "/v1/scheduling/proposals": {
       "get": {
         "operationId": "list_proposals_v1_scheduling_proposals_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/SchedulingProposalView"
-                  },
-                  "title": "Response List Proposals V1 Scheduling Proposals Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_SchedulingProposalView_"
                 }
               }
             },
@@ -34489,6 +36748,33 @@
               "title": "Overdue Only",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -34496,11 +36782,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/TaskView"
-                  },
-                  "title": "Response List Tasks V1 Tasks Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_TaskView_"
                 }
               }
             },
@@ -34880,16 +37162,41 @@
       "get": {
         "description": "Every workspace pack, in the deterministic enum order.",
         "operationId": "list_workspaces_v1_workspaces_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/WorkspaceView"
-                  },
-                  "title": "Response List Workspaces V1 Workspaces Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/Page_WorkspaceView_"
                 }
               }
             },

@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.leave_schemas import (
     BalanceAdjust,
     BalanceView,
@@ -20,6 +20,7 @@ from hr_agents.api.leave_schemas import (
     RequestAction,
 )
 from hr_agents.api.problem import conflict, not_found
+from hr_agents.api.schemas import Page
 from hr_agents.models import LeaveType
 from hr_agents.rbac import Permission
 from hr_agents.services.leave import LeaveError, LeaveService
@@ -54,9 +55,13 @@ def set_policy(payload: PolicySet, leave: LeaveDep, actor: ActorDep) -> PolicyVi
     return PolicyView.from_model(policy)
 
 
-@router.get("/policies", response_model=list[PolicyView])
-def list_policies(leave: LeaveDep) -> list[PolicyView]:
-    return [PolicyView.from_model(policy) for policy in leave.list_policies()]
+@router.get("/policies", response_model=Page[PolicyView])
+def list_policies(leave: LeaveDep, paging: PaginationDep) -> Page[PolicyView]:
+    return Page.slice(
+        [PolicyView.from_model(policy) for policy in leave.list_policies()],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.put(
@@ -72,17 +77,22 @@ def set_holidays(payload: HolidaySet, leave: LeaveDep, actor: ActorDep) -> dict[
 # --- balances ----------------------------------------------------------------
 
 
-@router.get("/balances/{employee_id}", response_model=list[BalanceView])
+@router.get("/balances/{employee_id}", response_model=Page[BalanceView])
 def employee_balances(
     employee_id: UUID,
     leave: LeaveDep,
+    paging: PaginationDep,
     year: Annotated[int | None, Query(ge=2000, le=2100)] = None,
-) -> list[BalanceView]:
+) -> Page[BalanceView]:
     try:
         balances = leave.all_balances(employee_id, year=year)
     except LeaveError as exc:
         raise not_found(str(exc)) from exc
-    return [BalanceView.from_model(balance) for balance in balances]
+    return Page.slice(
+        [BalanceView.from_model(balance) for balance in balances],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/balances/{employee_id}/{leave_type}", response_model=BalanceView)
@@ -144,27 +154,42 @@ def submit_request(
     return LeaveRequestView.from_model(request)
 
 
-@router.get("", response_model=list[LeaveRequestView])
+@router.get("", response_model=Page[LeaveRequestView])
 def list_requests(
     leave: LeaveDep,
+    paging: PaginationDep,
     employee_id: Annotated[UUID | None, Query()] = None,
     pending_only: Annotated[bool, Query()] = False,
-) -> list[LeaveRequestView]:
+) -> Page[LeaveRequestView]:
     if pending_only:
         requests = leave.pending_requests()
     elif employee_id is not None:
         requests = leave.requests_for(employee_id)
     else:
         requests = leave.pending_requests()
-    return [LeaveRequestView.from_model(request) for request in requests]
+    ordered = sorted(requests, key=lambda item: (item.start_date, str(item.id)))
+    return Page.slice(
+        [LeaveRequestView.from_model(request) for request in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@router.get("/calendar", response_model=list[LeaveRequestView])
+@router.get("/calendar", response_model=Page[LeaveRequestView])
 def calendar(
     leave: LeaveDep,
+    paging: PaginationDep,
     on_date: Annotated[date | None, Query()] = None,
-) -> list[LeaveRequestView]:
-    return [LeaveRequestView.from_model(item) for item in leave.on_leave(on_date=on_date)]
+) -> Page[LeaveRequestView]:
+    ordered = sorted(
+        leave.on_leave(on_date=on_date),
+        key=lambda item: (item.start_date, str(item.id)),
+    )
+    return Page.slice(
+        [LeaveRequestView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/requests/{request_id}", response_model=LeaveRequestView)

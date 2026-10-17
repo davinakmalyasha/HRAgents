@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.onboarding_schemas import (
     PlanStartRequest,
     PlanView,
@@ -19,6 +19,7 @@ from hr_agents.api.onboarding_schemas import (
     TemplateView,
 )
 from hr_agents.api.problem import conflict, forbidden, not_found
+from hr_agents.api.schemas import Page
 from hr_agents.rbac import Permission
 from hr_agents.services.onboarding import (
     OnboardingActorError,
@@ -71,9 +72,16 @@ def create_template(
     return TemplateView.from_model(template)
 
 
-@router.get("/templates", response_model=list[TemplateView])
-def list_templates(onboarding: OnboardingDep) -> list[TemplateView]:
-    return [TemplateView.from_model(t) for t in onboarding.list_templates()]
+@router.get("/templates", response_model=Page[TemplateView])
+def list_templates(onboarding: OnboardingDep, paging: PaginationDep) -> Page[TemplateView]:
+    templates = sorted(
+        onboarding.list_templates(), key=lambda item: (item.name.lower(), str(item.id))
+    )
+    return Page.slice(
+        [TemplateView.from_model(item) for item in templates],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/templates/default", response_model=TemplateDraftView)
@@ -104,10 +112,17 @@ def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep, actor: Acto
     return PlanView.from_model(plan)
 
 
-@router.get("/plans", response_model=list[PlanView])
-def list_plans(onboarding: OnboardingDep, active_only: bool = False) -> list[PlanView]:
+@router.get("/plans", response_model=Page[PlanView])
+def list_plans(
+    onboarding: OnboardingDep, paging: PaginationDep, active_only: bool = False
+) -> Page[PlanView]:
     plans = onboarding.active_plans() if active_only else list(onboarding._plans.values())
-    return [PlanView.from_model(plan) for plan in plans]
+    ordered = sorted(plans, key=lambda plan: (plan.started_at, str(plan.id)))
+    return Page.slice(
+        [PlanView.from_model(plan) for plan in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/plans/{plan_id}", response_model=PlanView)

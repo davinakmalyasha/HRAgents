@@ -41,6 +41,22 @@ def create_cycle(client: TestClient, **overrides: object) -> dict:
     return response.json()
 
 
+def seed_assignments(
+    client: TestClient, *, count: int, reviewer_id: str = "lead-1"
+) -> tuple[dict, list[dict]]:
+    cycle = create_cycle(client)
+    assignments: list[dict] = []
+    for _ in range(count):
+        employee = create_employee(client)
+        response = client.post(
+            f"/v1/growth/cycles/{cycle['id']}/assignments",
+            json={"employee_id": employee["id"], "reviewer_id": reviewer_id},
+        )
+        assert response.status_code == 201, response.text
+        assignments.append(response.json())
+    return cycle, assignments
+
+
 # --- cycle flow ------------------------------------------------------------------
 
 
@@ -120,7 +136,8 @@ def test_cycle_list_and_status_filter() -> None:
         listed = client.get("/v1/growth/cycles", params={"cycle_status": "draft"})
 
     assert listed.status_code == 200
-    assert len(listed.json()) == 1
+    assert len(listed.json()["items"]) == 1
+    assert listed.json()["total"] == 1
 
 
 def test_mine_lists_the_callers_own_forms_and_nobody_elses() -> None:
@@ -147,7 +164,7 @@ def test_mine_lists_the_callers_own_forms_and_nobody_elses() -> None:
         listed = client.get("/v1/growth/assignments/mine")
 
     assert listed.status_code == 200
-    assert [item["id"] for item in listed.json()] == [mine.json()["id"]]
+    assert [item["id"] for item in listed.json()["items"]] == [mine.json()["id"]]
 
 
 def test_mine_drops_a_form_once_it_is_terminal() -> None:
@@ -172,7 +189,8 @@ def test_mine_drops_a_form_once_it_is_terminal() -> None:
         listed = client.get("/v1/growth/assignments/mine")
 
     assert listed.status_code == 200
-    assert listed.json() == []
+    assert listed.json()["items"] == []
+    assert listed.json()["total"] == 0
 
 
 def test_close_cycle_blocked_until_summary_finalized() -> None:
@@ -243,9 +261,9 @@ def test_reminders_run_is_deduplicated() -> None:
         tasks = client.get("/v1/tasks")
 
     assert first.status_code == 200
-    assert len(first.json()) == 1
-    assert second.json() == []
-    assert len(tasks.json()) == 1
+    assert len(first.json()["items"]) == 1
+    assert second.json()["items"] == []
+    assert len(tasks.json()["items"]) == 1
 
 
 # --- goals --------------------------------------------------------------------------
@@ -290,7 +308,7 @@ def test_goal_lifecycle_api() -> None:
         listed = client.get("/v1/growth/goals", params={"employee_id": employee["id"]})
 
     assert listed.status_code == 200
-    assert len(listed.json()) == 1
+    assert len(listed.json()["items"]) == 1
 
 
 def test_goal_cancel_requires_reason() -> None:
@@ -322,4 +340,151 @@ def test_overdue_goals_endpoint() -> None:
         overdue = client.get("/v1/growth/goals/overdue")
 
     assert overdue.status_code == 200
-    assert len(overdue.json()) == 1
+    assert len(overdue.json()["items"]) == 1
+
+
+# --- pagination ---------------------------------------------------------------------
+
+
+def test_cycles_list_pages_the_unpaged_order() -> None:
+    with make_client() as client:
+        for index in range(5):
+            create_cycle(client, name=f"H1 review {index}")
+
+        full = client.get("/v1/growth/cycles").json()
+        page = client.get("/v1/growth/cycles", params={"limit": 2, "offset": 1}).json()
+        tail = client.get("/v1/growth/cycles", params={"limit": 2, "offset": 4}).json()
+        beyond = client.get("/v1/growth/cycles", params={"limit": 2, "offset": 99}).json()
+
+    all_ids = [item["id"] for item in full["items"]]
+    assert full["total"] == 5
+    assert [item["id"] for item in page["items"]] == all_ids[1:3]
+    assert page["limit"] == 2
+    assert page["offset"] == 1
+    assert page["total"] == 5
+    assert [item["id"] for item in tail["items"]] == all_ids[4:6]
+    assert tail["total"] == 5
+    assert beyond["items"] == []
+    assert beyond["total"] == 5
+
+
+def test_assignment_lists_page_the_unpaged_order() -> None:
+    with make_client() as client:
+        cycle, _ = seed_assignments(client, count=5)
+        seed_assignments(client, count=2, reviewer_id=LOCAL_OPERATOR_ACTOR)
+
+        for path, params in (
+            (f"/v1/growth/cycles/{cycle['id']}/assignments", {}),
+            ("/v1/growth/assignments", {"reviewer_id": "lead-1"}),
+            ("/v1/growth/assignments/mine", {}),
+        ):
+            full = client.get(path, params=params or None).json()
+            page = client.get(path, params={**params, "limit": 2, "offset": 1}).json()
+            all_ids = [item["id"] for item in full["items"]]
+            assert full["total"] >= 2, path
+            assert [item["id"] for item in page["items"]] == all_ids[1:3], path
+            assert page["limit"] == 2, path
+            assert page["offset"] == 1, path
+            assert page["total"] == full["total"], path
+
+
+def test_cycle_summary_list_pages_the_unpaged_order() -> None:
+    with make_client() as client:
+        cycle, assignments = seed_assignments(client, count=3)
+        client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={})
+        for assignment in assignments:
+            submitted = client.post(
+                f"/v1/growth/assignments/{assignment['id']}/submit",
+                json={"ratings": {"delivery": 4.0}},
+            )
+            assert submitted.status_code == 200, submitted.text
+        for assignment in assignments:
+            drafted = client.post(
+                "/v1/growth/summaries",
+                json={
+                    "cycle_id": cycle["id"],
+                    "employee_id": assignment["employee_id"],
+                    "draft_text": "Draft",
+                },
+            )
+            assert drafted.status_code == 201, drafted.text
+
+        full = client.get(f"/v1/growth/cycles/{cycle['id']}/summaries").json()
+        page = client.get(
+            f"/v1/growth/cycles/{cycle['id']}/summaries",
+            params={"limit": 2, "offset": 1},
+        ).json()
+
+    all_ids = [item["id"] for item in full["items"]]
+    assert full["total"] == 3
+    assert [item["id"] for item in page["items"]] == all_ids[1:3]
+    assert page["total"] == 3
+
+
+def test_goals_list_pages_the_unpaged_order() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        for index in range(5):
+            created = client.post(
+                "/v1/growth/goals",
+                json={"employee_id": employee["id"], "title": f"Goal {index}"},
+            )
+            assert created.status_code == 201, created.text
+
+        full = client.get("/v1/growth/goals", params={"employee_id": employee["id"]}).json()
+        page = client.get(
+            "/v1/growth/goals",
+            params={"employee_id": employee["id"], "limit": 2, "offset": 3},
+        ).json()
+
+    all_ids = [item["id"] for item in full["items"]]
+    assert full["total"] == 5
+    assert [item["id"] for item in page["items"]] == all_ids[3:5]
+    assert page["total"] == 5
+
+
+def test_overdue_goals_list_pages_the_unpaged_order() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        for index in range(3):
+            client.post(
+                "/v1/growth/goals",
+                json={
+                    "employee_id": employee["id"],
+                    "title": f"Late {index}",
+                    "due_on": (TODAY - timedelta(days=index + 1)).isoformat(),
+                },
+            )
+
+        full = client.get("/v1/growth/goals/overdue").json()
+        page = client.get("/v1/growth/goals/overdue", params={"limit": 2, "offset": 1}).json()
+
+    all_ids = [item["id"] for item in full["items"]]
+    assert full["total"] == 3
+    assert [item["id"] for item in page["items"]] == all_ids[1:3]
+    assert page["total"] == 3
+
+
+def test_reminders_run_pages_what_it_created() -> None:
+    with make_client() as client:
+        cycle, assignments = seed_assignments(client, count=3)
+        client.post(f"/v1/growth/cycles/{cycle['id']}/activate", json={})
+        page = client.post(
+            "/v1/growth/reminders/run",
+            params={"limit": 2, "offset": 1},
+            json={"as_of": TODAY.isoformat()},
+        ).json()
+
+    assert page["total"] == 3
+    assert page["limit"] == 2
+    assert page["offset"] == 1
+    assert [item["subject_id"] for item in page["items"]] == [
+        assignment["id"] for assignment in assignments[1:3]
+    ]
+
+
+def test_growth_pagination_bounds_are_enforced() -> None:
+    with make_client() as client:
+        for params in ({"limit": 0}, {"limit": 201}, {"offset": -1}):
+            response = client.get("/v1/growth/cycles", params=params)
+            assert response.status_code == 422, params

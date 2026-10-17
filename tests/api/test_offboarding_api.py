@@ -80,8 +80,9 @@ def test_install_and_list_templates() -> None:
         default_only = client.get("/v1/offboarding/templates", params={})
 
     assert listed.status_code == 200
-    assert len(listed.json()) == 1
-    assert default_only.json()[0]["name"] == "Resignation — starter"
+    assert listed.json()["total"] == 1
+    assert len(listed.json()["items"]) == 1
+    assert default_only.json()["items"][0]["name"] == "Resignation — starter"
 
 
 # --- full exit flow -----------------------------------------------------------------
@@ -173,7 +174,8 @@ def test_write_off_missing_asset_clears_clearance() -> None:
         assert missing.json()["status"] == "missing"
 
         clearance = client.get(f"/v1/offboarding/employees/{employee['id']}/clearance")
-        assert len(clearance.json()) == 1
+        assert len(clearance.json()["items"]) == 1
+        assert clearance.json()["total"] == 1
 
         write_off = client.post(
             f"/v1/offboarding/assets/{asset['id']}/write-off",
@@ -183,7 +185,53 @@ def test_write_off_missing_asset_clears_clearance() -> None:
         assert write_off.json()["status"] == "written_off"
 
         clearance_after = client.get(f"/v1/offboarding/employees/{employee['id']}/clearance")
-        assert clearance_after.json() == []
+        assert clearance_after.json()["items"] == []
+        assert clearance_after.json()["total"] == 0
+
+
+def test_asset_list_pages_with_limit_and_offset() -> None:
+    with make_client() as client:
+        employee = create_employee(client)
+        for name in ("Laptop", "Phone", "Headset"):
+            created = client.post(
+                "/v1/offboarding/assets",
+                json={"employee_id": employee["id"], "name": name},
+            )
+            assert created.status_code == 201, created.text
+
+        everything = client.get("/v1/offboarding/assets")
+        first = client.get("/v1/offboarding/assets", params={"limit": 2, "offset": 0})
+        second = client.get("/v1/offboarding/assets", params={"limit": 2, "offset": 2})
+        beyond = client.get("/v1/offboarding/assets", params={"limit": 2, "offset": 10})
+
+    full = everything.json()
+    assert full["total"] == 3
+    assert len(full["items"]) == 3
+
+    first_body = first.json()
+    assert first_body["items"] == full["items"][:2]
+    assert first_body["total"] == 3
+    assert first_body["limit"] == 2
+    assert first_body["offset"] == 0
+
+    second_body = second.json()
+    assert second_body["items"] == full["items"][2:]
+    assert second_body["total"] == 3
+
+    beyond_body = beyond.json()
+    assert beyond_body["items"] == []
+    assert beyond_body["total"] == 3
+
+
+def test_asset_list_rejects_invalid_pagination() -> None:
+    with make_client() as client:
+        too_small = client.get("/v1/offboarding/assets", params={"limit": 0})
+        too_big = client.get("/v1/offboarding/assets", params={"limit": 201})
+        negative = client.get("/v1/offboarding/assets", params={"offset": -1})
+
+    assert too_small.status_code == 422
+    assert too_big.status_code == 422
+    assert negative.status_code == 422
 
 
 def test_waive_step_requires_reason() -> None:

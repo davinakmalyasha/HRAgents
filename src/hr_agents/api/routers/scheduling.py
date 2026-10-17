@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import conflict, domain_problem, not_found
 from hr_agents.api.recruitment_schemas import (
     AvailabilitySet,
@@ -16,6 +16,7 @@ from hr_agents.api.recruitment_schemas import (
     SchedulingProposalRequest,
     SchedulingProposalView,
 )
+from hr_agents.api.schemas import Page
 from hr_agents.models import TimeSlot
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import RecruitingError, SchedulingService
@@ -36,13 +37,17 @@ SchedulingDep = Annotated[SchedulingService, Depends(get_scheduling)]
 
 @router.post(
     "/availability",
-    response_model=list[TimeSlot],
+    response_model=Page[TimeSlot],
     summary="Ops: register interviewer free slots (calendar provider feeds this later)",
 )
 def set_availability(
-    payload: AvailabilitySet, scheduling: SchedulingDep, actor: ActorDep
-) -> list[TimeSlot]:
-    return scheduling.set_availability(payload.interviewer_id, slots=payload.slots, actor=actor)
+    payload: AvailabilitySet,
+    scheduling: SchedulingDep,
+    paging: PaginationDep,
+    actor: ActorDep,
+) -> Page[TimeSlot]:
+    slots = scheduling.set_availability(payload.interviewer_id, slots=payload.slots, actor=actor)
+    return Page.slice(slots, limit=paging.limit, offset=paging.offset)
 
 
 @router.post(
@@ -68,9 +73,19 @@ def create_proposal(
     return SchedulingProposalView.from_record(proposal)
 
 
-@router.get("/proposals", response_model=list[SchedulingProposalView])
-def list_proposals(scheduling: SchedulingDep) -> list[SchedulingProposalView]:
-    return [SchedulingProposalView.from_record(item) for item in scheduling.list_all()]
+@router.get("/proposals", response_model=Page[SchedulingProposalView])
+def list_proposals(
+    scheduling: SchedulingDep, paging: PaginationDep
+) -> Page[SchedulingProposalView]:
+    ordered = sorted(
+        scheduling.list_all(),
+        key=lambda item: (item.created_at, str(item.id)),
+    )
+    return Page.slice(
+        [SchedulingProposalView.from_record(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/proposals/{proposal_id}", response_model=SchedulingProposalView)

@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import domain_problem, not_found
 from hr_agents.api.recruitment_schemas import (
     AuditReceipt,
@@ -15,6 +15,7 @@ from hr_agents.api.recruitment_schemas import (
     OverrideCreate,
     OverrideView,
 )
+from hr_agents.api.schemas import Page
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import EvaluationService, RecruitingError
 
@@ -58,15 +59,22 @@ def get_evaluation(evaluation_id: UUID, evaluations: EvaluationsDep) -> Evaluati
 
 @router.get(
     "/evaluations/{evaluation_id}/overrides",
-    response_model=list[OverrideView],
+    response_model=Page[OverrideView],
     summary="Override history (append-only)",
 )
-def list_overrides(evaluation_id: UUID, evaluations: EvaluationsDep) -> list[OverrideView]:
+def list_overrides(
+    evaluation_id: UUID, evaluations: EvaluationsDep, paging: PaginationDep
+) -> Page[OverrideView]:
     try:
         overrides = evaluations.list_overrides(evaluation_id)
     except RecruitingError as exc:
         raise not_found(str(exc)) from exc
-    return [OverrideView.from_model(item) for item in overrides]
+    ordered = sorted(overrides, key=lambda item: (item.decided_at, str(item.id)))
+    return Page.slice(
+        [OverrideView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(

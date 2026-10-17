@@ -424,8 +424,9 @@ export interface paths {
          *
          *     Newest first because a viewer is nearly always answering "what just happened" rather
          *     than reading the chain from the beginning; the sequence number is on every row, so the
-         *     order is never ambiguous. `limit` is capped: the chain grows forever and a viewer that
-         *     can request all of it is an easy way to take the process down.
+         *     order is never ambiguous. The window comes from the shared pagination dependency:
+         *     the chain grows forever and a viewer that can request all of it in one page is an
+         *     easy way to take the process down.
          *
          *     Filters are exact matches on the indexed columns. `since`/`until` are inclusive so a
          *     caller can page by the boundary timestamp it already has.
@@ -4963,6 +4964,127 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[ApprovalView] */
+        Page_ApprovalView_: {
+            /** Items */
+            items: components["schemas"]["ApprovalView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[AssetView] */
+        Page_AssetView_: {
+            /** Items */
+            items: components["schemas"]["AssetView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[AssignmentView] */
+        Page_AssignmentView_: {
+            /** Items */
+            items: components["schemas"]["AssignmentView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[AuditEntryView] */
+        Page_AuditEntryView_: {
+            /** Items */
+            items: components["schemas"]["AuditEntryView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[BalanceView] */
+        Page_BalanceView_: {
+            /** Items */
+            items: components["schemas"]["BalanceView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[BreachView] */
+        Page_BreachView_: {
+            /** Items */
+            items: components["schemas"]["BreachView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[CommunicationView] */
+        Page_CommunicationView_: {
+            /** Items */
+            items: components["schemas"]["CommunicationView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[ConsentView] */
+        Page_ConsentView_: {
+            /** Items */
+            items: components["schemas"]["ConsentView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[ContractView] */
+        Page_ContractView_: {
+            /** Items */
+            items: components["schemas"]["ContractView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[CycleView] */
+        Page_CycleView_: {
+            /** Items */
+            items: components["schemas"]["CycleView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[DocumentView] */
+        Page_DocumentView_: {
+            /** Items */
+            items: components["schemas"]["DocumentView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[EmployeeView] */
         Page_EmployeeView_: {
             /** Items */
@@ -4974,10 +5096,208 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[ErasureView] */
+        Page_ErasureView_: {
+            /** Items */
+            items: components["schemas"]["ErasureView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[GoalView] */
+        Page_GoalView_: {
+            /** Items */
+            items: components["schemas"]["GoalView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[HandoffView] */
+        Page_HandoffView_: {
+            /** Items */
+            items: components["schemas"]["HandoffView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[JobView] */
         Page_JobView_: {
             /** Items */
             items: components["schemas"]["JobView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[LeaveRequestView] */
+        Page_LeaveRequestView_: {
+            /** Items */
+            items: components["schemas"]["LeaveRequestView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[OfferView] */
+        Page_OfferView_: {
+            /** Items */
+            items: components["schemas"]["OfferView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[OrgUnitView] */
+        Page_OrgUnitView_: {
+            /** Items */
+            items: components["schemas"]["OrgUnitView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[OverdueStepView] */
+        Page_OverdueStepView_: {
+            /** Items */
+            items: components["schemas"]["OverdueStepView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[OverrideView] */
+        Page_OverrideView_: {
+            /** Items */
+            items: components["schemas"]["OverrideView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[RateTableView] */
+        Page_RateTableView_: {
+            /** Items */
+            items: components["schemas"]["RateTableView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[RecordView] */
+        Page_RecordView_: {
+            /** Items */
+            items: components["schemas"]["RecordView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[ReminderView] */
+        Page_ReminderView_: {
+            /** Items */
+            items: components["schemas"]["ReminderView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[ReplyView] */
+        Page_ReplyView_: {
+            /** Items */
+            items: components["schemas"]["ReplyView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[RunView] */
+        Page_RunView_: {
+            /** Items */
+            items: components["schemas"]["RunView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[SchedulingProposalView] */
+        Page_SchedulingProposalView_: {
+            /** Items */
+            items: components["schemas"]["SchedulingProposalView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[SummaryView] */
+        Page_SummaryView_: {
+            /** Items */
+            items: components["schemas"]["SummaryView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[TaskView] */
+        Page_TaskView_: {
+            /** Items */
+            items: components["schemas"]["TaskView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[TimeSlot] */
+        Page_TimeSlot_: {
+            /** Items */
+            items: components["schemas"]["TimeSlot"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[WorkspaceView] */
+        Page_WorkspaceView_: {
+            /** Items */
+            items: components["schemas"]["WorkspaceView"][];
             /** Limit */
             limit: number;
             /** Offset */
@@ -6564,6 +6884,72 @@ export interface components {
             /** Step Count */
             step_count: number;
         };
+        /** Page[PlanView] */
+        hr_agents__api__schemas__Page_PlanView___1: {
+            /** Items */
+            items: components["schemas"]["hr_agents__api__onboarding_schemas__PlanView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[PlanView] */
+        hr_agents__api__schemas__Page_PlanView___2: {
+            /** Items */
+            items: components["schemas"]["hr_agents__api__offboarding_schemas__PlanView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[PolicyView] */
+        hr_agents__api__schemas__Page_PolicyView___1: {
+            /** Items */
+            items: components["schemas"]["hr_agents__api__leave_schemas__PolicyView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[PolicyView] */
+        hr_agents__api__schemas__Page_PolicyView___2: {
+            /** Items */
+            items: components["schemas"]["hr_agents__api__compliance_schemas__PolicyView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[TemplateView] */
+        hr_agents__api__schemas__Page_TemplateView___1: {
+            /** Items */
+            items: components["schemas"]["hr_agents__api__onboarding_schemas__TemplateView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[TemplateView] */
+        hr_agents__api__schemas__Page_TemplateView___2: {
+            /** Items */
+            items: components["schemas"]["hr_agents__api__offboarding_schemas__TemplateView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /**
          * RequestStatus
          * @enum {string}
@@ -7269,6 +7655,10 @@ export interface operations {
             query?: {
                 role?: components["schemas"]["ApproverRole"] | null;
                 status?: components["schemas"]["ApprovalStatus"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -7282,7 +7672,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApprovalView"][];
+                    "application/json": components["schemas"]["Page_ApprovalView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -7477,7 +7867,12 @@ export interface operations {
     };
     escalate_overdue_v1_approvals_escalate_overdue_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7490,7 +7885,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApprovalView"][];
+                    "application/json": components["schemas"]["Page_ApprovalView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -7687,7 +8082,12 @@ export interface operations {
     };
     list_communications_v1_candidates__candidate_id__communications_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 candidate_id: string;
@@ -7702,7 +8102,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CommunicationView"][];
+                    "application/json": components["schemas"]["Page_CommunicationView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -8221,7 +8621,12 @@ export interface operations {
     };
     list_replies_v1_candidates__candidate_id__replies_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 candidate_id: string;
@@ -8236,7 +8641,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReplyView"][];
+                    "application/json": components["schemas"]["Page_ReplyView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -8537,6 +8942,10 @@ export interface operations {
         parameters: {
             query?: {
                 workspace?: components["schemas"]["WorkspaceId"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -8550,7 +8959,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HandoffView"][];
+                    "application/json": components["schemas"]["Page_HandoffView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -9074,7 +9483,10 @@ export interface operations {
                 subject_id?: string | null;
                 since?: string | null;
                 until?: string | null;
+                /** @description Maximum items to return. */
                 limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -9088,7 +9500,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AuditEntryView"][];
+                    "application/json": components["schemas"]["Page_AuditEntryView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -9279,7 +9691,12 @@ export interface operations {
     };
     list_breaches_v1_compliance_breaches_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -9292,7 +9709,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BreachView"][];
+                    "application/json": components["schemas"]["Page_BreachView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -9489,6 +9906,10 @@ export interface operations {
         parameters: {
             query?: {
                 as_of?: string | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -9502,7 +9923,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OverdueStepView"][];
+                    "application/json": components["schemas"]["Page_OverdueStepView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -10125,6 +10546,10 @@ export interface operations {
             query?: {
                 subject_kind?: components["schemas"]["SubjectKind"] | null;
                 subject_id?: string | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -10138,7 +10563,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ConsentView"][];
+                    "application/json": components["schemas"]["Page_ConsentView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -10546,7 +10971,12 @@ export interface operations {
     };
     list_erasures_v1_compliance_erasures_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -10559,7 +10989,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErasureView"][];
+                    "application/json": components["schemas"]["Page_ErasureView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -11286,7 +11716,12 @@ export interface operations {
     };
     list_policies_v1_compliance_retention_policies_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11299,7 +11734,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["hr_agents__api__compliance_schemas__PolicyView"][];
+                    "application/json": components["schemas"]["hr_agents__api__schemas__Page_PolicyView___2"];
                 };
             };
             /** @description The request could not be understood. */
@@ -11605,6 +12040,10 @@ export interface operations {
                 subject_id?: string | null;
                 entity?: components["schemas"]["RecordEntity"] | null;
                 include_purged?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -11618,7 +12057,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RecordView"][];
+                    "application/json": components["schemas"]["Page_RecordView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -12027,6 +12466,10 @@ export interface operations {
         parameters: {
             query?: {
                 expiring_within_days?: number | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -12040,7 +12483,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ContractView"][];
+                    "application/json": components["schemas"]["Page_ContractView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -12559,6 +13002,10 @@ export interface operations {
                 employee_id?: string | null;
                 expiring_within_days?: number | null;
                 status?: components["schemas"]["VerificationStatus"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -12572,7 +13019,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentView"][];
+                    "application/json": components["schemas"]["Page_DocumentView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -13193,7 +13640,12 @@ export interface operations {
     };
     employee_contracts_v1_employees__employee_id__contracts_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 employee_id: string;
@@ -13208,7 +13660,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ContractView"][];
+                    "application/json": components["schemas"]["Page_ContractView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -13297,7 +13749,12 @@ export interface operations {
     };
     employee_documents_v1_employees__employee_id__documents_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 employee_id: string;
@@ -13312,7 +13769,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DocumentView"][];
+                    "application/json": components["schemas"]["Page_DocumentView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -13721,7 +14178,12 @@ export interface operations {
     };
     list_overrides_v1_evaluations__evaluation_id__overrides_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 evaluation_id: string;
@@ -13736,7 +14198,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OverrideView"][];
+                    "application/json": components["schemas"]["Page_OverrideView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -13935,6 +14397,10 @@ export interface operations {
         parameters: {
             query: {
                 reviewer_id: string;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -13948,7 +14414,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssignmentView"][];
+                    "application/json": components["schemas"]["Page_AssignmentView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -14037,7 +14503,12 @@ export interface operations {
     };
     my_assignments_v1_growth_assignments_mine_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -14050,7 +14521,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssignmentView"][];
+                    "application/json": components["schemas"]["Page_AssignmentView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -14357,6 +14828,10 @@ export interface operations {
         parameters: {
             query?: {
                 cycle_status?: components["schemas"]["ReviewCycleStatus"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -14370,7 +14845,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CycleView"][];
+                    "application/json": components["schemas"]["Page_CycleView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -14777,7 +15252,12 @@ export interface operations {
     };
     list_assignments_v1_growth_cycles__cycle_id__assignments_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 cycle_id: string;
@@ -14792,7 +15272,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssignmentView"][];
+                    "application/json": components["schemas"]["Page_AssignmentView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -15313,7 +15793,12 @@ export interface operations {
     };
     list_summaries_v1_growth_cycles__cycle_id__summaries_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 cycle_id: string;
@@ -15328,7 +15813,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SummaryView"][];
+                    "application/json": components["schemas"]["Page_SummaryView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -15420,6 +15905,10 @@ export interface operations {
             query?: {
                 employee_id?: string | null;
                 goal_status?: components["schemas"]["GoalStatus"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -15433,7 +15922,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalView"][];
+                    "application/json": components["schemas"]["Page_GoalView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -15628,7 +16117,12 @@ export interface operations {
     };
     overdue_goals_v1_growth_goals_overdue_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -15641,7 +16135,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GoalView"][];
+                    "application/json": components["schemas"]["Page_GoalView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -16266,7 +16760,12 @@ export interface operations {
     };
     run_reminders_v1_growth_reminders_run_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -16283,7 +16782,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReminderView"][];
+                    "application/json": components["schemas"]["Page_ReminderView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -17227,6 +17726,10 @@ export interface operations {
             query?: {
                 employee_id?: string | null;
                 pending_only?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -17240,7 +17743,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LeaveRequestView"][];
+                    "application/json": components["schemas"]["Page_LeaveRequestView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -17541,6 +18044,10 @@ export interface operations {
         parameters: {
             query?: {
                 year?: number | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path: {
@@ -17556,7 +18063,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BalanceView"][];
+                    "application/json": components["schemas"]["Page_BalanceView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -17863,6 +18370,10 @@ export interface operations {
         parameters: {
             query?: {
                 on_date?: string | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -17876,7 +18387,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LeaveRequestView"][];
+                    "application/json": components["schemas"]["Page_LeaveRequestView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -18073,7 +18584,12 @@ export interface operations {
     };
     list_policies_v1_leave_policies_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -18086,7 +18602,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["hr_agents__api__leave_schemas__PolicyView"][];
+                    "application/json": components["schemas"]["hr_agents__api__schemas__Page_PolicyView___1"];
                 };
             };
             /** @description The request could not be understood. */
@@ -18496,6 +19012,10 @@ export interface operations {
             query?: {
                 employee_id?: string | null;
                 plan_id?: string | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -18509,7 +19029,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssetView"][];
+                    "application/json": components["schemas"]["Page_AssetView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -19028,7 +19548,12 @@ export interface operations {
     };
     employee_assets_v1_offboarding_employees__employee_id__assets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 employee_id: string;
@@ -19043,7 +19568,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssetView"][];
+                    "application/json": components["schemas"]["Page_AssetView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -19132,7 +19657,12 @@ export interface operations {
     };
     asset_clearance_v1_offboarding_employees__employee_id__clearance_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 employee_id: string;
@@ -19147,7 +19677,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AssetView"][];
+                    "application/json": components["schemas"]["Page_AssetView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -19236,7 +19766,12 @@ export interface operations {
     };
     plans_for_employee_v1_offboarding_employees__employee_id__plans_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path: {
                 employee_id: string;
@@ -19251,7 +19786,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["hr_agents__api__offboarding_schemas__PlanView"][];
+                    "application/json": components["schemas"]["hr_agents__api__schemas__Page_PlanView___2"];
                 };
             };
             /** @description The request could not be understood. */
@@ -19340,7 +19875,12 @@ export interface operations {
     };
     list_plans_v1_offboarding_plans_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -19353,7 +19893,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["hr_agents__api__offboarding_schemas__PlanView"][];
+                    "application/json": components["schemas"]["hr_agents__api__schemas__Page_PlanView___2"];
                 };
             };
             /** @description The request could not be understood. */
@@ -20410,7 +20950,12 @@ export interface operations {
     };
     list_templates_v1_offboarding_templates_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -20423,7 +20968,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["hr_agents__api__offboarding_schemas__TemplateView"][];
+                    "application/json": components["schemas"]["hr_agents__api__schemas__Page_TemplateView___2"];
                 };
             };
             /** @description The request could not be understood. */
@@ -20826,6 +21371,10 @@ export interface operations {
         parameters: {
             query?: {
                 application_id?: string | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -20839,7 +21388,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OfferView"][];
+                    "application/json": components["schemas"]["Page_OfferView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -21680,6 +22229,10 @@ export interface operations {
         parameters: {
             query?: {
                 active_only?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -21693,7 +22246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["hr_agents__api__onboarding_schemas__PlanView"][];
+                    "application/json": components["schemas"]["hr_agents__api__schemas__Page_PlanView___1"];
                 };
             };
             /** @description The request could not be understood. */
@@ -22425,7 +22978,12 @@ export interface operations {
     };
     list_templates_v1_onboarding_templates_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -22438,7 +22996,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["hr_agents__api__onboarding_schemas__TemplateView"][];
+                    "application/json": components["schemas"]["hr_agents__api__schemas__Page_TemplateView___1"];
                 };
             };
             /** @description The request could not be understood. */
@@ -22735,7 +23293,12 @@ export interface operations {
     };
     list_org_units_v1_org_units_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -22748,7 +23311,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OrgUnitView"][];
+                    "application/json": components["schemas"]["Page_OrgUnitView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -23047,7 +23610,12 @@ export interface operations {
     };
     list_runs_v1_payroll_runs_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -23060,7 +23628,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RunView"][];
+                    "application/json": components["schemas"]["Page_RunView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -24108,7 +24676,12 @@ export interface operations {
     };
     list_rate_tables_v1_rate_tables_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -24121,7 +24694,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RateTableView"][];
+                    "application/json": components["schemas"]["Page_RateTableView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -24316,7 +24889,12 @@ export interface operations {
     };
     unverified_rate_tables_v1_rate_tables_unverified_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -24329,7 +24907,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RateTableView"][];
+                    "application/json": components["schemas"]["Page_RateTableView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -24738,7 +25316,12 @@ export interface operations {
     };
     set_availability_v1_scheduling_availability_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -24755,7 +25338,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TimeSlot"][];
+                    "application/json": components["schemas"]["Page_TimeSlot_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -24844,7 +25427,12 @@ export interface operations {
     };
     list_proposals_v1_scheduling_proposals_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -24857,7 +25445,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SchedulingProposalView"][];
+                    "application/json": components["schemas"]["Page_SchedulingProposalView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -25368,6 +25956,10 @@ export interface operations {
         parameters: {
             query?: {
                 overdue_only?: boolean;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -25381,7 +25973,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TaskView"][];
+                    "application/json": components["schemas"]["Page_TaskView_"];
                 };
             };
             /** @description The request could not be understood. */
@@ -25684,7 +26276,12 @@ export interface operations {
     };
     list_workspaces_v1_workspaces_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -25697,7 +26294,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["WorkspaceView"][];
+                    "application/json": components["schemas"]["Page_WorkspaceView_"];
                 };
             };
             /** @description The request could not be understood. */

@@ -24,10 +24,12 @@ export interface PlanResult {
 }
 
 export async function listPlans(activeOnly: boolean): Promise<OnboardingPlan[]> {
-  const { data } = await api.GET('/v1/onboarding/plans', {
-    params: { query: { active_only: activeOnly } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/onboarding/plans', {
+      params: { query: { active_only: activeOnly, limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function getPlan(planId: string): Promise<OnboardingPlan | null> {
@@ -38,8 +40,12 @@ export async function getPlan(planId: string): Promise<OnboardingPlan | null> {
 }
 
 export async function listTemplates(): Promise<OnboardingTemplate[]> {
-  const { data } = await api.GET('/v1/onboarding/templates')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/onboarding/templates', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function getStarterTemplate(): Promise<TemplateDraft | null> {
@@ -127,8 +133,10 @@ export async function createEmployee(body: EmployeeCreate): Promise<EmployeeView
 }
 
 export async function listEmployeeDocuments(employeeId: string): Promise<EmployeeDocument[]> {
-  const { data } = await api.GET('/v1/employees/{employee_id}/documents', {
-    params: { path: { employee_id: employeeId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/employees/{employee_id}/documents', {
+      params: { path: { employee_id: employeeId }, query: { limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }

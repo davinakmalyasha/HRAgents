@@ -86,7 +86,8 @@ def test_consent_register_status_revoke() -> None:
         assert revoked.json()["active"] is False
 
         listed = client.get("/v1/compliance/consents", params={"subject_id": "cand-1"})
-        assert len(listed.json()) == 1
+        assert len(listed.json()["items"]) == 1
+        assert listed.json()["total"] == 1
 
 
 # --- retention ----------------------------------------------------------------
@@ -133,10 +134,10 @@ def test_retention_scan_purge_and_hold_flow() -> None:
             "/v1/compliance/retention/records",
             params={"subject_id": "cand-1", "include_purged": True},
         )
-        assert records.json()[0]["purged_at"] is not None
+        assert records.json()["items"][0]["purged_at"] is not None
 
         held_still = client.get("/v1/compliance/retention/records", params={"subject_id": "cand-2"})
-        assert held_still.json()[0]["purged_at"] is None
+        assert held_still.json()["items"][0]["purged_at"] is None
         assert first["id"] != second["id"]
 
 
@@ -165,7 +166,7 @@ def test_purge_reports_skip_when_the_entity_has_no_store_handler() -> None:
         assert skipped["purged"] is False
 
         records = client.get("/v1/compliance/retention/records", params={"include_purged": True})
-        assert records.json()[0]["purged_at"] is None
+        assert records.json()["items"][0]["purged_at"] is None
 
 
 def test_consent_purge_actually_removes_the_grant() -> None:
@@ -190,7 +191,7 @@ def test_consent_purge_actually_removes_the_grant() -> None:
             },
         )
         before = client.get("/v1/compliance/consents", params={"subject_id": "cand-1"})
-        assert len(before.json()) == 1
+        assert len(before.json()["items"]) == 1
 
         response = client.post("/v1/compliance/retention/purge", json={})
         assert response.status_code == 200
@@ -200,7 +201,8 @@ def test_consent_purge_actually_removes_the_grant() -> None:
         assert body["purged"][0]["purged"] is True
 
         after = client.get("/v1/compliance/consents", params={"subject_id": "cand-1"})
-        assert after.json() == []
+        assert after.json()["items"] == []
+        assert after.json()["total"] == 0
 
 
 def test_retention_uncovered_entity_reported() -> None:
@@ -394,7 +396,8 @@ def test_breach_checklist_flow() -> None:
 
         overdue = client.get("/v1/compliance/breaches/overdue", params={"as_of": NOW.isoformat()})
         assert overdue.status_code == 200
-        assert overdue.json() == []
+        assert overdue.json()["items"] == []
+        assert overdue.json()["total"] == 0
 
 
 def test_breach_close_requires_note() -> None:

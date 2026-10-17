@@ -1,4 +1,5 @@
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 import type { components } from '@/api/schema'
 
 import type { CommunicationView, ReplyView, WhatsappDispatchLinkView } from './communication'
@@ -75,10 +76,12 @@ export async function markCommunicationSent(communicationId: string): Promise<Co
 }
 
 export async function listReplies(candidateId: string): Promise<ReplyView[]> {
-  const { data } = await api.GET('/v1/candidates/{candidate_id}/replies', {
-    params: { path: { candidate_id: candidateId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/candidates/{candidate_id}/replies', {
+      params: { path: { candidate_id: candidateId }, query: { limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function composeDispatchLink(

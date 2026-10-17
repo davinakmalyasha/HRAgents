@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 export type ConsentView = components['schemas']['ConsentView']
 export type BreachView = components['schemas']['BreachView']
@@ -98,10 +99,12 @@ export function purgedOutcomes(outcomes: PurgeOutcomeView[]): PurgeOutcomeView[]
 }
 
 export async function listConsents(subjectId?: string): Promise<ConsentView[]> {
-  const { data } = await api.GET('/v1/compliance/consents', {
-    params: { query: { subject_id: subjectId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/consents', {
+      params: { query: { subject_id: subjectId, limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function consentStatus(
@@ -142,8 +145,12 @@ export async function revokeConsent(
 }
 
 export async function listBreaches(): Promise<BreachView[]> {
-  const { data } = await api.GET('/v1/compliance/breaches')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/breaches', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 /**
@@ -153,8 +160,12 @@ export async function listBreaches(): Promise<BreachView[]> {
  * different things that are each separately overdue.
  */
 export async function overdueBreachSteps(): Promise<OverdueStepView[]> {
-  const { data } = await api.GET('/v1/compliance/breaches/overdue')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/breaches/overdue', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function createBreach(body: BreachCreate): Promise<{ status: number }> {
@@ -190,8 +201,12 @@ export async function completeBreachStep(
 }
 
 export async function listErasures(): Promise<ErasureView[]> {
-  const { data } = await api.GET('/v1/compliance/erasures')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/erasures', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function createErasure(body: ErasureCreate): Promise<{ status: number }> {
@@ -240,8 +255,10 @@ export async function executeErasure(requestId: string): Promise<{ status: numbe
 }
 
 export async function listRateTables(): Promise<RateTableView[]> {
-  const { data } = await api.GET('/v1/rate-tables')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/rate-tables', { params: { query: { limit, offset } } })
+    return data ?? undefined
+  })
 }
 
 /**
@@ -251,8 +268,12 @@ export async function listRateTables(): Promise<RateTableView[]> {
  * a statutory figure.
  */
 export async function unverifiedRateTables(): Promise<RateTableView[]> {
-  const { data } = await api.GET('/v1/rate-tables/unverified')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/rate-tables/unverified', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function createRateTable(body: RateTableCreate): Promise<{ status: number }> {
@@ -284,8 +305,12 @@ export async function setRateTableEntries(
 }
 
 export async function listRetentionPolicies(): Promise<unknown[]> {
-  const { data } = await api.GET('/v1/compliance/retention/policies')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/retention/policies', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 /** What is due for purge, and what is held or uncovered. Read-only. */
@@ -315,26 +340,29 @@ export async function executePurge(body: PurgeRequest): Promise<PurgeReportView>
 /**
  * The audit trail itself, newest first.
  *
- * `limit` is capped server-side at 500: the chain grows forever, and a viewer that can
- * ask for all of it is an easy way to take the process down.
+ * The filtered selection is walked one page at a time: the chain grows forever, so the
+ * API caps each page and the loop stops when the reported total is reached. The viewer
+ * still receives every matching entry, in order.
  */
 export async function listAuditEntries(filters: {
   actor?: string
   action?: string
   subjectType?: string
-  limit?: number
 }): Promise<AuditEntryView[]> {
-  const { data } = await api.GET('/v1/compliance/audit/entries', {
-    params: {
-      query: {
-        actor: filters.actor === '' ? undefined : filters.actor,
-        action: filters.action === '' ? undefined : filters.action,
-        subject_type: filters.subjectType === '' ? undefined : filters.subjectType,
-        limit: filters.limit ?? 100,
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/audit/entries', {
+      params: {
+        query: {
+          actor: filters.actor === '' ? undefined : filters.actor,
+          action: filters.action === '' ? undefined : filters.action,
+          subject_type: filters.subjectType === '' ? undefined : filters.subjectType,
+          limit,
+          offset,
+        },
       },
-    },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 /**

@@ -36,8 +36,9 @@ from hr_agents.api.compliance_schemas import (
     ScanView,
     StepComplete,
 )
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import conflict, domain_problem, not_found
+from hr_agents.api.schemas import Page
 from hr_agents.errors import DomainError
 from hr_agents.models import AuditEntry, RecordEntity, SubjectKind, UtcDateTime
 from hr_agents.rbac import Permission
@@ -112,14 +113,20 @@ def record_consent(
     return ConsentView.from_model(record)
 
 
-@router.get("/consents", response_model=list[ConsentView])
+@router.get("/consents", response_model=Page[ConsentView])
 def list_consents(
     compliance: ComplianceDep,
+    paging: PaginationDep,
     subject_kind: SubjectKind | None = None,
     subject_id: str | None = None,
-) -> list[ConsentView]:
+) -> Page[ConsentView]:
     records = compliance.list_consents(subject_kind=subject_kind, subject_id=subject_id)
-    return [ConsentView.from_model(item) for item in records]
+    ordered = sorted(records, key=lambda item: (item.granted_at, str(item.id)))
+    return Page.slice(
+        [ConsentView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/consents/status", response_model=ConsentStatusView)
@@ -180,9 +187,15 @@ def set_policy(payload: PolicySet, compliance: ComplianceDep, actor: ActorDep) -
     return PolicyView.from_model(policy)
 
 
-@router.get("/retention/policies", response_model=list[PolicyView])
-def list_policies(compliance: ComplianceDep) -> list[PolicyView]:
-    return [PolicyView.from_model(item) for item in compliance.list_policies()]
+@router.get("/retention/policies", response_model=Page[PolicyView])
+def list_policies(compliance: ComplianceDep, paging: PaginationDep) -> Page[PolicyView]:
+    policies = compliance.list_policies()
+    ordered = sorted(policies, key=lambda item: (item.entity.value, str(item.id)))
+    return Page.slice(
+        [PolicyView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(
@@ -204,21 +217,27 @@ def track_record(payload: RecordTrack, compliance: ComplianceDep, actor: ActorDe
     return RecordView.from_model(record)
 
 
-@router.get("/retention/records", response_model=list[RecordView])
+@router.get("/retention/records", response_model=Page[RecordView])
 def list_records(
     compliance: ComplianceDep,
+    paging: PaginationDep,
     subject_kind: SubjectKind | None = None,
     subject_id: str | None = None,
     entity: RecordEntity | None = None,
     include_purged: bool = False,
-) -> list[RecordView]:
+) -> Page[RecordView]:
     records = compliance.list_records(
         subject_kind=subject_kind,
         subject_id=subject_id,
         entity=entity,
         include_purged=include_purged,
     )
-    return [RecordView.from_model(item) for item in records]
+    ordered = sorted(records, key=lambda item: (item.anchor_at, str(item.id)))
+    return Page.slice(
+        [RecordView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(
@@ -283,9 +302,15 @@ def create_erasure(
     return ErasureView.from_model(request)
 
 
-@router.get("/erasures", response_model=list[ErasureView])
-def list_erasures(compliance: ComplianceDep) -> list[ErasureView]:
-    return [ErasureView.from_model(item) for item in compliance.list_erasures()]
+@router.get("/erasures", response_model=Page[ErasureView])
+def list_erasures(compliance: ComplianceDep, paging: PaginationDep) -> Page[ErasureView]:
+    requests = compliance.list_erasures()
+    ordered = sorted(requests, key=lambda item: (item.received_at, str(item.id)))
+    return Page.slice(
+        [ErasureView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/erasures/{request_id}", response_model=ErasureView)
@@ -391,16 +416,32 @@ def create_breach(payload: BreachCreate, compliance: ComplianceDep, actor: Actor
     return BreachView.from_model(incident)
 
 
-@router.get("/breaches", response_model=list[BreachView])
-def list_breaches(compliance: ComplianceDep) -> list[BreachView]:
-    return [BreachView.from_model(item) for item in compliance.list_incidents()]
+@router.get("/breaches", response_model=Page[BreachView])
+def list_breaches(compliance: ComplianceDep, paging: PaginationDep) -> Page[BreachView]:
+    incidents = compliance.list_incidents()
+    ordered = sorted(incidents, key=lambda item: (item.discovered_at, str(item.id)))
+    return Page.slice(
+        [BreachView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@router.get("/breaches/overdue", response_model=list[OverdueStepView])
+@router.get("/breaches/overdue", response_model=Page[OverdueStepView])
 def overdue_breach_steps(
-    compliance: ComplianceDep, as_of: UtcDateTime | None = None
-) -> list[OverdueStepView]:
-    return [OverdueStepView.from_model(item) for item in compliance.overdue_steps(as_of=as_of)]
+    compliance: ComplianceDep,
+    paging: PaginationDep,
+    as_of: UtcDateTime | None = None,
+) -> Page[OverdueStepView]:
+    overdue = compliance.overdue_steps(as_of=as_of)
+    ordered = sorted(
+        overdue, key=lambda item: (item.step.due_at, str(item.incident_id), item.step.key)
+    )
+    return Page.slice(
+        [OverdueStepView.from_model(item) for item in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/breaches/{incident_id}", response_model=BreachView)
@@ -480,23 +521,24 @@ def transition_breach(
 # --- audit -------------------------------------------------------------------
 
 
-@audit_router.get("/entries", response_model=list[AuditEntryView])
+@audit_router.get("/entries", response_model=Page[AuditEntryView])
 def list_audit_entries(
     request: Request,
+    paging: PaginationDep,
     actor: Annotated[str | None, Query()] = None,
     action: Annotated[str | None, Query()] = None,
     subject_type: Annotated[str | None, Query()] = None,
     subject_id: Annotated[str | None, Query()] = None,
     since: Annotated[datetime | None, Query()] = None,
     until: Annotated[datetime | None, Query()] = None,
-    limit: Annotated[int, Query(ge=1, le=500)] = 100,
-) -> list[AuditEntryView]:
+) -> Page[AuditEntryView]:
     """The audit trail itself, newest first.
 
     Newest first because a viewer is nearly always answering "what just happened" rather
     than reading the chain from the beginning; the sequence number is on every row, so the
-    order is never ambiguous. `limit` is capped: the chain grows forever and a viewer that
-    can request all of it is an easy way to take the process down.
+    order is never ambiguous. The window comes from the shared pagination dependency:
+    the chain grows forever and a viewer that can request all of it in one page is an
+    easy way to take the process down.
 
     Filters are exact matches on the indexed columns. `since`/`until` are inclusive so a
     caller can page by the boundary timestamp it already has.
@@ -512,8 +554,12 @@ def list_audit_entries(
         and (since is None or entry.created_at >= since)
         and (until is None or entry.created_at <= until)
     ]
-    newest_first = list(reversed(matched))[:limit]
-    return [AuditEntryView.from_model(entry) for entry in newest_first]
+    newest_first = list(reversed(matched))
+    return Page.slice(
+        [AuditEntryView.from_model(entry) for entry in newest_first],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/audit/verify", response_model=AuditVerifyView)

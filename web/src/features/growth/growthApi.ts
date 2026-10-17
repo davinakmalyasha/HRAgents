@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 export type CycleView = components['schemas']['CycleView']
 export type AssignmentView = components['schemas']['AssignmentView']
@@ -92,8 +93,12 @@ export function progressPercent(goal: GoalView): number {
 }
 
 export async function listCycles(): Promise<CycleView[]> {
-  const { data } = await api.GET('/v1/growth/cycles')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/growth/cycles', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 /**
@@ -104,8 +109,12 @@ export async function listCycles(): Promise<CycleView[]> {
  * decides whose reviews they see is how the wrong person's reviews get read.
  */
 export async function myAssignments(): Promise<AssignmentView[]> {
-  const { data } = await api.GET('/v1/growth/assignments/mine')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/growth/assignments/mine', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 /**
@@ -115,10 +124,12 @@ export async function myAssignments(): Promise<AssignmentView[]> {
  * refuses to draft one that is not grounded in submitted ratings.
  */
 export async function listSummaries(cycleId: string): Promise<SummaryView[]> {
-  const { data } = await api.GET('/v1/growth/cycles/{cycle_id}/summaries', {
-    params: { path: { cycle_id: cycleId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/growth/cycles/{cycle_id}/summaries', {
+      params: { path: { cycle_id: cycleId }, query: { limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function draftSummary(body: SummaryDraft): Promise<{ status: number }> {
@@ -199,25 +210,35 @@ export function summariesByEmployee(summaries: SummaryView[]): Map<string, Summa
  */
 export async function runReminders(body: RemindersRun): Promise<ReminderView[]> {
   const { data } = await api.POST('/v1/growth/reminders/run', { body })
-  return data ?? []
+  return data?.items ?? []
 }
 
 /** Every form in a cycle, for the HR view of one cycle. */
 export async function cycleAssignments(cycleId: string): Promise<AssignmentView[]> {
-  const { data } = await api.GET('/v1/growth/cycles/{cycle_id}/assignments', {
-    params: { path: { cycle_id: cycleId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/growth/cycles/{cycle_id}/assignments', {
+      params: { path: { cycle_id: cycleId }, query: { limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function listGoals(): Promise<GoalView[]> {
-  const { data } = await api.GET('/v1/growth/goals')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/growth/goals', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function listOverdueGoals(): Promise<GoalView[]> {
-  const { data } = await api.GET('/v1/growth/goals/overdue')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/growth/goals/overdue', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function createCycle(body: CycleCreate): Promise<{ status: number }> {

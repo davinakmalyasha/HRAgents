@@ -331,5 +331,40 @@ def test_cancelling_a_run_reports_why_through_the_view() -> None:
     assert body["cancel_reason"] == "duplicate period"
     assert body["cancelled_at"]
 
-    same_run = next(item for item in listed if item["id"] == run["id"])
+    same_run = next(item for item in listed["items"] if item["id"] == run["id"])
     assert same_run["cancel_reason"] == "duplicate period"
+
+
+def test_list_runs_pages_the_unpaged_read() -> None:
+    with make_client() as client:
+        for month in (1, 2, 3):
+            created = client.post(
+                "/v1/payroll/runs",
+                json={"period_year": YEAR, "period_month": month},
+            )
+            assert created.status_code == 201, created.text
+
+        full = client.get("/v1/payroll/runs").json()
+        page = client.get("/v1/payroll/runs", params={"limit": 2, "offset": 1}).json()
+        beyond = client.get("/v1/payroll/runs", params={"limit": 2, "offset": 9}).json()
+
+    all_ids = [item["id"] for item in full["items"]]
+    assert full["total"] == 3
+    assert len(full["items"]) == 3
+    assert page["total"] == 3
+    assert page["limit"] == 2
+    assert page["offset"] == 1
+    assert [item["id"] for item in page["items"]] == all_ids[1:3]
+    assert beyond["items"] == []
+    assert beyond["total"] == 3
+
+
+def test_list_runs_rejects_invalid_pagination() -> None:
+    with make_client() as client:
+        too_small = client.get("/v1/payroll/runs", params={"limit": 0})
+        too_big = client.get("/v1/payroll/runs", params={"limit": 201})
+        negative = client.get("/v1/payroll/runs", params={"offset": -1})
+
+    assert too_small.status_code == 422
+    assert too_big.status_code == 422
+    assert negative.status_code == 422

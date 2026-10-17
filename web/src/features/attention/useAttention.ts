@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 import { buildAttention, type Handoff, type Task, type Approval } from './attention'
 
@@ -8,10 +9,12 @@ function usePendingApprovals() {
   return useQuery({
     queryKey: ['attention', 'approvals', 'pending'],
     queryFn: async (): Promise<Approval[]> => {
-      const { data } = await api.GET('/v1/approvals', {
-        params: { query: { status: 'pending' } },
+      return fetchAllPages(async (limit, offset) => {
+        const { data } = await api.GET('/v1/approvals', {
+          params: { query: { status: 'pending', limit, offset } },
+        })
+        return data ?? undefined
       })
-      return data ?? []
     },
   })
 }
@@ -20,8 +23,10 @@ function useOpenTasks() {
   return useQuery({
     queryKey: ['attention', 'tasks', 'open'],
     queryFn: async (): Promise<Task[]> => {
-      const { data } = await api.GET('/v1/tasks')
-      return data ?? []
+      return fetchAllPages(async (limit, offset) => {
+        const { data } = await api.GET('/v1/tasks', { params: { query: { limit, offset } } })
+        return data ?? undefined
+      })
     },
   })
 }
@@ -30,8 +35,12 @@ function useOpenHandoffs() {
   return useQuery({
     queryKey: ['attention', 'handoffs', 'open'],
     queryFn: async (): Promise<Handoff[]> => {
-      const { data } = await api.GET('/v1/chat/handoffs')
-      return data ?? []
+      return fetchAllPages(async (limit, offset) => {
+        const { data } = await api.GET('/v1/chat/handoffs', {
+          params: { query: { limit, offset } },
+        })
+        return data ?? undefined
+      })
     },
   })
 }

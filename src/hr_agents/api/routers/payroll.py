@@ -7,7 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from hr_agents.api.deps import ActorDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.payroll_schemas import (
     InputsSet,
     RunAction,
@@ -15,6 +15,7 @@ from hr_agents.api.payroll_schemas import (
     RunView,
 )
 from hr_agents.api.problem import conflict, not_found
+from hr_agents.api.schemas import Page
 from hr_agents.rbac import Permission
 from hr_agents.services.payroll import PayrollError, PayrollService
 
@@ -51,9 +52,17 @@ def create_run(payload: RunCreate, payroll: PayrollDep, actor: ActorDep) -> RunV
     return RunView.from_model(run)
 
 
-@router.get("/runs", response_model=list[RunView])
-def list_runs(payroll: PayrollDep) -> list[RunView]:
-    return [RunView.from_model(run) for run in payroll.list_runs()]
+@router.get("/runs", response_model=Page[RunView])
+def list_runs(payroll: PayrollDep, paging: PaginationDep) -> Page[RunView]:
+    ordered = sorted(
+        payroll.list_runs(),
+        key=lambda run: (run.period_year, run.period_month, run.created_at, str(run.id)),
+    )
+    return Page.slice(
+        [RunView.from_model(run) for run in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.get("/runs/{run_id}", response_model=RunView)

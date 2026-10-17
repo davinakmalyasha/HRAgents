@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 export type PlanView = components['schemas']['hr_agents__api__offboarding_schemas__PlanView']
 export type StepView = components['schemas']['hr_agents__api__offboarding_schemas__StepView']
@@ -74,8 +75,12 @@ export function canFinalise(plan: PlanView, assets: AssetView[]): boolean {
 }
 
 export async function listTemplates(): Promise<TemplateView[]> {
-  const { data } = await api.GET('/v1/offboarding/templates')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/offboarding/templates', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function defaultTemplate(): Promise<TemplateView | null> {
@@ -85,20 +90,30 @@ export async function defaultTemplate(): Promise<TemplateView | null> {
 
 /** Neither list endpoint is filterable; per-employee views use their own routes. */
 export async function listPlans(): Promise<PlanView[]> {
-  const { data } = await api.GET('/v1/offboarding/plans')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/offboarding/plans', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function listAssets(): Promise<AssetView[]> {
-  const { data } = await api.GET('/v1/offboarding/assets')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/offboarding/assets', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function assetsForEmployee(employeeId: string): Promise<AssetView[]> {
-  const { data } = await api.GET('/v1/offboarding/employees/{employee_id}/assets', {
-    params: { path: { employee_id: employeeId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/offboarding/employees/{employee_id}/assets', {
+      params: { path: { employee_id: employeeId }, query: { limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function createPlan(body: PlanCreate): Promise<{ status: number }> {

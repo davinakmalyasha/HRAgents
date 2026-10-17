@@ -16,8 +16,10 @@ export interface DocumentListParams {
 }
 
 export async function listOrgUnits(): Promise<RecordsOrgUnit[]> {
-  const { data } = await api.GET('/v1/org-units')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/org-units', { params: { query: { limit, offset } } })
+    return data ?? undefined
+  })
 }
 
 export async function createOrgUnit(body: OrgUnitCreate): Promise<RecordsOrgUnit | null> {
@@ -40,22 +42,28 @@ export async function createEmployee(body: EmployeeCreate): Promise<RecordsEmplo
 }
 
 export async function listContracts(): Promise<RecordsContract[]> {
-  const { data } = await api.GET('/v1/contracts')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/contracts', { params: { query: { limit, offset } } })
+    return data ?? undefined
+  })
 }
 
 export async function listDocuments(params: DocumentListParams = {}): Promise<RecordsDocument[]> {
-  const { data } = await api.GET('/v1/documents', {
-    params: {
-      query: {
-        employee_id: params.employeeId,
-        expiring_within_days: params.expiringWithinDays,
-        status: params.status as
-          'claimed' | 'verified' | 'unverified' | 'expired' | 'failed' | undefined,
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/documents', {
+      params: {
+        query: {
+          employee_id: params.employeeId,
+          expiring_within_days: params.expiringWithinDays,
+          status: params.status as
+            'claimed' | 'verified' | 'unverified' | 'expired' | 'failed' | undefined,
+          limit,
+          offset,
+        },
       },
-    },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function verifyDocument(

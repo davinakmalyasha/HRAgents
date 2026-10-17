@@ -28,7 +28,8 @@ def test_lists_every_workspace_in_deterministic_order() -> None:
         response = client.get("/v1/workspaces")
 
     assert response.status_code == 200
-    assert [item["id"] for item in response.json()] == [
+    assert response.json()["total"] == len(WorkspaceId)
+    assert [item["id"] for item in response.json()["items"]] == [
         workspace.value for workspace in WorkspaceId
     ]
 
@@ -37,7 +38,7 @@ def test_workspace_view_mirrors_the_pack_copy() -> None:
     with TestClient(create_app()) as client:
         body = client.get("/v1/workspaces").json()
 
-    for item in body:
+    for item in body["items"]:
         pack = default_registry().get(WorkspaceId(item["id"]))
         assert item["name_en"] == pack.name_en
         assert item["name_id"] == pack.name_id

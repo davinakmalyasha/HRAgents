@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from hr_agents.api.deps import require_permission
+from hr_agents.api.deps import PaginationDep, require_permission
+from hr_agents.api.schemas import Page
 from hr_agents.api.workspace_schemas import WorkspaceView
 from hr_agents.rbac import Permission
 from hr_agents.workspaces import default_registry
@@ -16,7 +17,11 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[WorkspaceView], summary="Department packs for navigation")
-def list_workspaces() -> list[WorkspaceView]:
+@router.get("", response_model=Page[WorkspaceView], summary="Department packs for navigation")
+def list_workspaces(paging: PaginationDep) -> Page[WorkspaceView]:
     """Every workspace pack, in the deterministic enum order."""
-    return [WorkspaceView.from_model(pack) for pack in default_registry().list_all()]
+    return Page.slice(
+        [WorkspaceView.from_model(pack) for pack in default_registry().list_all()],
+        limit=paging.limit,
+        offset=paging.offset,
+    )

@@ -278,9 +278,10 @@ def test_override_records_receipt_and_updates_application() -> None:
     assert receipt["prev_hash"] is None or len(receipt["prev_hash"]) == 64
     assert receipt["seq"] >= 1  # the chain already carries application.received entries
     assert history.status_code == 200
-    assert len(history.json()) == 1
+    assert history.json()["total"] == 1
+    assert len(history.json()["items"]) == 1
     # The recorded reviewer is the authenticated caller, not a body field.
-    assert history.json()[0]["reviewer_id"] == "local-dev"
+    assert history.json()["items"][0]["reviewer_id"] == "local-dev"
     assert status.json()["status"] == "rejected"
 
 
@@ -537,7 +538,7 @@ def test_scheduling_confirm_decides_the_approval_and_schedules() -> None:
 
     assert proposal["status"] == "pending_approval"
     assert proposal["requires_human_approval"] is True
-    subjects = [item["subject"] for item in pending.json()]
+    subjects = [item["subject"] for item in pending.json()["items"]]
     assert "scheduling" in subjects
 
     assert decision.status_code == 200, decision.text
@@ -551,7 +552,7 @@ def test_scheduling_confirm_decides_the_approval_and_schedules() -> None:
     assert body["replacement"] is None
 
     assert application_after.json()["status"] == "scheduled"
-    assert approvals_after.json() == []
+    assert approvals_after.json()["items"] == []
 
 
 def test_scheduling_cancel_and_terminal_guards() -> None:

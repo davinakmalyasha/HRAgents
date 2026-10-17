@@ -1,12 +1,20 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { components } from '@/api/schema'
+
+import { api } from '@/lib/api'
+
+vi.mock('@/lib/api', () => ({
+  api: { GET: vi.fn(), POST: vi.fn() },
+}))
 
 import {
   isOpenCycle,
   isProgressable,
   isReviewable,
+  listCycles,
   outstandingAssignments,
+  runReminders,
   collectRatings,
   employeesWithSubmittedForms,
   isDraftable,
@@ -18,6 +26,11 @@ import {
   type CycleStatus,
   type GoalStatus,
 } from './growthApi'
+
+type Mock = ReturnType<typeof vi.fn>
+
+const get = api.GET as unknown as Mock
+const post = api.POST as unknown as Mock
 
 type Goal = components['schemas']['GoalView']
 type Assignment = components['schemas']['AssignmentView']
@@ -280,5 +293,53 @@ eviewing; submissions only in
     const map = summariesByEmployee([summary])
     expect(map.get('emp-1')).toBe(summary)
     expect(map.size).toBe(1)
+  })
+})
+
+describe('paged growth reads walk the envelope', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('listCycles walks every page with limit and offset', async () => {
+    const cycles = Array.from({ length: 205 }, (_, index) => ({ id: `cyc-${index}` }))
+    get.mockImplementation(
+      async (
+        _path: string,
+        options?: { params?: { query?: { limit: number; offset: number } } },
+      ) => {
+        const { limit, offset } = options?.params?.query ?? { limit: 200, offset: 0 }
+        return {
+          data: {
+            items: cycles.slice(offset, offset + limit),
+            total: cycles.length,
+            limit,
+            offset,
+          },
+        }
+      },
+    )
+
+    const result = await listCycles()
+
+    expect(result.map((item) => item.id)).toEqual(cycles.map((item) => item.id))
+    expect(get).toHaveBeenNthCalledWith(1, '/v1/growth/cycles', {
+      params: { query: { limit: 200, offset: 0 } },
+    })
+    expect(get).toHaveBeenNthCalledWith(2, '/v1/growth/cycles', {
+      params: { query: { limit: 200, offset: 200 } },
+    })
+  })
+
+  it('runReminders unwraps the page of what it created', async () => {
+    const reminder = {
+      kind: 'assignment_due',
+      task_id: 'task-1',
+      subject_id: 'asg-1',
+      detail: 'due 2026-06-30',
+    } as components['schemas']['ReminderView']
+    post.mockResolvedValue({ data: { items: [reminder], total: 1, limit: 100, offset: 0 } })
+
+    await expect(runReminders({ window_days: 3 })).resolves.toEqual([reminder])
   })
 })

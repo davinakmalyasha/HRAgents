@@ -6,6 +6,7 @@ No LLM is involved anywhere in these paths.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
@@ -182,39 +183,72 @@ def add_document(
     return DocumentView.from_model(document)
 
 
-@employees_router.get("/{employee_id}/documents", response_model=list[DocumentView])
-def employee_documents(employee_id: UUID, people: PeopleDep) -> list[DocumentView]:
+@employees_router.get("/{employee_id}/documents", response_model=Page[DocumentView])
+def employee_documents(
+    employee_id: UUID, people: PeopleDep, paging: PaginationDep
+) -> Page[DocumentView]:
     try:
         documents = people.employees.documents_for(employee_id)
     except EmployeeError as exc:
         raise not_found(str(exc)) from exc
-    return [DocumentView.from_model(document) for document in documents]
+    ordered = sorted(
+        documents,
+        key=lambda document: (
+            document.expires_on is None,
+            document.expires_on or date.min,
+            str(document.id),
+        ),
+    )
+    return Page.slice(
+        [DocumentView.from_model(document) for document in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@employees_router.get("/{employee_id}/contracts", response_model=list[ContractView])
-def employee_contracts(employee_id: UUID, people: PeopleDep) -> list[ContractView]:
-    return [
-        ContractView.from_model(contract) for contract in people.contracts.for_employee(employee_id)
-    ]
+@employees_router.get("/{employee_id}/contracts", response_model=Page[ContractView])
+def employee_contracts(
+    employee_id: UUID, people: PeopleDep, paging: PaginationDep
+) -> Page[ContractView]:
+    contracts = people.contracts.for_employee(employee_id)
+    ordered = sorted(contracts, key=lambda contract: (contract.start_date, str(contract.id)))
+    return Page.slice(
+        [ContractView.from_model(contract) for contract in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 # --- records: document vault, expiry alerts, org chart ------------------------
 
 
-@documents_router.get("", response_model=list[DocumentView])
+@documents_router.get("", response_model=Page[DocumentView])
 def list_documents(
     people: PeopleDep,
+    paging: PaginationDep,
     employee_id: UUID | None = None,
     expiring_within_days: Annotated[int | None, Query(ge=0, le=3650)] = None,
     document_status: Annotated[VerificationStatus | None, Query(alias="status")] = None,
-) -> list[DocumentView]:
+) -> Page[DocumentView]:
     """The document vault, soonest expiry first, with the records filters."""
     documents = people.employees.document_vault(
         employee_id=employee_id,
         expiring_within_days=expiring_within_days,
         status=document_status,
     )
-    return [DocumentView.from_model(document) for document in documents]
+    ordered = sorted(
+        documents,
+        key=lambda document: (
+            document.expires_on is None,
+            document.expires_on or date.min,
+            str(document.id),
+        ),
+    )
+    return Page.slice(
+        [DocumentView.from_model(document) for document in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @documents_router.post(
@@ -246,15 +280,20 @@ def verify_document(
     return DocumentView.from_model(document)
 
 
-@org_units_router.get("", response_model=list[OrgUnitView])
-def list_org_units(people: PeopleDep) -> list[OrgUnitView]:
+@org_units_router.get("", response_model=Page[OrgUnitView])
+def list_org_units(people: PeopleDep, paging: PaginationDep) -> Page[OrgUnitView]:
     """Org units with their direct headcount (the workspace nests them itself)."""
     units = people.employees.list_org_units()
     headcount: dict[UUID, int] = {}
     for employee in people.employees.list_employees():
         if employee.org_unit_id is not None:
             headcount[employee.org_unit_id] = headcount.get(employee.org_unit_id, 0) + 1
-    return [OrgUnitView.from_model(unit, headcount=headcount.get(unit.id, 0)) for unit in units]
+    ordered = sorted(units, key=lambda unit: (unit.name.lower(), str(unit.id)))
+    return Page.slice(
+        [OrgUnitView.from_model(unit, headcount=headcount.get(unit.id, 0)) for unit in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @org_units_router.post(
@@ -293,17 +332,25 @@ def create_contract(payload: ContractCreate, people: PeopleDep, actor: ActorDep)
     return ContractView.from_model(contract)
 
 
-@contracts_router.get("", response_model=list[ContractView])
+@contracts_router.get("", response_model=Page[ContractView])
 def list_contracts(
     people: PeopleDep,
+    paging: PaginationDep,
     expiring_within_days: Annotated[int | None, Query(ge=0, le=365)] = None,
-) -> list[ContractView]:
-    contracts = (
-        people.contracts.expiring(within_days=expiring_within_days)
-        if expiring_within_days is not None
-        else people.contracts._store.list_all()
+) -> Page[ContractView]:
+    if expiring_within_days is not None:
+        ordered = sorted(
+            people.contracts.expiring(within_days=expiring_within_days),
+            key=lambda contract: (contract.days_until_expiry() or 0, str(contract.id)),
+        )
+    else:
+        contracts = people.contracts._store.list_all()
+        ordered = sorted(contracts, key=lambda contract: (contract.start_date, str(contract.id)))
+    return Page.slice(
+        [ContractView.from_model(contract) for contract in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
     )
-    return [ContractView.from_model(contract) for contract in contracts]
 
 
 @contracts_router.get("/{contract_id}", response_model=ContractView)
@@ -378,12 +425,13 @@ def create_approval(payload: ApprovalCreate, people: PeopleDep, actor: ActorDep)
     return ApprovalView.from_model(request)
 
 
-@approvals_router.get("", response_model=list[ApprovalView])
+@approvals_router.get("", response_model=Page[ApprovalView])
 def list_approvals(
     people: PeopleDep,
+    paging: PaginationDep,
     role: Annotated[ApproverRole | None, Query()] = None,
     approval_status: Annotated[ApprovalStatus | None, Query(alias="status")] = None,
-) -> list[ApprovalView]:
+) -> Page[ApprovalView]:
     if role is not None:
         requests = people.approvals.pending_for(role)
     else:
@@ -391,7 +439,12 @@ def list_approvals(
 
     if approval_status is not None:
         requests = [r for r in requests if r.status is approval_status]
-    return [ApprovalView.from_model(request) for request in requests]
+    ordered = sorted(requests, key=lambda request: (request.created_at, str(request.id)))
+    return Page.slice(
+        [ApprovalView.from_model(request) for request in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @approvals_router.post(
@@ -421,10 +474,12 @@ def decide_approval(
 
 @approvals_router.post(
     "/escalate-overdue",
-    response_model=list[ApprovalView],
+    response_model=Page[ApprovalView],
     dependencies=[Depends(require_permission(Permission.APPROVALS_DECIDE))],
 )
-def escalate_overdue(people: PeopleDep, actor: ActorDep) -> list[ApprovalView]:
+def escalate_overdue(
+    people: PeopleDep, actor: ActorDep, paging: PaginationDep
+) -> Page[ApprovalView]:
     """Run the SLA escalation sweep now, on top of the scheduler.
 
     This route used to be declared as ``/{approval_id}/escalate-overdue`` while
@@ -439,7 +494,12 @@ def escalate_overdue(people: PeopleDep, actor: ActorDep) -> list[ApprovalView]:
     no fake id), and the caller is recorded as the caller.
     """
     changed = people.approvals.escalate_overdue(actor=actor)
-    return [ApprovalView.from_model(request) for request in changed]
+    ordered = sorted(changed, key=lambda request: (request.created_at, str(request.id)))
+    return Page.slice(
+        [ApprovalView.from_model(request) for request in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 # --- tasks -------------------------------------------------------------------
@@ -451,13 +511,27 @@ def create_task(payload: TaskCreate, people: PeopleDep, actor: ActorDep) -> Task
     return TaskView.from_model(task)
 
 
-@tasks_router.get("", response_model=list[TaskView])
+@tasks_router.get("", response_model=Page[TaskView])
 def list_tasks(
     people: PeopleDep,
+    paging: PaginationDep,
     overdue_only: Annotated[bool, Query()] = False,
-) -> list[TaskView]:
+) -> Page[TaskView]:
     tasks = people.tasks.overdue() if overdue_only else people.tasks.open_tasks()
-    return [TaskView.from_model(task) for task in tasks]
+    ordered = sorted(
+        tasks,
+        key=lambda task: (
+            0 if task.is_overdue() else 1,
+            task.due_on or date.max,
+            task.created_at,
+            str(task.id),
+        ),
+    )
+    return Page.slice(
+        [TaskView.from_model(task) for task in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @tasks_router.post("/{task_id}/complete", response_model=TaskView)
@@ -494,14 +568,28 @@ def create_rate_table(
     return RateTableView.from_model(table)
 
 
-@rate_tables_router.get("", response_model=list[RateTableView])
-def list_rate_tables(people: PeopleDep) -> list[RateTableView]:
-    return [RateTableView.from_model(table) for table in people.rate_tables.list_all()]
+@rate_tables_router.get("", response_model=Page[RateTableView])
+def list_rate_tables(people: PeopleDep, paging: PaginationDep) -> Page[RateTableView]:
+    ordered = sorted(
+        people.rate_tables.list_all(), key=lambda table: (table.name.lower(), str(table.id))
+    )
+    return Page.slice(
+        [RateTableView.from_model(table) for table in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
-@rate_tables_router.get("/unverified", response_model=list[RateTableView])
-def unverified_rate_tables(people: PeopleDep) -> list[RateTableView]:
-    return [RateTableView.from_model(table) for table in people.rate_tables.unverified()]
+@rate_tables_router.get("/unverified", response_model=Page[RateTableView])
+def unverified_rate_tables(people: PeopleDep, paging: PaginationDep) -> Page[RateTableView]:
+    ordered = sorted(
+        people.rate_tables.unverified(), key=lambda table: (table.name.lower(), str(table.id))
+    )
+    return Page.slice(
+        [RateTableView.from_model(table) for table in ordered],
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @rate_tables_router.get("/{table_id}", response_model=RateTableView)

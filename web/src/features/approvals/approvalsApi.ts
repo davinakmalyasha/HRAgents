@@ -1,6 +1,7 @@
 import type { components } from '@/api/schema'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 export type ApprovalView = components['schemas']['ApprovalView']
 export type ApprovalStatus = components['schemas']['ApprovalStatus']
@@ -122,10 +123,12 @@ export async function listApprovals(filters?: {
   status?: ApprovalStatus
   role?: ApproverRole
 }): Promise<ApprovalView[]> {
-  const { data } = await api.GET('/v1/approvals', {
-    params: { query: { status: filters?.status, role: filters?.role } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/approvals', {
+      params: { query: { status: filters?.status, role: filters?.role, limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 /**

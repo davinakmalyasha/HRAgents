@@ -1,5 +1,6 @@
 import type { components } from '@/api/schema'
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 export type LeaveType = components['schemas']['LeaveType']
 export type RequestStatus = components['schemas']['hr_agents__models__leave__RequestStatus']
@@ -53,8 +54,12 @@ export interface CalendarParams {
 }
 
 export async function listPolicies(): Promise<PolicyView[]> {
-  const { data } = await api.GET('/v1/leave/policies')
-  return data ?? []
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/leave/policies', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }
 
 export async function listRequests(
@@ -63,29 +68,37 @@ export async function listRequests(
     status?: RequestStatus
   } = {},
 ): Promise<LeaveRequestView[]> {
-  const { data } = await api.GET('/v1/leave', {
-    params: {
-      query: {
-        employee_id: params.employeeId,
-        status: params.status,
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/leave', {
+      params: {
+        query: {
+          employee_id: params.employeeId,
+          status: params.status,
+          limit,
+          offset,
+        },
       },
-    },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function listCalendar(params: CalendarParams = {}) {
-  const { data } = await api.GET('/v1/leave/calendar', {
-    params: { query: { on_date: params.onDate } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/leave/calendar', {
+      params: { query: { on_date: params.onDate, limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export async function employeeBalances(employeeId: string): Promise<BalanceView[]> {
-  const { data } = await api.GET('/v1/leave/balances/{employee_id}', {
-    params: { path: { employee_id: employeeId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/leave/balances/{employee_id}', {
+      params: { path: { employee_id: employeeId }, query: { limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 /**

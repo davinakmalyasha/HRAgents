@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
+import { fetchAllPages } from '@/lib/pagination'
 
 import {
   completeStep,
@@ -123,10 +124,12 @@ export function useMarkAssetMissing() {
 
 /** Look up the plan for one employee, for the asset panel. */
 export async function plansForEmployee(employeeId: string): Promise<PlanView[]> {
-  const { data } = await api.GET('/v1/offboarding/employees/{employee_id}/plans', {
-    params: { path: { employee_id: employeeId } },
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/offboarding/employees/{employee_id}/plans', {
+      params: { path: { employee_id: employeeId }, query: { limit, offset } },
+    })
+    return data ?? undefined
   })
-  return data ?? []
 }
 
 export type { AssetView }
