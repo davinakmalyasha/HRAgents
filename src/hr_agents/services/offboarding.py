@@ -237,6 +237,10 @@ class OffboardingService:
     def active_plans(self) -> list[OffboardingPlan]:
         return [plan for plan in self._store.list_plans() if plan.completed_at is None]
 
+    def page_active_plans(self, *, limit: int, offset: int) -> tuple[list[OffboardingPlan], int]:
+        """Paged active plans; the store owns how the read is executed."""
+        return self._store.page_active_plans(limit=limit, offset=offset)
+
     # --- steps ------------------------------------------------------------
 
     def complete_step(

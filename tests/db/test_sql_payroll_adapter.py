@@ -513,3 +513,40 @@ def test_page_runs_orders_and_pages_in_sql(factory: sessionmaker[Session]) -> No
     rest, still_total = fresh.page_runs(limit=2, offset=2)
     assert still_total == 3
     assert [(run.period_year, run.period_month) for run in rest] == [(YEAR, 11)]
+
+
+def test_previous_run_is_found_by_an_ordered_scan(factory: sessionmaker[Session]) -> None:
+    """The deviation baseline: latest earlier period of the same kind, with lines.
+
+    This used to read every run the tenant ever computed on each compute; the
+    scan is now an ordered range lookup with an existence check. A matching
+    period with no computed lines must not qualify -- comparing a fresh run
+    against an empty baseline reports every employee as a deviation spike.
+    """
+    service, employees, rates = _parts(factory)
+    _seed(rates)
+    employee = _employee(employees)
+
+    may = service.create_run(period_year=YEAR, period_month=5, actor=ACTOR)
+    service.set_inputs(
+        may.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=money("5000000"))],
+        actor=ACTOR,
+    )
+    service.compute(may.id, actor=ACTOR)
+
+    # A same-kind run after the baseline but with no lines: not a candidate.
+    empty_june = service.create_run(period_year=YEAR, period_month=6, actor=ACTOR)
+    assert empty_june.lines == []
+
+    july = service.create_run(period_year=YEAR, period_month=7, actor=ACTOR)
+    thr = service.create_run(period_year=YEAR, period_month=4, actor=ACTOR, kind=PayrollRunKind.THR)
+
+    fresh = _parts(factory)[0]
+    previous = fresh._previous_run(fresh.get_run(july.id))
+    assert previous is not None
+    assert previous.id == may.id
+
+    # A THR run never serves as a monthly run's baseline, and nothing precedes May.
+    assert fresh._previous_run(fresh.get_run(thr.id)) is None
+    assert fresh._previous_run(fresh.get_run(may.id)) is None

@@ -116,10 +116,12 @@ def start_plan(payload: PlanStartRequest, onboarding: OnboardingDep, actor: Acto
 def list_plans(
     onboarding: OnboardingDep, paging: PaginationDep, active_only: bool = False
 ) -> Page[PlanView]:
-    plans = onboarding.active_plans() if active_only else list(onboarding._plans.values())
-    ordered = sorted(plans, key=lambda plan: (plan.started_at, str(plan.id)))
-    return Page.slice(
-        [PlanView.from_model(plan) for plan in ordered],
+    plans, total = onboarding.page_plans(
+        active_only=active_only, limit=paging.limit, offset=paging.offset
+    )
+    return Page.of(
+        [PlanView.from_model(plan) for plan in plans],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

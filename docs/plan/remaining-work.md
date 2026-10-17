@@ -305,9 +305,11 @@ Remaining in this area:
       employees (the reference), leave requests, approvals, the document vault, audit entries
       and payroll runs all run their predicate, ORDER BY, LIMIT/OFFSET and count in SQL, with
       the in-memory stores mirroring the same contract and an id tiebreak wherever keys can
-      tie. The remaining list endpoints still load every row and slice in Python after the
-      fact, and `active_plans` / `_previous_run` remain the two worst aggregations — push
-      those next.
+      tie. The two worst aggregations followed: `_previous_run` is an ordered range scan with
+      an existence check instead of a full run-list walk, and onboarding/offboarding active
+      plans filter, order and slice in SQL (the `completed_at` index finally serves the read
+      it was added for). The remaining list endpoints still load every row and slice in
+      Python after the fact — that long tail is the residual.
 - [x] **No `CHECK` constraint exists anywhere in the tables.** Migration `0023` pins 38
       constraints onto the tables, every one mirroring an existing model validator: the
       payroll money columns are non-negative and the four `PayrollLine` arithmetic

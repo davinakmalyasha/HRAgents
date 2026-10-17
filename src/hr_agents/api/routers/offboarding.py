@@ -119,9 +119,10 @@ def start_plan(payload: PlanCreate, offboarding: OffboardingDep, actor: ActorDep
 
 @router.get("/plans", response_model=Page[PlanView])
 def list_plans(offboarding: OffboardingDep, paging: PaginationDep) -> Page[PlanView]:
-    plans = sorted(offboarding.active_plans(), key=lambda item: (item.started_at, str(item.id)))
-    return Page.slice(
+    plans, total = offboarding.page_active_plans(limit=paging.limit, offset=paging.offset)
+    return Page.of(
         [PlanView.from_model(item) for item in plans],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

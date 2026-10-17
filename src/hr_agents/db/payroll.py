@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, literal, select, tuple_
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.mapping import check_version
@@ -110,6 +110,40 @@ class DbPayrollService(PayrollService):
                 .all()
             )
             return [self._to_run(session, row) for row in rows], int(total or 0)
+
+    def _previous_run(self, run: PayrollRun) -> PayrollRun | None:
+        """The latest earlier period of the same kind that has computed lines.
+
+        An ordered range scan with an existence check instead of reading every
+        run the tenant ever computed; the deviation report behind it runs on
+        each compute. Ordering mirrors the in-memory walk: newest period first,
+        and among equal periods the earliest-created run, which is the one the
+        dict walk met first.
+        """
+        has_lines = (
+            select(PayrollLineRecord.id)
+            .where(PayrollLineRecord.run_id == PayrollRunRecord.id)
+            .exists()
+        )
+        with sync_session_scope(self._session_factory) as session:
+            row = session.execute(
+                select(PayrollRunRecord)
+                .where(
+                    PayrollRunRecord.id != run.id,
+                    PayrollRunRecord.kind == run.kind.value,
+                    has_lines,
+                    tuple_(PayrollRunRecord.period_year, PayrollRunRecord.period_month)
+                    < tuple_(literal(run.period_year), literal(run.period_month)),
+                )
+                .order_by(
+                    PayrollRunRecord.period_year.desc(),
+                    PayrollRunRecord.period_month.desc(),
+                    PayrollRunRecord.created_at.asc(),
+                    PayrollRunRecord.id.asc(),
+                )
+                .limit(1)
+            ).scalar_one_or_none()
+            return None if row is None else self._to_run(session, row)
 
     def _save_run(self, run: PayrollRun) -> None:
         with sync_session_scope(self._session_factory) as session:

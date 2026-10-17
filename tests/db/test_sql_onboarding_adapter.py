@@ -39,8 +39,9 @@ ACTOR = ActorRef.legacy("hr-admin")
 def _service(factory: sessionmaker[Session]) -> DbOnboardingService:
     audit = AuditChain()
     approvals = ApprovalEngine(ApprovalStore(), audit=audit)
-    # onboarding_plans.employee_id is a foreign key, so the employee has to be a
-    # real row: SQLite does not enforce foreign keys unless asked to.
+    # onboarding_plans.employee_id is a foreign key the tests enforce (conftest
+    # sets `PRAGMA foreign_keys=ON` on SQLite; CI runs the same suite on
+    # Postgres), so the employee must be a real row.
     employees = EmployeeService(DbEmployeeStore(factory), audit=audit, approvals=approvals)
     tasks = TaskEngine(TaskStore(), audit=audit)
     return DbOnboardingService(factory, employees=employees, tasks=tasks, audit=audit)
@@ -174,6 +175,39 @@ def test_in_flight_plan_stays_in_the_active_list(factory: sessionmaker[Session])
 
     fresh = _service(factory)
     assert [item.id for item in fresh.active_plans()] == [plan.id]
+
+
+def test_page_plans_filters_slices_and_counts_in_sql(factory: sessionmaker[Session]) -> None:
+    """The routed read: active filter, ORDER BY (started_at, id) and LIMIT in SQL.
+
+    The whole tenant's plans used to be read and filtered in Python -- the
+    `completed_at` index existed precisely for that scan.
+    """
+    service = _service(factory)
+    employee = _employee(service)
+    template = _template(service)
+    other = _employee(service, "Budi")
+    active_one = service.start_plan(employee_id=employee.id, template_id=template.id, actor=ACTOR)
+    active_two = service.start_plan(employee_id=other.id, template_id=template.id, actor=ACTOR)
+    finished = service.start_plan(employee_id=employee.id, template_id=template.id, actor=ACTOR)
+    service.complete_step(finished.id, "collect_ktp", actor=ACTOR)
+    service.complete_step(finished.id, "sign_contract", actor=ACTOR)
+
+    fresh = _service(factory)
+    everything, all_total = fresh.page_plans(active_only=False, limit=10, offset=0)
+    assert all_total == 3
+
+    first_page, active_total = fresh.page_plans(active_only=True, limit=1, offset=0)
+    assert active_total == 2
+    second_page, still_total = fresh.page_plans(active_only=True, limit=1, offset=1)
+    assert still_total == 2
+    assert {first_page[0].id, second_page[0].id} == {active_one.id, active_two.id}
+    assert finished.id not in {first_page[0].id, second_page[0].id}
+    assert {item.id for item in everything} >= {
+        active_one.id,
+        active_two.id,
+        finished.id,
+    }
 
 
 def test_linked_document_survives_a_restart(factory: sessionmaker[Session]) -> None:

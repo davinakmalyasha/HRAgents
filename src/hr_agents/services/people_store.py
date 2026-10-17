@@ -540,6 +540,16 @@ class OffboardingStore:
     def list_plans(self) -> list[OffboardingPlan]:
         return sorted(self._plans.values(), key=lambda item: item.started_at)
 
+    def page_active_plans(self, *, limit: int, offset: int) -> tuple[list[OffboardingPlan], int]:
+        """Paged active plans; the Postgres adapter runs the filter in SQL.
+
+        Order is ``(started_at, id)`` here and there; the id tiebreak keeps
+        OFFSET stable for plans started the same day.
+        """
+        active = [plan for plan in self._plans.values() if plan.completed_at is None]
+        active.sort(key=lambda item: (item.started_at, str(item.id)))
+        return active[offset : offset + limit], len(active)
+
     # assets
     def add_asset(self, asset: OffboardingAsset) -> None:
         self._assets[asset.id] = asset

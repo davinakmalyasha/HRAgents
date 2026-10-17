@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.mapping import check_version
@@ -100,10 +100,35 @@ class DbOnboardingService(OnboardingService):
         with sync_session_scope(self._session_factory) as session:
             rows = session.execute(select(OnboardingPlanRecord)).scalars().all()
             # Materialised inside the session: a lazy iterator would read through a
-            # closed session. `active_plans` filters on the derived `is_complete`,
-            # so the whole tenant's plans are read and the filter stays in Python --
-            # which is also why `completed_at` is indexed for that read.
+            # closed session.
             return iter([self._to_plan(row) for row in rows])
+
+    def page_plans(
+        self, *, active_only: bool, limit: int, offset: int
+    ) -> tuple[list[OnboardingPlan], int]:
+        """Paged list with the active filter, ORDER BY and LIMIT/OFFSET in SQL.
+
+        "Active" is ``completed_at IS NULL``: every step path that can finish a
+        plan stamps the column, and it is indexed exactly for this read -- the
+        in-memory property filter and this predicate are the same set.
+        """
+        where = [OnboardingPlanRecord.completed_at.is_(None)] if active_only else []
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(OnboardingPlanRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(OnboardingPlanRecord)
+                    .where(*where)
+                    .order_by(OnboardingPlanRecord.started_at, OnboardingPlanRecord.id)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_plan(row) for row in rows], int(total or 0)
 
     def _save_plan(self, plan: OnboardingPlan) -> None:
         with sync_session_scope(self._session_factory) as session:

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import compliance_tables as ct
@@ -290,6 +290,26 @@ class DbOffboardingStore(OffboardingStore):
     def list_plans(self) -> list[OffboardingPlan]:
         plans = list_models(self._session_factory, OffboardingPlan, ot.OffboardingPlanRecord)
         return sorted(plans, key=lambda item: item.started_at)
+
+    def page_active_plans(self, *, limit: int, offset: int) -> tuple[list[OffboardingPlan], int]:
+        """Active plans with ORDER BY (started_at, id) and LIMIT/OFFSET in SQL."""
+        where = ot.OffboardingPlanRecord.completed_at.is_(None)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(ot.OffboardingPlanRecord).where(where)
+            )
+            rows = (
+                session.execute(
+                    select(ot.OffboardingPlanRecord)
+                    .where(where)
+                    .order_by(ot.OffboardingPlanRecord.started_at, ot.OffboardingPlanRecord.id)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(OffboardingPlan, row) for row in rows], int(total or 0)
 
     def add_asset(self, asset: OffboardingAsset) -> None:
         add_model(self._session_factory, asset, ot.OffboardingAssetRecord)

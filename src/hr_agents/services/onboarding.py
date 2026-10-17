@@ -261,6 +261,20 @@ class OnboardingService:
     def active_plans(self) -> list[OnboardingPlan]:
         return [plan for plan in self._iter_plans() if not plan.is_complete]
 
+    def page_plans(
+        self, *, active_only: bool, limit: int, offset: int
+    ) -> tuple[list[OnboardingPlan], int]:
+        """Paged plan list; the Postgres adapter runs the filter in SQL.
+
+        ``completed_at`` is maintained by every step path that can finish a
+        plan, so the adapter expresses "active" as ``completed_at IS NULL``;
+        this implementation reads the derived property instead and the two
+        agree because a finished plan always carries the stamp.
+        """
+        plans = self.active_plans() if active_only else list(self._iter_plans())
+        ordered = sorted(plans, key=lambda plan: (plan.started_at, str(plan.id)))
+        return ordered[offset : offset + limit], len(ordered)
+
     def complete_step(
         self,
         plan_id: UUID,

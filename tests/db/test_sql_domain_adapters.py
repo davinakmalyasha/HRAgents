@@ -331,3 +331,56 @@ def test_calendar_entries_round_trip_and_delete(factory: sessionmaker[Session]) 
     assert fresh.delete_calendar_entry(entry.id) is True
     assert fresh.get_calendar_entry(entry.id) is None
     assert fresh.delete_calendar_entry(entry.id) is False
+
+
+def test_offboarding_active_plans_page_in_sql(factory: sessionmaker[Session]) -> None:
+    """The routed active list: completed filter, ORDER BY and LIMIT in SQL.
+
+    `active_plans` used to materialize every plan the tenant ever ran and drop
+    the completed ones in Python; the client only ever pages a slice of it.
+    """
+    store = DbOffboardingStore(factory)
+    employees = DbEmployeeStore(factory)
+    employee = Employee(full_name="Sari Dewi", status=EmployeeStatus.ACTIVE)
+    employees.add_employee(employee)
+    template = OffboardingTemplate(
+        name="Resignation starter",
+        steps=[
+            OffboardingTemplateStep(
+                key="handover", title="Handover", kind=OffboardingStepKind.HANDOVER
+            ),
+        ],
+    )
+    store.add_template(template)
+
+    def plan(*, completed: bool) -> OffboardingPlan:
+        return OffboardingPlan(
+            employee_id=employee.id,
+            reason=OffboardingReason.RESIGNATION,
+            last_working_day=date(2026, 10, 1),
+            template_id=template.id,
+            template_name=template.name,
+            template_version_hash="a" * 64,
+            steps=[
+                OffboardingStepState(
+                    key="handover",
+                    title="Handover",
+                    kind=OffboardingStepKind.HANDOVER,
+                    required=True,
+                    requires_human_signoff=True,
+                    assignee_role=ApproverRole.HR_ADMIN,
+                )
+            ],
+            completed_at=datetime(2026, 9, 1, tzinfo=UTC) if completed else None,
+        )
+
+    finished = plan(completed=True)
+    active = plan(completed=False)
+    store.add_plan(finished)
+    store.add_plan(active)
+
+    fresh = DbOffboardingStore(factory)
+    page, total = fresh.page_active_plans(limit=10, offset=0)
+    assert total == 1
+    assert [item.id for item in page] == [active.id]
+    assert finished.id not in {item.id for item in page}
