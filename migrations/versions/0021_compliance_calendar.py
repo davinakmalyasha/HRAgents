@@ -44,6 +44,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )
     op.create_index("ix_calendar_due_on", "compliance_calendar_entries", ["due_on"])
+    op.create_index(
+        "ix_compliance_calendar_entries_tenant", "compliance_calendar_entries", ["tenant_id"]
+    )
     for statement in enable_tenant_rls_sql("compliance_calendar_entries"):
         op.execute(statement)
 
@@ -51,5 +54,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     for statement in disable_tenant_rls_sql("compliance_calendar_entries"):
         op.execute(statement)
+    op.drop_index("ix_compliance_calendar_entries_tenant", table_name="compliance_calendar_entries")
     op.drop_index("ix_calendar_due_on", table_name="compliance_calendar_entries")
     op.drop_table("compliance_calendar_entries")
