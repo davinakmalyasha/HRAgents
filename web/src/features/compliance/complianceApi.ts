@@ -30,6 +30,9 @@ export type PurgeRequest = components['schemas']['PurgeRequest']
 export type OverdueStepView = components['schemas']['OverdueStepView']
 export type ConsentStatusView = components['schemas']['ConsentStatusView']
 export type SubjectKind = components['schemas']['SubjectKind']
+export type CalendarItemView = components['schemas']['CalendarItemView']
+export type CalendarEntryCreate = components['schemas']['CalendarEntryCreate']
+export type CalendarEntryCategory = components['schemas']['CalendarEntryCategory']
 
 /**
  * Purge outcomes that did not purge anything.
@@ -260,7 +263,6 @@ export async function listRateTables(): Promise<RateTableView[]> {
     return data ?? undefined
   })
 }
-
 /**
  * Rate tables nobody has verified against a source.
  *
@@ -505,3 +507,27 @@ export const LAWFUL_BASES: readonly LawfulBasis[] = [
   'public_task',
   'legitimate_interest',
 ]
+
+export async function listCalendar(start: string, end: string): Promise<CalendarItemView[]> {
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/calendar', {
+      params: { query: { start, end, limit, offset } },
+    })
+    return data ?? undefined
+  })
+}
+
+export async function createCalendarEntry(
+  body: CalendarEntryCreate,
+): Promise<CalendarItemView | null> {
+  const { data, response } = await api.POST('/v1/compliance/calendar/entries', { body })
+  return response.status === 201 ? (data ?? null) : null
+}
+
+export async function removeCalendarEntry(entryId: string, reason: string): Promise<boolean> {
+  const { response } = await api.DELETE('/v1/compliance/calendar/entries/{entry_id}', {
+    params: { path: { entry_id: entryId } },
+    body: { reason },
+  })
+  return response.status === 204
+}

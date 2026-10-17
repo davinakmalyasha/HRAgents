@@ -1074,7 +1074,42 @@
     "auditExport": "Ekspor potongan (JSON)",
     "auditEmpty": "Tidak ada yang cocok dengan filter ini.",
     "auditPayload": "Detail yang tercatat",
-    "auditFailed": "Jejak tidak dapat dibaca."
+    "auditFailed": "Jejak tidak dapat dibaca.",
+    "calendar": {
+      "title": "Kalender kepatuhan",
+      "empty": "Tidak ada tenggat bulan ini.",
+      "previousMonth": "Bulan sebelumnya",
+      "nextMonth": "Bulan berikutnya",
+      "addDate": "Tambah tanggal",
+      "overdue": "Terlewat",
+      "remove": "Hapus",
+      "removeReasonLabel": "Mengapa tanggal ini dihapus?",
+      "confirmRemove": "Hapus tanggal",
+      "cancel": "Batal",
+      "source": "Sumber: {{note}}",
+      "kinds": {
+        "probation_end": "Masa percobaan berakhir",
+        "contract_expiry": "Kontrak berakhir",
+        "document_expiry": "Dokumen kedaluwarsa"
+      },
+      "categories": {
+        "tax": "Pajak",
+        "bpjs": "BPJS",
+        "labour": "Ketenagakerjaan",
+        "thr": "THR",
+        "reporting": "Pelaporan",
+        "other": "Lainnya"
+      },
+      "form": {
+        "title": "Judul",
+        "dueOn": "Tanggal jatuh tempo",
+        "category": "Kategori",
+        "sourceNote": "Catatan sumber",
+        "sourceNotePlaceholder": "Dari mana tanggal ini berasal (wajib)",
+        "notes": "Catatan (opsional)",
+        "submit": "Tambah tanggal"
+      }
+    }
   },
   "approvals": {
     "boardTitle": "Persetujuan",

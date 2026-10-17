@@ -510,6 +510,13 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Consent registry: purpose-scoped grants/refusals/revocations with expiry, lawful basis, capture evidence, and `active` checks (`has_active_consent`); agents may record evidence, only humans revoke
 - [x] Retention engine: per-entity operator policies (months + delete/anonymize action, **no hardcoded statutory window**), record ledger with anchor dates + overrides, deterministic scan (due / held / uncovered), dry-run and scheduled purge (`by="system"`), per-record purge handlers for store mutation (consent, employee, document, candidate, application, and payroll — HR's decision: a tax record keeps its figures under the erasure pseudonym, so payroll blanks the free-text name at export and keeps amounts, ids and periods), and the ledger is fed by the services that create the records, full audit trail
 - [x] Legal holds: human-only, reason required, never auto-purged by retention or erasure; reported per record
+- [x] **Compliance calendar** (the market differentiator, both halves): derived deadlines the
+      system already knows — probation ends, contract expiries (upcoming-only; a lapsed contract
+      already has its task), document expiries including overdue — merged with operator-entered
+      dates that **must name their source** (`source_note`; no statutory date ships with the
+      product). Window API with the `Page` envelope and `overdue` computed against
+      `business_today`; month view on the compliance board with deep links into records and an
+      audited add/remove-with-reason flow; migration `0021` with tenant RLS
 - [x] Erasure workflow (UU PDP / GDPR shape): request → human identity verification → Data Protection approval (shared engine; agents can request, never decide) → **separate** human execution; per-record dispositions (deleted / anonymized / retained under hold) and consent revocation
 - [x] **Honest erasure outcomes**: `_apply_purge` returns `None` when no store handler is registered, so
       the outcome is `skipped` (retention) or `not_executed` (erasure) instead of a false `deleted`.

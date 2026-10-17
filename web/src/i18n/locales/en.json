@@ -1074,7 +1074,42 @@
     "auditExport": "Export slice (JSON)",
     "auditEmpty": "Nothing matches these filters.",
     "auditPayload": "Recorded detail",
-    "auditFailed": "The trail could not be read."
+    "auditFailed": "The trail could not be read.",
+    "calendar": {
+      "title": "Compliance calendar",
+      "empty": "Nothing is due this month.",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "addDate": "Add a date",
+      "overdue": "Overdue",
+      "remove": "Remove",
+      "removeReasonLabel": "Why is this date being removed?",
+      "confirmRemove": "Remove date",
+      "cancel": "Cancel",
+      "source": "Source: {{note}}",
+      "kinds": {
+        "probation_end": "Probation ends",
+        "contract_expiry": "Contract expires",
+        "document_expiry": "Document expires"
+      },
+      "categories": {
+        "tax": "Tax",
+        "bpjs": "BPJS",
+        "labour": "Labour",
+        "thr": "THR",
+        "reporting": "Reporting",
+        "other": "Other"
+      },
+      "form": {
+        "title": "Title",
+        "dueOn": "Due date",
+        "category": "Category",
+        "sourceNote": "Source note",
+        "sourceNotePlaceholder": "Where this date comes from (required)",
+        "notes": "Notes (optional)",
+        "submit": "Add date"
+      }
+    }
   },
   "approvals": {
     "boardTitle": "Approvals",

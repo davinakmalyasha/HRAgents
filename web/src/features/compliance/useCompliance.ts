@@ -3,7 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   completeBreachStep,
   consentStatus,
+  createCalendarEntry,
   listAuditEntries,
+  listCalendar,
   executeErasure,
   listBreaches,
   listConsents,
@@ -11,6 +13,7 @@ import {
   listRateTables,
   overdueBreachSteps,
   recordConsent,
+  removeCalendarEntry,
   revokeConsent,
   scanRetention,
   executePurge,
@@ -21,6 +24,7 @@ import {
   verifyErasureIdentity,
   verifyRateTable,
   type BreachTransition,
+  type CalendarEntryCreate,
   type ConsentCreate,
   type ConsentRevoke,
   type ErasureVerify,
@@ -217,5 +221,31 @@ export function useAuditEntries(filters: { actor: string; action: string; subjec
         action: filters.action,
         subjectType: filters.subjectType,
       }),
+  })
+}
+
+export function useCalendar(start: string, end: string) {
+  return useQuery({
+    queryKey: ['compliance', 'calendar', { start, end }],
+    queryFn: async () => listCalendar(start, end),
+  })
+}
+
+/** One operator date: statutory or policy, and it must name its source. */
+export function useCreateCalendarEntry() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: CalendarEntryCreate) => createCalendarEntry(body),
+    onSuccess: invalidate(queryClient),
+  })
+}
+
+/** Removing a date requires a reason; the trail keeps what was removed. */
+export function useRemoveCalendarEntry() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ entryId, reason }: { entryId: string; reason: string }) =>
+      removeCalendarEntry(entryId, reason),
+    onSuccess: invalidate(queryClient),
   })
 }

@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useEmployees } from '@/features/records/useRecords'
 import { formatDateTime } from '@/lib/dates'
 
+import { CalendarBoard } from './CalendarBoard'
 import {
   LAWFUL_BASES,
   PURGE_CONFIRMATION,
@@ -80,6 +81,8 @@ export function ComplianceBoard() {
       <h2 id="compliance-board" className="text-ink-strong text-lg font-medium">
         {t('compliance.boardTitle')}
       </h2>
+
+      <CalendarBoard />
 
       <section aria-labelledby="compliance-rate-tables">
         <h3 id="compliance-rate-tables" className="text-ink-strong text-base font-medium">
