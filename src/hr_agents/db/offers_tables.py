@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -60,7 +61,10 @@ class OfferRecord(TenantScoped, Base):
 
 class OfferRevisionRecord(TenantScoped, Base):
     __tablename__ = "offer_revisions"
-    __table_args__ = (Index("ix_offer_revisions_offer", "offer_id"),)
+    __table_args__ = (
+        Index("ix_offer_revisions_offer", "offer_id"),
+        CheckConstraint("revision_index >= 1", name="ck_offer_revisions_index"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     offer_id: Mapped[UUID] = mapped_column(

@@ -674,8 +674,20 @@ not a style opinion.
    1.5/2.0 overtime multipliers) are gone with no fallback: a missing rate-table row blocks. The one
    deliberate gap left is BPJS treatment of THR, which is not derivable from the monthly tables and
    raises a blocking `thr_bpjs_unmodelled` anomaly for a named human to settle.
-6. **No `CHECK` constraint exists anywhere in 35 tables** and 8 tables have no foreign
-   keys, so a direct write or a restore can produce states the domain cannot represent.
+6. ~~**No `CHECK` constraint exists anywhere in 35 tables** and 8 tables have no foreign
+   keys~~ **Done, with named residuals.** Migration `0023` pins 38 CHECK constraints that
+   mirror existing model validators (payroll money signs and the four payslip arithmetic
+   identities — rounded to the money quantum for SQLite's float-backed `Numeric` — leave
+   day/date rules, goal progress, cycle period and rating-scale order, finalized-summary
+   authorship, employee probation/offboarding dates, the four contract rules, approval
+   decider pairing, retention window/hold rules, evaluation score ranges, offer revision
+   indices), proved by `tests/db/test_check_constraints.py` with the model bypassed.
+   Migration `0022` adds thirteen named FKs (growth cycles, the three `approval_id`
+   columns, onboarding/offboarding parents, the offboarding final pay run, the
+   schedule-proposal self-reference) and exposed two latent payload-serialization crashes
+   that are fixed. Four references deliberately stay loose and are named in
+   remaining-work: growth employee ids (needs a lookup first), `leave_requests.document_id`,
+   `evaluations.application_id`, `scheduling_availability.interviewer_id`.
 7. ~~**43 of 45 list endpoints are unpaginated**~~ **Done, with a named residual.** All 49 list
    routes answer `Page[T]` (`items`/`total`/`limit`/`offset`; `limit` ≤ 200, default 100 via
    `PaginationDep`) with deterministic ordering (id tiebreaks where keys can tie), the web

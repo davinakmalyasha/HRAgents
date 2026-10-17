@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -46,6 +47,8 @@ class LeaveRequestRecord(TenantScoped, Base):
         Index("ix_leave_requests_tenant_employee", "tenant_id", "employee_id"),
         # `apply_decision` resolves the request that owns an approval id.
         Index("ix_leave_requests_tenant_approval", "tenant_id", "approval_id"),
+        CheckConstraint("days > 0 AND days <= 365", name="ck_leave_requests_days"),
+        CheckConstraint("end_date >= start_date", name="ck_leave_requests_date_order"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)

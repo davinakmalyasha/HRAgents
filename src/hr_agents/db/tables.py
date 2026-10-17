@@ -14,6 +14,7 @@ from uuid import UUID
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -115,6 +116,8 @@ class Evaluation(TenantScoped, Base):
         Index("ix_evaluations_candidate_job", "candidate_id", "job_id"),
         Index("ix_evaluations_recommendation", "recommendation"),
         Index("ix_evaluations_application", "application_id"),
+        CheckConstraint("s_tech BETWEEN 0 AND 1", name="ck_evaluations_s_tech_range"),
+        CheckConstraint("sigma >= 0", name="ck_evaluations_sigma_nonneg"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -295,6 +298,7 @@ class CandidateCommunicationRecord(TenantScoped, Base):
         Index("ix_candidate_communications_candidate", "candidate_id"),
         Index("ix_candidate_communications_status_created", "status", "created_at"),
         Index("ix_candidate_communications_message_id", "provider_message_id_normalized"),
+        CheckConstraint("send_attempts >= 0", name="ck_candidate_communications_send_attempts"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)

@@ -5,7 +5,7 @@ SQLAlchemy mappings accept and return the shapes the services write.
 """
 
 from collections.abc import AsyncIterator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -78,6 +78,9 @@ async def test_employee_core_round_trip(factory: async_sessionmaker[AsyncSession
         employee_id=employee.id,
         contract_type="pkwt",
         start_date=business_today(),
+        # A PKWT without an end date is not a contract the domain can represent;
+        # the CHECK constraint that now says so failed this fixture first.
+        end_date=business_today() + timedelta(days=365),
         status="active",
         compensation_due=True,
     )

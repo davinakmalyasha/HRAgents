@@ -23,6 +23,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -60,6 +61,19 @@ class PayrollRunRecord(TenantScoped, Base):
         ),
         # `apply_decision` resolves the run that owns an approval id.
         Index("ix_payroll_runs_tenant_approval", "tenant_id", "approval_id"),
+        CheckConstraint("period_year BETWEEN 2000 AND 2100", name="ck_payroll_runs_period_year"),
+        CheckConstraint("period_month BETWEEN 1 AND 12", name="ck_payroll_runs_period_month"),
+        # A cancelled run carries both the moment and the why, or neither: the
+        # model refuses half a cancellation, and a restore must not smuggle one in.
+        CheckConstraint(
+            "(cancelled_at IS NULL AND cancel_reason IS NULL) "
+            "OR (cancelled_at IS NOT NULL AND cancel_reason IS NOT NULL)",
+            name="ck_payroll_runs_cancel_pairing",
+        ),
+        CheckConstraint(
+            "status <> 'approved' OR signed_off_by IS NOT NULL",
+            name="ck_payroll_runs_approved_signed_off_by",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
@@ -107,6 +121,53 @@ class PayrollLineRecord(TenantScoped, Base):
         # One line per employee per run. `PayrollLine` carries no id of its own, so
         # the uniqueness is enforced here rather than assumed.
         UniqueConstraint("run_id", "employee_id", name="uq_payroll_lines_run_employee"),
+        # Every component the model declares `ge=0`. A payslip is what a bank
+        # reconciliation compares against; a restore must not be able to introduce
+        # an amount the arithmetic can no longer explain.
+        *[
+            CheckConstraint(f"{column} >= 0", name=f"ck_payroll_lines_{column}_nonneg")
+            for column in (
+                "base_salary",
+                "allowances",
+                "overtime_pay",
+                "bonus",
+                "gross",
+                "bpjs_kesehatan_employee",
+                "bpjs_jht_employee",
+                "bpjs_jp_employee",
+                "pph21",
+                "other_deductions",
+                "total_deductions",
+                "bpjs_kesehatan_employer",
+                "bpjs_jht_employer",
+                "bpjs_jp_employer",
+                "bpjs_jkk_employer",
+                "bpjs_jkm_employer",
+                "employer_cost",
+            )
+        ],
+        CheckConstraint("thr_months BETWEEN 0 AND 24", name="ck_payroll_lines_thr_months"),
+        # The four identities `PayrollLine.check_invariants` asserts exist here
+        # too: the model guards every construction, the database guards every
+        # write including a restore that never passes through the model.
+        CheckConstraint(
+            "round(gross, 2) = round(base_salary + allowances + overtime_pay + bonus, 2)",
+            name="ck_payroll_lines_gross_sum",
+        ),
+        CheckConstraint(
+            "round(total_deductions, 2) = round(bpjs_kesehatan_employee + bpjs_jht_employee "
+            "+ bpjs_jp_employee + pph21 + other_deductions, 2)",
+            name="ck_payroll_lines_deductions_sum",
+        ),
+        CheckConstraint(
+            "round(net, 2) = round(gross - total_deductions, 2)",
+            name="ck_payroll_lines_net_identity",
+        ),
+        CheckConstraint(
+            "round(employer_cost, 2) = round(bpjs_kesehatan_employer + bpjs_jht_employer "
+            "+ bpjs_jp_employer + bpjs_jkk_employer + bpjs_jkm_employer, 2)",
+            name="ck_payroll_lines_employer_cost_sum",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)

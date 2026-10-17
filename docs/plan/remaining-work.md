@@ -308,9 +308,30 @@ Remaining in this area:
       tie. The remaining list endpoints still load every row and slice in Python after the
       fact, and `active_plans` / `_previous_run` remain the two worst aggregations — push
       those next.
-- [ ] **No `CHECK` constraint exists anywhere in the tables.** The payroll money columns
-      are `Numeric(18,2)` so the database rejects a third decimal place, but no other
-      invariant is enforced below the application.
+- [x] **No `CHECK` constraint exists anywhere in the tables.** Migration `0023` pins 38
+      constraints onto the tables, every one mirroring an existing model validator: the
+      payroll money columns are non-negative and the four `PayrollLine` arithmetic
+      identities (gross, deductions, net, employer cost) hold in SQL — rounded to the
+      money quantum so SQLite's float-backed `Numeric` agrees with Postgres' exact one;
+      leave days and date order; goals progress 0–100; cycle period and rating-scale
+      order; finalized summaries name their text and author; employees' probation and
+      offboarding dates; the four contract rules (end after start, PKWT requires an end,
+      probation after start, probation only on PKWTT); approval decider pairing and
+      escalation counters; retention windows, hold-reason and hold-not-purged; erasure
+      consent counts; communication send attempts; evaluation score ranges; offer
+      revision indices. `tests/db/test_check_constraints.py` proves the database refuses
+      each family with the model bypassed.
+- [x] **Eight tables had no foreign keys.** Migration `0022` adds thirteen explicitly
+      named FKs: growth cycle references, the three `approval_id` columns, the
+      onboarding/offboarding template and parent references, the offboarding final pay
+      run, and the schedule-proposal self-reference. Wiring them exposed and fixed two
+      latent crashes: nested `Decimal`/date scalars in JSON-column payloads, and the
+      DB-backed audit chain storing payloads the hash had canonicalised as strings.
+      Deliberately still loose, all named: growth rows' `employee_id` (creation does no
+      employee lookup, so the FK would turn a shaped 404 into a 500 — add the lookup
+      first), `leave_requests.document_id` (ambiguous target), `evaluations.application_id`
+      (legacy-nullable), and `scheduling_availability.interviewer_id` (no interviewer
+      table to point at).
 
 ---
 

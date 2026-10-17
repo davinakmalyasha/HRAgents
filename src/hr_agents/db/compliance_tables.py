@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -55,6 +56,9 @@ class ConsentRecordTable(TenantScoped, Base):
 
 class RetentionPolicyTable(TenantScoped, Base):
     __tablename__ = "retention_policies"
+    __table_args__ = (
+        CheckConstraint("retention_months BETWEEN 1 AND 600", name="ck_retention_policies_months"),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     entity: Mapped[str] = mapped_column(String(40), nullable=False, unique=True)
@@ -76,6 +80,18 @@ class RetentionRecordTable(TenantScoped, Base):
         Index("ix_retention_entity_anchor", "entity", "anchor_at"),
         Index("ix_retention_subject", "subject_kind", "subject_id"),
         Index("ix_retention_legal_hold", "legal_hold"),
+        CheckConstraint(
+            "retention_months_override IS NULL OR retention_months_override BETWEEN 1 AND 600",
+            name="ck_retention_records_override_range",
+        ),
+        CheckConstraint(
+            "NOT legal_hold OR (legal_hold_reason IS NOT NULL AND legal_hold_reason <> '')",
+            name="ck_retention_records_hold_reason",
+        ),
+        CheckConstraint(
+            "NOT legal_hold OR purged_at IS NULL",
+            name="ck_retention_records_hold_not_purged",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -103,6 +119,7 @@ class ErasureRequestTable(TenantScoped, Base):
         Index("ix_erasure_status", "status"),
         Index("ix_erasure_subject", "subject_kind", "subject_id"),
         Index("ix_erasure_approval", "approval_id"),
+        CheckConstraint("consents_revoked >= 0", name="ck_erasure_requests_consents_revoked"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)

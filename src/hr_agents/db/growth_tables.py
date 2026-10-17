@@ -8,6 +8,7 @@ from uuid import UUID
 
 from sqlalchemy import (
     JSON,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -28,7 +29,13 @@ JSONVariant = JSON().with_variant(JSONB(), "postgresql")
 
 class ReviewCycleRecord(TenantScoped, Base):
     __tablename__ = "review_cycles"
-    __table_args__ = (Index("ix_review_cycles_status", "status"),)
+    __table_args__ = (
+        Index("ix_review_cycles_status", "status"),
+        CheckConstraint("period_end >= period_start", name="ck_review_cycles_period_order"),
+        CheckConstraint(
+            "rating_scale_max > rating_scale_min", name="ck_review_cycles_rating_scale"
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
@@ -88,6 +95,12 @@ class ReviewSummaryRecord(TenantScoped, Base):
     __table_args__ = (
         Index("ix_review_summaries_cycle", "cycle_id"),
         Index("ix_review_summaries_employee", "employee_id"),
+        # A finalized summary names its text and its human, or it is not final.
+        CheckConstraint(
+            "status <> 'finalized' OR (final_text IS NOT NULL "
+            "AND finalized_by IS NOT NULL AND finalized_at IS NOT NULL)",
+            name="ck_review_summaries_finalized_fields",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -117,6 +130,7 @@ class GoalRecord(TenantScoped, Base):
     __table_args__ = (
         Index("ix_goals_employee_status", "employee_id", "status"),
         Index("ix_goals_due", "due_on"),
+        CheckConstraint("progress_percent BETWEEN 0 AND 100", name="ck_goals_progress_percent"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)

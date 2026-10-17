@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -33,6 +34,14 @@ class EmployeeRecord(TenantScoped, Base):
         Index("ix_employees_status", "status"),
         Index("ix_employees_org_unit", "org_unit_id"),
         Index("ix_employees_manager", "manager_id"),
+        CheckConstraint(
+            "probation_end_date IS NULL OR hire_date IS NULL OR probation_end_date >= hire_date",
+            name="ck_employees_probation_after_hire",
+        ),
+        CheckConstraint(
+            "status <> 'offboarded' OR offboarded_on IS NOT NULL",
+            name="ck_employees_offboarded_date",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -104,6 +113,21 @@ class ContractRecord(TenantScoped, Base):
         Index("ix_contracts_employee", "employee_id"),
         Index("ix_contracts_end_date", "end_date"),
         Index("ix_contracts_status", "status"),
+        CheckConstraint(
+            "end_date IS NULL OR end_date > start_date", name="ck_contracts_end_after_start"
+        ),
+        CheckConstraint(
+            "contract_type <> 'pkwt' OR end_date IS NOT NULL",
+            name="ck_contracts_pkwt_requires_end",
+        ),
+        CheckConstraint(
+            "probation_end_date IS NULL OR probation_end_date > start_date",
+            name="ck_contracts_probation_after_start",
+        ),
+        CheckConstraint(
+            "probation_end_date IS NULL OR contract_type = 'pkwtt'",
+            name="ck_contracts_probation_pkwtt_only",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -135,6 +159,19 @@ class ApprovalRecord(TenantScoped, Base):
         Index("ix_approvals_role_status", "assignee_role", "status"),
         Index("ix_approvals_subject", "subject", "subject_id"),
         Index("ix_approvals_sla", "sla_deadline"),
+        CheckConstraint("escalation_count >= 0", name="ck_approvals_escalation_count"),
+        CheckConstraint("max_escalations >= 0", name="ck_approvals_max_escalations"),
+        # A decided request names who and when; a pending one must not have a
+        # decider. Both rules live in the model validator and now below it too.
+        CheckConstraint(
+            "status NOT IN ('approved', 'rejected') "
+            "OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)",
+            name="ck_approvals_decided_fields",
+        ),
+        CheckConstraint(
+            "status <> 'pending' OR decided_by IS NULL",
+            name="ck_approvals_pending_no_decider",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
