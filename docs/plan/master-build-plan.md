@@ -283,7 +283,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       (muted ink darkened to `#667085`, status tone confined to the hidden glyph, inactive tabs
       moved off `text-foreground/60`); regression-guarded by `theme.contrast.test.ts`; the
       axe/screen-reader sweep stays in `polish-backlog.md`
-- [ ] Mobile-first check at 390px viewport (queues, approvals, chat)
+- [x] Mobile-first check at 390px viewport (all nine workspace boards, the payroll and
+      compliance queues, the command palette, dialogs and the chat transcript; a topbar
+      overflow the identity chip introduced was found and fixed, the dialog primitive now
+      caps at the visual viewport, and long chat tokens wrap)
 
 ### 6.1 Shell & auth
 - [~] App shell: sidebar workspaces, topbar, responsive layout (icon rail on mobile; bottom bar later)

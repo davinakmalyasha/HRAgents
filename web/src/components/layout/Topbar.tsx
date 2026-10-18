@@ -13,7 +13,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
   return (
     <header className="border-line bg-surface flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 md:px-8">
       <span className="text-ink-strong font-medium">{t('app.name')}</span>
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         <button
           type="button"
           className="border-line text-ink-muted hover:text-ink-strong hidden items-center gap-2 rounded-md border px-3 py-1.5 text-xs sm:flex"
@@ -64,7 +64,7 @@ function Identity() {
 
   const signedIn = storedApiKey() !== null
   return (
-    <span className="text-ink-muted flex items-center gap-2 text-xs">
+    <span className="text-ink-muted flex min-w-0 items-center gap-2 text-xs">
       <span className="truncate" title={`${session.data.actor_id} (${session.data.role})`}>
         {t('auth.signedInAs', {
           who: session.data.actor_id,

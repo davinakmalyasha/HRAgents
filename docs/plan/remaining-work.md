@@ -510,9 +510,15 @@ documented.
       darkened to `#667085`, status tone stays on the hidden glyph, inactive tabs off
       `text-foreground/60`), skip link + main landmark, keyboard traversal; token regression test
       `theme.contrast.test.ts`. The axe/screen-reader sweep stays in polish-backlog.md
-- [x] Mobile-first check at 390px: approvals, compliance, growth and records were driven at
-      390px in a browser with a DOM probe for horizontal overflow (none anywhere) and a clean
-      console; dialogs and the chat transcript are still unverified
+- [x] Mobile-first check at 390px: every workspace board (records, compliance, payroll, leave,
+      growth, offboarding, onboarding, approvals, hiring), the payroll and compliance queue
+      rooms, the command palette, dialogs and the chat transcript were driven at 390px with a
+      DOM overflow probe (none anywhere) and a console check. Three fixes fell out: the identity
+      chip could not shrink and pushed the topbar 18px past the viewport on every page; the
+      dialog primitive had no viewport-height cap, so any dialog without its own override could
+      clip; chat bubbles wrap long unbroken tokens now. The chat reply itself failed on the
+      zero-config upstream rejecting its ZDR header — the transcript degraded to its designed
+      `role="alert"` line rather than overflowing
 
 ### 2.3 Attention-first home
 - [x] "Needs you today" wired to real queues: overdue approvals, overdue tasks, open handoffs
