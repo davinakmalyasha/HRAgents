@@ -735,7 +735,7 @@ the scoring model silently auto-rejected non-engineers. The new order is
 | 3 | **Dashboard** (§2): approvals inbox, home fix, auth, XLSX, mobile pass, streaming | 1 (typed error codes) | Makes the product usable by a human on a phone. The approvals inbox is one screen that makes five workspaces actionable |
 | 4 | **Knowledge + compliance calendar** — the calendar now ships: derived deadlines (probation ends, contract expiries, document expiries including overdue) merged with operator-entered statutory dates that must name their source, month view on the compliance board, audited add/remove-with-reason (`0021`). Remaining under this workstream: the Indonesian statutory knowledge corpus | 1, 2 | The only genuinely differentiating feature for this market, and it needs no LLM |
 | 5 | Evals expansion (§4) — generated 50-profile set + extraction fairness pairs | 2 | Runs offline; feeds the paper and calibrates the templates |
-| 6 | Ops hardening (§5) — wizard, demo dataset, alerting | 1, 3 | Must be stable before any public release |
+| 6 | Ops hardening (§5) — wizard, alerting; the demo dataset ships (`scripts/seed_demo.py`, through the real services, rate tables left unverified on purpose) | 1, 3 | Must be stable before any public release |
 | 7 | MCP layer, landing site, paper | 3, 4, 5 | Release last; the paper cites measured results |
 
 **Cut for now:** the MCP layer is the lowest-value work on the list for a solo-HR

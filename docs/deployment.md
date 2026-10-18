@@ -42,6 +42,27 @@ First start takes a few minutes (dashboard build). Watch progress with
 > existing volume, run `ALTER ROLE hragents NOSUPERUSER NOCREATEROLE NOBYPASSRLS;`
 > by hand.
 
+### Demo data
+
+A fresh install is empty by design. To see the product with a story in it:
+
+```bash
+docker compose exec api uv run python scripts/seed_demo.py
+```
+
+Five employees (one mid-probation), two contracts, an expiring KTP, a pending
+annual-leave approval, an open engineering role with two applications, an
+onboarding plan, a draft growth cycle and a payroll run for the current month.
+Everything is created through the real services, so the audit trail, the
+approval queue, the task list and the retention ledger are populated too.
+The marker employee number `DEMO-001` makes the seed idempotent on Postgres;
+with the in-memory backend each process starts empty, so every run reseeds.
+
+The statutory rate tables are seeded **unverified** on purpose. Payroll refuses
+to compute on a table nobody has checked against a source, and the demo should
+show that gate rather than fake a figure: verify the tables with real statutory
+sources before using any number.
+
 ### Secrets
 
 The committed defaults are for a laptop, not for a server. Before exposing the

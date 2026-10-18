@@ -44,6 +44,18 @@ curl -s localhost:8000/readyz | python -m json.tool   # queue + skills must be "
 curl -s localhost:8000/metrics | grep stuck_queued   # non-zero = no worker draining
 ```
 
+Want something to look at? Seed the demo dataset — five employees mid-onboarding,
+a hiring pipeline, a pending leave approval and a payroll run — created through the
+real services so the audit trail and queues are populated:
+
+```bash
+docker compose exec api uv run python scripts/seed_demo.py
+```
+
+The statutory rate tables arrive **unverified on purpose**: payroll refuses to
+compute until a named human checks them against a real source, which is the
+product's central safety property, not a demo bug.
+
 **Nothing leaves your machine.** Mailpit catches all email, messaging is
 sandboxed, and the LLM defaults to the offline `test` model. To use a real model,
 set `HRAGENTS_LLM_MODEL` and the matching provider config — see
