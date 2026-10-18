@@ -149,3 +149,41 @@ def render(app: Any) -> str:
             lines.append(f"hragents_audit_chain_entries {audit.entry_count()}")
 
     return "\n".join(lines) + "\n"
+
+
+async def queue_metrics(app: Any) -> list[str]:
+    """Queue depth and dead letters, from whichever backend is mounted.
+
+    The API accepts submissions and a worker drains them; a growing dead-letter
+    count means submissions are being accepted and then failing forever. The
+    backend is resolved in the lifespan, so a scrape before startup has no queue
+    section rather than a misleading zero.
+    """
+    queue = getattr(app.state, "queue", None)
+    if queue is None:
+        return []
+    from hr_agents.services.evaluation_job import EVALUATION_TOPIC
+
+    try:
+        stats = await queue.stats(EVALUATION_TOPIC)
+    except Exception:  # metrics must never raise
+        return []
+    return [
+        "# TYPE hragents_queue_pending gauge",
+        "# TYPE hragents_queue_inflight gauge",
+        "# TYPE hragents_queue_dead gauge",
+        f'hragents_queue_pending{{topic="{stats.topic}"}} {stats.pending}',
+        f'hragents_queue_inflight{{topic="{stats.topic}"}} {stats.inflight}',
+        f'hragents_queue_dead{{topic="{stats.topic}"}} {stats.dead}',
+    ]
+
+
+async def render_async(app: Any) -> str:
+    """The full payload, including the gauges that need an async read.
+
+    ``render`` stayed synchronous for the store/audit gauges; queue stats are
+    async in every backend, so the endpoint awaits this wrapper instead.
+    """
+    lines = render(app).rstrip("\n").splitlines()
+    lines.extend(await queue_metrics(app))
+    return "\n".join(lines) + "\n"

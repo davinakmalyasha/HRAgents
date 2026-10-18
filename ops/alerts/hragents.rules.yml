@@ -1,0 +1,111 @@
+# Prometheus alert rules for a self-hosted HRAgents instance.
+#
+# Load with a scrape config whose API job is named `hragents-api` and whose
+# target is the API on :8000/metrics. Thresholds are deliberately boring: this
+# is a single-tenant product for a small HR team, so "the worker is not
+# draining" and "a scheduled job has gone quiet" are the two facts worth a
+# person's attention, and everything else can be a ticket.
+
+groups:
+  - name: hragents-api
+    rules:
+      - alert: HRAgentsApiDown
+        expr: up{job="hragents-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: The HRAgents API is not answering scrapes.
+          description: >-
+            Prometheus cannot scrape the API. Submissions are not being accepted
+            either; check the container and /healthz before anything else.
+
+      - alert: HRAgentsHighErrorRate
+        expr: >
+          sum(rate(hragents_http_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(hragents_http_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 5% of API responses are 5xx.
+          description: >-
+            Check the API logs for the failing route. A spike confined to one
+            route is usually a provider or schema problem, not load.
+
+      - alert: HRAgentsSlowResponses
+        expr: >
+          sum(rate(hragents_http_request_duration_seconds_sum[5m]))
+          /
+          sum(rate(hragents_http_request_duration_seconds_count[5m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Mean API response time is above one second.
+          description: >-
+            The metrics carry a mean, not a histogram. A sustained mean above a
+            second on this workload means a slow database query or a stuck
+            provider; inspect /readyz and the slowest routes.
+
+  - name: hragents-pipeline
+    rules:
+      - alert: HRAgentsStuckQueuedApplications
+        expr: hragents_applications_stuck_queued > 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: Applications are queued and nothing is evaluating them.
+          description: >-
+            The worker is down or wedged. Every submission in this state is
+            accepted and silently unevaluated. Start (or restart) the worker
+            and confirm the gauge falls.
+
+      - alert: HRAgentsDeadLetteredMessages
+        expr: hragents_queue_dead > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: The evaluation queue has dead-lettered messages.
+          description: >-
+            A message failed past its retry budget. Read the dead-letter reason
+            on the queue, fix the cause, and requeue deliberately — do not
+            clear the queue to silence this.
+
+      - alert: HRAgentsQueueBacklog
+        expr: hragents_queue_pending > 100
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 100 evaluation messages are waiting.
+          description: >-
+            Either a submission spike or a worker that is running slower than
+            ingestion. Check worker logs and queue stats before scaling.
+
+      - alert: HRAgentsSchedulerJobStale
+        expr: time() - hragents_scheduler_last_success_timestamp > 2700
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: A scheduled job has not succeeded for 45 minutes.
+          description: >-
+            The scheduler runs every 15 minutes; three missed ticks means a job
+            is failing inside its loop container. Retention sweeps, expiry
+            tasks and offer expiry all live there. Check
+            `docker compose logs scheduler`.
+
+      - alert: HRAgentsSchedulerJobFailing
+        expr: increase(hragents_scheduler_runs_total{result="failed"}[1h]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: A scheduled job failed at least once in the last hour.
+          description: >-
+            One failing tick may be transient. Read the job's JSON report for
+            the exception; a job that keeps failing will trip the stale alert.

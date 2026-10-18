@@ -173,12 +173,33 @@ series worth alerting on:
 | `hragents_scheduler_last_success_timestamp` | per job; a stale value means a job is failing inside the `while true` loop |
 | `hragents_applications_by_status` | where the pipeline actually is |
 | `hragents_http_request_duration_seconds_sum` | paired with `_count` for a mean |
+| `hragents_queue_pending` / `_inflight` / `_dead` | evaluation queue depth per topic; `_dead` above zero is a message that exhausted its retries |
 
 The `scheduler` and `messaging` loops swallow failures (`|| echo ...`) because a
 crashing tick should not kill the container. They rewrite their JSON report on a
 shared volume every tick, and the metrics endpoint reads it — that is how a
 silently failing loop becomes visible without adding a log aggregator. The
 containers also have `HEALTHCHECK`s, so `docker compose ps` shows the truth.
+
+### Alerting
+
+The repository ships Prometheus rules for the canaries and the usual API
+signals: [`ops/alerts/hragents.rules.yml`](../ops/alerts/hragents.rules.yml).
+Scrape the API with a job named `hragents-api` and load the file as a rule
+file; nothing else is required.
+
+| Alert | Severity | What it means |
+|---|---|---|
+| `HRAgentsStuckQueuedApplications` | critical | submissions are accepted and nothing is evaluating them — start or restart the worker |
+| `HRAgentsSchedulerJobStale` | critical | a scheduled job missed three 15-minute ticks; retention, expiry and offer expiry all live there |
+| `HRAgentsDeadLetteredMessages` | warning | a message exhausted its retries; read its reason and requeue deliberately |
+| `HRAgentsQueueBacklog` | warning | more than 100 messages waiting for half an hour |
+| `HRAgentsApiDown` / `HRAgentsHighErrorRate` / `HRAgentsSlowResponses` | critical / warning | the ordinary API signals |
+
+Nothing pages by itself: the rules are the operator's to load, and `/readyz`
+remains the external probe for orchestrators. The rules test
+(`tests/test_alerts_config.py`) fails if a rule references a series the API no
+longer renders, so a renamed metric cannot silently disable an alert.
 
 ## 4. Backups (and proving they work)
 

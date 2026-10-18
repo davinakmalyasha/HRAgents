@@ -19,7 +19,7 @@ from hr_agents.agents.runtime import AgentRuntime
 from hr_agents.agentset import AgentSet, KnowledgeUnavailableError, build_agent_set
 from hr_agents.api.hardening import install_hardening, readiness_report
 from hr_agents.api.metrics import PROMETHEUS_CONTENT_TYPE
-from hr_agents.api.metrics import render as render_metrics
+from hr_agents.api.metrics import render_async as render_metrics
 from hr_agents.api.problem import (
     ERROR_RESPONSES,
     PROBLEM_MEDIA_TYPE,
@@ -404,7 +404,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         include_in_schema=False,
     )
     async def metrics() -> Response:
-        return Response(content=render_metrics(app), media_type=PROMETHEUS_CONTENT_TYPE)
+        return Response(content=await render_metrics(app), media_type=PROMETHEUS_CONTENT_TYPE)
 
     _mount_web_app(app)
     _register_problem_schemas(app)

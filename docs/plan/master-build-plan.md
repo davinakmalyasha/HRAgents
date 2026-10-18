@@ -569,7 +569,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Scheduled job wiring (retention sweep, breach overdue, review reminders, expiries, offer expiry,
       overdue tasks, audit verify, reply SLA) — all through `scripts/run_scheduler.py`, composed into
       Compose as a 15-minute loop. Each tick writes a JSON report to a shared volume and every loop
-      container has a `HEALTHCHECK`, so a job failing inside `while true` is visible. Remains: alerting
+      container has a `HEALTHCHECK`, so a job failing inside `while true` is visible. Alert rules
+      ship in `ops/alerts/hragents.rules.yml` (stuck queue, scheduler stale/failing, dead
+      letters, backlog, API error/latency), guarded by a test against the metrics actually
+      rendered; a dead-letter dashboard and the worker stuck-job reaper remain in the
+      polish backlog
 - [ ] **Business dates are server-local.** ≈20 bare `date.today()` calls and no `Settings.timezone`
       anywhere, so on a UTC host "today" is yesterday for 17 hours a day in WIB — off-by-one leave
       day counts, contract expiry windows, and payroll periods. Needs `HRAGENTS_TIMEZONE` threaded
