@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict, deque
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from hr_agents.providers.queue.base import (
@@ -93,6 +93,44 @@ class MemoryQueueBackend:
                 for entry_topic, message, reason in self._dead
                 if topic is None or entry_topic == topic
             ]
+
+    async def requeue_expired(self, topic: str, *, grace_seconds: float = 300.0) -> int:
+        cutoff = datetime.now(UTC) - timedelta(seconds=grace_seconds)
+        async with self._lock:
+            expired = [
+                message
+                for message in self._inflight.values()
+                if message.topic == topic
+                and message.lease_expires_at is not None
+                and message.lease_expires_at <= cutoff
+            ]
+            for message in expired:
+                del self._inflight[message.id]
+                self._pending[topic].appendleft(
+                    message.model_copy(
+                        update={"attempts": message.attempts + 1, "lease_expires_at": None}
+                    )
+                )
+            return len(expired)
+
+    async def requeue_dead(self, message_id: str) -> bool:
+        async with self._lock:
+            for index, (topic, message, _reason) in enumerate(self._dead):
+                if message.id != message_id:
+                    continue
+                del self._dead[index]
+                self._pending[topic].appendleft(
+                    message.model_copy(
+                        update={
+                            "attempts": 0,
+                            "lease_expires_at": None,
+                            "failed_reason": None,
+                            "failed_at": None,
+                        }
+                    )
+                )
+                return True
+            return False
 
     # --- internals ------------------------------------------------------
 

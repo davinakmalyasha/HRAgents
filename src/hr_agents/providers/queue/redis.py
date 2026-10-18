@@ -9,7 +9,7 @@ in tests) as long as it implements the standard command surface.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from redis.asyncio import Redis
@@ -165,6 +165,58 @@ class RedisQueueBackend:
                     )
                 )
         return messages
+
+    async def requeue_expired(self, topic: str, *, grace_seconds: float = 300.0) -> int:
+        cutoff = datetime.now(UTC) - timedelta(seconds=grace_seconds)
+        entries = await self._redis.hgetall(self._inflight_key(topic))
+        requeued = 0
+        for raw_id, raw in entries.items():
+            text = raw.decode() if isinstance(raw, bytes) else raw
+            message = QueueMessage.model_validate_json(text)
+            if message.lease_expires_at is None or message.lease_expires_at > cutoff:
+                continue
+            message_id = raw_id.decode() if isinstance(raw_id, bytes) else raw_id
+            revived = message.model_copy(
+                update={"attempts": message.attempts + 1, "lease_expires_at": None}
+            )
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.hdel(self._inflight_key(topic), message_id)
+                pipe.lpush(self._pending_key(topic), revived.model_dump_json())
+                await pipe.execute()
+            requeued += 1
+        return requeued
+
+    async def requeue_dead(self, message_id: str) -> bool:
+        import json
+
+        topics = [
+            value.decode() if isinstance(value, bytes) else str(value)
+            for value in await self._redis.smembers(self._topics_key())
+        ]
+        for topic in sorted(topics):
+            for raw in await self._redis.lrange(self._dead_key(topic), 0, -1):
+                text = raw.decode() if isinstance(raw, bytes) else raw
+                parsed = json.loads(text) if text.startswith("{") else None
+                if isinstance(parsed, dict) and "message" in parsed:
+                    message = QueueMessage.model_validate(parsed["message"])
+                else:
+                    message = QueueMessage.model_validate_json(text)
+                if message.id != message_id:
+                    continue
+                revived = message.model_copy(
+                    update={
+                        "attempts": 0,
+                        "lease_expires_at": None,
+                        "failed_reason": None,
+                        "failed_at": None,
+                    }
+                )
+                async with self._redis.pipeline(transaction=True) as pipe:
+                    pipe.lrem(self._dead_key(topic), 1, text)
+                    pipe.lpush(self._pending_key(topic), revived.model_dump_json())
+                    await pipe.execute()
+                return True
+        return False
 
     # --- internals ------------------------------------------------------
 

@@ -165,3 +165,48 @@ async def test_stats_reflect_states(backend: object) -> None:
 async def test_invalid_max_messages_rejected(backend: object) -> None:
     with pytest.raises(QueueError, match="max_messages"):
         await backend.claim(TOPIC, max_messages=0)  # type: ignore[attr-defined]
+
+
+async def test_requeue_expired_returns_stale_leases_to_pending(backend: object) -> None:
+    """The reaper is the same recovery claim does, but without a claimer.
+
+    A worker wedged on the handler never loops back to claim, so a separate
+    process must be able to put the message back; the attempt count still goes
+    up, so a message that keeps dying exhausts its budget.
+    """
+    message_id = await backend.publish(TOPIC, {"value": 1})  # type: ignore[attr-defined]
+    claimed = await backend.claim(TOPIC, lease_seconds=0.01)  # type: ignore[attr-defined]
+    assert claimed[0].id == message_id
+
+    await asyncio.sleep(0.05)
+    requeued = await backend.requeue_expired(TOPIC, grace_seconds=0)  # type: ignore[attr-defined]
+    assert requeued == 1
+
+    stats = await backend.stats(TOPIC)  # type: ignore[attr-defined]
+    assert stats.inflight == 0
+    assert stats.pending == 1
+
+    again = await backend.claim(TOPIC, lease_seconds=30.0)  # type: ignore[attr-defined]
+    assert again[0].id == message_id
+    assert again[0].attempts == 1
+
+    # A message still inside its lease is untouched.
+    assert await backend.requeue_expired(TOPIC, grace_seconds=0) == 0  # type: ignore[attr-defined]
+
+
+async def test_requeue_dead_returns_the_message_with_a_fresh_budget(backend: object) -> None:
+    message_id = await backend.publish(TOPIC, {"value": 1})  # type: ignore[attr-defined]
+    await backend.claim(TOPIC)  # type: ignore[attr-defined]
+    await backend.fail(message_id, "provider timeout")  # type: ignore[attr-defined]
+    assert (await backend.stats(TOPIC)).dead == 1  # type: ignore[attr-defined]
+
+    assert await backend.requeue_dead(message_id) is True  # type: ignore[attr-defined]
+    stats = await backend.stats(TOPIC)  # type: ignore[attr-defined]
+    assert stats.dead == 0
+    assert stats.pending == 1
+
+    reclaimed = await backend.claim(TOPIC, lease_seconds=30.0)  # type: ignore[attr-defined]
+    assert reclaimed[0].id == message_id
+    assert reclaimed[0].attempts == 0, "an operator requeue resets the budget deliberately"
+
+    assert await backend.requeue_dead(message_id) is False  # type: ignore[attr-defined]

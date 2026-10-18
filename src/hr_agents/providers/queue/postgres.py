@@ -6,7 +6,7 @@ semantics (silently degrades to plain locks on SQLite in tests).
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import sqlalchemy as sa
@@ -224,6 +224,40 @@ class PostgresQueueBackend:
             )
             for row in rows
         ]
+
+    async def requeue_expired(self, topic: str, *, grace_seconds: float = 300.0) -> int:
+        await self.ensure_schema()
+        table = self._table
+        cutoff = datetime.now(UTC) - timedelta(seconds=grace_seconds)
+        stmt = (
+            sa.update(table)
+            .where(
+                table.c.topic == topic,
+                table.c.status == "inflight",
+                table.c.lease_expires_at.is_not(None),
+                table.c.lease_expires_at <= cutoff,
+            )
+            .values(
+                status="pending",
+                lease_expires_at=None,
+                attempts=table.c.attempts + 1,
+            )
+        )
+        async with self._engine.begin() as conn:
+            result = await conn.execute(stmt)
+        return int(result.rowcount or 0)
+
+    async def requeue_dead(self, message_id: str) -> bool:
+        await self.ensure_schema()
+        table = self._table
+        stmt = (
+            sa.update(table)
+            .where(table.c.id == message_id, table.c.status == "dead")
+            .values(status="pending", attempts=0, lease_expires_at=None, reason=None)
+        )
+        async with self._engine.begin() as conn:
+            result = await conn.execute(stmt)
+        return bool(result.rowcount)
 
     # --- internals ------------------------------------------------------
 

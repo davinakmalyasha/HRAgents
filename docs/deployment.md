@@ -201,6 +201,15 @@ remains the external probe for orchestrators. The rules test
 (`tests/test_alerts_config.py`) fails if a rule references a series the API no
 longer renders, so a renamed metric cannot silently disable an alert.
 
+The dead letters themselves are readable at `GET /v1/ops/dead-letters`
+(`admin:manage`; metadata and payload keys, never the résumé text) and a
+requeue is `POST /v1/ops/dead-letters/{id}/requeue` with a mandatory reason,
+recorded on the audit chain. Requeueing resets the attempt budget because a
+person decided the cause is fixed; the automatic reaper does the opposite and
+counts the attempt, so a crash-looping message still runs out of retries. The
+`queue-reaper` scheduler job returns leases older than five minutes to pending,
+which covers a worker wedged on the handler itself.
+
 ## 4. Backups (and proving they work)
 
 ```bash

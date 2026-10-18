@@ -39,6 +39,7 @@ from hr_agents.api.routers import (
     jobs,
     offboarding,
     offers,
+    ops,
     queue,
     scheduling,
     session,
@@ -381,6 +382,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(compliance.audit_router, responses=ERROR_RESPONSES)
     app.include_router(growth.router, responses=ERROR_RESPONSES)
     app.include_router(offboarding.router, responses=ERROR_RESPONSES)
+    app.include_router(ops.router, responses=ERROR_RESPONSES)
     app.include_router(session.router, responses=ERROR_RESPONSES)
 
     @app.get("/healthz", tags=["system"], summary="Liveness probe")

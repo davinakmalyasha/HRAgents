@@ -34,7 +34,7 @@ def test_every_router_module_is_reachable_by_the_structural_fences() -> None:
     `test_write_routes_declare_their_actor_as_a_dependency` without either
     failing -- the exact failure this file exists to prevent.
     """
-    assert len(MODULES) == 19, f"router modules changed: {MODULES}"
+    assert len(MODULES) == 20, f"router modules changed: {MODULES}"
     for name, router in api_routers():
         assert all_routes_of(router), f"{name} contributes no routes to the fences"
 
@@ -78,7 +78,7 @@ def test_the_fences_see_more_routes_than_a_single_router_attribute_would() -> No
     write_paths = {route.path for route in write_routes()}
     assert len(people_write_routes) == 16, sorted(people_write_routes)
     assert people_write_routes <= write_paths
-    assert len(write_routes()) == 104, f"the API's mutating surface changed: {len(write_routes())}"
+    assert len(write_routes()) == 105, f"the API's mutating surface changed: {len(write_routes())}"
 
 
 def test_permission_extraction_still_finds_declared_permissions() -> None:

@@ -78,6 +78,27 @@ class QueueBackend(Protocol):
         """List dead-lettered messages, optionally filtered by topic."""
         ...
 
+    async def requeue_expired(self, topic: str, *, grace_seconds: float = 300.0) -> int:
+        """Return leases that expired at least ``grace_seconds`` ago to pending.
+
+        ``claim`` already recovers an expired lease the next time something
+        claims the topic. This exists for the case where the worker itself is
+        wedged on the handler: a separate process (the scheduler's reaper) can
+        put the message back without waiting for that worker to loop. Returns
+        the number of messages requeued; their attempt count is incremented, so
+        a message that keeps dying still exhausts its retry budget.
+        """
+        ...
+
+    async def requeue_dead(self, message_id: str) -> bool:
+        """Return one dead-lettered message to its topic's pending list.
+
+        A deliberate operator action, not a retry: the attempt counter resets,
+        because a person decided the cause is fixed. Returns False when no dead
+        letter with that id exists.
+        """
+        ...
+
 
 def lease_deadline(lease_seconds: float) -> datetime:
     if lease_seconds <= 0:

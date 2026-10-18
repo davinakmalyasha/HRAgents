@@ -23,9 +23,11 @@ from hr_agents.models import (
     business_today,
     utc_now,
 )
+from hr_agents.services.queue_ops import EXPIRED_LEASE_GRACE_SECONDS
 
 if TYPE_CHECKING:
     from hr_agents.messaging.store import ReplyStore
+    from hr_agents.providers.queue import QueueBackend
     from hr_agents.services.employees import EmployeeService
     from hr_agents.services.people import PeopleServices
     from hr_agents.services.recruiting import CommunicationService, RecruitingServices
@@ -41,6 +43,7 @@ JOB_OFFER_EXPIRY = "offer-expiry"
 JOB_TASKS_OVERDUE = "tasks-overdue"
 JOB_AUDIT_VERIFY = "audit-verify"
 JOB_REPLY_SLA = "reply-sla"
+JOB_QUEUE_REAPER = "queue-reaper"
 
 JOB_NAMES: tuple[str, ...] = (
     JOB_APPROVALS,
@@ -53,6 +56,7 @@ JOB_NAMES: tuple[str, ...] = (
     JOB_TASKS_OVERDUE,
     JOB_AUDIT_VERIFY,
     JOB_REPLY_SLA,
+    JOB_QUEUE_REAPER,
 )
 
 DOCUMENT_EXPIRY_WINDOW_DAYS = 60
@@ -190,10 +194,16 @@ class Scheduler:
         people: PeopleServices,
         recruiting: RecruitingServices,
         replies: ReplyStore | None = None,
+        queue: QueueBackend | None = None,
+        queue_reaper_grace_seconds: float = EXPIRED_LEASE_GRACE_SECONDS,
     ) -> None:
         self._people = people
         self._recruiting = recruiting
         self._replies = replies
+        # Tests inject a backend; production resolves it inside the reaper so
+        # the async client is created on the loop that will use it.
+        self._queue = queue
+        self._queue_reaper_grace_seconds = queue_reaper_grace_seconds
 
     def run(
         self,
@@ -292,6 +302,33 @@ class Scheduler:
         )
         return len(tasks), f"{len(tasks)} unanswered message(s) flagged for follow-up"
 
+    def _run_queue_reaper(self, _moment: datetime, _purge: bool) -> tuple[int, str]:
+        """Return leases whose worker died or wedged to the pending list.
+
+        ``claim`` already recovers an expired lease lazily; this runs from the
+        scheduler's separate process, so a worker stuck *on the handler* can
+        have its message retried without waiting for that worker to loop again.
+        """
+        import asyncio
+
+        from hr_agents.queue import QueueUnavailableError, resolve_queue_backend
+        from hr_agents.services.evaluation_job import EVALUATION_TOPIC
+        from hr_agents.services.queue_ops import reap_expired_leases
+
+        async def reap() -> int:
+            queue = self._queue if self._queue is not None else await resolve_queue_backend()
+            return await reap_expired_leases(
+                queue,
+                (EVALUATION_TOPIC,),
+                grace_seconds=self._queue_reaper_grace_seconds,
+            )
+
+        try:
+            requeued = asyncio.run(reap())
+        except QueueUnavailableError:
+            return 0, "no queue backend available; nothing to reap"
+        return requeued, f"{requeued} stale lease(s) requeued"
+
 
 _HANDLERS = {
     JOB_APPROVALS: Scheduler._run_approvals,
@@ -304,4 +341,5 @@ _HANDLERS = {
     JOB_TASKS_OVERDUE: Scheduler._run_tasks_overdue,
     JOB_AUDIT_VERIFY: Scheduler._run_audit_verify,
     JOB_REPLY_SLA: Scheduler._run_reply_sla,
+    JOB_QUEUE_REAPER: Scheduler._run_queue_reaper,
 }

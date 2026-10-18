@@ -35,6 +35,7 @@ from hr_agents.models import (
     Urgency,
     business_today,
 )
+from hr_agents.providers.queue import MemoryQueueBackend, QueueBackend
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionInput
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.recruiting import RecruitingServices
@@ -58,13 +59,22 @@ def replies() -> ReplyStore:
 def make_scheduler(
     audit: AuditChain | None = None,
     replies: ReplyStore | None = None,
+    queue: QueueBackend | None = None,
 ) -> tuple[Scheduler, PeopleServices, RecruitingServices, ApplicationStore]:
     people = PeopleServices() if audit is None else PeopleServices(audit=audit)
     applications = ApplicationStore()
     recruiting = RecruitingServices(
         audit=people.audit, applications=applications, approvals=people.approvals
     )
-    scheduler = Scheduler(people=people, recruiting=recruiting, replies=replies)
+    scheduler = Scheduler(
+        people=people,
+        recruiting=recruiting,
+        replies=replies,
+        # Always inject: a None queue makes the reaper resolve the developer's
+        # configured backend, which turns a test run into an environment probe.
+        queue=queue if queue is not None else MemoryQueueBackend(),
+        queue_reaper_grace_seconds=0,
+    )
     return scheduler, people, recruiting, applications
 
 
@@ -513,3 +523,33 @@ def test_sla_job_reports_cleanly_without_a_reply_store() -> None:
     assert report.jobs[0].ok is True
     assert report.jobs[0].changed == 0
     assert "no reply store" in report.jobs[0].detail
+
+
+# --- queue reaper -------------------------------------------------------------------------
+
+
+def test_the_queue_reaper_requeues_a_stale_lease() -> None:
+    """A wedged worker never loops back to claim; the scheduler's process
+    must put the message back, and the attempt count still rises."""
+    import asyncio
+
+    from hr_agents.providers.queue import MemoryQueueBackend
+
+    backend = MemoryQueueBackend()
+    scheduler, *_ = make_scheduler(queue=backend)
+    topic = "evaluation.evaluate"
+
+    async def stage() -> None:
+        await backend.publish(topic, {"application_id": "demo"})
+        await backend.claim(topic, lease_seconds=0.01)
+        await asyncio.sleep(0.05)
+
+    asyncio.run(stage())
+
+    report = scheduler.run(["queue-reaper"], now=NOW)
+
+    (job,) = report.jobs
+    assert job.ok is True
+    assert job.changed == 1
+    assert "stale lease" in job.detail
+    assert asyncio.run(backend.stats(topic)).pending == 1
