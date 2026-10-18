@@ -56,7 +56,10 @@ onboarding plan, a draft growth cycle and a payroll run for the current month.
 Everything is created through the real services, so the audit trail, the
 approval queue, the task list and the retention ledger are populated too.
 The marker employee number `DEMO-001` makes the seed idempotent on Postgres;
-with the in-memory backend each process starts empty, so every run reseeds.
+with the in-memory backend each process starts empty, so every run reseeds —
+and a separately started dev server will not see a standalone seed, because
+the two processes share no store. Use the Compose stack (Postgres) for a demo
+you can browse.
 
 The statutory rate tables are seeded **unverified** on purpose. Payroll refuses
 to compute on a table nobody has checked against a source, and the demo should
