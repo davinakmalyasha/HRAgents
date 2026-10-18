@@ -3084,7 +3084,8 @@
           "message_id",
           "topic",
           "created_at",
-          "attempts"
+          "attempts",
+          "payload_keys"
         ],
         "title": "DeadLetterView",
         "type": "object"

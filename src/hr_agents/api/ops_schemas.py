@@ -25,7 +25,7 @@ class DeadLetterView(StrictModel):
     attempts: int = Field(ge=0)
     failed_reason: str | None = None
     failed_at: UtcDateTime | None = None
-    payload_keys: list[str] = Field(default_factory=list)
+    payload_keys: list[str]
     application_id: UUID | None = None
 
     @classmethod

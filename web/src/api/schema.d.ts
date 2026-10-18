@@ -3985,7 +3985,7 @@ export interface components {
             /** Message Id */
             message_id: string;
             /** Payload Keys */
-            payload_keys?: string[];
+            payload_keys: string[];
             /** Topic */
             topic: string;
         };

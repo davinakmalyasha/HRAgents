@@ -43,6 +43,7 @@ export interface PaletteLabels {
   home: string
   navigation: string
   actions: string
+  operations: string
   rooms: Record<'board' | 'queue' | 'chat', string>
   toggleTheme: string
   switchToEnglish: string
@@ -89,6 +90,14 @@ export function buildPaletteItems(
       run: () => actions.navigate(`/w/${workspace.id}`),
     })
   }
+
+  items.push({
+    id: 'go-operations',
+    group: 'navigation',
+    label: labels.operations,
+    keywords: ['operations', 'ops', 'dead letters', 'queue', 'operasi', 'antrean'],
+    run: () => actions.navigate('/ops'),
+  })
 
   if (sources.current !== null) {
     for (const room of ['board', 'queue', 'chat'] as const) {

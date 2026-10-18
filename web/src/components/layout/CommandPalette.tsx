@@ -71,6 +71,7 @@ export function CommandPalette({
           home: t('palette.home'),
           navigation: t('palette.navigation'),
           actions: t('palette.actions'),
+          operations: t('palette.operations'),
           rooms: {
             board: t('rooms.board'),
             queue: t('rooms.queue'),

@@ -1206,7 +1206,27 @@
     "home": "Home",
     "navigation": "Go to",
     "actions": "Actions",
+    "operations": "Operations",
     "switchToEnglish": "Switch to English",
     "switchToIndonesian": "Ganti ke Bahasa Indonesia"
+  },
+  "ops": {
+    "title": "Operations",
+    "hint": "Messages the pipeline accepted and could not process. Requeueing retries the work; the reason you give is recorded on the audit chain.",
+    "empty": "No dead-lettered messages. That is the healthy state.",
+    "forbidden": "Only an HR administrator can see the operations queue.",
+    "unavailable": "The queue is not available right now.",
+    "deadLetter": "Dead letter",
+    "attempts_one": "{{count}} attempt",
+    "attempts_other": "{{count}} attempts",
+    "failedAt": "failed {{date}}",
+    "reason": "Reason: {{reason}}",
+    "payloadKeys": "Payload keys: {{keys}}",
+    "openApplication": "Open the application",
+    "requeue": "Requeue",
+    "requeueReason": "Why is this being retried?",
+    "confirmRequeue": "Requeue message",
+    "cancel": "Cancel",
+    "requeueFailed": "The requeue was refused. Check the reason and try again."
   }
 }

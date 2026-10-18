@@ -208,7 +208,9 @@ recorded on the audit chain. Requeueing resets the attempt budget because a
 person decided the cause is fixed; the automatic reaper does the opposite and
 counts the attempt, so a crash-looping message still runs out of retries. The
 `queue-reaper` scheduler job returns leases older than five minutes to pending,
-which covers a worker wedged on the handler itself.
+which covers a worker wedged on the handler itself. The dashboard mirrors the
+API at `/app/ops` (reachable from the command palette) with the same
+reason-gated requeue.
 
 ## 4. Backups (and proving they work)
 

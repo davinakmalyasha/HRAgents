@@ -46,8 +46,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [ ] Structured logging through the service layer. Today `get_logger` is imported in exactly one
       module: 32 services, 24 routers, and every agent emit **zero** log lines
 - [ ] Request/correlation id bound to `structlog.contextvars` and echoed in responses
-- [ ] Dead-letter dashboard; worker stuck-job reaper (alert rules, including a
-      dead-letter alert, ship in `ops/alerts/hragents.rules.yml`)
+- [x] Dead-letter dashboard (`/app/ops`: metadata only, reason-gated requeue recorded
+      on the audit chain) and the worker stuck-job reaper (`queue-reaper` scheduler job,
+      leases expired beyond five minutes go back to pending with the attempt counted);
+      the dead-letter alert ships in `ops/alerts/hragents.rules.yml`
 - [ ] OTel traces — declared as a dependency and never wired. Three unused packages ship in the
       production image; drop them or instrument
 - [ ] Cost tracking: no `usage()` call exists anywhere, so "what did this candidate cost" is

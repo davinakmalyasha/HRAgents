@@ -11,6 +11,7 @@ import { ImportPage } from '@/pages/ImportPage'
 import { JobsPage } from '@/pages/JobsPage'
 import { LoginPage } from '@/pages/LoginPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+import { OperationsPage } from '@/pages/OperationsPage'
 import { WorkspacePage } from '@/pages/WorkspacePage'
 
 export function AppRoutes() {
@@ -25,6 +26,7 @@ export function AppRoutes() {
         <Route path="w/:workspaceId" element={<WorkspacePage />} />
         <Route path="w/hiring/import" element={<ImportPage />} />
         <Route path="w/hiring/jobs" element={<JobsPage />} />
+        <Route path="ops" element={<OperationsPage />} />
         <Route
           path="w/:workspaceId/applications/:applicationId"
           element={<ApplicationDetailPage />}

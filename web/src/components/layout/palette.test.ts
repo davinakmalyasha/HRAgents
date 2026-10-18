@@ -6,6 +6,7 @@ const LABELS: PaletteLabels = {
   home: 'Home',
   navigation: 'Go to',
   actions: 'Actions',
+  operations: 'Operations',
   rooms: { board: 'Board', queue: 'Queue', chat: 'Chat' },
   toggleTheme: 'Toggle theme',
   switchToEnglish: 'Switch to English',
@@ -58,7 +59,12 @@ describe('what the palette offers', () => {
     const { items } = build({})
 
     const navigation = items.filter((item) => item.group === 'navigation')
-    expect(navigation.map((item) => item.label)).toEqual(['Home', 'Hiring', 'Payroll'])
+    expect(navigation.map((item) => item.label)).toEqual([
+      'Home',
+      'Hiring',
+      'Payroll',
+      'Operations',
+    ])
   })
 
   it('navigates to the workspace it names', () => {

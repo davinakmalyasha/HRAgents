@@ -1206,7 +1206,27 @@
     "home": "Beranda",
     "navigation": "Buka",
     "actions": "Tindakan",
+    "operations": "Operasi",
     "switchToEnglish": "Switch to English",
     "switchToIndonesian": "Ganti ke Bahasa Indonesia"
+  },
+  "ops": {
+    "title": "Operasi",
+    "hint": "Pesan yang diterima pipeline tetapi tidak dapat diproses. Requeue mencoba ulang pekerjaannya; alasan yang Anda berikan tercatat di rantai audit.",
+    "empty": "Tidak ada pesan gagal. Itu kondisi yang sehat.",
+    "forbidden": "Hanya administrator HR yang dapat melihat antrean operasi.",
+    "unavailable": "Antrean tidak tersedia saat ini.",
+    "deadLetter": "Pesan gagal",
+    "attempts_one": "{{count}} percobaan",
+    "attempts_other": "{{count}} percobaan",
+    "failedAt": "gagal {{date}}",
+    "reason": "Alasan: {{reason}}",
+    "payloadKeys": "Kunci payload: {{keys}}",
+    "openApplication": "Buka lamaran",
+    "requeue": "Requeue",
+    "requeueReason": "Mengapa pesan ini dicoba ulang?",
+    "confirmRequeue": "Requeue pesan",
+    "cancel": "Batal",
+    "requeueFailed": "Requeue ditolak. Periksa alasan lalu coba lagi."
   }
 }

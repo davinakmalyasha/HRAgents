@@ -572,8 +572,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       container has a `HEALTHCHECK`, so a job failing inside `while true` is visible. Alert rules
       ship in `ops/alerts/hragents.rules.yml` (stuck queue, scheduler stale/failing, dead
       letters, backlog, API error/latency), guarded by a test against the metrics actually
-      rendered; a dead-letter dashboard and the worker stuck-job reaper remain in the
-      polish backlog
+      rendered; the dead-letter dashboard (`/app/ops`, metadata-only with a reason-gated
+      requeue) and the worker stuck-job reaper (`queue-reaper` scheduler job) also
+      ship, and the API exposes the list and requeue behind `admin:manage`
 - [ ] **Business dates are server-local.** ≈20 bare `date.today()` calls and no `Settings.timezone`
       anywhere, so on a UTC host "today" is yesterday for 17 hours a day in WIB — off-by-one leave
       day counts, contract expiry windows, and payroll periods. Needs `HRAGENTS_TIMEZONE` threaded
