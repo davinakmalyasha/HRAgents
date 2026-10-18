@@ -177,7 +177,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
   - [ ] 50-profile dataset: 18 engineering + 32 non-IT, EN/ID mixed, PDF+MD+JSON variants
   - [ ] Edge cases (~15): name-swap fairness pairs, date overlap/gap, fake certification, scanned PDF, oversize, career change, overqualified
   - [ ] Feedback faithfulness live-model suite
-  - [ ] Policy regression suite (threshold routing table)
+  - [x] Policy regression suite: a table-driven boundary suite over `evaluate_policy`
+        (`tests/services/test_policy.py`) — every inclusive/exclusive edge of each threshold,
+        the precedence order (consent > anomaly > calendar > score), and one custom-threshold
+        table proving the operator's bands and the snapshot move together
 
 ### 4.5 Pipeline wiring `IN PROGRESS`
 - [x] `ApplicationPipeline`: received → guard → extract (k runs) → score → aggregate → policy → route → persist, fully audited
