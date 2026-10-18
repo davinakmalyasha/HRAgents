@@ -174,8 +174,17 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
   - [x] Injection safety cases (prompt injection, invisible chars)
   - [x] Structural/safety evaluators (schema round-trip, guard expectations, sanitization)
   - [x] **Live model run passing: 5/5 cases, 100% assertions on MiMo V2.5 via Command Code (ZDR on)** — results in `docs/architecture/benchmarks.md` §4
-  - [ ] 50-profile dataset: 18 engineering + 32 non-IT, EN/ID mixed, PDF+MD+JSON variants
-  - [ ] Edge cases (~15): name-swap fairness pairs, date overlap/gap, fake certification, scanned PDF, oversize, career change, overqualified
+  - [x] 50-profile dataset: 18 engineering + 32 non-IT, EN/ID mixed (24/26),
+        PDF+MD+JSON variants. A structured catalog (`evals/profiles.py`) renders each
+        profile as Markdown for the agent, structured JSON for ATS-style imports, and a
+        real PDF through a deterministic writer — so the pypdf extraction path is
+        exercised against bytes the repository regenerates. Every variant must read back
+        with the candidate's name (`tests/test_evals_dataset.py`), and the full 69-case
+        suite passes the offline structural/safety run
+  - [x] Edge cases: name-swap fairness pairs in both languages, overlapping and gapped
+        employment dates, a fake certification and a certification mismatch, career
+        change, overqualified, oversize input, empty experience, and special characters;
+        a scanned (no text layer) PDF is covered by a blank-PDF extraction assertion
   - [ ] Feedback faithfulness live-model suite
   - [x] Policy regression suite: a table-driven boundary suite over `evaluate_policy`
         (`tests/services/test_policy.py`) — every inclusive/exclusive edge of each threshold,

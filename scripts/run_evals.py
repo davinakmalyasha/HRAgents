@@ -17,9 +17,9 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "evals"))
+sys.path.insert(0, str(REPO_ROOT))
 
-from resume_extraction import ResumeCase, build_dataset  # noqa: E402
+from evals.resume_extraction import ResumeCase, build_dataset  # noqa: E402
 
 from hr_agents.agents import AgentDeps, AgentRuntime  # noqa: E402
 from hr_agents.agents.resume_deconstructor import ResumeDeconstructor  # noqa: E402
