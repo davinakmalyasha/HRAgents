@@ -334,8 +334,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Onboarding workspace: checklists, document collection status
 - [x] Records workspace: employee directory (unit filterable), org chart with roll-up headcount,
       document vault, expiry alerts, named-human document verification
-- [ ] Payroll workspace (prep & verify): data assembly, anomaly flags, export
-- [ ] Audit viewer: searchable, verified chain, export
+- [x] Payroll workspace (prep & verify): run lifecycle, verified-table provenance, per-line
+      anomaly flags with blocking gates, XLSX review packet export (review-only, never payment),
+      cancellation with its recorded reason, append-only run history
+- [x] Audit viewer: searchable trail with exact-match filters and time window, live chain
+      verification naming the checker, export of the slice read
 - [ ] Skills/knowledge editor (markdown editing with preview, versioning)
 
 ### 6.5 PWA
@@ -404,12 +407,22 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       `usable` was permanently false and every compute raised a blocking error
 - [x] `require_usable` selects the table **in force** on the payroll date (newest `effective_from`
       among unexpired) instead of the last one by list order
-- [ ] Move the hourly divisor (173 h) and overtime multipliers (1.5×/2.0×) into verified rate tables
-      — they are statutory numbers hardcoded in `payroll.py`, against the project's own rule
-- [ ] Replace `float` money with `Decimal` + `ROUND_HALF_UP` and add a totals-equal-lines invariant
-- [ ] Progressive (marginal) PPh 21 TER brackets; today one bracket's rate is applied to the whole gross
-- [ ] Implement `THR` (a declared run kind with zero implementations) and the `MINIMUM_WAGE` check
-- [ ] Honour `PayrollInput.absence_days`, which is collected, validated, and persisted — then ignored
+- [x] ~~Move the hourly divisor (173 h) and overtime multipliers (1.5×/2.0×) into verified rate
+      tables — they are statutory numbers hardcoded in `payroll.py`, against the project's own rule~~
+      Done in the payroll audit: every multiplier and the divisor come from verified tables with no
+      fallback, and a missing row blocks
+- [x] ~~Replace `float` money with `Decimal` + `ROUND_HALF_UP` and add a totals-equal-lines
+      invariant~~ Done: `models/money.py` and `PayrollLine.check_invariants` (now also mirrored as
+      database CHECK constraints, migration `0023`)
+- [x] ~~Progressive (marginal) PPh 21 TER brackets; today one bracket's rate is applied to the
+      whole gross~~ Done in the payroll audit, along with the top-bracket `0.0` return and TER
+      being applied to the whole gross
+- [x] ~~Implement `THR` (a declared run kind with zero implementations) and the `MINIMUM_WAGE`
+      check~~ Done: THR, PTKP and the minimum-wage check all read verified tables; the open BPJS
+      treatment of THR is a deliberate blocking anomaly for a named human
+- [x] ~~Honour `PayrollInput.absence_days`, which is collected, validated, and persisted — then
+      ignored~~ Done in the payroll audit: absence days reduce the paid base and the figure is
+      provenanced like the rest
 - [x] Persistence: 7 tables + Alembic `0002_people` (16 tables total)
 - [x] API surface: employees, contracts, approvals, tasks, rate tables (18 endpoints) — all audited, integration-tested
 - [x] Tests: 111 new (engines + API integration) — suites pass offline, no LLM involved
