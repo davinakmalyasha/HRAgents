@@ -7,6 +7,7 @@ the generic mapping helpers; behavior contracts stay in ``services/people_store`
 from __future__ import annotations
 
 from datetime import date, timedelta
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import case, func, select
@@ -240,6 +241,9 @@ class DbContractStore(ContractStore):
         ``ContractService.expiring`` applies in Python.
         """
         where: list[ColumnElement[bool]] = []
+        # The two orders touch different columns (start_date vs end_date), so
+        # the tuple's element type differs by branch; both are column expressions.
+        order: tuple[Any, ...]
         if expiring_within_days is None:
             order = (pt.ContractRecord.start_date, pt.ContractRecord.id)
         else:
