@@ -8,6 +8,7 @@ from hr_agents.models import (
     AccrualMethod,
     ApprovalStatus,
     ApproverRole,
+    DocumentKind,
     Employee,
     LeaveRequest,
     LeaveType,
@@ -54,9 +55,11 @@ def service(
     return LeaveService(employees=employee_service, approvals=approvals, audit=audit)
 
 
-def make_employee(employee_service: EmployeeService, *, days_employed: int = 400) -> Employee:
+def make_employee(
+    employee_service: EmployeeService, *, full_name: str = "Sari Dewi", days_employed: int = 400
+) -> Employee:
     return employee_service.create(
-        full_name="Sari Dewi",
+        full_name=full_name,
         actor=people_admin(),
         hire_date=TODAY - timedelta(days=days_employed),
         job_title="Finance Staff",
@@ -362,15 +365,62 @@ def test_document_provided_passes_sick_policy(
 ) -> None:
     service.set_policy(per_event_sick_policy(), actor=people_admin())
     employee = make_employee(employee_service)
+    document = employee_service.add_document(
+        employee.id,
+        kind=DocumentKind.OTHER,
+        storage_key="vault/sick-note.pdf",
+        sha256="a" * 64,
+        actor=people_admin(),
+    )
     request = service.request(
         employee_id=employee.id,
         leave_type=LeaveType.SICK,
         start_date=WORK_START,
         end_date=WORK_START + timedelta(days=1),
         actor=owner_of(employee),
-        document_id=uuid4(),
+        document_id=document.id,
     )
     assert request.status is RequestStatus.PENDING
+
+
+def test_unknown_document_rejected(
+    service: LeaveService, employee_service: EmployeeService
+) -> None:
+    service.set_policy(per_event_sick_policy(), actor=people_admin())
+    employee = make_employee(employee_service)
+    with pytest.raises(LeaveError, match="not on this employee's vault"):
+        service.request(
+            employee_id=employee.id,
+            leave_type=LeaveType.SICK,
+            start_date=WORK_START,
+            end_date=WORK_START + timedelta(days=1),
+            actor=owner_of(employee),
+            document_id=uuid4(),
+        )
+
+
+def test_another_employees_document_rejected(
+    service: LeaveService, employee_service: EmployeeService
+) -> None:
+    service.set_policy(per_event_sick_policy(), actor=people_admin())
+    employee = make_employee(employee_service)
+    other = make_employee(employee_service, full_name="Budi Santoso")
+    document = employee_service.add_document(
+        other.id,
+        kind=DocumentKind.OTHER,
+        storage_key="vault/budi-sick-note.pdf",
+        sha256="b" * 64,
+        actor=people_admin(),
+    )
+    with pytest.raises(LeaveError, match="not on this employee's vault"):
+        service.request(
+            employee_id=employee.id,
+            leave_type=LeaveType.SICK,
+            start_date=WORK_START,
+            end_date=WORK_START + timedelta(days=1),
+            actor=owner_of(employee),
+            document_id=document.id,
+        )
 
 
 def test_over_max_per_request_rejected(

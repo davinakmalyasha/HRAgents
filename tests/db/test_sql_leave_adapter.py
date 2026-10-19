@@ -12,6 +12,8 @@ dicts would fail here rather than in production.
 from datetime import timedelta
 from uuid import uuid4
 
+import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.leave import DbLeaveService
@@ -22,6 +24,7 @@ from hr_agents.models import (
     ApprovalRequest,
     ApprovalSubject,
     ApproverRole,
+    DocumentKind,
     Employee,
     LeaveRequest,
     LeaveType,
@@ -244,6 +247,34 @@ def test_requests_for_survives_a_restart(factory: sessionmaker[Session]) -> None
     # `pending_requests` reads across every employee's rows, which is the other
     # cross-row aggregation that had no seam before.
     assert fresh.pending_requests() == []
+
+
+def test_document_id_must_name_a_vault_document(factory: sessionmaker[Session]) -> None:
+    """The supporting document is a real row, and the database holds it so.
+
+    The service checks the id before saving; this test also writes a made-up
+    id past the service check and proves the foreign key refuses it, so no
+    future caller can reintroduce an orphaned reference.
+    """
+    service = _service(factory)
+    employee = _employee(service)
+    document = service._employees.add_document(
+        employee.id,
+        kind=DocumentKind.OTHER,
+        storage_key="vault/sick-note.pdf",
+        sha256="a" * 64,
+        actor=ACTOR,
+    )
+
+    record = _request(employee).model_copy(update={"document_id": document.id})
+    service._save_request(record)
+    loaded = _service(factory)._load_request(record.id)
+    assert loaded is not None
+    assert loaded.document_id == document.id
+
+    dangling = _request(employee).model_copy(update={"document_id": uuid4()})
+    with pytest.raises(IntegrityError):
+        service._save_request(dangling)
 
 
 def test_page_requests_pushes_predicate_order_and_limit_into_sql(

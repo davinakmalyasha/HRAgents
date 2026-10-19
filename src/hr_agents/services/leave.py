@@ -350,6 +350,11 @@ class LeaveService:
         for any employee, which is harmless while only HR can reach this method
         and not harmless the moment employees can request their own. The caller
         must now be that employee, their manager, or hold ``people:write``.
+
+        A ``document_id``, when supplied, must name a document on that
+        employee's own vault. The policy asks the *employee* for evidence --
+        a file on somebody else's record is not evidence, and an id that names
+        nothing is not a document at all.
         """
         employee = self._require_employee(employee_id)
         actor.require_may_act_for(
@@ -366,6 +371,10 @@ class LeaveService:
 
         if policy.requires_document and document_id is None:
             raise LeaveError(f"{leave_type.value} leave requires a supporting document")
+        if document_id is not None and all(
+            document.id != document_id for document in self._employees.documents_for(employee_id)
+        ):
+            raise LeaveError(f"supporting document is not on this employee's vault: {document_id}")
         if policy.max_days_per_request is not None and days > policy.max_days_per_request:
             raise LeaveError(
                 f"{days} days exceeds the {policy.max_days_per_request}-day cap for "
