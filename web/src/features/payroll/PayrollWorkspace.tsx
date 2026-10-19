@@ -17,6 +17,7 @@ import {
   isComputable,
   isExportable,
   isSubmittable,
+  isSupersedable,
   packetUrl,
   rupiah,
   type LineView,
@@ -30,6 +31,7 @@ import {
   usePayrollRun,
   usePayrollRuns,
   useSubmitRun,
+  useSupersedeRun,
 } from './usePayroll'
 
 /**
@@ -204,6 +206,8 @@ export function PayrollQueue() {
               })}
               {' — '}
               {RUN_KIND_LABELS[option.kind]}
+              {' — '}
+              {t(`payroll.status.${option.status}`)}
             </option>
           ))}
         </select>
@@ -212,24 +216,28 @@ export function PayrollQueue() {
       {run.isLoading || run.data === undefined || run.data === null ? (
         <Skeleton className="h-40" />
       ) : (
-        <RunDetail run={run.data} />
+        <RunDetail run={run.data} onRunCreated={setSelectedId} />
       )}
     </section>
   )
 }
 
-function RunDetail({ run }: { run: RunView }) {
+function RunDetail({ run, onRunCreated }: { run: RunView; onRunCreated: (runId: string) => void }) {
   const { t } = useTranslation()
   const compute = useComputeRun()
   const submit = useSubmitRun()
   const cancel = useCancelRun()
+  const supersede = useSupersedeRun()
   const cancellation = cancellationNote(run)
   const blocking = blockingAnomalies(run)
   const advisory = advisoryAnomalies(run)
-  const busy = compute.isPending || submit.isPending || cancel.isPending
+  const busy = compute.isPending || submit.isPending || cancel.isPending || supersede.isPending
   const [askingToCancel, setAskingToCancel] = useState(false)
   const [reason, setReason] = useState('')
   const blankReason = reason.trim() === ''
+  const [askingToSupersede, setAskingToSupersede] = useState(false)
+  const [supersedeReason, setSupersedeReason] = useState('')
+  const blankSupersedeReason = supersedeReason.trim() === ''
 
   return (
     <div className="flex flex-col gap-4">
@@ -239,6 +247,12 @@ function RunDetail({ run }: { run: RunView }) {
         <Total label={t('payroll.net')} value={run.totals.net} />
         <Total label={t('payroll.employerCost')} value={run.totals.employer_cost} />
       </dl>
+
+      {run.supersedes_id ? (
+        <p className="text-ink-muted text-xs">
+          {t('payroll.supersedes', { id: run.supersedes_id.slice(0, 8) })}
+        </p>
+      ) : null}
 
       {blocking.length > 0 ? (
         <section aria-labelledby="payroll-blocking" className="flex flex-col gap-2">
@@ -291,6 +305,12 @@ function RunDetail({ run }: { run: RunView }) {
             onClick={() => submit.mutate(run.id)}
           >
             {t('payroll.submit')}
+          </Button>
+        ) : null}
+
+        {isSupersedable(run.status) && !askingToSupersede ? (
+          <Button variant="outline" disabled={busy} onClick={() => setAskingToSupersede(true)}>
+            {t('payroll.supersede')}
           </Button>
         ) : null}
 
@@ -348,6 +368,57 @@ function RunDetail({ run }: { run: RunView }) {
             </Button>
             {blankReason ? (
               <p className="text-ink-muted text-xs">{t('payroll.cancelReasonRequired')}</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {isSupersedable(run.status) && askingToSupersede ? (
+        <div className="flex flex-col gap-2">
+          <label className="text-ink-muted text-xs" htmlFor={`supersede-reason-${run.id}`}>
+            {t('payroll.supersedeReasonLabel')}
+          </label>
+          <textarea
+            id={`supersede-reason-${run.id}`}
+            className="border-line w-full rounded border p-2 text-sm"
+            rows={2}
+            placeholder={t('payroll.supersedeReasonPlaceholder')}
+            value={supersedeReason}
+            onChange={(event) => setSupersedeReason(event.target.value)}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            {/**
+             * The reviewed run stays frozen; the successor is a new row. The reason is
+             * what tells a reader months later why the earlier figures were replaced.
+             */}
+            <Button
+              disabled={busy || blankSupersedeReason}
+              onClick={() =>
+                supersede.mutate(
+                  { runId: run.id, reason: supersedeReason.trim() },
+                  {
+                    onSuccess: (successor) => {
+                      setAskingToSupersede(false)
+                      setSupersedeReason('')
+                      if (successor) onRunCreated(successor.id)
+                    },
+                  },
+                )
+              }
+            >
+              {t('payroll.confirmSupersede')}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setAskingToSupersede(false)
+                setSupersedeReason('')
+              }}
+            >
+              {t('payroll.keepRun')}
+            </Button>
+            {blankSupersedeReason ? (
+              <p className="text-ink-muted text-xs">{t('payroll.supersedeReasonRequired')}</p>
             ) : null}
           </div>
         </div>

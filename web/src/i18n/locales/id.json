@@ -800,14 +800,21 @@
       "approved": "Disetujui",
       "rejected": "Ditolak approver",
       "exported": "Diekspor",
-      "cancelled": "Dibatalkan"
+      "cancelled": "Dibatalkan",
+      "superseded": "Digantikan"
     },
     "cancelReasonLabel": "Alasan membatalkan perhitungan ini",
     "cancelReasonPlaceholder": "Apa yang salah dengan perhitungan ini?",
     "cancelReasonRequired": "Pembatalan membuang perhitungan yang sudah dihitung, jadi perlu alasan.",
     "confirmCancel": "Konfirmasi pembatalan",
     "keepRun": "Pertahankan perhitungan",
-    "cancelledBecause": "Dibatalkan: {{reason}}"
+    "cancelledBecause": "Dibatalkan: {{reason}}",
+    "supersede": "Hitung ulang sebagai versi baru",
+    "supersedeReasonLabel": "Mengapa perhitungan yang sudah ditinjau ini diganti",
+    "supersedeReasonPlaceholder": "Apa yang berubah sejak peninjauan?",
+    "supersedeReasonRequired": "Perhitungan yang ditinjau tetap terkunci, jadi hitung ulang perlu alasan.",
+    "confirmSupersede": "Mulai hitung ulang",
+    "supersedes": "Hitung ulang dari proses {{id}}"
   },
   "offboarding": {
     "boardTitle": "Sedang keluar",

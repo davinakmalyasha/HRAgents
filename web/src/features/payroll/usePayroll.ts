@@ -9,6 +9,7 @@ import {
   getRun,
   listRuns,
   submitRun,
+  supersedeRun,
   type RunCreate,
 } from './payrollApi'
 
@@ -46,6 +47,15 @@ export function useComputeRun() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (runId: string) => computeRun(runId),
+    onSuccess: invalidateRuns(queryClient),
+  })
+}
+
+export function useSupersedeRun() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ runId, reason }: { runId: string; reason: string }) =>
+      supersedeRun(runId, reason),
     onSuccess: invalidateRuns(queryClient),
   })
 }

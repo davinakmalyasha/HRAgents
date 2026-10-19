@@ -800,14 +800,21 @@
       "approved": "Signed off",
       "rejected": "Rejected by approver",
       "exported": "Exported",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "superseded": "Superseded"
     },
     "cancelReasonLabel": "Reason for cancelling this run",
     "cancelReasonPlaceholder": "What went wrong with this run?",
     "cancelReasonRequired": "Cancelling discards a computed run, so it needs a reason.",
     "confirmCancel": "Confirm cancellation",
     "keepRun": "Keep run",
-    "cancelledBecause": "Cancelled: {{reason}}"
+    "cancelledBecause": "Cancelled: {{reason}}",
+    "supersede": "Re-run as new version",
+    "supersedeReasonLabel": "Why this reviewed run is being replaced",
+    "supersedeReasonPlaceholder": "What changed since the review?",
+    "supersedeReasonRequired": "The reviewed run stays frozen, so the re-run needs a reason.",
+    "confirmSupersede": "Start the re-run",
+    "supersedes": "Re-run of run {{id}}"
   },
   "offboarding": {
     "boardTitle": "Departing",

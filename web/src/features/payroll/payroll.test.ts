@@ -15,6 +15,7 @@ import {
   isComputable,
   isExportable,
   isSubmittable,
+  isSupersedable,
   rupiah,
   type AnomalyView,
   type LineView,
@@ -136,8 +137,25 @@ describe('lifecycle actions follow the server state machine', () => {
     expect(isCancellable('approved')).toBe(false)
     expect(isCancellable('exported')).toBe(false)
     expect(isCancellable('cancelled')).toBe(false)
+    expect(isCancellable('superseded')).toBe(false)
     expect(isCancellable('draft')).toBe(true)
     expect(isCancellable('ready_for_review')).toBe(true)
+  })
+
+  it('supersedes only a reviewed run, never an editable one', () => {
+    expect(isSupersedable('ready_for_review')).toBe(true)
+    expect(isSupersedable('rejected')).toBe(true)
+    for (const status of [
+      'draft',
+      'assembling',
+      'pending_signoff',
+      'approved',
+      'exported',
+      'cancelled',
+      'superseded',
+    ] as RunStatus[]) {
+      expect(isSupersedable(status)).toBe(false)
+    }
   })
 })
 
@@ -233,6 +251,7 @@ describe('labels cover every value the API can return', () => {
       'rejected',
       'exported',
       'cancelled',
+      'superseded',
     ]
     for (const status of everyStatus) {
       expect(RUN_STATUS_LABELS[status]).toBeTruthy()

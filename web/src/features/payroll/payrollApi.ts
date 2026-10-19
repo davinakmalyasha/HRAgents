@@ -43,6 +43,7 @@ export const RUN_STATUS_LABELS: Record<RunStatus, string> = {
   rejected: 'Rejected by approver',
   exported: 'Exported',
   cancelled: 'Cancelled',
+  superseded: 'Superseded',
 }
 
 export const RUN_KIND_LABELS: Record<RunKind, string> = {
@@ -67,6 +68,17 @@ export function isSubmittable(status: RunStatus): boolean {
   return status === 'ready_for_review'
 }
 
+/**
+ * A reviewed run is immutable; a re-run is a new linked run.
+ *
+ * Mirrors `PayrollService._require_editable`: only a draft or assembling run is
+ * recomputed in place. From `ready_for_review` the server offers `supersede`, which
+ * freezes the reviewed figures and starts a fresh editable run.
+ */
+export function isSupersedable(status: RunStatus): boolean {
+  return status === 'ready_for_review' || status === 'rejected'
+}
+
 /** Whether a reviewer may download the review packet. */
 export function isExportable(status: RunStatus): boolean {
   return status === 'approved'
@@ -79,7 +91,7 @@ export function isExportable(status: RunStatus): boolean {
  * would produce a 409 the user cannot act on.
  */
 export function isCancellable(status: RunStatus): boolean {
-  return !['approved', 'exported', 'cancelled'].includes(status)
+  return !['approved', 'exported', 'cancelled', 'superseded'].includes(status)
 }
 
 /**
@@ -157,6 +169,14 @@ export async function computeRun(runId: string): Promise<{ status: number }> {
     body: {},
   })
   return { status: response.status }
+}
+
+export async function supersedeRun(runId: string, reason: string): Promise<RunView | null> {
+  const { data } = await api.POST('/v1/payroll/runs/{run_id}/supersede', {
+    params: { path: { run_id: runId } },
+    body: { reason },
+  })
+  return data ?? null
 }
 
 export async function submitRun(runId: string): Promise<{ status: number }> {
