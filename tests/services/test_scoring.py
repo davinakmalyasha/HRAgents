@@ -13,6 +13,7 @@ from hr_agents.models import (
     SkillCategory,
     VerificationStatus,
 )
+from hr_agents.services.dimensions import ENGINEERING
 from hr_agents.services.scoring import normalize_skill, score_candidate, score_runs
 
 REFERENCE = date(2025, 1, 1)
@@ -184,3 +185,22 @@ def test_all_scores_bounded() -> None:
     result = score_candidate(make_profile(), make_job(), reference_date=REFERENCE)
     for value in result.vector.as_mapping().values():
         assert 0.0 <= value <= 1.0
+
+
+def test_an_explicit_template_overrides_the_family_default() -> None:
+    """The pipeline resolves the active rubric; scoring must use what it is given."""
+    template = ENGINEERING.model_copy(
+        update={
+            "professional_categories": frozenset({SkillCategory.OTHER}),
+            "signal_keywords": ("quantum accounting",),
+            "signal_saturation": 1,
+            "title_tiers": ((frozenset({"chief executive"}), 1.0),),
+        }
+    )
+    profile = make_profile()
+    job = make_job()
+    default = score_candidate(profile, job, reference_date=REFERENCE)
+    narrowed = score_candidate(profile, job, reference_date=REFERENCE, template=template)
+
+    assert narrowed.vector.systems_literacy < default.vector.systems_literacy
+    assert narrowed.vector.technical_depth == default.vector.technical_depth

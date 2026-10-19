@@ -302,23 +302,26 @@ def score_candidate(
     job: JobSpecification,
     *,
     reference_date: date | None = None,
+    template: DimensionTemplate | None = None,
 ) -> ScoringResult:
     """Deterministically score a profile against a job specification.
 
     ``reference_date`` is required for reproducibility of tenure math for
     candidates with ongoing roles; tests must pass a fixed date.
 
-    The rubric comes from ``job.job_family``. It defaults to engineering, so every job
-    created before that field existed is scored exactly as it was.
+    ``template`` is the active rubric when the caller has resolved one (the
+    pipeline does, through the verified registry); without it the code template
+    for ``job.job_family`` scores, which defaults to engineering so every job
+    created before the family existed is scored exactly as it was.
     """
     ref = reference_date or business_today()
     weights = job.effective_weights()
-    template = template_for(job.job_family)
+    rubric = template or template_for(job.job_family)
 
     breakdown = [
-        _technical_depth(profile, ref, template),
+        _technical_depth(profile, ref, rubric),
         _stack_alignment(profile, job),
-        _systems_literacy(profile, template),
+        _systems_literacy(profile, rubric),
         _verifiable_certifications(profile),
     ]
 

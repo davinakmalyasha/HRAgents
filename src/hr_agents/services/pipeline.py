@@ -35,8 +35,8 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
-from hr_agents.services.dimensions import snapshot_for
 from hr_agents.services.policy import evaluate_policy
+from hr_agents.services.rubrics import RubricRegistry
 from hr_agents.services.scoring import ScoringResult, score_candidate
 from hr_agents.tools.registry import ToolRegistry
 
@@ -159,12 +159,14 @@ class ApplicationPipeline:
         deconstructor: ResumeDeconstructor,
         storage: StoragePort,
         audit: AuditChain,
+        rubrics: RubricRegistry | None = None,
         guard: InjectionGuard | None = None,
         config: PipelineConfig | None = None,
     ) -> None:
         self._deconstructor = deconstructor
         self._storage = storage
         self._audit = audit
+        self._rubrics = rubrics or RubricRegistry()
         self._guard = guard or InjectionGuard()
         self._config = config
 
@@ -277,9 +279,13 @@ class ApplicationPipeline:
 
         primary = profiles[0]
 
-        # 2. Deterministic scoring per extraction, then aggregation
+        # 2. Deterministic scoring per extraction, then aggregation. The active
+        #    verified rubric is resolved once: every run must use the same
+        #    template, or sigma would measure rubric drift as extraction noise.
+        rubric, rubric_snapshot = self._rubrics.resolve(job.job_family)
         scoring = [
-            score_candidate(profile, job, reference_date=reference_date) for profile in profiles
+            score_candidate(profile, job, reference_date=reference_date, template=rubric)
+            for profile in profiles
         ]
         runs = [
             _to_scoring_run(index, result, application_id) for index, result in enumerate(scoring)
@@ -304,7 +310,7 @@ class ApplicationPipeline:
             breakdown=scoring[0].breakdown,
             flags=sorted({flag for flag in flags}, key=lambda item: item.value),
             recommendation=Recommendation.HUMAN_REVIEW,  # replaced below
-            rubric=snapshot_for(job.job_family),
+            rubric=rubric_snapshot,
             created_at=utc_now(),
         )
 

@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 from pydantic import Field
 
-from hr_agents.models.common import EvidenceRef, StrictModel, UtcDateTime, utc_now
+from hr_agents.models.common import EvidenceRef, StrictModel, UtcDateTime, Versioned, utc_now
 from hr_agents.models.job_family import JobFamily
 
 
@@ -132,6 +132,30 @@ class RubricSnapshot(StrictModel):
     family: JobFamily
     digest: str = Field(pattern=r"^[0-9a-f]{64}$")
     template: dict[str, object]
+
+
+class RubricVersion(Versioned):
+    """One stored rubric version for a job family, behind a verified gate.
+
+    A human drafts a version from a full template, a human verifies it with a
+    source note, and only then can it become active. Storing the canonical
+    payload means the digest a stored evaluation cites resolves to the exact
+    template that produced it, even after the code templates move on.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    family: JobFamily
+    # `version` is the optimistic-concurrency token inherited from Versioned; the
+    # rubric's own identity is its revision number within the family.
+    revision: int = Field(ge=1)
+    digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    template: dict[str, object]
+    active: bool = False
+    verified_by: str | None = Field(default=None, max_length=200)
+    verified_at: UtcDateTime | None = None
+    verified_note: str | None = Field(default=None, max_length=500)
+    created_by: str = Field(min_length=1, max_length=200)
+    created_at: UtcDateTime = Field(default_factory=utc_now)
 
 
 class TechnicalEvaluation(StrictModel):

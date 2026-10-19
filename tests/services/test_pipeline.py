@@ -6,16 +6,18 @@ from pydantic_ai.models.test import TestModel
 
 from hr_agents.agents import AgentRuntime
 from hr_agents.agents.resume_deconstructor import ResumeDeconstructor
+from hr_agents.identity import ActorRef
 from hr_agents.knowledge import KnowledgeRetriever
 from hr_agents.models import (
     EvaluationFlag,
+    JobFamily,
     JobSpecification,
     PolicyDecision,
     Recommendation,
     TechnicalEvaluation,
 )
 from hr_agents.services.audit import AuditChain
-from hr_agents.services.dimensions import snapshot_for
+from hr_agents.services.dimensions import ENGINEERING, snapshot_for
 from hr_agents.services.pipeline import (
     ApplicationPipeline,
     InMemoryStorage,
@@ -159,6 +161,38 @@ async def test_pipeline_persists_output(pipeline: ApplicationPipeline) -> None:
     assert profile.full_name
     assert evaluation.id
     assert evaluation.rubric == snapshot_for(make_job().job_family)
+
+
+async def test_the_active_verified_rubric_scores_and_is_snapshotted(
+    pipeline: ApplicationPipeline,
+) -> None:
+    """An activated stored version is what the pipeline scores with.
+
+    The variant changes only the breadth saturation, which is enough to prove
+    the resolved template reached the scorer; the snapshot must cite the stored
+    version's digest, not today's code template.
+    """
+    actor = ActorRef.legacy("hr-admin")
+    variant = ENGINEERING.model_copy(update={"breadth_saturation": 99})
+    draft = pipeline._rubrics.create_version(
+        family=JobFamily.ENGINEERING, template=variant, actor=actor, note="test revision"
+    )
+    pipeline._rubrics.verify(draft.id, actor=actor, source_note="test fixture")
+    pipeline._rubrics.activate(draft.id, actor=actor)
+
+    result = await pipeline.process(
+        application_id="app-rubric",
+        resume_text=RESUME,
+        consent_active=True,
+        job=make_job(),
+        config=config(),
+    )
+
+    evaluation = evaluated(result)
+    assert evaluation.rubric is not None
+    assert evaluation.rubric.digest == draft.digest
+    assert evaluation.rubric.template["breadth_saturation"] == 99
+    assert evaluation.breakdown, "the breakdown is still produced from the active template"
 
 
 async def test_injection_flags_route_to_human(pipeline: ApplicationPipeline) -> None:

@@ -144,6 +144,35 @@ class Evaluation(TenantScoped, Base):
     )
 
 
+class RubricVersionRecord(TenantScoped, Base):
+    """One stored rubric version. The payload is canonical JSON, digest-addressed."""
+
+    __tablename__ = "rubric_versions"
+    __table_args__ = (
+        Index("ix_rubric_versions_tenant", "tenant_id"),
+        UniqueConstraint(
+            "tenant_id", "family", "revision", name="uq_rubric_versions_family_revision"
+        ),
+        UniqueConstraint("tenant_id", "family", "digest", name="uq_rubric_versions_family_digest"),
+        CheckConstraint("revision >= 1", name="ck_rubric_versions_revision"),
+        CheckConstraint("length(digest) = 64", name="ck_rubric_versions_digest_length"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    family: Mapped[str] = mapped_column(String(32), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    template: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    verified_by: Mapped[str | None] = mapped_column(String(200))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    verified_note: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class ScheduleProposal(TenantScoped, Base):
     __tablename__ = "schedule_proposals"
 

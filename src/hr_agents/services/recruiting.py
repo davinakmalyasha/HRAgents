@@ -78,6 +78,7 @@ from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
 from hr_agents.services.offers import OfferService
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.retention import subject_uuid
+from hr_agents.services.rubrics import RubricRegistry
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session, sessionmaker
@@ -1767,12 +1768,14 @@ class RecruitingServices:
     scheduling: SchedulingService = field(init=False)
     communications: CommunicationService = field(init=False)
     offers: OfferService = field(init=False)
+    rubrics: RubricRegistry = field(init=False)
 
     def __post_init__(self) -> None:
         if self.session_factory is None:
             self.documents = DocumentService(audit=self.audit)
             self.jobs = JobService(audit=self.audit)
             self.evaluations = EvaluationService(audit=self.audit, applications=self.applications)
+            self.rubrics = RubricRegistry(audit=self.audit)
             self.scheduling = SchedulingService(
                 evaluations=self.evaluations,
                 audit=self.audit,
@@ -1799,12 +1802,14 @@ class RecruitingServices:
             DbJobService,
             DbSchedulingService,
         )
+        from hr_agents.db.rubrics import DbRubricStore
 
         self.documents = DbDocumentService(session_factory=self.session_factory, audit=self.audit)
         self.jobs = DbJobService(session_factory=self.session_factory, audit=self.audit)
         self.evaluations = DbEvaluationService(
             session_factory=self.session_factory, audit=self.audit, applications=self.applications
         )
+        self.rubrics = RubricRegistry(DbRubricStore(self.session_factory), audit=self.audit)
         self.scheduling = DbSchedulingService(
             evaluations=self.evaluations,
             session_factory=self.session_factory,

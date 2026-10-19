@@ -55,6 +55,7 @@ def build_pipeline(app, agent_set, config: PipelineConfig) -> ApplicationPipelin
         deconstructor=agent_set.resume,
         storage=storage,
         audit=app.state.audit,
+        rubrics=app.state.recruiting.rubrics,
         config=config,
     )
 
