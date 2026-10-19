@@ -140,10 +140,10 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       was the last gap in that module.
 - [x] **Fix the 68 write endpoints guarded by a READ permission** and wire the dead permissions.
       `tests/test_route_inventory.py` asserts the read-guarded write set is empty and that the
-      extractor still sees every module. `PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`
-      and `RATES_VERIFY` are all used by routers now. `AUDIT_READ` guards the audit-trail
-      router, so reading the raw chain is grantable without the rest of compliance access;
-      `ADMIN_MANAGE` remains defined-but-unused.
+      extractor still sees every module. `PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`,
+      `RATES_VERIFY` and `RUBRICS_VERIFY` are all used by routers now. `AUDIT_READ` guards the
+      audit-trail router, so reading the raw chain is grantable without the rest of compliance
+      access, and `ADMIN_MANAGE` guards the ops dead-letter surface.
 - [x] **Type errors once**: `api/problem.py` owns a `ProblemCode` vocabulary and a central status
       map, replacing `if message.startswith("unknown")` and 29 per-router `_not_found` /
       `_conflict` / `_forbidden` / `_bad_request` copies with one shared implementation.
@@ -419,9 +419,15 @@ Remaining in this area:
       selected by `JobSpecification.job_family`. Every family declares its competency areas, signal
       keywords, title ladder, depth vocabulary, breadth saturation and internal weights; `JobFamily` is
       checked against the registry at import so a family cannot fall back silently.
-- [ ] **`DimensionTemplate` as data, not code**: `{job_family, dimensions: [{key, weight, scorer,
-      evidence_requirement}], thresholds}` — versioned, audited, and snapshotted into every
-      evaluation. The scorer stays deterministic; only the dimension list becomes data.
+- [~] **`DimensionTemplate` as data, not code.** The template itself is now operator data:
+      `rubric_versions` stores full canonical payloads, drafted, verified by a named human with
+      a source note behind `rubrics:verify`, activated one per family, audited, and resolved by
+      the pipeline with the code template as the fallback. The stored digest is what an
+      evaluation snapshot cites, so an old score resolves to the exact payload. What remains of
+      the item: the four-axis *list* is still fixed (`ScoreDimension` is persisted, published
+      in OpenAPI and rendered in two locales), so a family can change what counts as evidence
+      but cannot add a fifth axis; thresholds still live in `services/policy.py` rather than in
+      the version payload.
 - [x] **Version and snapshot the rubric on the evaluation.** `RubricSnapshot` (family, a
       content-addressed sha256 digest and the canonical template JSON) is attached by the
       pipeline and persisted in `evaluations.document`, so an old score names the exact
