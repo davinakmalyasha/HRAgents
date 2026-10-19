@@ -6,10 +6,10 @@ the generic mapping helpers; behavior contracts stay in ``services/people_store`
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -225,6 +225,50 @@ class DbContractStore(ContractStore):
     def list_for_employee(self, employee_id: UUID) -> list[Contract]:
         return [item for item in self.list_all() if item.employee_id == employee_id]
 
+    def page_contracts(
+        self,
+        *,
+        expiring_within_days: int | None,
+        as_of: date,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Contract], int]:
+        """The contract list in SQL: the expiry window, or ``(start_date, id)``.
+
+        The window is ``0 <= days remaining <= expiring_within_days``, which is
+        ``end_date`` between ``as_of`` and ``as_of + window`` -- the same rule
+        ``ContractService.expiring`` applies in Python.
+        """
+        where: list[ColumnElement[bool]] = []
+        if expiring_within_days is None:
+            order = (pt.ContractRecord.start_date, pt.ContractRecord.id)
+        else:
+            window_end = as_of + timedelta(days=expiring_within_days)
+            where.extend(
+                [
+                    pt.ContractRecord.end_date.is_not(None),
+                    pt.ContractRecord.end_date >= as_of,
+                    pt.ContractRecord.end_date <= window_end,
+                ]
+            )
+            order = (pt.ContractRecord.end_date, pt.ContractRecord.id)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(pt.ContractRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(pt.ContractRecord)
+                    .where(*where)
+                    .order_by(*order)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(Contract, row) for row in rows], int(total or 0)
+
 
 class DbApprovalStore(ApprovalStore):
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
@@ -321,6 +365,40 @@ class DbTaskStore(TaskStore):
                 .all()
             )
             return [model_from_row(TaskItem, row) for row in rows]
+
+    def page_tasks(
+        self, *, overdue_only: bool, as_of: date, limit: int, offset: int
+    ) -> tuple[list[TaskItem], int]:
+        """The dashboard queue in SQL: open predicate, overdue rank, NULLS LAST.
+
+        The rank matches ``TaskItem.is_overdue`` exactly -- open and due before
+        ``as_of`` -- and undated tasks sort last, mirroring ``date.max`` in the
+        in-memory store. The id tiebreak keeps OFFSET stable otherwise.
+        """
+        open_statuses = [status.value for status in TaskStatus if status not in TERMINAL_STATUSES]
+        overdue = pt.TaskRecord.due_on.is_not(None) & (pt.TaskRecord.due_on < as_of)
+        where: list[ColumnElement[bool]] = [pt.TaskRecord.status.in_(open_statuses)]
+        if overdue_only:
+            where.append(overdue)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(select(func.count()).select_from(pt.TaskRecord).where(*where))
+            rows = (
+                session.execute(
+                    select(pt.TaskRecord)
+                    .where(*where)
+                    .order_by(
+                        case((overdue, 0), else_=1),
+                        pt.TaskRecord.due_on.asc().nulls_last(),
+                        pt.TaskRecord.created_at,
+                        pt.TaskRecord.id,
+                    )
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(TaskItem, row) for row in rows], int(total or 0)
 
 
 class DbRateTableStore(RateTableStore):

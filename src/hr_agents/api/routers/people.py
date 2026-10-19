@@ -333,16 +333,14 @@ def list_contracts(
     paging: PaginationDep,
     expiring_within_days: Annotated[int | None, Query(ge=0, le=365)] = None,
 ) -> Page[ContractView]:
-    if expiring_within_days is not None:
-        ordered = sorted(
-            people.contracts.expiring(within_days=expiring_within_days),
-            key=lambda contract: (contract.days_until_expiry() or 0, str(contract.id)),
-        )
-    else:
-        contracts = people.contracts._store.list_all()
-        ordered = sorted(contracts, key=lambda contract: (contract.start_date, str(contract.id)))
-    return Page.slice(
-        [ContractView.from_model(contract) for contract in ordered],
+    items, total = people.contracts.page_contracts(
+        expiring_within_days=expiring_within_days,
+        limit=paging.limit,
+        offset=paging.offset,
+    )
+    return Page.of(
+        [ContractView.from_model(contract) for contract in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -511,18 +509,14 @@ def list_tasks(
     paging: PaginationDep,
     overdue_only: Annotated[bool, Query()] = False,
 ) -> Page[TaskView]:
-    tasks = people.tasks.overdue() if overdue_only else people.tasks.open_tasks()
-    ordered = sorted(
-        tasks,
-        key=lambda task: (
-            0 if task.is_overdue() else 1,
-            task.due_on or date.max,
-            task.created_at,
-            str(task.id),
-        ),
+    items, total = people.tasks.page_tasks(
+        overdue_only=overdue_only,
+        limit=paging.limit,
+        offset=paging.offset,
     )
-    return Page.slice(
-        [TaskView.from_model(task) for task in ordered],
+    return Page.of(
+        [TaskView.from_model(task) for task in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

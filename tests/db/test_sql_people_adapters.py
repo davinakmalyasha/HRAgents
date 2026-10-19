@@ -241,6 +241,103 @@ def test_task_store_round_trip(factory: sessionmaker[Session]) -> None:
     assert persisted[0].completed_by == "hr-admin"
 
 
+def test_page_tasks_ranks_overdue_first_and_excludes_closed(
+    factory: sessionmaker[Session],
+) -> None:
+    """The dashboard queue: open only, past-due first, undated last, stable paging.
+
+    Closed work must not appear at all; the overdue rank is the same predicate
+    the row filter uses, so a page cannot disagree with ``overdue_only``.
+    """
+    store = DbTaskStore(factory)
+    today = business_today()
+    overdue = TaskItem(title="Overdue", due_on=today - timedelta(days=2))
+    due_soon = TaskItem(
+        title="Due soon",
+        due_on=today + timedelta(days=1),
+        status=TaskStatus.IN_PROGRESS,
+    )
+    undated = TaskItem(title="Undated", status=TaskStatus.BLOCKED)
+    done = TaskItem(title="Done", due_on=today - timedelta(days=5), status=TaskStatus.DONE)
+    cancelled = TaskItem(title="Cancelled", status=TaskStatus.CANCELLED)
+    for task in (due_soon, done, undated, overdue, cancelled):
+        store.add(task)
+
+    fresh = DbTaskStore(factory)
+    page, total = fresh.page_tasks(overdue_only=False, as_of=today, limit=10, offset=0)
+    assert total == 3, "closed tasks are not work in the queue"
+    assert [task.title for task in page] == ["Overdue", "Due soon", "Undated"]
+
+    second, second_total = fresh.page_tasks(overdue_only=False, as_of=today, limit=1, offset=2)
+    assert second_total == 3
+    assert [task.title for task in second] == ["Undated"], "undated work sorts last"
+
+    past_due, past_due_total = fresh.page_tasks(overdue_only=True, as_of=today, limit=10, offset=0)
+    assert past_due_total == 1
+    assert [task.title for task in past_due] == ["Overdue"]
+
+
+def test_page_contracts_expiry_window_and_start_order(
+    factory: sessionmaker[Session],
+) -> None:
+    """The two contract list orders: the sweep's window, then start-date order.
+
+    The window is inclusive on both ends and excludes expired contracts, which
+    is exactly ``0 <= days remaining <= window`` in the service.
+    """
+    employee = _add_employee(DbEmployeeStore(factory))
+    store = DbContractStore(factory)
+    today = business_today()
+    no_end = Contract(
+        employee_id=employee.id,
+        contract_type=ContractType.PKWTT,
+        start_date=today - timedelta(days=300),
+        compensation_due=True,
+    )
+    expired = Contract(
+        employee_id=employee.id,
+        contract_type=ContractType.PKWT,
+        start_date=today - timedelta(days=200),
+        end_date=today - timedelta(days=10),
+        compensation_due=True,
+    )
+    boundary = Contract(
+        employee_id=employee.id,
+        contract_type=ContractType.PKWT,
+        start_date=today - timedelta(days=100),
+        end_date=today + timedelta(days=60),
+        compensation_due=True,
+    )
+    soon = Contract(
+        employee_id=employee.id,
+        contract_type=ContractType.PKWT,
+        start_date=today - timedelta(days=50),
+        end_date=today + timedelta(days=5),
+        compensation_due=True,
+    )
+    for contract in (boundary, expired, soon, no_end):
+        store.add(contract)
+
+    fresh = DbContractStore(factory)
+    window, window_total = fresh.page_contracts(
+        expiring_within_days=60, as_of=today, limit=10, offset=0
+    )
+    assert window_total == 2, "expired contracts and open-ended ones are not expiring"
+    assert [contract.id for contract in window] == [soon.id, boundary.id]
+
+    first, first_total = fresh.page_contracts(
+        expiring_within_days=60, as_of=today, limit=1, offset=0
+    )
+    assert first_total == 2
+    assert [contract.id for contract in first] == [soon.id]
+
+    everything, everything_total = fresh.page_contracts(
+        expiring_within_days=None, as_of=today, limit=2, offset=1
+    )
+    assert everything_total == 4
+    assert [contract.id for contract in everything] == [expired.id, boundary.id]
+
+
 def test_rate_table_store_round_trip(factory: sessionmaker[Session]) -> None:
     store = DbRateTableStore(factory)
     table = RateTable(

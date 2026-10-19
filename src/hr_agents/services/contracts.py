@@ -178,6 +178,21 @@ class ContractService:
                 result.append(contract)
         return sorted(result, key=lambda item: item.days_until_expiry(as_of=today) or 0)
 
+    def page_contracts(
+        self,
+        *,
+        expiring_within_days: int | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Contract], int]:
+        """The contract list page: the store owns the predicate, order and count."""
+        return self._store.page_contracts(
+            expiring_within_days=expiring_within_days,
+            as_of=business_today(),
+            limit=limit,
+            offset=offset,
+        )
+
     def create_expiry_tasks(self, *, as_of: date | None = None) -> list[TaskItem]:
         """Create reminder tasks for expiring contracts (idempotent per contract)."""
         if self._tasks is None:

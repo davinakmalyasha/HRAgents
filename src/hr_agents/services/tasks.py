@@ -20,6 +20,7 @@ from hr_agents.models import (
     TaskPriority,
     TaskSource,
     TaskStatus,
+    business_today,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -191,6 +192,17 @@ class TaskEngine:
 
     def overdue(self, *, as_of: date | None = None) -> list[TaskItem]:
         return [task for task in self.open_tasks() if task.is_overdue(as_of=as_of)]
+
+    def page_tasks(
+        self, *, overdue_only: bool = False, limit: int, offset: int
+    ) -> tuple[list[TaskItem], int]:
+        """The dashboard queue page: the store owns the predicate, order and count."""
+        return self._store.page_tasks(
+            overdue_only=overdue_only,
+            as_of=business_today(),
+            limit=limit,
+            offset=offset,
+        )
 
     def for_role(self, role: ApproverRole) -> list[TaskItem]:
         return [task for task in self.open_tasks() if task.assignee_role is role]

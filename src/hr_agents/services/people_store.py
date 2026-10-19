@@ -7,7 +7,7 @@ services' responsibility (stores are dumb persistence).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from uuid import UUID
 
 from hr_agents.models import (
@@ -214,6 +214,36 @@ class ContractStore:
     def list_for_employee(self, employee_id: UUID) -> list[Contract]:
         return [item for item in self.list_all() if item.employee_id == employee_id]
 
+    def page_contracts(
+        self,
+        *,
+        expiring_within_days: int | None,
+        as_of: date,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Contract], int]:
+        """The contract list's two orders: expiry window, or ``(start_date, id)``.
+
+        The expiring view is the sweep's window -- ``0 <= days remaining <=
+        window``, which is ``end_date`` between ``as_of`` and ``as_of + window``
+        -- sorted by days remaining. ``as_of`` arrives from the caller so both
+        stores compute the window against the same business day.
+        """
+        contracts = self.list_all()
+        if expiring_within_days is None:
+            ordered = sorted(contracts, key=lambda item: (item.start_date, str(item.id)))
+        else:
+            window_end = as_of + timedelta(days=expiring_within_days)
+            ordered = sorted(
+                (
+                    contract
+                    for contract in contracts
+                    if contract.end_date is not None and as_of <= contract.end_date <= window_end
+                ),
+                key=lambda item: (item.end_date, str(item.id)),
+            )
+        return ordered[offset : offset + limit], len(ordered)
+
 
 class ApprovalStore:
     def __init__(self) -> None:
@@ -277,6 +307,29 @@ class TaskStore:
 
     def list_all(self) -> list[TaskItem]:
         return sorted(self._tasks.values(), key=lambda item: item.created_at)
+
+    def page_tasks(
+        self, *, overdue_only: bool, as_of: date, limit: int, offset: int
+    ) -> tuple[list[TaskItem], int]:
+        """The dashboard queue: open work, overdue first, stable, one slice.
+
+        The order is the route's: past-due first, then earliest due date with
+        undated tasks last, then creation, then id. ``as_of`` arrives from the
+        caller so both stores read the same business day.
+        """
+        open_tasks = [task for task in self.list_all() if task.is_open]
+        if overdue_only:
+            open_tasks = [task for task in open_tasks if task.is_overdue(as_of=as_of)]
+        ordered = sorted(
+            open_tasks,
+            key=lambda task: (
+                0 if task.is_overdue(as_of=as_of) else 1,
+                task.due_on or date.max,
+                task.created_at,
+                str(task.id),
+            ),
+        )
+        return ordered[offset : offset + limit], len(ordered)
 
     def list_open_by_subject(self, related_subject: str) -> list[TaskItem]:
         """Open tasks linked to one kind of related object.
