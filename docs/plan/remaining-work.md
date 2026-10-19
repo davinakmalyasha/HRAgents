@@ -285,9 +285,14 @@ Remaining in this area:
       index is attached by `db.base.ensure_tenant_indexes()` as the mappers configure rather
       than declared per table, so a table added later cannot miss it. Migration `0018`
       brought the 35 older tables into line; `tests/db/test_tenant_indexes.py` is the guard.
-- [ ] **Payroll runs are not immutable.** A computed run can be recomputed in place, so
-      `rate_table_ids` and the figures change after a human has seen them. A re-run should
-      supersede the run, not rewrite it.
+- [x] **Payroll runs are immutable once computed.** `set_inputs` and `compute` now accept
+      only a draft or assembling run; a reviewed run answers 409 and names the replacement
+      path. `supersede_run` creates a successor linked by `supersedes_id` (migration `0028`,
+      self-FK) that copies the period, kind and inputs and returns in `assembling` for edits;
+      the reviewed run becomes terminal `superseded` and keeps every line, figure and
+      rate-table id. The audit chain records both sides of the link, the XLSX review packet
+      prints the replaced run id, and the web queue labels duplicate periods by status and
+      offers the reason-gated re-run action.
 - [x] **A cancellation reason reaches the audit chain and nowhere else.** `PayrollRun` now
       carries `cancelled_at` and `cancel_reason` (the model refuses half a
       cancellation), `cancel_run` records both, the run view exposes them, the XLSX review
