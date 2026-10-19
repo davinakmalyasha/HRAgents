@@ -576,6 +576,47 @@ def test_offboarding_store_round_trip(factory: sessionmaker[Session]) -> None:
     assert DbOffboardingStore(factory).list_assets()[0].status is AssetStatus.RETURNED
 
 
+def test_page_assets_filters_and_clearance_in_sql(factory: sessionmaker[Session]) -> None:
+    """The asset register pages by employee/plan; clearance keeps only blockers.
+
+    ``blocks_clearance`` is ASSIGNED or MISSING, so returned and written-off
+    hardware must not appear on the exit checklist.
+    """
+    employees = DbEmployeeStore(factory)
+    employee = Employee(full_name="Sari Dewi", status=EmployeeStatus.ACTIVE)
+    other = Employee(full_name="Budi Santoso", status=EmployeeStatus.ACTIVE)
+    employees.add_employee(employee)
+    employees.add_employee(other)
+    store = DbOffboardingStore(factory)
+
+    assigned = OffboardingAsset(employee_id=employee.id, name="Laptop")
+    missing = OffboardingAsset(employee_id=employee.id, name="Phone", status=AssetStatus.MISSING)
+    returned = OffboardingAsset(employee_id=employee.id, name="Badge", status=AssetStatus.RETURNED)
+    theirs = OffboardingAsset(employee_id=other.id, name="Laptop")
+    for asset in (assigned, missing, returned, theirs):
+        store.add_asset(asset)
+
+    mine, mine_total = store.page_assets(employee_id=employee.id, limit=10, offset=0)
+    assert mine_total == 3
+    expected = sorted(
+        [assigned, missing, returned], key=lambda item: (item.created_at, str(item.id))
+    )
+    assert [asset.id for asset in mine] == [asset.id for asset in expected]
+
+    second, second_total = store.page_assets(employee_id=employee.id, limit=1, offset=1)
+    assert second_total == 3
+    assert [asset.id for asset in second] == [expected[1].id]
+
+    blocking, blocking_total = store.page_assets(
+        employee_id=employee.id, clearance_only=True, limit=10, offset=0
+    )
+    assert blocking_total == 2, "returned hardware does not block clearance"
+    blocking_expected = sorted(
+        [assigned, missing], key=lambda item: (item.created_at, str(item.id))
+    )
+    assert [asset.id for asset in blocking] == [asset.id for asset in blocking_expected]
+
+
 def test_calendar_entries_round_trip_and_delete(factory: sessionmaker[Session]) -> None:
     """The operator calendar survives a restart and a removal is a real DELETE.
 

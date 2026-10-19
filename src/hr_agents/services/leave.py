@@ -622,6 +622,24 @@ class LeaveService:
             if item.status is RequestStatus.APPROVED and item.start_date <= target <= item.end_date
         ]
 
+    def page_on_leave(
+        self, *, on_date: date | None, limit: int, offset: int
+    ) -> tuple[list[LeaveRequest], int]:
+        """The calendar page: approved leave covering the day, ``(start_date, id)``.
+
+        The database adapter pushes the overlap predicate (``start_date <=
+        target <= end_date``) into SQL so the calendar reads the day's rows, not
+        every approved request the company has ever filed.
+        """
+        target = on_date or business_today()
+        matched = [
+            item
+            for item in self._iter_requests()
+            if item.status is RequestStatus.APPROVED and item.start_date <= target <= item.end_date
+        ]
+        matched.sort(key=lambda item: (item.start_date, str(item.id)))
+        return matched[offset : offset + limit], len(matched)
+
     # --- internals -------------------------------------------------------
 
     def _require_employee(self, employee_id: UUID) -> Employee:

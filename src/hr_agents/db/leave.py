@@ -22,7 +22,7 @@ from hr_agents.db.leave_tables import (
 )
 from hr_agents.db.mapping import check_version
 from hr_agents.db.session import sync_session_scope
-from hr_agents.models.common import utc_now
+from hr_agents.models.common import business_today, utc_now
 from hr_agents.models.leave import LeaveType, LeaveTypePolicy, RequestStatus
 from hr_agents.services.leave import LeaveRequest, LeaveService
 
@@ -106,6 +106,33 @@ class DbLeaveService(LeaveService):
                 session.execute(
                     select(LeaveRequestRecord)
                     .where(where)
+                    .order_by(LeaveRequestRecord.start_date, LeaveRequestRecord.id)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_request(row) for row in rows], int(total or 0)
+
+    def page_on_leave(
+        self, *, on_date: date | None, limit: int, offset: int
+    ) -> tuple[list[LeaveRequest], int]:
+        """Approved leave covering the day, filtered, ordered and counted in SQL."""
+        target = on_date or business_today()
+        where = [
+            LeaveRequestRecord.status == RequestStatus.APPROVED.value,
+            LeaveRequestRecord.start_date <= target,
+            LeaveRequestRecord.end_date >= target,
+        ]
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(LeaveRequestRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(LeaveRequestRecord)
+                    .where(*where)
                     .order_by(LeaveRequestRecord.start_date, LeaveRequestRecord.id)
                     .offset(offset)
                     .limit(limit)

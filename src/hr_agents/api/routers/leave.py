@@ -180,12 +180,10 @@ def calendar(
     paging: PaginationDep,
     on_date: Annotated[date | None, Query()] = None,
 ) -> Page[LeaveRequestView]:
-    ordered = sorted(
-        leave.on_leave(on_date=on_date),
-        key=lambda item: (item.start_date, str(item.id)),
-    )
-    return Page.slice(
-        [LeaveRequestView.from_model(item) for item in ordered],
+    items, total = leave.page_on_leave(on_date=on_date, limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [LeaveRequestView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

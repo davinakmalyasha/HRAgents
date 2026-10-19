@@ -25,6 +25,7 @@ from hr_agents.db.mapping import (
 )
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
+    AssetStatus,
     AssignmentStatus,
     BreachIncident,
     ComplianceCalendarEntry,
@@ -555,3 +556,41 @@ class DbOffboardingStore(OffboardingStore):
     def list_assets(self) -> list[OffboardingAsset]:
         assets = list_models(self._session_factory, OffboardingAsset, ot.OffboardingAssetRecord)
         return sorted(assets, key=lambda item: item.created_at)
+
+    def page_assets(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        plan_id: UUID | None = None,
+        clearance_only: bool = False,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[OffboardingAsset], int]:
+        """The asset register in SQL: employee/plan predicates, clearance, count."""
+        where = []
+        if employee_id is not None:
+            where.append(ot.OffboardingAssetRecord.employee_id == employee_id)
+        if plan_id is not None:
+            where.append(ot.OffboardingAssetRecord.plan_id == plan_id)
+        if clearance_only:
+            where.append(
+                ot.OffboardingAssetRecord.status.in_(
+                    [AssetStatus.ASSIGNED.value, AssetStatus.MISSING.value]
+                )
+            )
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(ot.OffboardingAssetRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(ot.OffboardingAssetRecord)
+                    .where(*where)
+                    .order_by(ot.OffboardingAssetRecord.created_at, ot.OffboardingAssetRecord.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(OffboardingAsset, row) for row in rows], int(total or 0)

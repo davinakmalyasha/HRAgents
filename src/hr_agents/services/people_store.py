@@ -15,6 +15,7 @@ from hr_agents.models import (
     ApprovalRequest,
     ApprovalStatus,
     ApproverRole,
+    AssetStatus,
     AssignmentStatus,
     BreachIncident,
     ComplianceCalendarEntry,
@@ -756,3 +757,33 @@ class OffboardingStore:
 
     def list_assets(self) -> list[OffboardingAsset]:
         return sorted(self._assets.values(), key=lambda item: item.created_at)
+
+    def page_assets(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        plan_id: UUID | None = None,
+        clearance_only: bool = False,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[OffboardingAsset], int]:
+        """Assets by employee/plan, optionally only those blocking clearance.
+
+        The clearance predicate is ``AssetStatus.ASSIGNED``/``MISSING`` -- the
+        same set ``OffboardingAsset.blocks_clearance`` reads -- so the exit
+        checklist cannot disagree with the full register.
+        """
+        ordered = sorted(
+            (
+                asset
+                for asset in self.list_assets()
+                if (employee_id is None or asset.employee_id == employee_id)
+                and (plan_id is None or asset.plan_id == plan_id)
+                and (
+                    not clearance_only
+                    or asset.status in {AssetStatus.ASSIGNED, AssetStatus.MISSING}
+                )
+            ),
+            key=lambda asset: (asset.created_at, str(asset.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)

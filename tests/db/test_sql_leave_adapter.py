@@ -277,6 +277,35 @@ def test_document_id_must_name_a_vault_document(factory: sessionmaker[Session]) 
         service._save_request(dangling)
 
 
+def test_page_on_leave_filters_the_day_in_sql(factory: sessionmaker[Session]) -> None:
+    """The calendar reads the day's approved requests, not every request ever filed.
+
+    Overlap is inclusive on both ends (``start_date <= day <= end_date``) and
+    only approved requests count; the id tiebreak keeps same-day paging stable.
+    """
+    service = _service(factory)
+    employee = _employee(service)
+    early = _request(employee, start_in_days=0, days=3, status=RequestStatus.APPROVED)
+    late = _request(employee, start_in_days=1, days=2, status=RequestStatus.APPROVED)
+    outside = _request(employee, start_in_days=10, days=1, status=RequestStatus.APPROVED)
+    pending = _request(employee, start_in_days=0, days=3, status=RequestStatus.PENDING)
+    for request in (early, late, outside, pending):
+        service._save_request(request)
+
+    target = TODAY + timedelta(days=1)
+    page, total = service.page_on_leave(on_date=target, limit=10, offset=0)
+    assert total == 2, "pending and non-overlapping requests are not the calendar"
+    assert [item.id for item in page] == [early.id, late.id]
+
+    second, second_total = service.page_on_leave(on_date=target, limit=1, offset=1)
+    assert second_total == 2
+    assert [item.id for item in second] == [late.id]
+
+    today_page, today_total = service.page_on_leave(on_date=None, limit=10, offset=0)
+    assert today_total == 1, "no on_date means the business day"
+    assert [item.id for item in today_page] == [early.id]
+
+
 def test_page_requests_pushes_predicate_order_and_limit_into_sql(
     factory: sessionmaker[Session],
 ) -> None:

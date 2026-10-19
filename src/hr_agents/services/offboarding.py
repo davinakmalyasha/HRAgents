@@ -409,6 +409,24 @@ class OffboardingService:
             assets = [asset for asset in assets if asset.plan_id == plan_id]
         return assets
 
+    def page_assets(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        plan_id: UUID | None = None,
+        clearance_only: bool = False,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[OffboardingAsset], int]:
+        """The asset lists' page: employee/plan and clearance predicates in the store."""
+        return self._store.page_assets(
+            employee_id=employee_id,
+            plan_id=plan_id,
+            clearance_only=clearance_only,
+            limit=limit,
+            offset=offset,
+        )
+
     def mark_asset_returned(
         self,
         asset_id: UUID,

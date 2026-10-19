@@ -302,12 +302,15 @@ def list_assets(
     employee_id: UUID | None = None,
     plan_id: UUID | None = None,
 ) -> Page[AssetView]:
-    assets = sorted(
-        offboarding.list_assets(employee_id=employee_id, plan_id=plan_id),
-        key=lambda item: (item.created_at, str(item.id)),
+    items, total = offboarding.page_assets(
+        employee_id=employee_id,
+        plan_id=plan_id,
+        limit=paging.limit,
+        offset=paging.offset,
     )
-    return Page.slice(
-        [AssetView.from_model(item) for item in assets],
+    return Page.of(
+        [AssetView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -317,12 +320,12 @@ def list_assets(
 def employee_assets(
     employee_id: UUID, offboarding: OffboardingDep, paging: PaginationDep
 ) -> Page[AssetView]:
-    assets = sorted(
-        offboarding.list_assets(employee_id=employee_id),
-        key=lambda item: (item.created_at, str(item.id)),
+    items, total = offboarding.page_assets(
+        employee_id=employee_id, limit=paging.limit, offset=paging.offset
     )
-    return Page.slice(
-        [AssetView.from_model(item) for item in assets],
+    return Page.of(
+        [AssetView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -333,12 +336,15 @@ def asset_clearance(
     employee_id: UUID, offboarding: OffboardingDep, paging: PaginationDep
 ) -> Page[AssetView]:
     """Assets that still block exit clearance for this employee."""
-    assets = sorted(
-        offboarding.asset_clearance(employee_id),
-        key=lambda item: (item.created_at, str(item.id)),
+    items, total = offboarding.page_assets(
+        employee_id=employee_id,
+        clearance_only=True,
+        limit=paging.limit,
+        offset=paging.offset,
     )
-    return Page.slice(
-        [AssetView.from_model(item) for item in assets],
+    return Page.of(
+        [AssetView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
