@@ -49,6 +49,7 @@ from hr_agents.models import (
     DimensionScore,
     EvaluationFlag,
     FeedbackReport,
+    JobFamily,
     JobSpecification,
     JobStatus,
     OfferStatus,
@@ -63,6 +64,7 @@ from hr_agents.models import (
     TimeSlot,
 )
 from hr_agents.rbac import RoleId
+from hr_agents.services.dimensions import snapshot_for
 from hr_agents.services.ingestion import (
     ApplicationRecord,
     ApplicationStatus,
@@ -472,7 +474,9 @@ def test_evaluation_adapter_registration_and_overrides(factory: sessionmaker[Ses
     evaluations = DbEvaluationService(
         session_factory=factory, audit=audit, applications=applications
     )
-    evaluation = make_evaluation(candidate_id=record.candidate_id, job_id=job.id)
+    evaluation = make_evaluation(candidate_id=record.candidate_id, job_id=job.id).model_copy(
+        update={"rubric": snapshot_for(JobFamily.ENGINEERING)}
+    )
     registered = evaluations.register(
         application_id=record.id,
         evaluation=evaluation,
@@ -487,6 +491,9 @@ def test_evaluation_adapter_registration_and_overrides(factory: sessionmaker[Ses
     )
     loaded = fresh.get(evaluation.id)
     assert loaded.candidate_name == "Sari Dewi"
+    assert loaded.evaluation.rubric == snapshot_for(JobFamily.ENGINEERING), (
+        "the rubric snapshot must survive the evaluations.document round-trip"
+    )
     assert loaded.policy.decision is PolicyDecision.AUTO_SCHEDULE
     assert fresh.get_by_application(record.id).evaluation.id == evaluation.id
     assert fresh.get_by_candidate(record.candidate_id).evaluation.id == evaluation.id

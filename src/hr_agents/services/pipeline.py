@@ -35,6 +35,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.dimensions import snapshot_for
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.scoring import ScoringResult, score_candidate
 from hr_agents.tools.registry import ToolRegistry
@@ -303,6 +304,7 @@ class ApplicationPipeline:
             breakdown=scoring[0].breakdown,
             flags=sorted({flag for flag in flags}, key=lambda item: item.value),
             recommendation=Recommendation.HUMAN_REVIEW,  # replaced below
+            rubric=snapshot_for(job.job_family),
             created_at=utc_now(),
         )
 

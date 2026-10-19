@@ -15,6 +15,7 @@ from hr_agents.models import (
     TechnicalEvaluation,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.dimensions import snapshot_for
 from hr_agents.services.pipeline import (
     ApplicationPipeline,
     InMemoryStorage,
@@ -135,6 +136,7 @@ async def test_pipeline_end_to_end(pipeline: ApplicationPipeline) -> None:
     assert result.profile is not None and result.profile.full_name
     assert 0.0 <= evaluated(result).s_tech <= 1.0
     assert evaluated(result).sigma == 0.0  # single run
+    assert evaluated(result).rubric == snapshot_for(make_job().job_family)
     assert result.policy.decision in set(PolicyDecision)
     assert result.recommendation in set(Recommendation)
     assert "pipeline.started" in result.audit_actions
@@ -156,6 +158,7 @@ async def test_pipeline_persists_output(pipeline: ApplicationPipeline) -> None:
     profile, evaluation = storage.saved["app-2"]
     assert profile.full_name
     assert evaluation.id
+    assert evaluation.rubric == snapshot_for(make_job().job_family)
 
 
 async def test_injection_flags_route_to_human(pipeline: ApplicationPipeline) -> None:

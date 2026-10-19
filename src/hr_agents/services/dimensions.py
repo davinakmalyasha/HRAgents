@@ -25,11 +25,13 @@ Two invariants hold here:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from decimal import Decimal
 
 from pydantic import Field
 
-from hr_agents.models import JobFamily, SkillCategory, StrictModel
+from hr_agents.models import JobFamily, RubricSnapshot, SkillCategory, StrictModel
 
 # Everything that is not a letter or digit in a job title becomes a space, so that
 # "Team Lead, Payments" and "Sr. Accountant" split into the words a tier lists.
@@ -779,3 +781,43 @@ def template_for(family: JobFamily) -> DimensionTemplate:
 def families() -> tuple[JobFamily, ...]:
     """Every family with a template, in declaration order."""
     return tuple(_TEMPLATES)
+
+
+def canonical_payload(template: DimensionTemplate) -> dict[str, object]:
+    """The template as deterministic JSON data, for hashing and snapshots.
+
+    ``model_dump(mode="json")`` is almost canonical, but three fields are built
+    from frozensets -- ``breadth_vocabulary``, ``professional_categories`` and
+    each title tier's keyword set -- and set iteration order is an
+    implementation detail. Sorting them keeps the digest stable across
+    processes and Python releases. Tier order is semantic (most senior first)
+    and stays as written.
+    """
+    payload = template.model_dump(mode="json")
+    payload["breadth_vocabulary"] = sorted(payload["breadth_vocabulary"])
+    payload["professional_categories"] = sorted(payload["professional_categories"])
+    payload["title_tiers"] = [
+        [sorted(keywords), weight] for keywords, weight in payload["title_tiers"]
+    ]
+    return payload
+
+
+def rubric_digest(template: DimensionTemplate) -> str:
+    """Content hash of the rubric: identical content, identical digest."""
+    canonical = json.dumps(
+        canonical_payload(template),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def snapshot_for(family: JobFamily) -> RubricSnapshot:
+    """The provenance record attached to every evaluation this family scores."""
+    template = template_for(family)
+    return RubricSnapshot(
+        family=family,
+        digest=rubric_digest(template),
+        template=canonical_payload(template),
+    )

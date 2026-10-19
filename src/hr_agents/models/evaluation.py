@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from pydantic import Field
 
 from hr_agents.models.common import EvidenceRef, StrictModel, UtcDateTime, utc_now
+from hr_agents.models.job_family import JobFamily
 
 
 class ScoreDimension(StrEnum):
@@ -117,6 +118,22 @@ class Recommendation(StrEnum):
     REJECT = "reject"
 
 
+class RubricSnapshot(StrictModel):
+    """The rubric that scored an evaluation, captured at scoring time.
+
+    ``digest`` is content-addressed (sha256 over the canonical template JSON),
+    so a template edited later is detectable rather than silently rewriting the
+    meaning of last month's score. ``template`` is the canonical payload itself:
+    the evaluation row can reproduce which evidence counted without depending on
+    today's code. Five years of evaluations outlive any one version of
+    ``services/dimensions.py``.
+    """
+
+    family: JobFamily
+    digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    template: dict[str, object]
+
+
 class TechnicalEvaluation(StrictModel):
     """Aggregate deterministic evaluation across k independent scoring runs."""
 
@@ -143,6 +160,7 @@ class TechnicalEvaluation(StrictModel):
     flags: list[EvaluationFlag] = Field(default_factory=list)
     recommendation: Recommendation
     policy_version: str = "1.0"
+    rubric: RubricSnapshot | None = None
     created_at: UtcDateTime = Field(default_factory=utc_now)
 
 
