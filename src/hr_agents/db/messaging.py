@@ -79,6 +79,33 @@ class DbReplyStore(ReplyStore):
         self._persist(reply)
         return reply
 
+    def page_replies(
+        self, candidate_id: UUID, *, limit: int, offset: int
+    ) -> tuple[list[CandidateReply], int]:
+        """Page one candidate's inbox in SQL.
+
+        The inherited ``list_for`` filters by scanning every reply in the
+        mailbox table; the page keeps that predicate, plus ORDER BY, OFFSET
+        and the count, inside one transaction.
+        """
+        record = t.CandidateReplyRecord
+        with sync_session_scope(self._session_factory) as session:
+            total = session.execute(
+                select(func.count()).select_from(record).where(record.candidate_id == candidate_id)
+            ).scalar_one()
+            rows = (
+                session.execute(
+                    select(record)
+                    .where(record.candidate_id == candidate_id)
+                    .order_by(record.received_at, record.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_reply(row) for row in rows], total
+
     @staticmethod
     def _to_reply(row: t.CandidateReplyRecord) -> CandidateReply:
         return CandidateReply(

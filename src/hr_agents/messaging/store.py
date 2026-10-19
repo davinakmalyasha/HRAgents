@@ -77,5 +77,20 @@ class ReplyStore:
             key=lambda reply: reply.received_at,
         )
 
+    def page_replies(
+        self, candidate_id: UUID, *, limit: int, offset: int
+    ) -> tuple[list[CandidateReply], int]:
+        """One candidate's inbox: ``(received_at, id)`` with a count.
+
+        The transport writes replies as they arrive, so this list grows for
+        the life of the mailbox; database adapters filter, order and slice it
+        in SQL instead of materializing every candidate's mail first.
+        """
+        ordered = sorted(
+            (reply for reply in self._iter() if reply.candidate_id == candidate_id),
+            key=lambda reply: (reply.received_at, str(reply.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     def list_all(self) -> list[CandidateReply]:
         return list(self._iter())

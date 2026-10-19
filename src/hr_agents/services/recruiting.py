@@ -1279,6 +1279,21 @@ class CommunicationService:
             key=lambda item: item.created_at,
         )
 
+    def page_communications(
+        self, candidate_id: UUID, *, limit: int, offset: int
+    ) -> tuple[list[CandidateCommunication], int]:
+        """One candidate's outbox: ``(created_at, id)`` with a count.
+
+        The candidate predicate was already SQL-side (``_find``); the page
+        adds ORDER BY, OFFSET and the count to the same transaction so a long
+        history is not built in Python before being sliced.
+        """
+        ordered = sorted(
+            self._find(candidate_id=candidate_id),
+            key=lambda item: (item.created_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     # internals
 
     def _queue(self, item: CandidateCommunication, *, actor: ActorRef) -> CandidateCommunication:

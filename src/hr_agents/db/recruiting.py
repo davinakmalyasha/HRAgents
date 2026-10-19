@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import tables as t
@@ -504,6 +504,28 @@ class DbCommunicationService(CommunicationService):
         with sync_session_scope(self._session_factory) as session:
             rows = session.execute(query).scalars().all()
             return [self._to_communication(row) for row in rows]
+
+    def page_communications(
+        self, candidate_id: UUID, *, limit: int, offset: int
+    ) -> tuple[list[CandidateCommunication], int]:
+        """Page one candidate's outbox in SQL, count included."""
+        record = t.CandidateCommunicationRecord
+        with sync_session_scope(self._session_factory) as session:
+            total = session.execute(
+                select(func.count()).select_from(record).where(record.candidate_id == candidate_id)
+            ).scalar_one()
+            rows = (
+                session.execute(
+                    select(record)
+                    .where(record.candidate_id == candidate_id)
+                    .order_by(record.created_at, record.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_communication(row) for row in rows], total
 
     def _persist(self, item: CandidateCommunication) -> None:
         with sync_session_scope(self._session_factory) as session:

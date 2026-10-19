@@ -65,12 +65,12 @@ RepliesDep = Annotated[ReplyStore, Depends(get_replies)]
 def list_communications(
     candidate_id: UUID, communications: CommunicationsDep, paging: PaginationDep
 ) -> Page[CommunicationView]:
-    ordered = sorted(
-        communications.list_for(candidate_id),
-        key=lambda item: (item.created_at, str(item.id)),
+    items, total = communications.page_communications(
+        candidate_id, limit=paging.limit, offset=paging.offset
     )
-    return Page.slice(
-        [CommunicationView.from_model(item) for item in ordered],
+    return Page.of(
+        [CommunicationView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -82,12 +82,10 @@ def list_communications(
     summary="Inbound candidate replies captured by the messaging transport",
 )
 def list_replies(candidate_id: UUID, replies: RepliesDep, paging: PaginationDep) -> Page[ReplyView]:
-    ordered = sorted(
-        replies.list_for(candidate_id),
-        key=lambda item: (item.received_at, str(item.id)),
-    )
-    return Page.slice(
-        [ReplyView.from_model(item) for item in ordered],
+    items, total = replies.page_replies(candidate_id, limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [ReplyView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

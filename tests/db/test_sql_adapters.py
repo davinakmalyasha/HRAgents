@@ -788,6 +788,79 @@ def test_filtered_communication_reads_query_instead_of_scanning(
     assert threaded is not None and threaded.id == mine.id
     assert communications.find_by_provider_message_id("<unknown@example.com>") is None
 
+    page, total = communications.page_communications(record.candidate_id, limit=5, offset=0)
+    assert total == 1
+    assert [item.id for item in page] == [mine.id]
+
+
+def test_page_replies_scopes_orders_and_counts_in_sql(
+    factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The inbound inbox page: candidate-scoped, ordered, counted, no full scan.
+
+    ``DbReplyStore`` inherits ``list_for``, which scans every reply in the
+    mailbox table and filters in Python; the page must not.
+    """
+    _audit, job, applications, record = _seeded(factory)
+    other_record, _ = applications.submit(_submission(job_id=job.id, candidate_name="Budi"))
+    replies = DbReplyStore(session_factory=factory)
+    base = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
+
+    mine: list[CandidateReply] = []
+    for index in range(3):
+        provider_message_id = f"<reply-{index}@example.com>"
+        subject = f"Re: Your application {index}"
+        body = f"Body {index}"
+        reply = CandidateReply(
+            candidate_id=record.candidate_id,
+            sender="sari@example.com",
+            subject=subject,
+            body=body,
+            provider="email.imap_poll",
+            provider_message_id=provider_message_id,
+            dedup_key=reply_dedup_key(
+                provider="email.imap_poll",
+                message_id=provider_message_id,
+                sender="sari@example.com",
+                subject=subject,
+                body=body,
+            ),
+            received_at=base + timedelta(minutes=index),
+        )
+        replies.add(reply)
+        mine.append(reply)
+    replies.add(
+        CandidateReply(
+            candidate_id=other_record.candidate_id,
+            sender="budi@example.com",
+            subject="Re: Your application",
+            body="Saya tertarik.",
+            provider="email.imap_poll",
+            provider_message_id="<other@example.com>",
+            dedup_key=reply_dedup_key(
+                provider="email.imap_poll",
+                message_id="<other@example.com>",
+                sender="budi@example.com",
+                subject="Re: Your application",
+                body="Saya tertarik.",
+            ),
+            received_at=base - timedelta(days=1),
+        )
+    )
+
+    def no_full_scan() -> Iterator[CandidateReply]:
+        raise AssertionError("the reply page must filter in SQL, not scan the table")
+
+    monkeypatch.setattr(replies, "_iter", no_full_scan)
+
+    page, total = replies.page_replies(record.candidate_id, limit=2, offset=1)
+    assert total == 3, "the count is the candidate's total, not the mailbox's"
+    assert [item.id for item in page] == [mine[1].id, mine[2].id]
+
+    first, first_total = replies.page_replies(record.candidate_id, limit=1, offset=0)
+    assert first_total == 3
+    assert [item.id for item in first] == [mine[0].id]
+
 
 def test_in_memory_messaging_stores_are_used_without_a_database() -> None:
     assert isinstance(candidate_directory(None), InMemoryCandidateDirectory)
