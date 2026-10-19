@@ -2668,6 +2668,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/rubrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rubrics
+         * @description Which rubric scores each family, and whether it is code or a stored version.
+         */
+        get: operations["list_rubrics_v1_rubrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rubrics/versions/{version_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Score new evaluations with this verified version */
+        post: operations["activate_version_v1_rubrics_versions__version_id__activate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rubrics/versions/{version_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Certify a version with a named human and a source note */
+        post: operations["verify_version_v1_rubrics_versions__version_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/rubrics/{family}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Versions */
+        get: operations["list_versions_v1_rubrics__family__versions_get"];
+        put?: never;
+        /** Draft a new rubric version (unverified; nothing scores with it yet) */
+        post: operations["create_version_v1_rubrics__family__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/scheduling/availability": {
         parameters: {
             query?: never;
@@ -4000,6 +4072,66 @@ export interface components {
             score: number;
             /** Weight */
             weight: number;
+        };
+        /**
+         * DimensionTemplate
+         * @description One occupation's rubric: what counts as evidence of competence.
+         *
+         *     Every field is required except ``systems_weights``. ``score_candidate`` resolves
+         *     missing values with ``or``, which would substitute the engineering default silently --
+         *     so a template that forgot a value would be indistinguishable from one that chose it.
+         */
+        DimensionTemplate: {
+            /**
+             * Breadth Saturation
+             * @description Distinct relevant terms that count as full breadth. Occupations differ: nobody lists twelve accounting standards, and a template that inherited engineering's twelve would cap every finance candidate's breadth at a quarter.
+             */
+            breadth_saturation: number;
+            /**
+             * Breadth Vocabulary
+             * @description Normalised terms that count towards breadth. Empty means the family's terms count as-is, which is what engineering does.
+             */
+            breadth_vocabulary?: string[];
+            /**
+             * Depth Weights
+             * @description Internal weights over the depth terms, summing to 1.0. `breadth` counts terms matched against `breadth_vocabulary`, not raw skills, which is how a family decides what breadth means for it.
+             */
+            depth_weights: {
+                [key: string]: number | string;
+            };
+            /** Description */
+            description: string;
+            family: components["schemas"]["JobFamily"];
+            /**
+             * Professional Categories
+             * @description Skill categories that count towards the professional dimension.
+             */
+            professional_categories: components["schemas"]["SkillCategory"][];
+            /**
+             * Signal Keywords
+             * @description Substrings matched against experience highlights that signal the systemic judgement this occupation demonstrates.
+             */
+            signal_keywords: string[];
+            /**
+             * Signal Saturation
+             * @description Signal keywords that count as full marks.
+             */
+            signal_saturation: number;
+            /**
+             * Systems Weights
+             * @description Relative weight of competency areas, professional signals and title seniority.
+             */
+            systems_weights?: {
+                [key: string]: number | string;
+            };
+            /**
+             * Title Tiers
+             * @description Job-title tiers, most senior first. Matched against the lowercased title as whole words, so `senior` cannot match inside `supervision`.
+             */
+            title_tiers: [
+                string[],
+                number
+            ][];
         };
         /**
          * DispositionAction
@@ -5483,6 +5615,28 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[RubricFamilyView] */
+        Page_RubricFamilyView_: {
+            /** Items */
+            items: components["schemas"]["RubricFamilyView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** Page[RubricVersionView] */
+        Page_RubricVersionView_: {
+            /** Items */
+            items: components["schemas"]["RubricVersionView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[RunView] */
         Page_RunView_: {
             /** Items */
@@ -6171,6 +6325,26 @@ export interface components {
          */
         RouteReason: "explicit" | "keyword" | "fallback";
         /**
+         * RubricFamilyView
+         * @description Which rubric currently scores a family, and where it comes from.
+         */
+        RubricFamilyView: {
+            /** Digest */
+            digest: string;
+            family: components["schemas"]["JobFamily"];
+            /** Revision */
+            revision?: number | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "code" | "registry";
+            /** Verified At */
+            verified_at?: string | null;
+            /** Verified By */
+            verified_by?: string | null;
+        };
+        /**
          * RubricSnapshot
          * @description The rubric that scored an evaluation, captured at scoring time.
          *
@@ -6189,6 +6363,46 @@ export interface components {
             template: {
                 [key: string]: unknown;
             };
+        };
+        /** RubricVerifyRequest */
+        RubricVerifyRequest: {
+            /** Source Note */
+            source_note: string;
+        };
+        /**
+         * RubricVersionView
+         * @description One stored version, including the payload it will score with.
+         */
+        RubricVersionView: {
+            /** Active */
+            active: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string;
+            /** Digest */
+            digest: string;
+            family: components["schemas"]["JobFamily"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Revision */
+            revision: number;
+            /** Template */
+            template: {
+                [key: string]: unknown;
+            };
+            /** Verified At */
+            verified_at: string | null;
+            /** Verified By */
+            verified_by: string | null;
+            /** Verified Note */
+            verified_note: string | null;
         };
         /** RunAction */
         RunAction: {
@@ -6395,6 +6609,22 @@ export interface components {
             employee_id?: string | null;
             role: components["schemas"]["RoleId"];
         };
+        /**
+         * SkillCategory
+         * @description What kind of thing a skill is.
+         *
+         *     The first eight values are software-specific and predate every other occupation.
+         *     They were the *only* values for a long time, which made `Skill.category`
+         *     uninformative for anyone who was not a software candidate: a finance supervisor's
+         *     skills were all `OTHER`, so `systems_literacy` -- which intersects this enum --
+         *     scored exactly zero for them regardless of their experience.
+         *
+         *     The non-software values exist so a rubric can ask "does this candidate have finance
+         *     skills" and get an answer other than "no". A value here identifies the domain of a
+         *     skill; it is not a judgement about the candidate.
+         * @enum {string}
+         */
+        SkillCategory: "language" | "framework" | "database" | "cloud" | "devops" | "ml_ai" | "systems" | "data" | "finance" | "education" | "healthcare" | "legal" | "operations" | "sales" | "general" | "other";
         /**
          * SourceType
          * @description Where a piece of evidence came from.
@@ -26028,6 +26258,542 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RateTableView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_rubrics_v1_rubrics_get: {
+        parameters: {
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RubricFamilyView_"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    activate_version_v1_rubrics_versions__version_id__activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricVersionView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    verify_version_v1_rubrics_versions__version_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RubricVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricVersionView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_versions_v1_rubrics__family__versions_get: {
+        parameters: {
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                family: components["schemas"]["JobFamily"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RubricVersionView_"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_version_v1_rubrics__family__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                family: components["schemas"]["JobFamily"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DimensionTemplate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RubricVersionView"];
                 };
             };
             /** @description The request could not be understood. */

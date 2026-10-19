@@ -41,6 +41,7 @@ from hr_agents.api.routers import (
     offers,
     ops,
     queue,
+    rubrics,
     scheduling,
     session,
     workspaces,
@@ -368,6 +369,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(scheduling.router, responses=ERROR_RESPONSES)
     app.include_router(communications.router, responses=ERROR_RESPONSES)
     app.include_router(offers.router, responses=ERROR_RESPONSES)
+    app.include_router(rubrics.router, responses=ERROR_RESPONSES)
     app.include_router(people_router.employees_router, responses=ERROR_RESPONSES)
     app.include_router(people_router.org_units_router, responses=ERROR_RESPONSES)
     app.include_router(people_router.documents_router, responses=ERROR_RESPONSES)

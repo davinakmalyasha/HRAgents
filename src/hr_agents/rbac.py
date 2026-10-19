@@ -36,6 +36,7 @@ class Permission(StrEnum):
     PAYROLL_WRITE = "payroll:write"
     PAYROLL_APPROVE = "payroll:approve"
     RATES_VERIFY = "rates:verify"
+    RUBRICS_VERIFY = "rubrics:verify"
     COMPLIANCE_READ = "compliance:read"
     COMPLIANCE_WRITE = "compliance:write"
     COMPLIANCE_EXECUTE = "compliance:execute"
