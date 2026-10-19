@@ -301,15 +301,27 @@ Remaining in this area:
       silently truncates, and `/v1/queue` keeps its own envelope until it can move to cursor
       paging. OpenAPI + generated TS client regenerated; the api suites assert slicing,
       constant totals and 422 bounds.
-- [~] **List reads materialise whole tables.** The five heaviest reads are pushed down —
-      employees (the reference), leave requests, approvals, the document vault, audit entries
-      and payroll runs all run their predicate, ORDER BY, LIMIT/OFFSET and count in SQL, with
-      the in-memory stores mirroring the same contract and an id tiebreak wherever keys can
-      tie. The two worst aggregations followed: `_previous_run` is an ordered range scan with
-      an existence check instead of a full run-list walk, and onboarding/offboarding active
-      plans filter, order and slice in SQL (the `completed_at` index finally serves the read
-      it was added for). The remaining list endpoints still load every row and slice in
-      Python after the fact — that long tail is the residual.
+- [x] **List reads materialise whole tables.** *Done for every table that grows with the
+      business; the bounded and computed lists are deliberately in-Python and named here.*
+      Pushed-down reads run their predicates, ORDER BY, LIMIT/OFFSET and count in one
+      transaction, with the in-memory stores mirroring the contract and an id tiebreak
+      wherever keys can tie: employees, leave requests (employee and pending), the leave
+      calendar day window, approvals, the document vault, audit entries, payroll runs,
+      applications (job/status, priority order), candidate communications and replies,
+      offers (application filter), scheduling proposals, tasks (open set and overdue rank),
+      contracts (expiry window), review cycles, assignments (cycle/reviewer, pending-only),
+      summaries, goals (owner/status/past-due), consents, retention records (subject/entity
+      and the purge gate), erasure requests, breach incidents, and offboarding assets
+      (employee/plan and the clearance set). The two worst aggregations also moved:
+      `_previous_run` is an ordered range scan with an existence check, and
+      onboarding/offboarding active plans filter, order and slice in SQL.
+      Deliberately still Python-side: operator-managed lists bounded by configuration
+      (retention policies, leave policies and balances, rate tables, org units, onboarding
+      and offboarding templates, job specs); employee-scoped vault/contract lists (bounded
+      by one employee's record); computed lists that merge or derive rows (the compliance
+      calendar's derived-deadlines-plus-operator entries, overdue breach steps, the ops
+      dead-letter envelope, POST sweep results); and workspace handoffs, whose store has no
+      database adapter yet.
 - [x] **No `CHECK` constraint exists anywhere in the tables.** Migration `0023` pins 38
       constraints onto the tables, every one mirroring an existing model validator: the
       payroll money columns are non-negative and the four `PayrollLine` arithmetic

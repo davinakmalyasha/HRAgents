@@ -725,16 +725,20 @@ not a style opinion.
     deliberately stays loose and is named in remaining-work:
     `scheduling_availability.interviewer_id` (no interviewer table — availability
     belongs to a calendar identity the scheduling integration owns).
-7. ~~**43 of 45 list endpoints are unpaginated**~~ **Done, with a named residual.** All 49 list
-   routes answer `Page[T]` (`items`/`total`/`limit`/`offset`; `limit` ≤ 200, default 100 via
-   `PaginationDep`) with deterministic ordering (id tiebreaks where keys can tie), the web
-   fetches every page through `fetchAllPages`, and OpenAPI + the generated TS client were
-   regenerated. The paged reads for the heaviest tables — employees, leave requests, approvals,
-   the document vault, audit entries and payroll runs — run predicate, ORDER BY, LIMIT/OFFSET
-   and count in SQL, with the in-memory stores mirroring the same contract. Residual: the
-   remaining list endpoints still read whole tables and slice in Python, and `active_plans` /
-   `_previous_run` stay the two worst aggregations — tracked in remaining-work as "List reads
-   materialise whole tables".
+7. ~~**43 of 45 list endpoints are unpaginated**~~ **Done, with deliberate Python-side
+   lists.** All 49 list routes answer `Page[T]` (`items`/`total`/`limit`/`offset`; `limit` ≤ 200,
+   default 100 via `PaginationDep`) with deterministic ordering (id tiebreaks where keys can
+   tie), the web fetches every page through `fetchAllPages`, and OpenAPI + the generated TS
+   client were regenerated. Every list that grows with the business now runs its predicate,
+   ORDER BY, LIMIT/OFFSET and count in SQL: employees, leave requests, the leave calendar day
+   window, approvals, the document vault, audit entries, payroll runs, applications,
+   communications and replies, offers, scheduling proposals, tasks, contracts, review
+   cycles/assignments/summaries/goals, consents, retention records, erasures, breach
+   incidents and offboarding assets, plus the `_previous_run` and active-plan aggregations.
+   The bounded and computed lists stay in Python by design, named in remaining-work:
+   operator-managed configuration, employee-scoped records, merged/derived lists (compliance
+   calendar, overdue breach steps, ops queue, POST sweeps), and handoffs (no database adapter
+   yet).
 8. **No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
    version predicate and no unit of work, so two concurrent `complete_step` calls
    silently lose one. A mid-loop erasure failure leaves a half-erased state.
