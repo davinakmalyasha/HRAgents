@@ -193,8 +193,11 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       silently claimed: leave balance adjustments, the holiday calendar and interviewer
       availability. The "one transaction per service method" half -- what would make a
       mid-loop erasure atomic rather than half-finished -- is still open.
-- [ ] **Schema integrity**: `CHECK` constraints on the enum-like and numeric columns, foreign keys
-      on the 8 orphan tables, and `ORDER BY` in the DB adapters instead of 12 Python re-sorts.
+- [x] **Schema integrity.** Migrations `0022`–`0026` added named foreign keys for every
+      reference the services already guarantee (the one deliberate exception,
+      `scheduling_availability.interviewer_id`, is recorded under the reference-integrity
+      item above), `0023` pinned 38 CHECK constraints mirroring the model validators, and
+      every pushed-down list read now orders in SQL (see the pagination item below).
 - [~] **Real purge handlers and a fed retention ledger.** Four entities are done and
       the fifth is a deliberate decision. The ledger is fed by the services that
       create records: employee creation, document upload, and application submission
@@ -206,9 +209,11 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       document purge deletes the rows; and the application handler reports that its
       rows name nobody -- the person lives on the candidate row and the consent
       registry -- so a sweep never logs a missing handler and never deletes a funnel
-      entry out from under its evaluations and offers. Payroll records still report an
-      honest `skipped`: a run is a tax record, and erasing the person from it means
-      deciding what a pseudonymous line looks like, which is the next decision here.
+      entry out from under its evaluations and offers. Payroll records are
+      pseudonymized rather than skipped (the decision this paragraph used to defer):
+      the purge blanks the employee's name on the line while keeping amounts, ids and
+      the period, because a run is a tax record and the ledger must still add up; the
+      run is fed at export, so the pseudonymous line is what the ledger sees.
 - [ ] **Consolidate the 13 `_record` audit methods, 6 state-transition formats, and the triplicated
       approval→status sync** behind one auditor, one declarative state machine, and one
       `ApprovalEngine.await_decision()`.
@@ -417,10 +422,13 @@ Remaining in this area:
 - [ ] **`DimensionTemplate` as data, not code**: `{job_family, dimensions: [{key, weight, scorer,
       evidence_requirement}], thresholds}` — versioned, audited, and snapshotted into every
       evaluation. The scorer stays deterministic; only the dimension list becomes data.
-- [ ] **Version and snapshot the rubric on the evaluation.** `evaluations` records which rate tables
-      a payroll used; it records nothing about which rubric scored a candidate. A template edited next
-      month makes last month's `S_tech` unreproducible, which is the same failure the payroll rate-table
-      provenance work fixed for money.
+- [x] **Version and snapshot the rubric on the evaluation.** `RubricSnapshot` (family, a
+      content-addressed sha256 digest and the canonical template JSON) is attached by the
+      pipeline and persisted in `evaluations.document`, so an old score names the exact
+      evidence rules that produced it. The evaluation view returns the snapshot and the agent
+      tool cites family + digest. Canonicalisation sorts the frozenset-derived fields, and a
+      pinned engineering digest makes a rubric edit a deliberate, visible change. Turning the
+      template list itself into operator-editable data is the next item, not this one.
 - [ ] **Composable primitive scorers with per-family taxonomies**: `evidence_count`,
       `evidence_density(taxonomy)`, `tenure_saturation(cap)`, `credential_registry(family)`,
       `title_seniority_tiers(family)`. A single per-family keyword taxonomy is the change that makes
