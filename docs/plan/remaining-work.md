@@ -329,13 +329,21 @@ Remaining in this area:
       run, and the schedule-proposal self-reference. Wiring them exposed and fixed two
       latent crashes: nested `Decimal`/date scalars in JSON-column payloads, and the
       DB-backed audit chain storing payloads the hash had canonicalised as strings.
-      Migration `0024` then closed the growth employee references: `GrowthService` now
-      resolves the employee at assignment/summary/goal creation and answers a shaped
-      404, so the FK guards a path that already behaves (the defensive read for a goal
-      whose owner is gone — a restore-only state — keeps its test, built through the
-      store). Deliberately still loose, all named: `leave_requests.document_id`
-      (ambiguous target), `evaluations.application_id` (legacy-nullable), and
-      `scheduling_availability.interviewer_id` (no interviewer table to point at).
+       Migration `0024` then closed the growth employee references: `GrowthService` now
+       resolves the employee at assignment/summary/goal creation and answers a shaped
+       404, so the FK guards a path that already behaves (the defensive read for a goal
+       whose owner is gone — a restore-only state — keeps its test, built through the
+       store). Migration `0025` closed `leave_requests.document_id`: it can only name an
+       `employee_documents` row on the requesting employee's own vault, which
+       `LeaveService.request` now checks, with `ON DELETE SET NULL` so retention purges
+       can still delete the file. Migration `0026` closed `evaluations.application_id`
+       (`ON DELETE SET NULL`; the pipeline worker already validated the application).
+       One reference stays deliberately loose and is named here:
+       `scheduling_availability.interviewer_id` — there is no interviewer table to point
+       at. Availability belongs to a *calendar identity* (an email or provider id) that
+       the scheduling integration owns, not necessarily to an employee, so validating
+       it against `employees` would refuse legitimate external interviewers. The FK
+       waits for whatever interviewer directory the calendar integration ships.
 
 ---
 
