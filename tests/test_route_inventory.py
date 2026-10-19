@@ -78,7 +78,7 @@ def test_the_fences_see_more_routes_than_a_single_router_attribute_would() -> No
     write_paths = {route.path for route in write_routes()}
     assert len(people_write_routes) == 16, sorted(people_write_routes)
     assert people_write_routes <= write_paths
-    assert len(write_routes()) == 108, f"the API's mutating surface changed: {len(write_routes())}"
+    assert len(write_routes()) == 109, f"the API's mutating surface changed: {len(write_routes())}"
 
 
 def test_permission_extraction_still_finds_declared_permissions() -> None:

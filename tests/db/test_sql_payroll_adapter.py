@@ -256,19 +256,20 @@ def test_money_survives_as_exact_two_place_decimals(
     assert computed.lines[0].base_salary == Decimal("1234567.89")
 
 
-def test_recomputing_replaces_lines_rather_than_merging(
+def test_saving_a_run_replaces_its_lines_rather_than_merging(
     factory: sessionmaker[Session],
 ) -> None:
-    """A merge would leave a removed employee's line on the payslip."""
+    """A merge would leave a removed employee's line on the payslip.
+
+    The service no longer recomputes a reviewed run, so this exercises the
+    adapter contract directly: ``_save_run`` deletes and reinserts the run's
+    line rows, which is what makes a corrected line set exact.
+    """
     service, employees, rates = _parts(factory)
     _seed(rates)
     first = _employee(employees, "Sari Dewi")
     second = _employee(employees, "Budi")
     run = service.create_run(period_year=YEAR, period_month=MONTH, actor=ACTOR)
-    inputs = [PayrollInput(employee_id=first.id, base_salary=money("5000000"))]
-    service.set_inputs(run.id, inputs=inputs, actor=ACTOR)
-    assert len(service.compute(run.id, actor=ACTOR).lines) == 1
-
     service.set_inputs(
         run.id,
         inputs=[
@@ -277,14 +278,19 @@ def test_recomputing_replaces_lines_rather_than_merging(
         ],
         actor=ACTOR,
     )
-    service.compute(run.id, actor=ACTOR)
+    computed = service.compute(run.id, actor=ACTOR)
+    assert len(computed.lines) == 2
+
+    service._save_run(computed.model_copy(update={"lines": [computed.lines[0]]}))
+
     fresh = _parts(factory)[0].get_run(run.id)
-    assert len(fresh.lines) == 2
-    assert {line.employee_id for line in fresh.lines} == {first.id, second.id}
+    assert [line.employee_id for line in fresh.lines] == [first.id]
 
 
-def test_line_removal_on_recompute(factory: sessionmaker[Session]) -> None:
-    """Dropping an employee from the inputs must remove their line, not orphan it."""
+def test_superseding_keeps_the_reviewed_lines_and_starts_a_clean_row(
+    factory: sessionmaker[Session],
+) -> None:
+    """The reviewed run keeps its figures; the successor starts with no lines."""
     service, employees, rates = _parts(factory)
     _seed(rates)
     first = _employee(employees, "Sari Dewi")
@@ -298,16 +304,27 @@ def test_line_removal_on_recompute(factory: sessionmaker[Session]) -> None:
         ],
         actor=ACTOR,
     )
-    assert len(service.compute(run.id, actor=ACTOR).lines) == 2
+    computed = service.compute(run.id, actor=ACTOR)
+    reviewed_ids = [line.employee_id for line in computed.lines]
 
-    service.set_inputs(
-        run.id,
+    successor = service.supersede_run(run.id, actor=ACTOR, reason="one leaver")
+    assert successor.supersedes_id == run.id
+
+    fresh = _parts(factory)[0]
+    old = fresh.get_run(run.id)
+    assert old.status is PayrollRunStatus.SUPERSEDED
+    assert {line.employee_id for line in old.lines} == set(reviewed_ids)
+    new = fresh.get_run(successor.id)
+    assert new.status is PayrollRunStatus.ASSEMBLING
+    assert new.lines == []
+
+    fresh.set_inputs(
+        successor.id,
         inputs=[PayrollInput(employee_id=first.id, base_salary=money("5000000"))],
         actor=ACTOR,
     )
-    service.compute(run.id, actor=ACTOR)
-    fresh = _parts(factory)[0].get_run(run.id)
-    assert [line.employee_id for line in fresh.lines] == [first.id]
+    fresh.compute(successor.id, actor=ACTOR)
+    assert [line.employee_id for line in fresh.get_run(successor.id).lines] == [first.id]
 
 
 def test_anomalies_and_status_survive_a_restart(factory: sessionmaker[Session]) -> None:

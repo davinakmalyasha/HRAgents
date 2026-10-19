@@ -91,6 +91,12 @@ class PayrollRunRecord(TenantScoped, Base):
     approval_id: Mapped[UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("approvals.id", name="fk_payroll_runs_approval")
     )
+    # A re-run is a new row that names the reviewed run it replaces. Rewriting the
+    # reviewed row would change figures a human already signed off on reading.
+    supersedes_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("payroll_runs.id", name="fk_payroll_runs_supersedes"),
+    )
     signed_off_by: Mapped[str | None] = mapped_column(String(200))
     signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

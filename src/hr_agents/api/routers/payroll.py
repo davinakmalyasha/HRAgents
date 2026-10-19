@@ -100,6 +100,28 @@ def compute_run(run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: Ac
 
 
 @router.post(
+    "/runs/{run_id}/supersede",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RunView,
+    dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
+    summary="Start a new run that replaces a reviewed one; the reviewed run is not rewritten",
+)
+def supersede_run(
+    run_id: UUID, payload: RunAction, payroll: PayrollDep, actor: ActorDep
+) -> RunView:
+    if not payload.reason:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="superseding a run requires a reason",
+        )
+    try:
+        run = payroll.supersede_run(run_id, actor=actor, reason=payload.reason)
+    except PayrollError as exc:
+        raise conflict(exc) from exc
+    return RunView.from_model(run)
+
+
+@router.post(
     "/runs/{run_id}/submit",
     response_model=RunView,
     dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],

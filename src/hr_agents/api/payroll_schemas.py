@@ -134,6 +134,7 @@ class RunView(StrictModel):
     kind: PayrollRunKind
     status: PayrollRunStatus
     approval_id: UUID | None
+    supersedes_id: UUID | None = None
     signed_off_by: str | None
     cancelled_at: UtcDateTime | None = None
     cancel_reason: str | None = None
@@ -151,6 +152,7 @@ class RunView(StrictModel):
             kind=run.kind,
             status=run.status,
             approval_id=run.approval_id,
+            supersedes_id=run.supersedes_id,
             signed_off_by=run.signed_off_by,
             cancelled_at=run.cancelled_at,
             cancel_reason=run.cancel_reason,

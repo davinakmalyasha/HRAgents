@@ -224,6 +224,53 @@ def test_payroll_full_flow_with_tables() -> None:
         assert exported.json()["status"] == "exported"
 
 
+def test_supersede_freezes_the_reviewed_run_and_links_a_successor() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        employee = create_employee(client)
+        seed_tables(client)
+        run = client.post(
+            "/v1/payroll/runs",
+            json={"period_year": YEAR, "period_month": 6},
+        ).json()
+        client.put(
+            f"/v1/payroll/runs/{run['id']}/inputs",
+            json={"inputs": [{"employee_id": employee["id"], "base_salary": 9_000_000}]},
+        )
+        computed = client.post(f"/v1/payroll/runs/{run['id']}/compute", json={}).json()
+        assert computed["blocking_count"] == 0
+
+        missing_reason = client.post(f"/v1/payroll/runs/{run['id']}/supersede", json={})
+        assert missing_reason.status_code == 422
+
+        superseded = client.post(
+            f"/v1/payroll/runs/{run['id']}/supersede",
+            json={"reason": "rate table corrected"},
+        )
+        assert superseded.status_code == 201, superseded.text
+        successor = superseded.json()
+        assert successor["supersedes_id"] == run["id"]
+        assert successor["status"] == "assembling"
+        assert successor["lines"] == []
+
+        reviewed = client.get(f"/v1/payroll/runs/{run['id']}").json()
+        assert reviewed["status"] == "superseded"
+        assert reviewed["lines"] == computed["lines"]
+
+        recompute = client.post(f"/v1/payroll/runs/{run['id']}/compute", json={})
+        assert recompute.status_code == 409
+        assert "supersede" in recompute.json()["title"]
+
+        updated = client.put(
+            f"/v1/payroll/runs/{successor['id']}/inputs",
+            json={"inputs": [{"employee_id": employee["id"], "base_salary": 9_500_000}]},
+        )
+        assert updated.status_code == 200
+        recomputed = client.post(f"/v1/payroll/runs/{successor['id']}/compute", json={})
+        assert recomputed.status_code == 200
+        assert recomputed.json()["status"] == "ready_for_review"
+
+
 def test_approval_decision_refuses_a_caller_supplied_actor() -> None:
     """A decision cannot be attributed by naming someone in the body.
 

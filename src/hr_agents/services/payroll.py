@@ -413,6 +413,54 @@ class PayrollService:
         )
         return updated
 
+    def supersede_run(self, run_id: UUID, *, actor: ActorRef, reason: str) -> PayrollRun:
+        """Start a fresh run that replaces a reviewed one, without rewriting it.
+
+        The reviewed run's figures, anomalies and rate-table provenance stay
+        exactly as the reviewer saw them; the successor copies the period, kind
+        and inputs, links back through ``supersedes_id``, and returns in
+        ``ASSEMBLING`` so the operator can adjust inputs before computing. Only
+        a computed run needs superseding -- a draft is still editable in place.
+        """
+        actor.require_human("supersede a payroll run", PayrollError)
+        if not reason.strip():
+            raise PayrollError("superseding a run requires a reason")
+        run = self.get_run(run_id)
+        if run.status not in {PayrollRunStatus.READY_FOR_REVIEW, PayrollRunStatus.REJECTED}:
+            raise PayrollError(f"run is {run.status.value}; only a computed run can be superseded")
+
+        successor = PayrollRun(
+            period_year=run.period_year,
+            period_month=run.period_month,
+            kind=run.kind,
+            status=PayrollRunStatus.ASSEMBLING,
+            inputs=list(run.inputs),
+            supersedes_id=run.id,
+        )
+        self._save_run(successor)
+        self._record(
+            successor,
+            action="payroll.run_created",
+            actor=actor,
+            payload={
+                "year": successor.period_year,
+                "month": successor.period_month,
+                "kind": successor.kind.value,
+                "supersedes": str(run.id),
+            },
+        )
+        superseded = run.model_copy(
+            update={"status": PayrollRunStatus.SUPERSEDED, "updated_at": utc_now()}
+        )
+        self._save_run(superseded)
+        self._record(
+            superseded,
+            action="payroll.run_superseded",
+            actor=actor,
+            payload={"superseded_by": str(successor.id), "reason": reason.strip()},
+        )
+        return successor
+
     def _resolve_tables(
         self, *, period: date, extra_kinds: tuple[RateTableKind, ...] = ()
     ) -> tuple[dict[RateTableKind, RateTable], dict[str, str], list[PayrollAnomaly]]:
@@ -1064,7 +1112,11 @@ class PayrollService:
     def cancel_run(self, run_id: UUID, *, actor: ActorRef, reason: str) -> PayrollRun:
         actor.require_human("cancelling a payroll run", PayrollError)
         run = self.get_run(run_id)
-        if run.status in {PayrollRunStatus.APPROVED, PayrollRunStatus.EXPORTED}:
+        if run.status in {
+            PayrollRunStatus.APPROVED,
+            PayrollRunStatus.EXPORTED,
+            PayrollRunStatus.SUPERSEDED,
+        }:
             raise PayrollError(f"run is {run.status.value}; cannot cancel")
         if not reason.strip():
             raise PayrollError("cancelling a run requires a reason")
@@ -1200,6 +1252,9 @@ class PayrollService:
         info.append(["Period", f"{run.period_year}-{run.period_month:02d}"])
         info.append(["Kind", run.kind.value])
         info.append(["Status", run.status.value])
+        if run.supersedes_id is not None:
+            # The review artefact says which earlier version this run replaces.
+            info.append(["Replaces run", str(run.supersedes_id)])
         info.append(["Signed off by", run.signed_off_by or "(pending)"])
         # A cancelled run would otherwise be a status with no why, which is the
         # one thing the packet is supposed to be able to answer later.
@@ -1230,13 +1285,19 @@ class PayrollService:
     # --- internals -------------------------------------------------------
 
     def _require_editable(self, run_id: UUID) -> PayrollRun:
+        """Only a run no human has reviewed may be edited or recomputed in place.
+
+        A computed run is the record a reviewer read. Rewriting it would change
+        that record after the fact, so the way to re-run is
+        ``supersede_run``: a new run with a link back to the reviewed one.
+        """
         run = self.get_run(run_id)
-        if run.status in {
-            PayrollRunStatus.APPROVED,
-            PayrollRunStatus.EXPORTED,
-            PayrollRunStatus.CANCELLED,
-            PayrollRunStatus.PENDING_SIGNOFF,
-        }:
+        if run.status not in {PayrollRunStatus.DRAFT, PayrollRunStatus.ASSEMBLING}:
+            if run.status in {PayrollRunStatus.READY_FOR_REVIEW, PayrollRunStatus.REJECTED}:
+                raise PayrollError(
+                    f"run is {run.status.value}; a computed run is immutable — "
+                    "supersede it to re-run"
+                )
             raise PayrollError(f"run is {run.status.value}; it can no longer be edited")
         return run
 

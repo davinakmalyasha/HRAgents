@@ -454,6 +454,111 @@ def test_keyed_jkk_table_without_a_recorded_risk_class_blocks(
     assert computed.blocking_anomalies
 
 
+def test_a_computed_run_cannot_be_edited_or_recomputed_in_place(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service)
+    actor = ActorRef.legacy("hr-admin")
+    inputs = [PayrollInput(employee_id=employee.id, base_salary=m(5_000_000))]
+    service.set_inputs(run.id, inputs=inputs, actor=actor)
+    computed = service.compute(run.id, actor=actor)
+
+    with pytest.raises(PayrollError, match="supersede it to re-run"):
+        service.compute(run.id, actor=actor)
+    with pytest.raises(PayrollError, match="supersede it to re-run"):
+        service.set_inputs(run.id, inputs=inputs, actor=actor)
+
+    unchanged = service.get_run(run.id)
+    assert unchanged.status is PayrollRunStatus.READY_FOR_REVIEW
+    assert unchanged.lines == computed.lines
+
+
+def test_supersede_creates_a_linked_editable_successor(
+    service: PayrollService,
+    employees: EmployeeService,
+    rate_tables: RateTableService,
+    audit: AuditChain,
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    actor = ActorRef.legacy("hr-admin")
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service)
+    inputs = [PayrollInput(employee_id=employee.id, base_salary=m(5_000_000))]
+    service.set_inputs(run.id, inputs=inputs, actor=actor)
+    computed = service.compute(run.id, actor=actor)
+
+    successor = service.supersede_run(run.id, actor=actor, reason="corrected inputs")
+
+    assert successor.id != run.id
+    assert successor.supersedes_id == run.id
+    assert successor.status is PayrollRunStatus.ASSEMBLING
+    assert successor.inputs == computed.inputs
+    assert successor.lines == []
+    assert (successor.period_year, successor.period_month) == (
+        run.period_year,
+        run.period_month,
+    )
+    assert successor.kind is run.kind
+
+    reviewed = service.get_run(run.id)
+    assert reviewed.status is PayrollRunStatus.SUPERSEDED
+    assert reviewed.lines == computed.lines
+    with pytest.raises(PayrollError, match="cannot cancel"):
+        service.cancel_run(run.id, actor=actor, reason="too late")
+
+    service.set_inputs(successor.id, inputs=computed.inputs, actor=actor)
+    recomputed = service.compute(successor.id, actor=actor)
+    assert recomputed.status is PayrollRunStatus.READY_FOR_REVIEW
+
+    actions = [entry.action for entry in audit.entries]
+    assert "payroll.run_superseded" in actions
+    created = [entry for entry in audit.entries if entry.action == "payroll.run_created"]
+    assert any(entry.payload.get("supersedes") == str(run.id) for entry in created)
+    superseded_entry = next(
+        entry for entry in audit.entries if entry.action == "payroll.run_superseded"
+    )
+    assert superseded_entry.payload["superseded_by"] == str(successor.id)
+    assert superseded_entry.payload["reason"] == "corrected inputs"
+
+
+def test_supersede_refuses_drafts_and_unattributed_reasons(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    actor = ActorRef.legacy("hr-admin")
+    draft = make_run(service)
+    with pytest.raises(PayrollError, match="only a computed run"):
+        service.supersede_run(draft.id, actor=actor, reason="nothing to replace")
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(5_000_000))],
+        actor=actor,
+    )
+    service.compute(run.id, actor=actor)
+    with pytest.raises(PayrollError, match="requires a reason"):
+        service.supersede_run(run.id, actor=actor, reason="  ")
+    with pytest.raises(PayrollError, match="named human"):
+        service.supersede_run(
+            run.id, actor=ActorRef.agent("payroll_bot"), reason="agent cannot re-run"
+        )
+
+    cancelled = service.cancel_run(run.id, actor=actor, reason="wrong period")
+    assert cancelled.status is PayrollRunStatus.CANCELLED
+    with pytest.raises(PayrollError, match="only a computed run"):
+        service.supersede_run(run.id, actor=actor, reason="already cancelled")
+
+
 def test_pph21_raises_on_uncovered_gross(
     service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
 ) -> None:

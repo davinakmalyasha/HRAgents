@@ -439,15 +439,20 @@ def test_a_stale_recompute_cannot_overwrite_an_approved_run(
     assert survivor.lines, "an approved run's lines must survive a stale writer"
 
 
-def test_recomputing_a_draft_run_still_works(factory: sessionmaker[Session]) -> None:
-    """Recompute-while-draft is a feature; the guard must not mistake sequential
-    use for a conflict."""
+def test_superseding_a_reviewed_run_writes_a_new_row(
+    factory: sessionmaker[Session],
+) -> None:
+    """A sequential re-run is a new row, not a stale-write conflict on the old one."""
     service, run = computed_run(factory)
 
-    again = service.compute(run.id, actor=HUMAN)
+    successor = service.supersede_run(run.id, actor=HUMAN, reason="rate table correction")
 
-    assert again.lines
-    assert again.version == run.version + 1
+    assert successor.supersedes_id == run.id
+    assert successor.status is PayrollRunStatus.ASSEMBLING
+    assert successor.version == 0
+    reviewed = service.get_run(run.id)
+    assert reviewed.status is PayrollRunStatus.SUPERSEDED
+    assert reviewed.lines, "the reviewed figures stay exactly as reviewed"
 
 
 # --- the adapter rollout: applications -------------------------------------------

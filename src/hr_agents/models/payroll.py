@@ -31,6 +31,7 @@ class PayrollRunStatus(StrEnum):
     REJECTED = "rejected"
     EXPORTED = "exported"
     CANCELLED = "cancelled"
+    SUPERSEDED = "superseded"
 
 
 class PayrollRunKind(StrEnum):
@@ -198,6 +199,13 @@ class PayrollRun(Versioned):
     )
 
     approval_id: UUID | None = None
+    supersedes_id: UUID | None = Field(
+        default=None,
+        description=(
+            "The reviewed run this one replaces. A computed run is immutable; a re-run "
+            "is a new run that links back here, so the reviewed figures stay as reviewed."
+        ),
+    )
     signed_off_by: str | None = Field(default=None, max_length=200)
     signed_off_at: UtcDateTime | None = None
     exported_at: UtcDateTime | None = None
