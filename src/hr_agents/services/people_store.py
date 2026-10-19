@@ -38,6 +38,7 @@ from hr_agents.models import (
     ReviewCycle,
     ReviewCycleStatus,
     ReviewSummary,
+    SubjectKind,
     TaskItem,
     VerificationStatus,
     business_today,
@@ -398,6 +399,26 @@ class ComplianceStore:
     def list_consents(self) -> list[ConsentGrant]:
         return sorted(self._consents.values(), key=lambda item: item.granted_at)
 
+    def page_consents(
+        self,
+        *,
+        subject_kind: SubjectKind | None,
+        subject_id: str | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ConsentGrant], int]:
+        """The consent ledger page: subject predicates, ``(granted_at, id)``, count."""
+        ordered = sorted(
+            (
+                item
+                for item in self.list_consents()
+                if (subject_kind is None or item.subject_kind is subject_kind)
+                and (subject_id is None or item.subject_id == subject_id)
+            ),
+            key=lambda item: (item.granted_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     def delete_consent(self, consent_id: UUID) -> bool:
         """Remove a consent grant. Returns False when it was already gone.
 
@@ -448,6 +469,30 @@ class ComplianceStore:
     def list_records(self) -> list[RetentionRecord]:
         return sorted(self._records.values(), key=lambda item: item.anchor_at)
 
+    def page_records(
+        self,
+        *,
+        subject_kind: SubjectKind | None,
+        subject_id: str | None,
+        entity: RecordEntity | None,
+        include_purged: bool,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[RetentionRecord], int]:
+        """The retention ledger page: subject/entity filters, ``(anchor_at, id)``."""
+        ordered = sorted(
+            (
+                item
+                for item in self.list_records()
+                if (subject_kind is None or item.subject_kind is subject_kind)
+                and (subject_id is None or item.subject_id == subject_id)
+                and (entity is None or item.entity is entity)
+                and (include_purged or not item.purged)
+            ),
+            key=lambda item: (item.anchor_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     # erasure requests
     def add_erasure(self, request: ErasureRequest) -> None:
         self._erasures[request.id] = request
@@ -463,6 +508,14 @@ class ComplianceStore:
     def list_erasures(self) -> list[ErasureRequest]:
         return sorted(self._erasures.values(), key=lambda item: item.received_at)
 
+    def page_erasures(self, *, limit: int, offset: int) -> tuple[list[ErasureRequest], int]:
+        """The erasure queue page: ``(received_at, id)`` with a count."""
+        ordered = sorted(
+            self.list_erasures(),
+            key=lambda item: (item.received_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     # breach incidents
     def add_incident(self, incident: BreachIncident) -> None:
         self._incidents[incident.id] = incident
@@ -477,6 +530,14 @@ class ComplianceStore:
 
     def list_incidents(self) -> list[BreachIncident]:
         return sorted(self._incidents.values(), key=lambda item: item.discovered_at)
+
+    def page_incidents(self, *, limit: int, offset: int) -> tuple[list[BreachIncident], int]:
+        """The incident register page: ``(discovered_at, id)`` with a count."""
+        ordered = sorted(
+            self.list_incidents(),
+            key=lambda item: (item.discovered_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
 
     # calendar entries
     def add_calendar_entry(self, entry: ComplianceCalendarEntry) -> None:

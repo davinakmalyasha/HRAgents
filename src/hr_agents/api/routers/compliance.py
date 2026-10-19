@@ -123,10 +123,15 @@ def list_consents(
     subject_kind: SubjectKind | None = None,
     subject_id: str | None = None,
 ) -> Page[ConsentView]:
-    records = compliance.list_consents(subject_kind=subject_kind, subject_id=subject_id)
-    ordered = sorted(records, key=lambda item: (item.granted_at, str(item.id)))
-    return Page.slice(
-        [ConsentView.from_model(item) for item in ordered],
+    items, total = compliance.page_consents(
+        subject_kind=subject_kind,
+        subject_id=subject_id,
+        limit=paging.limit,
+        offset=paging.offset,
+    )
+    return Page.of(
+        [ConsentView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -229,15 +234,17 @@ def list_records(
     entity: RecordEntity | None = None,
     include_purged: bool = False,
 ) -> Page[RecordView]:
-    records = compliance.list_records(
+    items, total = compliance.page_records(
         subject_kind=subject_kind,
         subject_id=subject_id,
         entity=entity,
         include_purged=include_purged,
+        limit=paging.limit,
+        offset=paging.offset,
     )
-    ordered = sorted(records, key=lambda item: (item.anchor_at, str(item.id)))
-    return Page.slice(
-        [RecordView.from_model(item) for item in ordered],
+    return Page.of(
+        [RecordView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -307,10 +314,10 @@ def create_erasure(
 
 @router.get("/erasures", response_model=Page[ErasureView])
 def list_erasures(compliance: ComplianceDep, paging: PaginationDep) -> Page[ErasureView]:
-    requests = compliance.list_erasures()
-    ordered = sorted(requests, key=lambda item: (item.received_at, str(item.id)))
-    return Page.slice(
-        [ErasureView.from_model(item) for item in ordered],
+    items, total = compliance.page_erasures(limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [ErasureView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -421,10 +428,10 @@ def create_breach(payload: BreachCreate, compliance: ComplianceDep, actor: Actor
 
 @router.get("/breaches", response_model=Page[BreachView])
 def list_breaches(compliance: ComplianceDep, paging: PaginationDep) -> Page[BreachView]:
-    incidents = compliance.list_incidents()
-    ordered = sorted(incidents, key=lambda item: (item.discovered_at, str(item.id)))
-    return Page.slice(
-        [BreachView.from_model(item) for item in ordered],
+    items, total = compliance.page_incidents(limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [BreachView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

@@ -229,6 +229,22 @@ class ComplianceService:
             records = [item for item in records if item.subject_id == subject_id]
         return records
 
+    def page_consents(
+        self,
+        *,
+        subject_kind: SubjectKind | None,
+        subject_id: str | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ConsentGrant], int]:
+        """The consent ledger page: the store owns the predicates, order and count."""
+        return self._store.page_consents(
+            subject_kind=subject_kind,
+            subject_id=subject_id,
+            limit=limit,
+            offset=offset,
+        )
+
     def has_active_consent(self, subject_kind: SubjectKind, subject_id: str, purpose: str) -> bool:
         """Purpose-scoped consent check — the pipeline's halt condition."""
         return any(
@@ -348,6 +364,26 @@ class ComplianceService:
         if not include_purged:
             records = [item for item in records if not item.purged]
         return records
+
+    def page_records(
+        self,
+        *,
+        subject_kind: SubjectKind | None,
+        subject_id: str | None,
+        entity: RecordEntity | None,
+        include_purged: bool,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[RetentionRecord], int]:
+        """The retention ledger page: the store owns the filters, order and count."""
+        return self._store.page_records(
+            subject_kind=subject_kind,
+            subject_id=subject_id,
+            entity=entity,
+            include_purged=include_purged,
+            limit=limit,
+            offset=offset,
+        )
 
     def set_legal_hold(
         self, record_id: UUID, *, held: bool, actor: ActorRef, reason: str
@@ -571,6 +607,10 @@ class ComplianceService:
 
     def list_erasures(self) -> list[ErasureRequest]:
         return self._store.list_erasures()
+
+    def page_erasures(self, *, limit: int, offset: int) -> tuple[list[ErasureRequest], int]:
+        """The erasure queue page: the store owns the order, slice and count."""
+        return self._store.page_erasures(limit=limit, offset=offset)
 
     def verify_identity(self, request_id: UUID, *, actor: ActorRef, method: str) -> ErasureRequest:
         """Record that a human verified the requester's identity."""
@@ -901,6 +941,10 @@ class ComplianceService:
 
     def list_incidents(self) -> list[BreachIncident]:
         return self._store.list_incidents()
+
+    def page_incidents(self, *, limit: int, offset: int) -> tuple[list[BreachIncident], int]:
+        """The incident register page: the store owns the order, slice and count."""
+        return self._store.page_incidents(limit=limit, offset=offset)
 
     def complete_step(
         self, incident_id: UUID, *, step_key: str, actor: ActorRef, note: str | None = None

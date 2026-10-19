@@ -104,6 +104,139 @@ def test_the_postgres_store_can_redact_a_consent_grant(factory: sessionmaker[Ses
     assert stored.subject_id == "cand-anonymize"
 
 
+def test_page_compliance_lists_filter_and_page_in_sql(factory: sessionmaker[Session]) -> None:
+    """Consent ledger, retention ledger, erasure queue and incident register page.
+
+    Two subjects, two record kinds and one purged row: each page proves its
+    predicate, the default purge gate, and that the count is the filtered total
+    rather than the page size.
+    """
+    store = DbComplianceStore(factory)
+    base = datetime(2026, 9, 1, 9, 0, tzinfo=UTC)
+
+    candidate_consent = ConsentGrant(
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id="cand-1",
+        purpose="recruitment_evaluation",
+        captured_by="hr-admin",
+        granted_at=base,
+    )
+    employee_consent = ConsentGrant(
+        subject_kind=SubjectKind.EMPLOYEE,
+        subject_id="emp-1",
+        purpose="payroll_processing",
+        captured_by="hr-admin",
+        granted_at=base + timedelta(hours=1),
+    )
+    store.add_consent(candidate_consent)
+    store.add_consent(employee_consent)
+
+    candidate_records, candidate_total = store.page_consents(
+        subject_kind=SubjectKind.CANDIDATE, subject_id=None, limit=10, offset=0
+    )
+    assert candidate_total == 1
+    assert [record.id for record in candidate_records] == [candidate_consent.id]
+    second_consent, consent_total = store.page_consents(
+        subject_kind=None, subject_id=None, limit=1, offset=1
+    )
+    assert consent_total == 2
+    assert [record.id for record in second_consent] == [employee_consent.id]
+
+    live = RetentionRecord(
+        entity=RecordEntity.CANDIDATE,
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id="cand-1",
+        label="cv",
+        anchor_at=base,
+    )
+    purged = RetentionRecord(
+        entity=RecordEntity.CANDIDATE,
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id="cand-1",
+        label="cv (purged)",
+        anchor_at=base + timedelta(hours=1),
+        purged_at=base + timedelta(days=1),
+    )
+    payroll = RetentionRecord(
+        entity=RecordEntity.PAYROLL,
+        subject_kind=SubjectKind.EMPLOYEE,
+        subject_id="emp-1",
+        label="payslip",
+        anchor_at=base + timedelta(hours=2),
+    )
+    for record in (live, purged, payroll):
+        store.add_record(record)
+
+    default_records, default_total = store.page_records(
+        subject_kind=None,
+        subject_id=None,
+        entity=None,
+        include_purged=False,
+        limit=10,
+        offset=0,
+    )
+    assert default_total == 2, "purged rows are hidden unless asked for"
+    assert [record.id for record in default_records] == [live.id, payroll.id]
+    with_purged, with_purged_total = store.page_records(
+        subject_kind=None,
+        subject_id=None,
+        entity=None,
+        include_purged=True,
+        limit=10,
+        offset=0,
+    )
+    assert with_purged_total == 3
+    assert [record.id for record in with_purged] == [live.id, purged.id, payroll.id]
+    payroll_only, payroll_total = store.page_records(
+        subject_kind=None,
+        subject_id=None,
+        entity=RecordEntity.PAYROLL,
+        include_purged=False,
+        limit=10,
+        offset=0,
+    )
+    assert payroll_total == 1
+    assert [record.id for record in payroll_only] == [payroll.id]
+
+    first_request = ErasureRequest(
+        subject_kind=SubjectKind.CANDIDATE,
+        subject_id="cand-1",
+        reason="UU PDP request",
+        requested_by="hr-admin",
+        received_at=base,
+    )
+    second_request = ErasureRequest(
+        subject_kind=SubjectKind.EMPLOYEE,
+        subject_id="emp-1",
+        reason="UU PDP request",
+        requested_by="hr-admin",
+        received_at=base + timedelta(hours=1),
+    )
+    store.add_erasure(first_request)
+    store.add_erasure(second_request)
+    late_queue, erasure_total = store.page_erasures(limit=1, offset=1)
+    assert erasure_total == 2
+    assert [request.id for request in late_queue] == [second_request.id]
+
+    first_incident = BreachIncident(
+        title="Laptop lost",
+        discovered_by="it-ops",
+        template_name="default_incident_checklist",
+        discovered_at=base,
+    )
+    second_incident = BreachIncident(
+        title="Mailbox misdirected",
+        discovered_by="it-ops",
+        template_name="default_incident_checklist",
+        discovered_at=base + timedelta(hours=1),
+    )
+    store.add_incident(first_incident)
+    store.add_incident(second_incident)
+    incidents, incident_total = store.page_incidents(limit=10, offset=0)
+    assert incident_total == 2
+    assert [incident.id for incident in incidents] == [first_incident.id, second_incident.id]
+
+
 def test_the_two_backends_agree_on_whether_a_consent_was_removed(
     factory: sessionmaker[Session],
 ) -> None:

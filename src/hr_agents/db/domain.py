@@ -42,6 +42,7 @@ from hr_agents.models import (
     ReviewCycle,
     ReviewCycleStatus,
     ReviewSummary,
+    SubjectKind,
 )
 from hr_agents.services.people_store import (
     ComplianceStore,
@@ -68,6 +69,37 @@ class DbComplianceStore(ComplianceStore):
     def list_consents(self) -> list[ConsentGrant]:
         consents = list_models(self._session_factory, ConsentGrant, ct.ConsentRecordTable)
         return sorted(consents, key=lambda item: item.granted_at)
+
+    def page_consents(
+        self,
+        *,
+        subject_kind: SubjectKind | None,
+        subject_id: str | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ConsentGrant], int]:
+        """The consent ledger in SQL: subject predicates, order, slice and count."""
+        where = []
+        if subject_kind is not None:
+            where.append(ct.ConsentRecordTable.subject_kind == subject_kind.value)
+        if subject_id is not None:
+            where.append(ct.ConsentRecordTable.subject_id == subject_id)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(ct.ConsentRecordTable).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(ct.ConsentRecordTable)
+                    .where(*where)
+                    .order_by(ct.ConsentRecordTable.granted_at, ct.ConsentRecordTable.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(ConsentGrant, row) for row in rows], int(total or 0)
 
     def delete_consent(self, consent_id: UUID) -> bool:
         """Issue the DELETE. Without this the inherited dict version reported False.
@@ -151,6 +183,47 @@ class DbComplianceStore(ComplianceStore):
         records = list_models(self._session_factory, RetentionRecord, ct.RetentionRecordTable)
         return sorted(records, key=lambda item: item.anchor_at)
 
+    def page_records(
+        self,
+        *,
+        subject_kind: SubjectKind | None,
+        subject_id: str | None,
+        entity: RecordEntity | None,
+        include_purged: bool,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[RetentionRecord], int]:
+        """The retention ledger in SQL: subject/entity filters and the purge gate.
+
+        ``purged`` is derived from ``purged_at``, so the default view's predicate
+        is ``purged_at IS NULL`` -- the same rule ``RetentionRecord.purged`` reads.
+        """
+        where = []
+        if subject_kind is not None:
+            where.append(ct.RetentionRecordTable.subject_kind == subject_kind.value)
+        if subject_id is not None:
+            where.append(ct.RetentionRecordTable.subject_id == subject_id)
+        if entity is not None:
+            where.append(ct.RetentionRecordTable.entity == entity.value)
+        if not include_purged:
+            where.append(ct.RetentionRecordTable.purged_at.is_(None))
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(ct.RetentionRecordTable).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(ct.RetentionRecordTable)
+                    .where(*where)
+                    .order_by(ct.RetentionRecordTable.anchor_at, ct.RetentionRecordTable.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(RetentionRecord, row) for row in rows], int(total or 0)
+
     # erasure requests
     def add_erasure(self, request: ErasureRequest) -> None:
         add_model(self._session_factory, request, ct.ErasureRequestTable)
@@ -165,6 +238,22 @@ class DbComplianceStore(ComplianceStore):
         requests = list_models(self._session_factory, ErasureRequest, ct.ErasureRequestTable)
         return sorted(requests, key=lambda item: item.received_at)
 
+    def page_erasures(self, *, limit: int, offset: int) -> tuple[list[ErasureRequest], int]:
+        """The erasure queue in SQL: ``(received_at, id)`` order, slice and count."""
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(select(func.count()).select_from(ct.ErasureRequestTable))
+            rows = (
+                session.execute(
+                    select(ct.ErasureRequestTable)
+                    .order_by(ct.ErasureRequestTable.received_at, ct.ErasureRequestTable.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(ErasureRequest, row) for row in rows], int(total or 0)
+
     # breach incidents
     def add_incident(self, incident: BreachIncident) -> None:
         add_model(self._session_factory, incident, ct.BreachIncidentTable)
@@ -178,6 +267,22 @@ class DbComplianceStore(ComplianceStore):
     def list_incidents(self) -> list[BreachIncident]:
         incidents = list_models(self._session_factory, BreachIncident, ct.BreachIncidentTable)
         return sorted(incidents, key=lambda item: item.discovered_at)
+
+    def page_incidents(self, *, limit: int, offset: int) -> tuple[list[BreachIncident], int]:
+        """The incident register in SQL: ``(discovered_at, id)`` order, slice and count."""
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(select(func.count()).select_from(ct.BreachIncidentTable))
+            rows = (
+                session.execute(
+                    select(ct.BreachIncidentTable)
+                    .order_by(ct.BreachIncidentTable.discovered_at, ct.BreachIncidentTable.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(BreachIncident, row) for row in rows], int(total or 0)
 
     # calendar entries
     def add_calendar_entry(self, entry: ComplianceCalendarEntry) -> None:
