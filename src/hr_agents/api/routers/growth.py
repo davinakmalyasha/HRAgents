@@ -70,10 +70,10 @@ def list_cycles(
     paging: PaginationDep,
     cycle_status: ReviewCycleStatus | None = None,
 ) -> Page[CycleView]:
-    cycles = growth.list_cycles(status=cycle_status)
-    ordered = sorted(cycles, key=lambda cycle: (cycle.created_at, str(cycle.id)))
-    return Page.slice(
-        [CycleView.from_model(cycle) for cycle in ordered],
+    items, total = growth.page_cycles(status=cycle_status, limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [CycleView.from_model(cycle) for cycle in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -186,10 +186,12 @@ def list_assignments(
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
         raise not_found(str(exc)) from exc
-    assignments = growth.list_assignments(cycle_id)
-    ordered = sorted(assignments, key=lambda item: (item.created_at, str(item.id)))
-    return Page.slice(
-        [AssignmentView.from_model(item) for item in ordered],
+    items, total = growth.page_assignments(
+        cycle_id=cycle_id, limit=paging.limit, offset=paging.offset
+    )
+    return Page.of(
+        [AssignmentView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -206,10 +208,12 @@ def my_assignments(
     which leaves the caller typing a string that decides whose reviews they see --
     and the honest UI would have to ask a person to do it.
     """
-    assignments = growth.assignments_for_reviewer(actor.actor_id)
-    ordered = sorted(assignments, key=lambda item: (item.created_at, str(item.id)))
-    return Page.slice(
-        [AssignmentView.from_model(item) for item in ordered],
+    items, total = growth.page_assignments(
+        reviewer_id=actor.actor_id, open_only=True, limit=paging.limit, offset=paging.offset
+    )
+    return Page.of(
+        [AssignmentView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -219,10 +223,12 @@ def my_assignments(
 def assignments_for_reviewer(
     growth: GrowthDep, paging: PaginationDep, reviewer_id: Annotated[str, Query(min_length=1)]
 ) -> Page[AssignmentView]:
-    assignments = growth.assignments_for_reviewer(reviewer_id)
-    ordered = sorted(assignments, key=lambda item: (item.created_at, str(item.id)))
-    return Page.slice(
-        [AssignmentView.from_model(item) for item in ordered],
+    items, total = growth.page_assignments(
+        reviewer_id=reviewer_id, open_only=True, limit=paging.limit, offset=paging.offset
+    )
+    return Page.of(
+        [AssignmentView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -302,10 +308,12 @@ def list_summaries(cycle_id: UUID, growth: GrowthDep, paging: PaginationDep) -> 
         growth.get_cycle(cycle_id)
     except GrowthError as exc:
         raise not_found(str(exc)) from exc
-    summaries = growth.list_summaries(cycle_id)
-    ordered = sorted(summaries, key=lambda item: (item.created_at, str(item.id)))
-    return Page.slice(
-        [SummaryView.from_model(item) for item in ordered],
+    items, total = growth.page_summaries(
+        cycle_id=cycle_id, limit=paging.limit, offset=paging.offset
+    )
+    return Page.of(
+        [SummaryView.from_model(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -350,10 +358,15 @@ def list_goals(
     employee_id: UUID | None = None,
     goal_status: GoalStatus | None = None,
 ) -> Page[GoalView]:
-    goals = growth.list_goals(employee_id=employee_id, status=goal_status)
-    ordered = sorted(goals, key=lambda goal: (goal.created_at, str(goal.id)))
-    return Page.slice(
-        [GoalView.from_model(goal) for goal in ordered],
+    items, total = growth.page_goals(
+        employee_id=employee_id,
+        status=goal_status,
+        limit=paging.limit,
+        offset=paging.offset,
+    )
+    return Page.of(
+        [GoalView.from_model(goal) for goal in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
@@ -361,10 +374,10 @@ def list_goals(
 
 @router.get("/goals/overdue", response_model=Page[GoalView])
 def overdue_goals(growth: GrowthDep, paging: PaginationDep) -> Page[GoalView]:
-    goals = growth.overdue_goals()
-    ordered = sorted(goals, key=lambda goal: (goal.created_at, str(goal.id)))
-    return Page.slice(
-        [GoalView.from_model(goal) for goal in ordered],
+    items, total = growth.page_goals(overdue_only=True, limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [GoalView.from_model(goal) for goal in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

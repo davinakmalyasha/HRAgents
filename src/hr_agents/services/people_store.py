@@ -15,6 +15,7 @@ from hr_agents.models import (
     ApprovalRequest,
     ApprovalStatus,
     ApproverRole,
+    AssignmentStatus,
     BreachIncident,
     ComplianceCalendarEntry,
     ConsentGrant,
@@ -24,6 +25,7 @@ from hr_agents.models import (
     EmployeeStatus,
     ErasureRequest,
     Goal,
+    GoalStatus,
     OffboardingAsset,
     OffboardingPlan,
     OffboardingTemplate,
@@ -34,6 +36,7 @@ from hr_agents.models import (
     RetentionRecord,
     ReviewAssignment,
     ReviewCycle,
+    ReviewCycleStatus,
     ReviewSummary,
     TaskItem,
     VerificationStatus,
@@ -514,6 +517,16 @@ class GrowthStore:
     def list_cycles(self) -> list[ReviewCycle]:
         return sorted(self._cycles.values(), key=lambda item: item.created_at)
 
+    def page_cycles(
+        self, *, status: ReviewCycleStatus | None, limit: int, offset: int
+    ) -> tuple[list[ReviewCycle], int]:
+        """Cycles in the route's order: ``(created_at, id)`` with a status filter."""
+        ordered = sorted(
+            (cycle for cycle in self.list_cycles() if status is None or cycle.status is status),
+            key=lambda cycle: (cycle.created_at, str(cycle.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     # assignments
     def add_assignment(self, assignment: ReviewAssignment) -> None:
         self._assignments[assignment.id] = assignment
@@ -528,6 +541,33 @@ class GrowthStore:
 
     def list_assignments(self) -> list[ReviewAssignment]:
         return sorted(self._assignments.values(), key=lambda item: item.created_at)
+
+    def page_assignments(
+        self,
+        *,
+        cycle_id: UUID | None = None,
+        reviewer_id: str | None = None,
+        open_only: bool = False,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ReviewAssignment], int]:
+        """Assignments by cycle and/or reviewer; ``open_only`` drops terminal forms.
+
+        A form is terminal once it is submitted or skipped, which is the
+        ``reviewer_id`` routes' contract: a reviewer sees outstanding work, not
+        history. The cycle route keeps every status.
+        """
+        ordered = sorted(
+            (
+                item
+                for item in self.list_assignments()
+                if (cycle_id is None or item.cycle_id == cycle_id)
+                and (reviewer_id is None or item.reviewer_id == reviewer_id)
+                and (not open_only or item.status is AssignmentStatus.PENDING)
+            ),
+            key=lambda item: (item.created_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
 
     # summaries
     def add_summary(self, summary: ReviewSummary) -> None:
@@ -544,6 +584,16 @@ class GrowthStore:
     def list_summaries(self) -> list[ReviewSummary]:
         return sorted(self._summaries.values(), key=lambda item: item.created_at)
 
+    def page_summaries(
+        self, *, cycle_id: UUID, limit: int, offset: int
+    ) -> tuple[list[ReviewSummary], int]:
+        """One cycle's summaries in the route's order: ``(created_at, id)``."""
+        ordered = sorted(
+            (item for item in self.list_summaries() if item.cycle_id == cycle_id),
+            key=lambda item: (item.created_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     # goals
     def add_goal(self, goal: Goal) -> None:
         self._goals[goal.id] = goal
@@ -558,6 +608,34 @@ class GrowthStore:
 
     def list_goals(self) -> list[Goal]:
         return sorted(self._goals.values(), key=lambda item: item.created_at)
+
+    def page_goals(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        status: GoalStatus | None = None,
+        overdue_only: bool = False,
+        as_of: date,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Goal], int]:
+        """Goals by owner and status, or just the past-due ones, as one page.
+
+        ``overdue_only`` uses ``Goal.is_overdue``'s rule -- open and due before
+        ``as_of`` -- rather than a second definition; ``as_of`` arrives from the
+        caller so both stores read the same business day.
+        """
+        ordered = sorted(
+            (
+                goal
+                for goal in self.list_goals()
+                if (employee_id is None or goal.employee_id == employee_id)
+                and (status is None or goal.status is status)
+                and (not overdue_only or goal.is_overdue(as_of=as_of))
+            ),
+            key=lambda goal: (goal.created_at, str(goal.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
 
 
 class OffboardingStore:

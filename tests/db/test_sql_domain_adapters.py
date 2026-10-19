@@ -1,6 +1,6 @@
 """Compliance, growth, and offboarding adapter tests on in-memory SQLite."""
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy.orm import Session, sessionmaker
@@ -13,6 +13,7 @@ from hr_agents.db.domain import (
 from hr_agents.db.people import DbEmployeeStore
 from hr_agents.models import (
     ApproverRole,
+    AssignmentStatus,
     BreachIncident,
     CalendarEntryCategory,
     ComplianceCalendarEntry,
@@ -21,6 +22,7 @@ from hr_agents.models import (
     EmployeeStatus,
     ErasureRequest,
     Goal,
+    GoalStatus,
     OffboardingAsset,
     OffboardingPlan,
     OffboardingReason,
@@ -29,8 +31,10 @@ from hr_agents.models import (
     RetentionRecord,
     ReviewAssignment,
     ReviewCycle,
+    ReviewCycleStatus,
     ReviewSummary,
     SubjectKind,
+    business_today,
 )
 from hr_agents.models.offboarding import (
     AssetStatus,
@@ -247,6 +251,138 @@ def test_growth_store_round_trip(factory: sessionmaker[Session]) -> None:
     loaded_goal.progress_percent = 40.0
     DbGrowthStore(factory).save_goal(loaded_goal)
     assert DbGrowthStore(factory).list_goals()[0].progress_percent == 40.0
+
+
+def test_page_growth_lists_filter_and_page_in_sql(factory: sessionmaker[Session]) -> None:
+    """Cycles, assignments, summaries and goals page with their route predicates.
+
+    Two cycles, two reviewers, a terminal form and past-due goals: each page
+    proves its predicate and its count. The two-deep walks pin the
+    ``(created_at, id)`` order that keeps OFFSET from skipping rows.
+    """
+    store = DbGrowthStore(factory)
+    employees = DbEmployeeStore(factory)
+    subject = Employee(full_name="Sari Dewi", status=EmployeeStatus.ACTIVE)
+    other = Employee(full_name="Budi Santoso", status=EmployeeStatus.ACTIVE)
+    employees.add_employee(subject)
+    employees.add_employee(other)
+
+    draft = ReviewCycle(
+        name="Draft round",
+        period_start=date(2026, 1, 1),
+        period_end=date(2026, 6, 30),
+        created_by="hr-admin",
+    )
+    active = ReviewCycle(
+        name="Active round",
+        period_start=date(2026, 7, 1),
+        period_end=date(2026, 12, 31),
+        created_by="hr-admin",
+        status=ReviewCycleStatus.ACTIVE,
+    )
+    store.add_cycle(draft)
+    store.add_cycle(active)
+
+    pending = ReviewAssignment(cycle_id=active.id, employee_id=subject.id, reviewer_id="lead-1")
+    submitted = ReviewAssignment(
+        cycle_id=active.id,
+        employee_id=other.id,
+        reviewer_id="lead-2",
+        status=AssignmentStatus.SUBMITTED,
+    )
+    draft_form = ReviewAssignment(cycle_id=draft.id, employee_id=subject.id, reviewer_id="lead-1")
+    for assignment in (pending, submitted, draft_form):
+        store.add_assignment(assignment)
+
+    first_summary = ReviewSummary(cycle_id=active.id, employee_id=subject.id)
+    second_summary = ReviewSummary(cycle_id=active.id, employee_id=other.id)
+    draft_summary = ReviewSummary(cycle_id=draft.id, employee_id=subject.id)
+    for summary in (first_summary, second_summary, draft_summary):
+        store.add_summary(summary)
+
+    today = business_today()
+    overdue_goal = Goal(
+        employee_id=subject.id,
+        title="Overdue",
+        created_by="hr-admin",
+        due_on=today - timedelta(days=3),
+        status=GoalStatus.ACTIVE,
+    )
+    upcoming_goal = Goal(
+        employee_id=subject.id,
+        title="Upcoming",
+        created_by="hr-admin",
+        due_on=today + timedelta(days=10),
+    )
+    completed_goal = Goal(
+        employee_id=subject.id,
+        title="Completed",
+        created_by="hr-admin",
+        due_on=today - timedelta(days=5),
+        status=GoalStatus.COMPLETED,
+    )
+    other_goal = Goal(
+        employee_id=other.id,
+        title="Other's goal",
+        created_by="hr-admin",
+        due_on=today + timedelta(days=2),
+    )
+    for goal in (overdue_goal, upcoming_goal, completed_goal, other_goal):
+        store.add_goal(goal)
+
+    cycles, cycle_total = store.page_cycles(status=None, limit=10, offset=0)
+    assert cycle_total == 2
+    expected_cycles = sorted([draft, active], key=lambda cycle: (cycle.created_at, str(cycle.id)))
+    assert [cycle.id for cycle in cycles] == [cycle.id for cycle in expected_cycles]
+    open_cycles, open_total = store.page_cycles(status=ReviewCycleStatus.ACTIVE, limit=10, offset=0)
+    assert open_total == 1
+    assert [cycle.id for cycle in open_cycles] == [active.id]
+
+    cycle_forms, cycle_forms_total = store.page_assignments(cycle_id=active.id, limit=10, offset=0)
+    assert cycle_forms_total == 2
+    expected_forms = sorted([pending, submitted], key=lambda item: (item.created_at, str(item.id)))
+    assert [item.id for item in cycle_forms] == [item.id for item in expected_forms]
+
+    mine, mine_total = store.page_assignments(
+        reviewer_id="lead-1", open_only=True, limit=10, offset=0
+    )
+    assert mine_total == 2, "the draft cycle's pending form is still outstanding work"
+    expected_mine = sorted([pending, draft_form], key=lambda item: (item.created_at, str(item.id)))
+    assert [item.id for item in mine] == [item.id for item in expected_mine]
+
+    terminal, terminal_total = store.page_assignments(
+        reviewer_id="lead-2", open_only=True, limit=10, offset=0
+    )
+    assert terminal_total == 0
+    assert terminal == []
+
+    expected_summaries = sorted(
+        [first_summary, second_summary], key=lambda item: (item.created_at, str(item.id))
+    )
+    summaries, summary_total = store.page_summaries(cycle_id=active.id, limit=1, offset=1)
+    assert summary_total == 2
+    assert [summary.id for summary in summaries] == [expected_summaries[1].id]
+
+    expected_goals = sorted(
+        [overdue_goal, upcoming_goal, completed_goal],
+        key=lambda goal: (goal.created_at, str(goal.id)),
+    )
+    goals, goal_total = store.page_goals(employee_id=subject.id, as_of=today, limit=10, offset=0)
+    assert goal_total == 3
+    assert [goal.id for goal in goals] == [goal.id for goal in expected_goals]
+    rest, rest_total = store.page_goals(employee_id=subject.id, as_of=today, limit=1, offset=2)
+    assert rest_total == 3
+    assert [goal.id for goal in rest] == [expected_goals[2].id]
+
+    past_due, past_due_total = store.page_goals(overdue_only=True, as_of=today, limit=10, offset=0)
+    assert past_due_total == 1, "completed goals are not overdue work"
+    assert [goal.id for goal in past_due] == [overdue_goal.id]
+
+    completed, completed_total = store.page_goals(
+        status=GoalStatus.COMPLETED, as_of=today, limit=10, offset=0
+    )
+    assert completed_total == 1
+    assert [goal.id for goal in completed] == [completed_goal.id]
 
 
 def test_offboarding_store_round_trip(factory: sessionmaker[Session]) -> None:

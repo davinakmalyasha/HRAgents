@@ -119,6 +119,12 @@ class GrowthService:
             cycles = [cycle for cycle in cycles if cycle.status is status]
         return cycles
 
+    def page_cycles(
+        self, *, status: ReviewCycleStatus | None, limit: int, offset: int
+    ) -> tuple[list[ReviewCycle], int]:
+        """The cycles list page: the store owns the predicate, order and count."""
+        return self._store.page_cycles(status=status, limit=limit, offset=offset)
+
     def _transition_cycle(
         self,
         cycle_id: UUID,
@@ -257,6 +263,24 @@ class GrowthService:
             for item in self._store.list_assignments()
             if item.reviewer_id == reviewer_id and not item.terminal
         ]
+
+    def page_assignments(
+        self,
+        *,
+        cycle_id: UUID | None = None,
+        reviewer_id: str | None = None,
+        open_only: bool = False,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ReviewAssignment], int]:
+        """The assignment lists' page: cycle/reviewer predicates and pending-only."""
+        return self._store.page_assignments(
+            cycle_id=cycle_id,
+            reviewer_id=reviewer_id,
+            open_only=open_only,
+            limit=limit,
+            offset=offset,
+        )
 
     def submit_assignment(
         self,
@@ -428,6 +452,12 @@ class GrowthService:
 
     def list_summaries(self, cycle_id: UUID) -> list[ReviewSummary]:
         return [item for item in self._store.list_summaries() if item.cycle_id == cycle_id]
+
+    def page_summaries(
+        self, *, cycle_id: UUID, limit: int, offset: int
+    ) -> tuple[list[ReviewSummary], int]:
+        """One cycle's summaries page: predicate, order and count in the store."""
+        return self._store.page_summaries(cycle_id=cycle_id, limit=limit, offset=offset)
 
     def finalize_summary(
         self, summary_id: UUID, *, actor: ActorRef, final_text: str
@@ -686,6 +716,25 @@ class GrowthService:
 
     def overdue_goals(self, *, as_of: date | None = None) -> list[Goal]:
         return [goal for goal in self._store.list_goals() if goal.is_overdue(as_of=as_of)]
+
+    def page_goals(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        status: GoalStatus | None = None,
+        overdue_only: bool = False,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Goal], int]:
+        """The goals lists' page: owner, status and past-due filters in the store."""
+        return self._store.page_goals(
+            employee_id=employee_id,
+            status=status,
+            overdue_only=overdue_only,
+            as_of=business_today(),
+            limit=limit,
+            offset=offset,
+        )
 
     # --- internals -----------------------------------------------------------
 

@@ -6,6 +6,7 @@ upsert by entity (one active policy per entity, matching the service contract).
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
@@ -24,11 +25,13 @@ from hr_agents.db.mapping import (
 )
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
+    AssignmentStatus,
     BreachIncident,
     ComplianceCalendarEntry,
     ConsentGrant,
     ErasureRequest,
     Goal,
+    GoalStatus,
     OffboardingAsset,
     OffboardingPlan,
     OffboardingTemplate,
@@ -37,6 +40,7 @@ from hr_agents.models import (
     RetentionRecord,
     ReviewAssignment,
     ReviewCycle,
+    ReviewCycleStatus,
     ReviewSummary,
 )
 from hr_agents.services.people_store import (
@@ -215,6 +219,28 @@ class DbGrowthStore(GrowthStore):
         cycles = list_models(self._session_factory, ReviewCycle, gt.ReviewCycleRecord)
         return sorted(cycles, key=lambda item: item.created_at)
 
+    def page_cycles(
+        self, *, status: ReviewCycleStatus | None, limit: int, offset: int
+    ) -> tuple[list[ReviewCycle], int]:
+        """Cycles in SQL: optional status predicate, ``(created_at, id)``, count."""
+        where = [] if status is None else [gt.ReviewCycleRecord.status == status.value]
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(gt.ReviewCycleRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(gt.ReviewCycleRecord)
+                    .where(*where)
+                    .order_by(gt.ReviewCycleRecord.created_at, gt.ReviewCycleRecord.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(ReviewCycle, row) for row in rows], int(total or 0)
+
     def add_assignment(self, assignment: ReviewAssignment) -> None:
         add_model(self._session_factory, assignment, gt.ReviewAssignmentRecord)
 
@@ -232,6 +258,40 @@ class DbGrowthStore(GrowthStore):
         )
         return sorted(assignments, key=lambda item: item.created_at)
 
+    def page_assignments(
+        self,
+        *,
+        cycle_id: UUID | None = None,
+        reviewer_id: str | None = None,
+        open_only: bool = False,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ReviewAssignment], int]:
+        """Assignments in SQL: cycle and reviewer predicates, pending-only, count."""
+        where = []
+        if cycle_id is not None:
+            where.append(gt.ReviewAssignmentRecord.cycle_id == cycle_id)
+        if reviewer_id is not None:
+            where.append(gt.ReviewAssignmentRecord.reviewer_id == reviewer_id)
+        if open_only:
+            where.append(gt.ReviewAssignmentRecord.status == AssignmentStatus.PENDING.value)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(gt.ReviewAssignmentRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(gt.ReviewAssignmentRecord)
+                    .where(*where)
+                    .order_by(gt.ReviewAssignmentRecord.created_at, gt.ReviewAssignmentRecord.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(ReviewAssignment, row) for row in rows], int(total or 0)
+
     def add_summary(self, summary: ReviewSummary) -> None:
         add_model(self._session_factory, summary, gt.ReviewSummaryRecord)
 
@@ -245,6 +305,28 @@ class DbGrowthStore(GrowthStore):
         summaries = list_models(self._session_factory, ReviewSummary, gt.ReviewSummaryRecord)
         return sorted(summaries, key=lambda item: item.created_at)
 
+    def page_summaries(
+        self, *, cycle_id: UUID, limit: int, offset: int
+    ) -> tuple[list[ReviewSummary], int]:
+        """One cycle's summaries in SQL: predicate, ``(created_at, id)``, count."""
+        where = [gt.ReviewSummaryRecord.cycle_id == cycle_id]
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(gt.ReviewSummaryRecord).where(*where)
+            )
+            rows = (
+                session.execute(
+                    select(gt.ReviewSummaryRecord)
+                    .where(*where)
+                    .order_by(gt.ReviewSummaryRecord.created_at, gt.ReviewSummaryRecord.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(ReviewSummary, row) for row in rows], int(total or 0)
+
     def add_goal(self, goal: Goal) -> None:
         add_model(self._session_factory, goal, gt.GoalRecord)
 
@@ -257,6 +339,49 @@ class DbGrowthStore(GrowthStore):
     def list_goals(self) -> list[Goal]:
         goals = list_models(self._session_factory, Goal, gt.GoalRecord)
         return sorted(goals, key=lambda item: item.created_at)
+
+    def page_goals(
+        self,
+        *,
+        employee_id: UUID | None = None,
+        status: GoalStatus | None = None,
+        overdue_only: bool = False,
+        as_of: date,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Goal], int]:
+        """Goals in SQL: owner and status predicates, past-due only, count.
+
+        The overdue rule mirrors ``Goal.is_overdue`` exactly -- open (draft or
+        active), dated, and due before ``as_of``.
+        """
+        where = []
+        if employee_id is not None:
+            where.append(gt.GoalRecord.employee_id == employee_id)
+        if status is not None:
+            where.append(gt.GoalRecord.status == status.value)
+        if overdue_only:
+            where.extend(
+                [
+                    gt.GoalRecord.status.in_([GoalStatus.DRAFT.value, GoalStatus.ACTIVE.value]),
+                    gt.GoalRecord.due_on.is_not(None),
+                    gt.GoalRecord.due_on < as_of,
+                ]
+            )
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(select(func.count()).select_from(gt.GoalRecord).where(*where))
+            rows = (
+                session.execute(
+                    select(gt.GoalRecord)
+                    .where(*where)
+                    .order_by(gt.GoalRecord.created_at, gt.GoalRecord.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(Goal, row) for row in rows], int(total or 0)
 
 
 class DbOffboardingStore(OffboardingStore):
