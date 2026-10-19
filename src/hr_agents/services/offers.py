@@ -431,6 +431,29 @@ class OfferService:
             return offers
         return [offer for offer in offers if offer.application_id == application_id]
 
+    def page_offers(
+        self,
+        *,
+        application_id: UUID | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Offer], int]:
+        """Offer history in the route's order: ``(created_at, id)`` with a filter.
+
+        Offers accumulate for the life of the pipeline and are only ever
+        archived, so database adapters keep the predicate, order, slice and
+        count together instead of materializing every offer per page.
+        """
+        ordered = sorted(
+            (
+                offer
+                for offer in self._iter()
+                if application_id is None or offer.application_id == application_id
+            ),
+            key=lambda offer: (offer.created_at, str(offer.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     def _note_application(self, offer: Offer, event: str) -> None:
         if self._applications is None:
             return

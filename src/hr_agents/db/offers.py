@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 if TYPE_CHECKING:
@@ -73,6 +73,35 @@ class DbOfferService(OfferService):
             rows = session.execute(select(ot.OfferRecord)).scalars().all()
             revisions = self._revisions_by_offer(session, [row.id for row in rows])
             return [self._to_offer(row, revisions.get(row.id, [])) for row in rows]
+
+    def page_offers(
+        self,
+        *,
+        application_id: UUID | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[Offer], int]:
+        """Page in SQL, then one batched revision read for the page's rows."""
+        conditions = []
+        if application_id is not None:
+            conditions.append(ot.OfferRecord.application_id == application_id)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.execute(
+                select(func.count()).select_from(ot.OfferRecord).where(*conditions)
+            ).scalar_one()
+            rows = (
+                session.execute(
+                    select(ot.OfferRecord)
+                    .where(*conditions)
+                    .order_by(ot.OfferRecord.created_at, ot.OfferRecord.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            revisions = self._revisions_by_offer(session, [row.id for row in rows])
+            return [self._to_offer(row, revisions.get(row.id, [])) for row in rows], total
 
     def _persist(self, offer: Offer) -> None:
         with sync_session_scope(self._session_factory) as session:

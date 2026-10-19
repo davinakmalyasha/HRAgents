@@ -413,6 +413,26 @@ class DbSchedulingService(SchedulingService):
             rows = session.execute(select(t.ScheduleProposal)).scalars().all()
             return iter([self._to_proposal(row) for row in rows])
 
+    def page_proposals(
+        self, *, limit: int, offset: int
+    ) -> tuple[list[SchedulingProposalRecord], int]:
+        """Page the proposal history in SQL, count included."""
+        with sync_session_scope(self._session_factory) as session:
+            total = session.execute(
+                select(func.count()).select_from(t.ScheduleProposal)
+            ).scalar_one()
+            rows = (
+                session.execute(
+                    select(t.ScheduleProposal)
+                    .order_by(t.ScheduleProposal.created_at, t.ScheduleProposal.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_proposal(row) for row in rows], total
+
     def _persist_proposal(self, proposal: SchedulingProposalRecord) -> None:
         payload = proposal.payload
         with sync_session_scope(self._session_factory) as session:

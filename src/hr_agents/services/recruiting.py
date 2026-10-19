@@ -1552,6 +1552,16 @@ class SchedulingService:
     def list_all(self) -> list[SchedulingProposalRecord]:
         return sorted(self._iter_proposals(), key=lambda item: item.created_at)
 
+    def page_proposals(
+        self, *, limit: int, offset: int
+    ) -> tuple[list[SchedulingProposalRecord], int]:
+        """Proposal history in the route's order: ``(created_at, id)`` with a count."""
+        ordered = sorted(
+            self._iter_proposals(),
+            key=lambda item: (item.created_at, str(item.id)),
+        )
+        return ordered[offset : offset + limit], len(ordered)
+
     # decisions
 
     def decide(

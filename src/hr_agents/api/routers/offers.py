@@ -46,12 +46,12 @@ OffersDep = Annotated[OfferService, Depends(get_offers)]
 def list_offers(
     offers: OffersDep, paging: PaginationDep, application_id: UUID | None = None
 ) -> Page[OfferView]:
-    ordered = sorted(
-        offers.list_all(application_id=application_id),
-        key=lambda offer: (offer.created_at, str(offer.id)),
+    items, total = offers.page_offers(
+        application_id=application_id, limit=paging.limit, offset=paging.offset
     )
-    return Page.slice(
-        [OfferView.from_model(offer) for offer in ordered],
+    return Page.of(
+        [OfferView.from_model(offer) for offer in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

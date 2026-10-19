@@ -77,12 +77,10 @@ def create_proposal(
 def list_proposals(
     scheduling: SchedulingDep, paging: PaginationDep
 ) -> Page[SchedulingProposalView]:
-    ordered = sorted(
-        scheduling.list_all(),
-        key=lambda item: (item.created_at, str(item.id)),
-    )
-    return Page.slice(
-        [SchedulingProposalView.from_record(item) for item in ordered],
+    items, total = scheduling.page_proposals(limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [SchedulingProposalView.from_record(item) for item in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

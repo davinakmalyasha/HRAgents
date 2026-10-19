@@ -600,6 +600,25 @@ def test_scheduling_adapter_availability_and_proposal(factory: sessionmaker[Sess
     fresh = DbSchedulingService(evaluations=evaluations, session_factory=factory)
     assert [item.id for item in fresh.list_all()] == [proposal.id]
     assert fresh.get(proposal.id).payload.slots[0].start_utc == slots[0].start_utc
+
+    other_record, _ = applications.submit(_submission(job_id=job.id, candidate_name="Budi"))
+    evaluations.register(
+        application_id=other_record.id,
+        evaluation=make_evaluation(candidate_id=other_record.candidate_id, job_id=job.id),
+        candidate_name="Budi Santoso",
+        job_title=job.title,
+    )
+    later = scheduling.propose(
+        candidate_id=other_record.candidate_id, job_id=job.id, interviewer_ids=[interviewer]
+    )
+
+    expected = sorted([proposal, later], key=lambda item: (item.created_at, str(item.id)))
+    first_page, first_total = fresh.page_proposals(limit=1, offset=0)
+    assert first_total == 2
+    assert [item.id for item in first_page] == [expected[0].id]
+    second_page, second_total = fresh.page_proposals(limit=1, offset=1)
+    assert second_total == 2
+    assert [item.id for item in second_page] == [expected[1].id]
     assert audit.verify() == -1
 
 
@@ -909,6 +928,73 @@ def test_offer_adapter_records_and_revisions(factory: sessionmaker[Session]) -> 
     assert loaded.revisions[0].terms.salary_amount == 25_000_000.0
     assert [item.id for item in fresh.list_all()] == [created.id]
     assert audit.verify() == -1
+
+
+def test_page_offers_filters_and_pages_in_sql(
+    factory: sessionmaker[Session], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The offers list keeps its application filter, order and count in SQL.
+
+    Two offers on one application and one on another: the filter isolates the
+    pair, the unfiltered page walks all three, and every paged offer still
+    carries its full revision history (the batched read rides along).
+    """
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(candidate_id=record.candidate_id, job_id=job.id),
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+    other_record, _ = applications.submit(_submission(job_id=job.id, candidate_name="Budi"))
+    evaluations.register(
+        application_id=other_record.id,
+        evaluation=make_evaluation(candidate_id=other_record.candidate_id, job_id=job.id),
+        candidate_name="Budi Santoso",
+        job_title=job.title,
+    )
+    communications = DbCommunicationService(
+        evaluations=evaluations, session_factory=factory, audit=audit, applications=applications
+    )
+    offers = DbOfferService(
+        evaluations=evaluations,
+        communications=communications,
+        session_factory=factory,
+        audit=audit,
+        applications=applications,
+    )
+    terms = OfferTerms(
+        position_title=job.title,
+        employment_type=ContractType.PKWTT,
+        start_date=date(2026, 11, 1),
+        salary_amount=25_000_000.0,
+        salary_currency="IDR",
+    )
+    first = offers.create(record.id, terms, actor=ActorRef.legacy("hr-admin"))
+    second = offers.create(record.id, terms, actor=ActorRef.legacy("hr-admin"))
+    elsewhere = offers.create(other_record.id, terms, actor=ActorRef.legacy("hr-admin"))
+
+    def no_full_read(*args: object, **kwargs: object) -> None:
+        raise AssertionError("the offers page must read its slice in SQL")
+
+    monkeypatch.setattr(offers, "_iter", no_full_read)
+
+    mine, mine_total = offers.page_offers(application_id=record.id, limit=10, offset=0)
+    assert mine_total == 2
+    expected_mine = sorted([first, second], key=lambda offer: (offer.created_at, str(offer.id)))
+    assert [offer.id for offer in mine] == [offer.id for offer in expected_mine]
+    assert mine[0].revisions, "a paged offer still carries its revision history"
+
+    everything = sorted(
+        [first, second, elsewhere], key=lambda offer: (offer.created_at, str(offer.id))
+    )
+    page_one, total = offers.page_offers(application_id=None, limit=2, offset=0)
+    page_two, total_two = offers.page_offers(application_id=None, limit=2, offset=2)
+    assert total == total_two == 3, "the count is the unfiltered total, not the page size"
+    assert [offer.id for offer in [*page_one, *page_two]] == [offer.id for offer in everything]
 
 
 def test_listing_offers_batches_their_revisions(factory: sessionmaker[Session]) -> None:
