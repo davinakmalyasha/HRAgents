@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.mapping import check_version
@@ -52,6 +52,41 @@ class DbApplicationStore(ApplicationStore):
             if row is None:
                 return None
             return row.payload_hash or "", row.id
+
+    def page_applications(
+        self,
+        *,
+        job_id: UUID | None = None,
+        status: ApplicationStatus | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ApplicationRecord], int]:
+        """Ranked page in SQL: predicate, ORDER BY, LIMIT/OFFSET and count together.
+
+        ``COALESCE`` mirrors the read path, which coerces a NULL score to the
+        0.0 default, so a row written by an older schema orders where it reads.
+        """
+        conditions = []
+        if job_id is not None:
+            conditions.append(Application.job_id == job_id)
+        if status is not None:
+            conditions.append(Application.status == status.value)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.execute(
+                select(func.count()).select_from(Application).where(*conditions)
+            ).scalar_one()
+            rows = (
+                session.execute(
+                    select(Application)
+                    .where(*conditions)
+                    .order_by(desc(func.coalesce(Application.priority_score, 0.0)), Application.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_record(row) for row in rows], total
 
     def _persist_new(
         self, record: ApplicationRecord, payload_hash: str, submission: SubmissionInput

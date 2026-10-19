@@ -303,6 +303,50 @@ def test_application_lists_rank_by_priority(factory: sessionmaker[Session]) -> N
         assert len(applications) == 2
 
 
+def test_page_applications_filters_orders_and_counts_in_sql(
+    factory: sessionmaker[Session],
+) -> None:
+    """The board's page: job and status filters, priority order, stable paging.
+
+    Three unscored applications share the default score, so the id tiebreak is
+    what keeps the second page from repeating or skipping rows -- the state the
+    pipeline is in before anything has been evaluated.
+    """
+    store = DbApplicationStore(factory)
+    job_id = _seed_job(factory)
+    other_job = _seed_job(factory)
+    first, _ = store.submit(_submission(job_id=job_id, candidate_name="First"))
+    second, _ = store.submit(_submission(job_id=job_id, candidate_name="Second"))
+    top, _ = store.submit(_submission(job_id=job_id, candidate_name="Top"))
+    elsewhere, _ = store.submit(_submission(job_id=other_job, candidate_name="Elsewhere"))
+
+    top.s_tech = 0.95
+    top.refresh_priority()
+    store.save(top)
+    assert elsewhere.id not in {first.id, second.id, top.id}
+
+    ranked_rest = sorted([first.id, second.id], key=str)
+    expected = [top.id, *ranked_rest]
+
+    page, total = store.page_applications(job_id=job_id, limit=2, offset=0)
+    assert total == 3, "the count is the filtered total, not the page size"
+    assert [record.id for record in page] == expected[:2]
+
+    second_page, second_total = store.page_applications(job_id=job_id, limit=2, offset=2)
+    assert second_total == 3
+    assert [record.id for record in second_page] == expected[2:]
+
+    store.set_status(second.id, ApplicationStatus.PROCESSING, event="screener.claimed")
+    filtered, filtered_total = store.page_applications(
+        job_id=job_id, status=ApplicationStatus.PROCESSING, limit=10, offset=0
+    )
+    assert filtered_total == 1
+    assert [record.id for record in filtered] == [second.id]
+
+    every_total = store.page_applications(job_id=None, limit=10, offset=0)[1]
+    assert every_total == 4, "no job filter means every job's applications"
+
+
 # --- recruitment adapters -------------------------------------------------------
 
 

@@ -208,6 +208,27 @@ class ApplicationStore:
         records.sort(key=lambda r: (-r.priority_score, r.received_at))
         return records
 
+    def page_applications(
+        self,
+        *,
+        job_id: UUID | None = None,
+        status: ApplicationStatus | None = None,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[ApplicationRecord], int]:
+        """The pipeline board's page: ``(-priority, id)`` with job and status filters.
+
+        The ranking is the route's contract, not ``list_for_job``'s recency
+        order: the score is what floats an application up the board. The id
+        tiebreak keeps OFFSET stable while most of the pipeline still sits at
+        the default score, which is exactly when a reshuffle would be visible.
+        """
+        records = self.list_for_job(job_id) if job_id is not None else self.list_all()
+        if status is not None:
+            records = [record for record in records if record.status is status]
+        ranked = sorted(records, key=lambda record: (-record.priority_score, str(record.id)))
+        return ranked[offset : offset + limit], len(ranked)
+
     def iter_all(self) -> Iterator[ApplicationRecord]:
         return self._iter()
 

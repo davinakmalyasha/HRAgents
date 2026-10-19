@@ -174,12 +174,15 @@ def list_applications(
     application_status: Annotated[ApplicationStatus | None, Query(alias="status")] = None,
 ) -> Page[ApplicationSummary]:
     now = datetime.now(UTC)
-    records = store.list_for_job(job_id) if job_id is not None else store.list_all()
-    if application_status is not None:
-        records = [record for record in records if record.status is application_status]
-    ranked = sorted(records, key=lambda record: (-record.priority_score, str(record.id)))
-    return Page.slice(
-        [ApplicationSummary.from_record(record, now=now) for record in ranked],
+    records, total = store.page_applications(
+        job_id=job_id,
+        status=application_status,
+        limit=paging.limit,
+        offset=paging.offset,
+    )
+    return Page.of(
+        [ApplicationSummary.from_record(record, now=now) for record in records],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )
