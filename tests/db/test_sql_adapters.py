@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import Engine, event, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import tables as t
@@ -460,6 +461,43 @@ def test_evaluation_adapter_registration_and_overrides(factory: sessionmaker[Ses
 
     with factory() as session:
         assert session.get(t.EvaluationOverrideRecord, outcome.override.id) is not None
+
+
+def test_evaluation_application_is_a_foreign_key(factory: sessionmaker[Session]) -> None:
+    """A dangling application id is refused by the database, not just by the worker.
+
+    The pipeline validates the application before registering, so this writes
+    past the service and proves the column refuses an orphan even then: an
+    evaluation keyed to an application that does not exist can never be found
+    by ``get_by_application``.
+    """
+    audit, job, applications, record = _seeded(factory)
+    evaluations = DbEvaluationService(
+        session_factory=factory, audit=audit, applications=applications
+    )
+    evaluation = make_evaluation(candidate_id=record.candidate_id, job_id=job.id)
+    evaluations.register(
+        application_id=record.id,
+        evaluation=evaluation,
+        candidate_name="Sari Dewi",
+        job_title=job.title,
+    )
+
+    with pytest.raises(IntegrityError), factory() as session:
+        session.add(
+            t.Evaluation(
+                id=uuid4(),
+                candidate_id=record.candidate_id,
+                application_id=uuid4(),
+                job_id=job.id,
+                s_tech=0.0,
+                sigma=0.0,
+                recommendation="hold",
+                policy_version="1",
+                document={},
+            )
+        )
+        session.commit()
 
 
 def test_feedback_adapter_stores_agent_report(factory: sessionmaker[Session]) -> None:

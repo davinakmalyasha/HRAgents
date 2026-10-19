@@ -124,7 +124,11 @@ class Evaluation(TenantScoped, Base):
     candidate_id: Mapped[UUID] = mapped_column(
         ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
     )
-    application_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), index=True)
+    application_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("applications.id", name="fk_evaluations_application", ondelete="SET NULL"),
+        index=True,
+    )
     job_id: Mapped[UUID | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
     candidate_name: Mapped[str | None] = mapped_column(Text)
     job_title: Mapped[str | None] = mapped_column(Text)
