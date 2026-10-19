@@ -119,7 +119,11 @@ async def test_submit_then_evaluate_seam() -> None:
 
         evaluation_response = client.get(f"/v1/applications/{application_id}/evaluation")
         assert evaluation_response.status_code == 200
-        assert evaluation_response.json()["application_id"] == str(application_id)
+        evaluation_body = evaluation_response.json()
+        assert evaluation_body["application_id"] == str(application_id)
+        assert evaluation_body["rubric"]["family"] == job.job_family.value
+        assert evaluation_body["rubric"]["template"]["family"] == job.job_family.value
+        assert len(evaluation_body["rubric"]["digest"]) == 64
 
         stats = await queue.stats(EVALUATION_TOPIC)
         assert stats.pending == 0

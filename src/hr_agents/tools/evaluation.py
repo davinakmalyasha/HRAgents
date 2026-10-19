@@ -20,9 +20,11 @@ def serialize_breakdown(record: EvaluationRecord) -> dict[str, Any]:
 
     Structured facts only: dimension scores, weights, rationale, flags, and the
     deterministic recommendation. No protected attributes, no raw document text.
+    The rubric is reduced to its identity -- family and digest -- because that is
+    enough to cite the rubric; the taxonomy itself belongs to the review.
     """
     evaluation = record.evaluation
-    return {
+    payload: dict[str, Any] = {
         "candidate_id": str(record.candidate_id),
         "job_title": record.job_title,
         "s_tech": round(evaluation.s_tech, 4),
@@ -40,6 +42,12 @@ def serialize_breakdown(record: EvaluationRecord) -> dict[str, Any]:
             for item in evaluation.breakdown
         ],
     }
+    if evaluation.rubric is not None:
+        payload["rubric"] = {
+            "family": evaluation.rubric.family.value,
+            "digest": evaluation.rubric.digest,
+        }
+    return payload
 
 
 def make_get_evaluation_breakdown_tool(lookup: EvaluationLookup) -> ToolDefinition:

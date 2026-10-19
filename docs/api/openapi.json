@@ -4018,6 +4018,16 @@
           "recommendation": {
             "$ref": "#/components/schemas/Recommendation"
           },
+          "rubric": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RubricSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "s_tech": {
             "maximum": 1.0,
             "minimum": 0.0,
@@ -9072,6 +9082,32 @@
         ],
         "title": "RouteReason",
         "type": "string"
+      },
+      "RubricSnapshot": {
+        "additionalProperties": false,
+        "description": "The rubric that scored an evaluation, captured at scoring time.\n\n``digest`` is content-addressed (sha256 over the canonical template JSON),\nso a template edited later is detectable rather than silently rewriting the\nmeaning of last month's score. ``template`` is the canonical payload itself:\nthe evaluation row can reproduce which evidence counted without depending on\ntoday's code. Five years of evaluations outlive any one version of\n``services/dimensions.py``.",
+        "properties": {
+          "digest": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "family": {
+            "$ref": "#/components/schemas/JobFamily"
+          },
+          "template": {
+            "additionalProperties": true,
+            "title": "Template",
+            "type": "object"
+          }
+        },
+        "required": [
+          "family",
+          "digest",
+          "template"
+        ],
+        "title": "RubricSnapshot",
+        "type": "object"
       },
       "RunAction": {
         "additionalProperties": false,

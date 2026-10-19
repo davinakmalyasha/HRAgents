@@ -4301,6 +4301,7 @@ export interface components {
             /** Policy Version */
             policy_version: string;
             recommendation: components["schemas"]["Recommendation"];
+            rubric?: components["schemas"]["RubricSnapshot"] | null;
             /** S Tech */
             s_tech: number;
             /** Sigma */
@@ -6169,6 +6170,26 @@ export interface components {
          * @enum {string}
          */
         RouteReason: "explicit" | "keyword" | "fallback";
+        /**
+         * RubricSnapshot
+         * @description The rubric that scored an evaluation, captured at scoring time.
+         *
+         *     ``digest`` is content-addressed (sha256 over the canonical template JSON),
+         *     so a template edited later is detectable rather than silently rewriting the
+         *     meaning of last month's score. ``template`` is the canonical payload itself:
+         *     the evaluation row can reproduce which evidence counted without depending on
+         *     today's code. Five years of evaluations outlive any one version of
+         *     ``services/dimensions.py``.
+         */
+        RubricSnapshot: {
+            /** Digest */
+            digest: string;
+            family: components["schemas"]["JobFamily"];
+            /** Template */
+            template: {
+                [key: string]: unknown;
+            };
+        };
         /** RunAction */
         RunAction: {
             /** Reason */

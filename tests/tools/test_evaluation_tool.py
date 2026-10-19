@@ -7,6 +7,7 @@ import pytest
 from hr_agents.models import (
     DimensionScore,
     EvaluationFlag,
+    JobFamily,
     PolicyDecision,
     PolicyEvaluation,
     Recommendation,
@@ -16,6 +17,7 @@ from hr_agents.models import (
     TechnicalEvaluation,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.dimensions import snapshot_for
 from hr_agents.services.recruiting import EvaluationRecord
 from hr_agents.tools import (
     ToolPermissionError,
@@ -53,6 +55,7 @@ def _record() -> EvaluationRecord:
         ],
         flags=[EvaluationFlag.INJECTION_SUSPECTED],
         recommendation=Recommendation.HUMAN_REVIEW,
+        rubric=snapshot_for(JobFamily.ENGINEERING),
     )
     return EvaluationRecord(
         application_id=uuid4(),
@@ -110,3 +113,7 @@ def test_serialize_breakdown_omits_protected_fields() -> None:
     assert not {"candidate_name", "email", "phone", "birth_date"} & set(payload)
     assert payload["flags"] == ["injection_suspected"]
     assert payload["candidate_id"]
+    assert payload["rubric"] == {
+        "family": "engineering",
+        "digest": snapshot_for(JobFamily.ENGINEERING).digest,
+    }, "the agent cites the rubric identity, not its taxonomy"

@@ -38,6 +38,7 @@ from hr_agents.models import (
     PolicyEvaluation,
     ProposalStatus,
     Recommendation,
+    RubricSnapshot,
     SchedulingChannel,
     SchedulingPayload,
     ScoreDimension,
@@ -161,6 +162,7 @@ class EvaluationView(StrictModel):
     recommendation: Recommendation
     policy: PolicyEvaluation
     policy_version: str
+    rubric: RubricSnapshot | None = None
     created_at: datetime
 
     @classmethod
@@ -181,6 +183,7 @@ class EvaluationView(StrictModel):
             recommendation=evaluation.recommendation,
             policy=record.policy,
             policy_version=evaluation.policy_version,
+            rubric=evaluation.rubric,
             created_at=evaluation.created_at,
         )
 
