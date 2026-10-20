@@ -448,8 +448,14 @@ Remaining in this area:
       model for a family, tenure becomes the default answer. Needs a role-specific sufficiency test
       ("has this person actually done this job") scored independently of how long they have been
       employed.
-- [ ] **Evidence-first scoring**: a dimension contributes nothing without at least one `EvidenceRef`
-      above a confidence floor. Structurally kills a whole class of extraction-failure silent passes.
+- [~] **Evidence-first scoring.** Every dimension now carries the references that produced it:
+      stack alignment gathers the matched terms' skill/tech-stack refs, systems literacy the
+      competency-category and highlight-match refs, and technical depth/certifications their own
+      pools — deduplicated and bounded. The auto-schedule gate requires at least one reference at
+      or above `0.5` per dimension, so an unevidenced extraction cannot be scheduled. What remains
+      is the score rule itself: an unevidenced dimension still contributes its score and routes to
+      a person instead of zeroing, which changes the calibration and needs a deliberate threshold
+      decision.
 - [ ] **Real credential registries per family** (BNSP, AWS/Google/Azure, ACCA/CPA/CFA). Today
       `verify_credential` is a dict lookup with no data, so a genuine certificate and a Coursera
       badge score the same.
