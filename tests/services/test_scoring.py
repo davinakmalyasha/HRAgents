@@ -5,16 +5,24 @@ import pytest
 from hr_agents.models import (
     CandidateProfile,
     CertificationClaim,
+    DimensionScore,
+    EvidenceRef,
     ExperienceEntry,
     JobSpecification,
     ProjectEntry,
     ScoreDimension,
     Skill,
     SkillCategory,
+    SourceType,
     VerificationStatus,
 )
 from hr_agents.services.dimensions import ENGINEERING
-from hr_agents.services.scoring import normalize_skill, score_candidate, score_runs
+from hr_agents.services.scoring import (
+    dimensions_evidenced,
+    normalize_skill,
+    score_candidate,
+    score_runs,
+)
 
 REFERENCE = date(2025, 1, 1)
 
@@ -204,3 +212,72 @@ def test_an_explicit_template_overrides_the_family_default() -> None:
 
     assert narrowed.vector.systems_literacy < default.vector.systems_literacy
     assert narrowed.vector.technical_depth == default.vector.technical_depth
+
+
+def _sourced(profile: CandidateProfile) -> CandidateProfile:
+    """The same profile with one provenance reference on every record."""
+    source = EvidenceRef(
+        source_type=SourceType.RESUME, locator="cv.pdf", excerpt="extracted from the CV"
+    )
+    return profile.model_copy(
+        update={
+            "skills": [skill.model_copy(update={"evidence": [source]}) for skill in profile.skills],
+            "experience": [
+                entry.model_copy(update={"evidence": [source]}) for entry in profile.experience
+            ],
+            "projects": [
+                project.model_copy(update={"evidence": [source]}) for project in profile.projects
+            ],
+            "certifications": [
+                cert.model_copy(update={"evidence": [source]}) for cert in profile.certifications
+            ],
+        }
+    )
+
+
+def test_evidence_flows_to_every_dimension_without_changing_scores() -> None:
+    plain = score_candidate(make_profile(), make_job(), reference_date=REFERENCE)
+    sourced = score_candidate(_sourced(make_profile()), make_job(), reference_date=REFERENCE)
+
+    assert sourced.vector == plain.vector
+    assert dimensions_evidenced(sourced.breakdown)
+    assert not dimensions_evidenced(plain.breakdown)
+    for item in sourced.breakdown:
+        assert item.evidence, item.dimension
+
+
+def test_evidence_is_deduplicated_and_stable() -> None:
+    profile = _sourced(make_profile())
+    first = score_candidate(profile, make_job(), reference_date=REFERENCE)
+    second = score_candidate(profile, make_job(), reference_date=REFERENCE)
+
+    for left, right in zip(first.breakdown, second.breakdown, strict=True):
+        left_keys = [(ref.source_type, ref.locator, ref.excerpt) for ref in left.evidence]
+        right_keys = [(ref.source_type, ref.locator, ref.excerpt) for ref in right.evidence]
+        assert left_keys == right_keys
+        assert len(left_keys) == len(set(left_keys))
+
+
+def test_dimensions_evidenced_enforces_the_confidence_floor() -> None:
+    weak = EvidenceRef(source_type=SourceType.RESUME, locator="cv.pdf", confidence=0.2)
+    strong = weak.model_copy(update={"confidence": 0.9})
+    breakdown = [
+        DimensionScore(
+            dimension=dimension,
+            score=0.5,
+            weight=0.25,
+            rationale="",
+            evidence=[weak],
+        )
+        for dimension in ScoreDimension
+    ]
+
+    assert not dimensions_evidenced(breakdown)
+    mixed = [
+        item.model_copy(update={"evidence": [strong]}) if index == 0 else item
+        for index, item in enumerate(breakdown)
+    ]
+    assert not dimensions_evidenced(mixed)
+    assert dimensions_evidenced(
+        [item.model_copy(update={"evidence": [strong]}) for item in breakdown]
+    )

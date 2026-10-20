@@ -147,6 +147,55 @@ def _evidence_pool(profile: CandidateProfile) -> list[EvidenceRef]:
     return pool[:10]
 
 
+EVIDENCE_CONFIDENCE_FLOOR = 0.5
+"""A reference weaker than this cannot, on its own, justify automation."""
+
+
+def dimensions_evidenced(
+    breakdown: Iterable[DimensionScore], *, floor: float = EVIDENCE_CONFIDENCE_FLOOR
+) -> bool:
+    """Whether every dimension carries at least one reference at or above ``floor``."""
+    return all(any(ref.confidence >= floor for ref in item.evidence) for item in breakdown)
+
+
+def _dedupe_evidence(refs: Iterable[EvidenceRef]) -> list[EvidenceRef]:
+    """Stable, bounded evidence list; the same record cited twice counts once."""
+    seen: set[tuple[str, str, str | None]] = set()
+    unique: list[EvidenceRef] = []
+    for ref in refs:
+        key = (ref.source_type.value, ref.locator, ref.excerpt)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(ref)
+    return unique[:10]
+
+
+def _term_evidence(profile: CandidateProfile) -> dict[str, list[EvidenceRef]]:
+    """Normalized term -> references on the record that names it.
+
+    A skill carries its own refs; a technology named only in an experience or
+    project stack is evidenced by that entry's refs. A term with no refs is
+    absent, so the dimension stays unevidenced rather than borrowing confidence.
+    """
+    evidence: dict[str, list[EvidenceRef]] = {}
+    for skill in profile.skills:
+        term = normalize_skill(skill.name)
+        if term and skill.evidence:
+            evidence.setdefault(term, []).extend(skill.evidence)
+    for entry in profile.experience:
+        for tech in entry.tech_stack:
+            term = normalize_skill(tech)
+            if term and entry.evidence:
+                evidence.setdefault(term, []).extend(entry.evidence)
+    for project in profile.projects:
+        for tech in project.tech_stack:
+            term = normalize_skill(tech)
+            if term and project.evidence:
+                evidence.setdefault(term, []).extend(project.evidence)
+    return evidence
+
+
 def _technical_depth(
     profile: CandidateProfile, reference_date: date, template: DimensionTemplate
 ) -> DimensionScore:
@@ -177,12 +226,13 @@ def _technical_depth(
         score=_clamp(score),
         weight=0.0,
         rationale=rationale,
-        evidence=_evidence_pool(profile),
+        evidence=_dedupe_evidence(_evidence_pool(profile)),
     )
 
 
 def _stack_alignment(profile: CandidateProfile, job: JobSpecification) -> DimensionScore:
     available = _candidate_terms(profile)
+    term_evidence = _term_evidence(profile)
 
     components: list[tuple[str, set[str], float]] = [
         ("must-have", {normalize_skill(s) for s in job.must_have_skills}, 0.60),
@@ -203,11 +253,14 @@ def _stack_alignment(profile: CandidateProfile, job: JobSpecification) -> Dimens
     total_weight = sum(weight for _, _, weight in active)
     score = 0.0
     parts: list[str] = []
+    matched: list[EvidenceRef] = []
     for label, required, weight in active:
         covered = required & available
         part = _coverage(required, available)
         score += (weight / total_weight) * part
         missing = sorted(required - available)
+        for term in sorted(covered):
+            matched.extend(term_evidence.get(term, []))
         parts.append(
             f"{label}: {len(covered)}/{len(required)} matched"
             + (f" (missing: {', '.join(missing)})" if missing else "")
@@ -218,7 +271,7 @@ def _stack_alignment(profile: CandidateProfile, job: JobSpecification) -> Dimens
         score=_clamp(score),
         weight=0.0,
         rationale="; ".join(parts),
-        evidence=[],
+        evidence=_dedupe_evidence(matched),
     )
 
 
@@ -233,10 +286,18 @@ def _systems_literacy(profile: CandidateProfile, template: DimensionTemplate) ->
     categories = {skill.category for skill in profile.skills}
     hits = categories & template.professional_categories
     category_component = len(hits) / len(template.professional_categories)
+    category_evidence = [
+        ref for skill in profile.skills if skill.category in hits for ref in skill.evidence
+    ]
 
     highlights = " ".join(h.lower() for entry in profile.experience for h in entry.highlights)
     keyword_hits = sum(1 for keyword in template.signal_keywords if keyword in highlights)
     keyword_component = min(keyword_hits / template.signal_saturation, 1.0)
+    keyword_evidence: list[EvidenceRef] = []
+    for entry in profile.experience:
+        entry_text = " ".join(h.lower() for h in entry.highlights)
+        if any(keyword in entry_text for keyword in template.signal_keywords):
+            keyword_evidence.extend(entry.evidence)
 
     titles = " ".join(entry.title.lower() for entry in profile.experience)
     seniority_component, matched_tier = template.tier_for(titles)
@@ -257,7 +318,7 @@ def _systems_literacy(profile: CandidateProfile, template: DimensionTemplate) ->
         score=_clamp(score),
         weight=0.0,
         rationale=rationale,
-        evidence=[],
+        evidence=_dedupe_evidence([*category_evidence, *keyword_evidence]),
     )
 
 
@@ -293,7 +354,7 @@ def _verifiable_certifications(profile: CandidateProfile) -> DimensionScore:
         score=_clamp(score),
         weight=0.0,
         rationale=rationale,
-        evidence=evidence[:10],
+        evidence=_dedupe_evidence(evidence),
     )
 
 

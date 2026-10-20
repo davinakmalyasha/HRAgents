@@ -37,7 +37,7 @@ from hr_agents.models import (
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.rubrics import RubricRegistry
-from hr_agents.services.scoring import ScoringResult, score_candidate
+from hr_agents.services.scoring import ScoringResult, dimensions_evidenced, score_candidate
 from hr_agents.tools.registry import ToolRegistry
 
 
@@ -316,7 +316,7 @@ class ApplicationPipeline:
 
         # Automation must not outrun its evidence: a dimension with no reference
         # cannot justify sending somebody straight to scheduling.
-        evidence_sufficient = all(item.evidence for item in evaluation.breakdown)
+        evidence_sufficient = dimensions_evidenced(evaluation.breakdown)
         policy = evaluate_policy(
             s_tech=s_tech,
             sigma=sigma,
