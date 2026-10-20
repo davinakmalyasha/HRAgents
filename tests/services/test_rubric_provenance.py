@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, cast
 
-from hr_agents.models import JobFamily
+from hr_agents.models import JobFamily, PolicyThresholds
 from hr_agents.services.dimensions import (
     ENGINEERING,
     canonical_payload,
@@ -53,7 +53,7 @@ def test_engineering_digest_is_pinned() -> None:
     this constant is the reviewer's prompt to say so.
     """
     assert rubric_digest(ENGINEERING) == (
-        "ae3e833b10b91120327a6809ef5b1995d18d00ddb292f83a6b378d1e7da22d4e"
+        "64c9c8ce80752d5dc9768651ec2f8e0458ac155e1409e0a0c9595aeccb7a8f2d"
     )
 
 
@@ -67,3 +67,22 @@ def test_editing_a_template_changes_its_digest() -> None:
 def test_snapshot_template_is_json_round_trippable() -> None:
     snapshot = snapshot_for(JobFamily.FINANCE)
     assert json.loads(json.dumps(snapshot.template)) == snapshot.template
+
+
+def test_thresholds_are_part_of_the_rubric_identity() -> None:
+    """A routing-threshold edit is a content change, so it gets its own digest."""
+    governed = ENGINEERING.model_copy(
+        update={
+            "thresholds": PolicyThresholds(
+                auto_schedule_min_score=0.9,
+                auto_schedule_max_variance=0.02,
+                soft_rejection_floor=0.75,
+                min_interviewer_slots=3,
+            )
+        }
+    )
+    assert rubric_digest(governed) != rubric_digest(ENGINEERING)
+    payload = canonical_payload(governed)
+    thresholds = cast("dict[str, object]", payload["thresholds"])
+    assert thresholds["auto_schedule_min_score"] == 0.9
+    assert canonical_payload(ENGINEERING)["thresholds"] is None

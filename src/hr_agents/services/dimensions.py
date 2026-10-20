@@ -18,9 +18,12 @@ Two invariants hold here:
 
 - ``ENGINEERING`` reproduces the previous numbers exactly. The templates exist because
   the rubric was too narrow, not because engineering was scored wrongly.
-- No template invents a threshold. Every saturation point is shared and every internal
-  weight is either the previous value or a named constant, so no family can quietly score
-  on a different scale from the calibration fences in ``test_scoring_calibration.py``.
+- No template invents a *scoring* threshold. Every saturation point is shared and every
+  internal weight is either the previous value or a named constant, so no family can quietly
+  score on a different scale from the calibration fences in ``test_scoring_calibration.py``.
+  A template may carry *routing* thresholds (``thresholds``); those decide which queue a
+  score goes to, never what the score is, and they are versioned and verified with the rest
+  of the rubric.
 """
 
 from __future__ import annotations
@@ -31,7 +34,13 @@ from decimal import Decimal
 
 from pydantic import Field
 
-from hr_agents.models import JobFamily, RubricSnapshot, SkillCategory, StrictModel
+from hr_agents.models import (
+    JobFamily,
+    PolicyThresholds,
+    RubricSnapshot,
+    SkillCategory,
+    StrictModel,
+)
 
 # Everything that is not a letter or digit in a job title becomes a space, so that
 # "Team Lead, Payments" and "Sr. Accountant" split into the words a tier lists.
@@ -66,8 +75,9 @@ still override it deliberately.
 class DimensionTemplate(StrictModel):
     """One occupation's rubric: what counts as evidence of competence.
 
-    Every field is required except ``systems_weights``. ``score_candidate`` resolves
-    missing values with ``or``, which would substitute the engineering default silently --
+    Every evidence field is required except ``systems_weights``; ``thresholds`` is
+    optional and means the deployment defaults. ``score_candidate`` resolves missing
+    evidence values with ``or``, which would substitute the engineering default silently --
     so a template that forgot a value would be indistinguishable from one that chose it.
     """
 
@@ -117,6 +127,14 @@ class DimensionTemplate(StrictModel):
             "Job-title tiers, most senior first. Matched against the lowercased title as "
             "whole words, so `senior` cannot match inside `supervision`."
         )
+    )
+
+    thresholds: PolicyThresholds | None = Field(
+        default=None,
+        description=(
+            "Routing thresholds this rubric was verified with. None uses the deployment's "
+            "configured defaults. Scoring never reads this field; the policy engine does."
+        ),
     )
 
     def tier_for(self, titles: str) -> tuple[float, str]:

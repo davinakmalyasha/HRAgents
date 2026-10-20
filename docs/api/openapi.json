@@ -3127,7 +3127,7 @@
       },
       "DimensionTemplate": {
         "additionalProperties": false,
-        "description": "One occupation's rubric: what counts as evidence of competence.\n\nEvery field is required except ``systems_weights``. ``score_candidate`` resolves\nmissing values with ``or``, which would substitute the engineering default silently --\nso a template that forgot a value would be indistinguishable from one that chose it.",
+        "description": "One occupation's rubric: what counts as evidence of competence.\n\nEvery evidence field is required except ``systems_weights``; ``thresholds`` is\noptional and means the deployment defaults. ``score_candidate`` resolves missing\nevidence values with ``or``, which would substitute the engineering default silently --\nso a template that forgot a value would be indistinguishable from one that chose it.",
         "properties": {
           "breadth_saturation": {
             "description": "Distinct relevant terms that count as full breadth. Occupations differ: nobody lists twelve accounting standards, and a template that inherited engineering's twelve would cap every finance candidate's breadth at a quarter.",
@@ -3205,6 +3205,17 @@
             "description": "Relative weight of competency areas, professional signals and title seniority.",
             "title": "Systems Weights",
             "type": "object"
+          },
+          "thresholds": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolicyThresholds"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Routing thresholds this rubric was verified with. None uses the deployment's configured defaults. Scoring never reads this field; the policy engine does."
           },
           "title_tiers": {
             "description": "Job-title tiers, most senior first. Matched against the lowercased title as whole words, so `senior` cannot match inside `supervision`.",

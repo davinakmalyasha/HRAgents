@@ -9,6 +9,7 @@ from hr_agents.models import (
     EvidenceRef,
     ExperienceEntry,
     JobSpecification,
+    PolicyThresholds,
     ProjectEntry,
     ScoreDimension,
     Skill,
@@ -281,3 +282,21 @@ def test_dimensions_evidenced_enforces_the_confidence_floor() -> None:
     assert dimensions_evidenced(
         [item.model_copy(update={"evidence": [strong]}) for item in breakdown]
     )
+
+
+def test_routing_thresholds_do_not_change_scores() -> None:
+    plain = score_candidate(make_profile(), make_job(), reference_date=REFERENCE)
+    governed = score_candidate(
+        make_profile(),
+        make_job(),
+        reference_date=REFERENCE,
+        template=ENGINEERING.model_copy(
+            update={
+                "thresholds": PolicyThresholds(
+                    auto_schedule_min_score=0.1, soft_rejection_floor=0.05
+                )
+            }
+        ),
+    )
+    assert governed.vector == plain.vector
+    assert [item.score for item in governed.breakdown] == [item.score for item in plain.breakdown]

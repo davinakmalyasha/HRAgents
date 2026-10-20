@@ -4131,8 +4131,9 @@ export interface components {
          * DimensionTemplate
          * @description One occupation's rubric: what counts as evidence of competence.
          *
-         *     Every field is required except ``systems_weights``. ``score_candidate`` resolves
-         *     missing values with ``or``, which would substitute the engineering default silently --
+         *     Every evidence field is required except ``systems_weights``; ``thresholds`` is
+         *     optional and means the deployment defaults. ``score_candidate`` resolves missing
+         *     evidence values with ``or``, which would substitute the engineering default silently --
          *     so a template that forgot a value would be indistinguishable from one that chose it.
          */
         DimensionTemplate: {
@@ -4178,6 +4179,8 @@ export interface components {
             systems_weights?: {
                 [key: string]: number | string;
             };
+            /** @description Routing thresholds this rubric was verified with. None uses the deployment's configured defaults. Scoring never reads this field; the policy engine does. */
+            thresholds?: components["schemas"]["PolicyThresholds"] | null;
             /**
              * Title Tiers
              * @description Job-title tiers, most senior first. Matched against the lowercased title as whole words, so `senior` cannot match inside `supervision`.

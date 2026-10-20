@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import pytest
 
 from hr_agents.identity import ActorRef
-from hr_agents.models import JobFamily
+from hr_agents.models import JobFamily, PolicyThresholds
 from hr_agents.services.dimensions import ENGINEERING, DimensionTemplate, snapshot_for
 from hr_agents.services.rubrics import RubricError, RubricRegistry, RubricStore
 
@@ -111,3 +113,30 @@ def test_a_tampered_payload_is_refused_at_scoring_time() -> None:
 
     with pytest.raises(RubricError, match="does not match its digest"):
         registry.resolve(JobFamily.ENGINEERING)
+
+
+def test_thresholds_travel_with_the_verified_version() -> None:
+    registry = RubricRegistry()
+    revised = variant(
+        breadth_saturation=42,
+        thresholds=PolicyThresholds(auto_schedule_min_score=0.75, min_interviewer_slots=3),
+    )
+    draft = registry.create_version(family=JobFamily.ENGINEERING, template=revised, actor=HUMAN)
+    registry.verify(draft.id, actor=HUMAN, source_note="threshold policy approved")
+    registry.activate(draft.id, actor=HUMAN)
+
+    template, snapshot = registry.resolve(JobFamily.ENGINEERING)
+    assert template.thresholds is not None
+    assert template.thresholds.auto_schedule_min_score == 0.75
+    assert template.thresholds.min_interviewer_slots == 3
+    snapshot_thresholds = cast("dict[str, Any]", snapshot.template["thresholds"])
+    assert snapshot_thresholds["auto_schedule_min_score"] == 0.75
+
+    threshold_only = variant(
+        breadth_saturation=42,
+        thresholds=PolicyThresholds(auto_schedule_min_score=0.80),
+    )
+    second = registry.create_version(
+        family=JobFamily.ENGINEERING, template=threshold_only, actor=HUMAN
+    )
+    assert second.revision == 2, "thresholds are content, so the digest differs"

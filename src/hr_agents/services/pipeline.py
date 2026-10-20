@@ -324,6 +324,7 @@ class ApplicationPipeline:
             mutual_slots=config.mutual_slots,
             consent_active=consent_active,
             evidence_sufficient=evidence_sufficient,
+            thresholds=rubric.thresholds,
         )
         recommendation = _recommendation_for(policy.decision)
         evaluation = evaluation.model_copy(update={"recommendation": recommendation})
