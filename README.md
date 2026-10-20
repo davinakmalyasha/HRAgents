@@ -28,10 +28,14 @@ Docker Desktop, five minutes, no cloud keys:
 ```bash
 git clone https://github.com/davinakmalyasha/HRAgents
 cd HRAgents
+uv run python scripts/setup.py     # operator name, admin key, timezone, offline model
 docker compose up --build -d
 ```
 
-Then open **<http://localhost:8000/app>**. Nine containers come up: postgres, redis,
+`scripts/setup.py` writes `.env` (gitignored), which compose loads; it prints the
+dashboard key once. (No `uv` on the host? Copy `.env.example` to `.env` and set the
+same values by hand.) Paste the key into the sign-in screen at
+**<http://localhost:8000/app>**. Nine containers come up: postgres, redis,
 minio, mailpit, `migrate`, the API, plus a **worker** that evaluates submitted
 applications, a **scheduler** for the daily department chores, and a **messaging**
 process that drains the outbound queue. Migrations run automatically before the
@@ -42,6 +46,13 @@ Verify the pipeline is actually running before you trust anything you see:
 ```bash
 curl -s localhost:8000/readyz | python -m json.tool   # queue + skills must be "ok"
 curl -s localhost:8000/metrics | grep stuck_queued   # non-zero = no worker draining
+```
+
+To start from a clean install instead of the demo, seed the starter checklists and
+the empty statutory-table shells from the dashboard's first-run card, or with:
+
+```bash
+docker compose exec api uv run python scripts/seed_starters.py
 ```
 
 Want something to look at? Seed the demo dataset — five employees mid-onboarding,

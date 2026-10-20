@@ -8,6 +8,20 @@ transports are the defaults.
 
 ## 1. One command
 
+Generate the local configuration first — the operator's name, a role-bound admin
+key, the business timezone, and the offline model default:
+
+```bash
+uv run python scripts/setup.py
+```
+
+It writes `.env` (never committed) with one `hr_admin` principal. Compose loads
+that file through `env_file`; the stack's fixed wiring still wins where it
+matters. The key is printed once — paste it into the dashboard sign-in. Without
+`uv` on the host, copy `.env.example` to `.env` and set the same values by hand.
+
+Then:
+
 ```bash
 docker compose up --build
 ```
@@ -42,9 +56,22 @@ First start takes a few minutes (dashboard build). Watch progress with
 > existing volume, run `ALTER ROLE hragents NOSUPERUSER NOCREATEROLE NOBYPASSRLS;`
 > by hand.
 
+### Starter content
+
+A fresh install is empty by design. The dashboard's first-run card offers the
+same seed as the CLI:
+
+```bash
+docker compose exec api uv run python scripts/seed_starters.py
+```
+
+It creates an onboarding and an offboarding checklist and one **empty** shell per
+statutory table kind payroll needs. No values are seeded: a named human enters and
+verifies every number, and payroll refuses to compute until that happens.
+
 ### Demo data
 
-A fresh install is empty by design. To see the product with a story in it:
+To see the product with a story in it:
 
 ```bash
 docker compose exec api uv run python scripts/seed_demo.py

@@ -694,8 +694,13 @@ latency, costs, and failure modes documented.
 
 **Goal:** one command to self-host, safe defaults, zero required external services.
 
-- [ ] Setup wizard (CLI + first-run web flow): admin account, organization profile, provider
-      connect-or-skip, starter templates (onboarding/offboarding leave policies, rate tables)
+- [x] Setup wizard (CLI + first-run web flow): `scripts/setup.py` writes the operator,
+      app name, timezone, store backend, model and one role-bound admin key to `.env`
+      (compose loads it via `env_file`); the empty dashboard shows a first-run card with the
+      checklist and one button that seeds the onboarding/offboarding templates and empty
+      rate-table shells (`POST /v1/setup/starters`). Provider connection is connect-or-skip
+      by choosing the offline test model; richer org-profile and provider forms remain under
+      the provider-settings item below.
 - [x] One-command self-host: `Dockerfile` (multi-stage, non-root, dashboard baked in) and a
       compose stack with postgres+pgvector, redis, minio, mailpit, a one-shot `migrate` service
       the API waits on, and `scheduler`/`messaging` loops; `/healthz` + `/readyz` (per-dependency

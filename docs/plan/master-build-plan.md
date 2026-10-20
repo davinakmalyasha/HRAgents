@@ -589,8 +589,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 
 - [x] `LICENSE` file (Apache-2.0)
 - [x] Freelance services one-pager — README "Work with the author" section live (full landing page later, Phase 10)
-- [ ] Setup wizard + one-command self-host install (this *is* the adoption strategy)
-- [ ] Self-host distribution: one-command compose, setup wizard, backup/restore docs
+- [x] Setup wizard + one-command self-host install (this *is* the adoption strategy) — `scripts/setup.py` writes `.env`; the empty dashboard shows the first-run checklist; `scripts/seed_starters.py` / `POST /v1/setup/starters` add checklists and empty rate-table shells
+- [x] Self-host distribution: one-command compose, setup wizard, backup/restore docs
 - [ ] Local-model mode (Ollama) — fully offline operation
 - [-] Managed cloud SaaS + billing (deferred until proven demand)
 - [ ] Dedicated-instance option (BYOC: their cloud account) — only if requested
