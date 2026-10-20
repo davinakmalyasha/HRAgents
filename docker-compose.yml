@@ -13,6 +13,11 @@ x-app: &app
     context: .
     dockerfile: Dockerfile
   image: hragents:local
+  # Optional first-run values from `scripts/setup.py`; the environment block
+  # below still wins for the stack's fixed wiring.
+  env_file:
+    - path: .env
+      required: false
   depends_on:
     postgres:
       condition: service_healthy
