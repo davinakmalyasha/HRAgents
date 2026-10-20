@@ -359,8 +359,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 6.5 PWA
 - [x] `vite-plugin-pwa`: manifest, service worker, offline shell (static shell only — HR data
       always comes from the API, never the cache)
-- [ ] Install prompt + push notifications (interview confirms, approvals, SLAs)
-- [ ] Lighthouse PWA + mobile performance pass
+- [x] Install prompt (topbar; `beforeinstallprompt`/`appinstalled`). Push notifications remain
+      open (VAPID, subscription storage, event fan-out).
+- [x] Lighthouse PWA + mobile performance pass: PWA 100, accessibility 100, best practices 96,
+      performance 88 on mobile throttling; route-level code splitting cut the entry chunk from
+      891 KB to 425 KB and TBT from 190 ms to 60 ms.
 
 ## Phase 7 — Integrations (all via the provider layer, `docs/architecture/providers.md`)
 

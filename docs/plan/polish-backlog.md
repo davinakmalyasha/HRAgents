@@ -26,8 +26,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       sequentially — k runs were k× the wall clock for no added signal
 - [ ] Cache policy: skill registry fingerprint, rate tables, provider health (TTL + invalidation)
 - [ ] pgvector: HNSW/IVFFlat index parameters tuned against real corpus sizes
-- [ ] Web bundle: route-level code splitting, icon tree-shaking, Lighthouse budget. Today one
-      737 KB chunk serves the whole app, for a persona on a phone
+- [~] Web bundle: route-level code splitting shipped (workspace, application detail, import,
+      jobs and operations load on demand; entry 891 KB → 425 KB, TBT 190 ms → 60 ms in the
+      Lighthouse mobile run). Icon tree-shaking is already implicit in the named lucide imports;
+      a CI bundle/Lighthouse budget is the remaining piece.
 - [ ] Ingest path: streaming hash + parser short-circuit for oversize documents
 
 ## Observability

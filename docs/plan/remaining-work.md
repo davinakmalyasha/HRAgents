@@ -650,8 +650,16 @@ documented.
 ### 2.6 PWA
 - [x] `vite-plugin-pwa`: manifest, service worker, offline shell (static assets only —
       no API caching, so an offline queue can never serve stale decisions)
-- [ ] Install prompt + push notifications (approvals, SLAs, interview confirmations)
-- [ ] Lighthouse PWA + mobile performance pass (target ≥ 90 PWA score)
+- [x] Install prompt: the topbar offers install only when Chromium fires
+      `beforeinstallprompt`, prompts once, and disappears after `appinstalled`; Safari has no
+      such event, so the button never pretends. Push notifications remain open: they need VAPID
+      key management, subscription storage and event fan-out on approvals/SLAs/interviews.
+- [x] Lighthouse PWA + mobile performance pass (target ≥ 90 PWA score): PWA **100**,
+      accessibility **100**, best practices **96** (the console 502s are the preview server
+      without an API), performance **88** on Lighthouse 11 mobile throttling. Route-level lazy
+      loading split the entry chunk from 891 KB to 425 KB and cut total blocking time from
+      190 ms to 60 ms; the workspace chunk (187 KB) loads on demand. FCP/LCP remain around 3 s
+      on the throttled profile — the next paint/bundle target, not a PWA failure.
 
 **Exit criteria:** a solo HR user can run a full ready-to-hire cycle, an onboarding, a leave
 approval, a payroll prep + sign-off, and an offboarding end-to-end without touching the API.
