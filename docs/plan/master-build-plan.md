@@ -32,7 +32,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | RAG policy | Retrieval for recall and Q&A only — never used to compute scores |
 | Fairness | CI counterfactual name-swap invariance tests + per-job score-distribution monitoring |
 | Retention | Default 24 months then auto-anonymize; configurable per tenant (longer requires consent) |
-| Thresholds | Auto-schedule `S ≥ 0.85 ∧ σ ≤ 0.05` and every dimension evidenced; rejection sign-off required for `S ≥ 0.70` |
+| Thresholds | Defaults: auto-schedule `S ≥ 0.85 ∧ σ ≤ 0.05` and every dimension evidenced; a verified rubric version may pin thresholds per family; rejection sign-off required for `S ≥ 0.70` |
 | License | Apache-2.0 — fully open for every company (not just big ones). Author offers paid freelance integration/setup services; contact in README |
 
 ---

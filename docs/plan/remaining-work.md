@@ -431,8 +431,8 @@ Remaining in this area:
       evaluation snapshot cites, so an old score resolves to the exact payload. What remains of
       the item: the four-axis *list* is still fixed (`ScoreDimension` is persisted, published
       in OpenAPI and rendered in two locales), so a family can change what counts as evidence
-      but cannot add a fifth axis; thresholds still live in `services/policy.py` rather than in
-      the version payload.
+      but cannot add a fifth axis. Routing thresholds now travel in the verified version payload
+      (the digest covers them); `None` keeps the deployment's configured defaults.
 - [x] **Version and snapshot the rubric on the evaluation.** `RubricSnapshot` (family, a
       content-addressed sha256 digest and the canonical template JSON) is attached by the
       pipeline and persisted in `evaluations.document`, so an old score names the exact
