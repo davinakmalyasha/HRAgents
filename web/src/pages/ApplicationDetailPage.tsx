@@ -42,6 +42,14 @@ function EvaluationCard({ evaluation }: { evaluation: EvaluationView }) {
         <Badge variant="secondary">{evaluation.policy.decision}</Badge>
         <ScoreBar value={evaluation.s_tech} label={t('hiring.score')} />
         <span className="text-2xs text-ink-muted font-mono">σ {evaluation.sigma.toFixed(2)}</span>
+        {evaluation.rubric ? (
+          <span className="text-2xs text-ink-muted font-mono">
+            {t('hiring.rubric', {
+              family: evaluation.rubric.family,
+              digest: evaluation.rubric.digest.slice(0, 8),
+            })}
+          </span>
+        ) : null}
         <Button
           variant="ghost"
           size="xs"
@@ -88,6 +96,7 @@ function EvaluationCard({ evaluation }: { evaluation: EvaluationView }) {
             <TableHead>{t('hiring.dimension')}</TableHead>
             <TableHead>{t('hiring.score')}</TableHead>
             <TableHead>{t('hiring.weight')}</TableHead>
+            <TableHead>{t('hiring.runAgreement')}</TableHead>
             <TableHead>{t('hiring.rationale')}</TableHead>
             <TableHead>
               <span className="sr-only">{t('hiring.evidence')}</span>
@@ -107,6 +116,11 @@ function EvaluationCard({ evaluation }: { evaluation: EvaluationView }) {
                     <ScoreBar value={item.score} label={dimensionLabel} />
                   </TableCell>
                   <TableCell className="text-2xs font-mono">{item.weight.toFixed(2)}</TableCell>
+                  <TableCell className="text-2xs font-mono tabular-nums">
+                    {evaluation.dimension_stddev[item.dimension] == null
+                      ? '—'
+                      : evaluation.dimension_stddev[item.dimension].toFixed(3)}
+                  </TableCell>
                   <TableCell className="text-ink-muted max-w-96 text-xs">
                     {item.rationale}
                   </TableCell>
@@ -126,7 +140,7 @@ function EvaluationCard({ evaluation }: { evaluation: EvaluationView }) {
                 </TableRow>
                 {open ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="bg-surface-subtle">
+                    <TableCell colSpan={6} className="bg-surface-subtle">
                       {evidence.length === 0 ? (
                         <p className="text-2xs text-ink-muted">{t('hiring.noEvidence')}</p>
                       ) : (

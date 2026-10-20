@@ -99,7 +99,9 @@
       "stack_alignment": "Stack alignment",
       "systems_literacy": "Systems literacy",
       "verifiable_certifications": "Verifiable certifications"
-    }
+    },
+    "rubric": "Rubric: {{family}} · {{digest}}",
+    "runAgreement": "Run agreement (σ)"
   },
   "import": {
     "open": "Import",

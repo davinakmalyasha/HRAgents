@@ -50,6 +50,11 @@ vi.mock('@/features/hiring/useHiring', () => ({
         evaluated_at: '2026-09-01T10:05:00Z',
       },
       policy_version: '1.0',
+      rubric: {
+        family: 'engineering',
+        digest: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        template: {},
+      },
       flags: ['low_confidence_extraction'],
       breakdown: [
         {
@@ -69,7 +74,7 @@ vi.mock('@/features/hiring/useHiring', () => ({
       ],
       created_at: '2026-09-01T10:05:00Z',
       mean_vector: {},
-      dimension_stddev: {},
+      dimension_stddev: { systems_literacy: 0.012 },
       weights: {},
     },
   }),
@@ -100,6 +105,16 @@ describe('ApplicationDetailPage', () => {
     expect(screen.getByText('Repository shows layered architecture.')).toBeInTheDocument()
     expect(screen.getByText('low_confidence_extraction')).toBeInTheDocument()
     expect(screen.getByText(i18n.t('hiring.back'))).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        i18n.t('hiring.rubric', {
+          family: 'engineering',
+          digest: 'aaaaaaaa',
+        }),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText(i18n.t('hiring.runAgreement'))).toBeInTheDocument()
+    expect(screen.getByText('0.012')).toBeInTheDocument()
   })
 
   it('opens the score formula and the per-dimension evidence', async () => {

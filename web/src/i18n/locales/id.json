@@ -99,7 +99,9 @@
       "stack_alignment": "Kesesuaian teknologi",
       "systems_literacy": "Pemahaman sistem",
       "verifiable_certifications": "Sertifikasi terverifikasi"
-    }
+    },
+    "rubric": "Rubrik: {{family}} · {{digest}}",
+    "runAgreement": "Kesepakatan antar-run (σ)"
   },
   "import": {
     "open": "Impor",
