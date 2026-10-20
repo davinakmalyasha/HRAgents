@@ -19,6 +19,7 @@ def evaluate_policy(
     flags: Iterable[EvaluationFlag] = (),
     mutual_slots: int | None = None,
     consent_active: bool = True,
+    evidence_sufficient: bool = True,
     thresholds: PolicyThresholds | None = None,
     settings: Settings | None = None,
 ) -> PolicyEvaluation:
@@ -28,9 +29,14 @@ def evaluate_policy(
       1. consent inactive            → HITL_MANUAL (processing halted)
       2. non-calendar flags present  → HITL_ANOMALY
       3. mutual slots below minimum  → HITL_CALENDAR
-      4. s ≥ auto threshold ∧ σ ok   → AUTO_SCHEDULE
-      5. soft-rejection band         → HITL_SOFT_REJECTION
-      6. otherwise                   → REJECT_AUTO
+      4. auto band, missing evidence → HITL_MANUAL (a person must look)
+      5. s ≥ auto threshold ∧ σ ok   → AUTO_SCHEDULE
+      6. soft-rejection band         → HITL_SOFT_REJECTION
+      7. otherwise                   → REJECT_AUTO
+
+    ``evidence_sufficient`` defaults to True for callers reconstructing a
+    historical policy from stored scores; the pipeline passes the real value
+    computed from the stored breakdown, so automation cannot outrun its evidence.
     """
     settings = settings or get_settings()
     thresholds = thresholds or PolicyThresholds(
@@ -72,10 +78,21 @@ def evaluate_policy(
             decision=PolicyDecision.HITL_CALENDAR, reasons=reasons, thresholds=thresholds
         )
 
-    if (
+    in_auto_band = (
         s_tech >= thresholds.auto_schedule_min_score
         and sigma <= thresholds.auto_schedule_max_variance
-    ):
+    )
+    if in_auto_band and not evidence_sufficient:
+        reasons.append(
+            f"s_tech {s_tech:.3f} and σ {sigma:.4f} clear the automation band, "
+            "but at least one dimension carries no evidence; a person must review "
+            "before scheduling"
+        )
+        return PolicyEvaluation(
+            decision=PolicyDecision.HITL_MANUAL, reasons=reasons, thresholds=thresholds
+        )
+
+    if in_auto_band:
         reasons.append(
             f"s_tech {s_tech:.3f} ≥ {thresholds.auto_schedule_min_score:.2f} "
             f"and σ {sigma:.4f} ≤ {thresholds.auto_schedule_max_variance:.2f}; "

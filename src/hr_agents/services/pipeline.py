@@ -314,12 +314,16 @@ class ApplicationPipeline:
             created_at=utc_now(),
         )
 
+        # Automation must not outrun its evidence: a dimension with no reference
+        # cannot justify sending somebody straight to scheduling.
+        evidence_sufficient = all(item.evidence for item in evaluation.breakdown)
         policy = evaluate_policy(
             s_tech=s_tech,
             sigma=sigma,
             flags=evaluation.flags,
             mutual_slots=config.mutual_slots,
             consent_active=consent_active,
+            evidence_sufficient=evidence_sufficient,
         )
         recommendation = _recommendation_for(policy.decision)
         evaluation = evaluation.model_copy(update={"recommendation": recommendation})
@@ -334,6 +338,7 @@ class ApplicationPipeline:
                 "sigma": round(sigma, 6),
                 "recommendation": recommendation.value,
                 "flags": [flag.value for flag in evaluation.flags],
+                "evidence_sufficient": evidence_sufficient,
             },
         )
         actions.append(f"pipeline.decision.{policy.decision.value}")

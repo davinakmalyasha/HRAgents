@@ -65,6 +65,27 @@ def test_auto_schedule_when_high_score_and_low_variance() -> None:
     assert result.decision is PolicyDecision.AUTO_SCHEDULE
 
 
+def test_auto_band_with_missing_evidence_routes_to_a_person() -> None:
+    result = evaluate_policy(
+        s_tech=0.95,
+        sigma=0.01,
+        mutual_slots=3,
+        evidence_sufficient=False,
+    )
+    assert result.decision is PolicyDecision.HITL_MANUAL
+    assert "no evidence" in result.reasons[0]
+
+
+def test_auto_band_with_evidence_still_schedules() -> None:
+    result = evaluate_policy(
+        s_tech=0.95,
+        sigma=0.01,
+        mutual_slots=3,
+        evidence_sufficient=True,
+    )
+    assert result.decision is PolicyDecision.AUTO_SCHEDULE
+
+
 def test_boundary_exact_thresholds_auto_schedules() -> None:
     result = evaluate_policy(s_tech=0.85, sigma=0.05, mutual_slots=2)
     assert result.decision is PolicyDecision.AUTO_SCHEDULE
