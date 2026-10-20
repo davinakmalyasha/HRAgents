@@ -51,6 +51,7 @@ from hr_agents.api.routers import leave as leave_router
 from hr_agents.api.routers import onboarding as onboarding_router
 from hr_agents.api.routers import payroll as payroll_router
 from hr_agents.api.routers import people as people_router
+from hr_agents.api.routers import setup as setup_router
 from hr_agents.config import Settings, get_settings
 from hr_agents.db import create_sync_engine, create_sync_session_factory
 from hr_agents.db.application import DbApplicationStore
@@ -369,6 +370,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(scheduling.router, responses=ERROR_RESPONSES)
     app.include_router(communications.router, responses=ERROR_RESPONSES)
     app.include_router(offers.router, responses=ERROR_RESPONSES)
+    app.include_router(setup_router.router, responses=ERROR_RESPONSES)
     app.include_router(rubrics.router, responses=ERROR_RESPONSES)
     app.include_router(people_router.employees_router, responses=ERROR_RESPONSES)
     app.include_router(people_router.org_units_router, responses=ERROR_RESPONSES)

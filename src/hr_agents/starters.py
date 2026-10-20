@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     DocumentKind,
@@ -25,6 +26,11 @@ from hr_agents.models.offboarding import OffboardingTemplateStep
 from hr_agents.models.onboarding import TemplateStep
 from hr_agents.services.payroll import REQUIRED_TABLES
 from hr_agents.services.people import PeopleServices
+
+
+class StarterError(DomainError, RuntimeError):
+    """Raised for invalid starter-content operations."""
+
 
 STARTER_ONBOARDING_NAME = "New hire starter"
 STARTER_OFFBOARDING_NAME = "Resignation checklist"
@@ -120,6 +126,7 @@ def seed_starters(
     jurisdiction: str = "ID",
 ) -> StarterReport:
     """Create the starter templates and rate-table shells that are missing."""
+    actor.require_human("seed starter content", StarterError)
     report = StarterReport()
 
     existing_onboarding = {

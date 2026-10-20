@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import pytest
+
+from hr_agents.identity import ActorRef
 from hr_agents.services.people import PeopleServices
 from hr_agents.setup import setup_actor
 from hr_agents.starters import (
     STARTER_OFFBOARDING_NAME,
     STARTER_ONBOARDING_NAME,
     STARTER_RATE_TABLES,
+    StarterError,
     seed_starters,
 )
 
@@ -48,3 +52,10 @@ def test_seeding_twice_changes_nothing() -> None:
     second = seed_starters(people, actor=setup_actor("Rina"))
     assert second.created == []
     assert len(second.skipped) == len(first.created)
+
+
+def test_starter_seeding_requires_a_named_human() -> None:
+    people = PeopleServices()
+    with pytest.raises(StarterError, match="named human"):
+        seed_starters(people, actor=ActorRef.agent("setup_bot"))
+    assert people.onboarding.list_templates(active_only=False) == []
