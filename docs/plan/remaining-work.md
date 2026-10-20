@@ -457,11 +457,13 @@ Remaining in this area:
       `customer_support`**, with thresholds as template data behind the same `verified` gate as rate
       tables. **The engineering template must produce byte-identical scores to today** — that is the
       regression test proving the generalization is additive.
-- [ ] **Replace the `σ ≤ 0.05` gate.** Today `scoring_runs` defaulted to 1, so `sigma` was always
-      `0.0000` and the gate always passed — a *degraded* path (one extraction) was more trusted than
-      a careful k=3 one. Replace with an evidence-sufficiency gate (every dimension evidenced, zero
-      flags, minimum run agreement) and surface per-dimension run agreement in the UI, which is both
-      honest and a better product surface than a bare σ.
+- [x] **The auto-schedule gate is evidence-aware.** Clearing `S ≥ 0.85` with `σ ≤ 0.05` no longer
+      schedules if any dimension carries no `EvidenceRef`: it routes to `HITL_MANUAL` with that
+      reason. Zero non-calendar flags and the run-agreement σ remain conditions. The evaluation
+      table shows each dimension's run agreement (σ) and the rubric family/digest, so the number is
+      inspectable. `TechnicalEvaluation.runs` already refuses a single run (minimum two), so σ is
+      measured rather than definitionally zero. Making a dimension *contribute score only with
+      evidence* remains the evidence-first item above.
 - [ ] **Extraction fairness pairs on the agent, not the scorer**: generated CV pairs differing only in
       name, gender-coded name, photo, or school, run through the *agent*, asserting identical
       extracted skills and scores. `tests/services/test_fairness.py` currently swaps fields the
