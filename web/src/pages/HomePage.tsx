@@ -4,13 +4,18 @@ import { EmptyState } from '@/components/feedback/EmptyState'
 import { Skeleton } from '@/components/ui/skeleton'
 import { AttentionList } from '@/features/attention/AttentionList'
 import { useAttention } from '@/features/attention/useAttention'
+import { SetupCard } from '@/features/setup/SetupCard'
+import { useSetup } from '@/features/setup/useSetup'
 
 export function HomePage() {
   const { t } = useTranslation()
   const { needsYou, watching, isLoading } = useAttention()
+  const setup = useSetup()
 
   return (
     <div className="flex flex-col gap-8">
+      {setup.data && setup.data.counts?.employees === 0 ? <SetupCard status={setup.data} /> : null}
+
       <section aria-labelledby="needs-you" className="flex flex-col gap-3">
         <h1 id="needs-you" className="text-ink-strong text-2xl font-semibold">
           {t('home.needsYou')}

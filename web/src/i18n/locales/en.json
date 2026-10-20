@@ -1235,5 +1235,28 @@
     "confirmRequeue": "Requeue message",
     "cancel": "Cancel",
     "requeueFailed": "The requeue was refused. Check the reason and try again."
+  },
+  "setup": {
+    "title": "Finish setting up",
+    "subtitle": "A few steps before your first working day. Configuration that must exist at boot lives in .env.",
+    "operator": "Operator identity",
+    "operatorReady": "Signed in as {{name}}.",
+    "operatorMissing": "Set an operator name with scripts/setup.py so the audit chain names a person.",
+    "starters": "Starter checklists",
+    "startersHint": "An onboarding and an offboarding checklist you can edit to match your process.",
+    "seeded": "Starter checklists are in place.",
+    "rateTables": "Statutory rate tables",
+    "rateTablesHint": "{{unverified}} of {{total}} shells still need entered and verified values.",
+    "rateTablesDone": "Every statutory table is verified.",
+    "model": "Model",
+    "modelOffline": "Offline test model — no external calls.",
+    "modelOnline": "{{model}}",
+    "seed": "Load starter checklists",
+    "seeding": "Loading…",
+    "seedFailed": "Starter content could not be created. Check your permissions and try again.",
+    "firstEmployeeLink": "Add an employee",
+    "firstJobLink": "Create a job",
+    "done": "Done",
+    "todo": "To do"
   }
 }

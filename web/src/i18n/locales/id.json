@@ -1235,5 +1235,28 @@
     "confirmRequeue": "Requeue pesan",
     "cancel": "Batal",
     "requeueFailed": "Requeue ditolak. Periksa alasan lalu coba lagi."
+  },
+  "setup": {
+    "title": "Selesaikan pengaturan",
+    "subtitle": "Beberapa langkah sebelum hari kerja pertama. Konfigurasi yang harus ada saat server mulai ditulis di .env.",
+    "operator": "Identitas operator",
+    "operatorReady": "Masuk sebagai {{name}}.",
+    "operatorMissing": "Isi nama operator lewat scripts/setup.py agar rantai audit menyebut orang.",
+    "starters": "Daftar periksa awal",
+    "startersHint": "Daftar periksa onboarding dan offboarding yang bisa Anda sesuaikan.",
+    "seeded": "Daftar periksa awal sudah siap.",
+    "rateTables": "Tabel tarif statutori",
+    "rateTablesHint": "{{unverified}} dari {{total}} kerangka masih perlu diisi dan diverifikasi.",
+    "rateTablesDone": "Semua tabel statutori sudah diverifikasi.",
+    "model": "Model",
+    "modelOffline": "Model uji offline — tanpa panggilan eksternal.",
+    "modelOnline": "{{model}}",
+    "seed": "Muat daftar periksa awal",
+    "seeding": "Memuat…",
+    "seedFailed": "Konten awal tidak bisa dibuat. Periksa izin lalu coba lagi.",
+    "firstEmployeeLink": "Tambah karyawan",
+    "firstJobLink": "Buat lowongan",
+    "done": "Selesai",
+    "todo": "Belum"
   }
 }
