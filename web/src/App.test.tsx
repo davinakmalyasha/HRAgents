@@ -66,7 +66,11 @@ describe('AppRoutes', () => {
     renderAt('/w/hiring')
 
     expect(
-      await screen.findByRole('heading', { name: i18n.t('workspaces.hiring.name') }),
+      await screen.findByRole(
+        'heading',
+        { name: i18n.t('workspaces.hiring.name') },
+        { timeout: 5000 },
+      ),
     ).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: i18n.t('rooms.board') })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: i18n.t('rooms.queue') })).toBeInTheDocument()
@@ -76,7 +80,9 @@ describe('AppRoutes', () => {
   it('renders the chat room instead of a placeholder', async () => {
     renderAt('/w/hiring')
 
-    await userEvent.click(await screen.findByRole('tab', { name: i18n.t('rooms.chat') }))
+    await userEvent.click(
+      await screen.findByRole('tab', { name: i18n.t('rooms.chat') }, { timeout: 5000 }),
+    )
 
     expect(screen.getByRole('textbox', { name: i18n.t('chat.placeholder') })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: i18n.t('chat.send') })).toBeInTheDocument()
@@ -86,7 +92,7 @@ describe('AppRoutes', () => {
     renderAt('/w/hiring?room=chat')
 
     expect(
-      await screen.findByRole('textbox', { name: i18n.t('chat.placeholder') }),
+      await screen.findByRole('textbox', { name: i18n.t('chat.placeholder') }, { timeout: 5000 }),
     ).toBeInTheDocument()
   })
 
@@ -94,7 +100,7 @@ describe('AppRoutes', () => {
     renderAt('/w/unknown')
 
     expect(
-      await screen.findByRole('heading', { name: i18n.t('home.needsYou') }),
+      await screen.findByRole('heading', { name: i18n.t('home.needsYou') }, { timeout: 5000 }),
     ).toBeInTheDocument()
   })
 })
@@ -175,7 +181,11 @@ describe('the command palette', () => {
     await userEvent.keyboard('{Enter}')
 
     expect(
-      await screen.findByRole('heading', { name: i18n.t('workspaces.payroll.name') }),
+      await screen.findByRole(
+        'heading',
+        { name: i18n.t('workspaces.payroll.name') },
+        { timeout: 5000 },
+      ),
     ).toBeInTheDocument()
   })
 

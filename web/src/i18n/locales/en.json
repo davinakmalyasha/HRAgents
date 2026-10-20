@@ -1,6 +1,8 @@
 {
   "app": {
-    "name": "HRAgents"
+    "name": "HRAgents",
+    "install": "Install app",
+    "loading": "Loading…"
   },
   "nav": {
     "home": "Home",

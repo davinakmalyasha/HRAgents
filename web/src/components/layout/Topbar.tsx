@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 
 import { useSession, useSignOut } from '@/features/auth/session'
+import { InstallAppButton } from '@/features/pwa/InstallAppButton'
 import { storedApiKey } from '@/lib/auth'
 
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -30,6 +31,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
             {isApplePlatform() ? '⌘K' : 'Ctrl K'}
           </kbd>
         </button>
+        <InstallAppButton />
         <Identity />
         <LanguageSwitcher />
         <ThemeToggle />
