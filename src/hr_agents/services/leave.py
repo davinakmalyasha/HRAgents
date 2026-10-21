@@ -15,6 +15,7 @@ from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.logging import get_logger
 from hr_agents.models import (
     AccrualMethod,
+    ApprovalStatus,
     ApprovalSubject,
     Employee,
     LeaveBalance,
@@ -466,15 +467,17 @@ class LeaveService:
         if request is None:
             raise LeaveError(f"no leave request linked to approval {approval_id}")
 
-        approval = self._approvals._store.get(approval_id)
-        if approval is None:
-            raise LeaveError(
-                f"unknown approval {approval_id}",
-                code=DomainCode.UNKNOWN_RECORD,
-                status=404,
-            )
-
-        from hr_agents.models import ApprovalStatus
+        approval = self._approvals.decided(
+            approval_id,
+            error=LeaveError,
+            allowed=(
+                ApprovalStatus.APPROVED,
+                ApprovalStatus.REJECTED,
+                ApprovalStatus.WITHDRAWN,
+                ApprovalStatus.EXPIRED,
+            ),
+            subject="request",
+        )
 
         mapping = {
             ApprovalStatus.APPROVED: RequestStatus.APPROVED,

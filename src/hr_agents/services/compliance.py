@@ -683,23 +683,7 @@ class ComplianceService:
         )
         if request is None:
             raise ComplianceError(f"no erasure request linked to approval {approval_id}")
-        approval = self._approvals._store.get(approval_id)
-        if approval is None:
-            raise ComplianceError(
-                f"unknown approval {approval_id}",
-                code=DomainCode.UNKNOWN_RECORD,
-                status=404,
-            )
-        if approval.status not in {
-            ApprovalStatus.APPROVED,
-            ApprovalStatus.REJECTED,
-            ApprovalStatus.EXPIRED,
-        }:
-            raise ComplianceError(
-                f"approval {approval_id} is {approval.status.value}; no request transition"
-            )
-        if approval.status is ApprovalStatus.APPROVED and not approval.decided_by:
-            raise ComplianceError("approval has no named human decider")
+        approval = self._approvals.decided(approval_id, error=ComplianceError, subject="request")
 
         approved = approval.status is ApprovalStatus.APPROVED
         updated = request.model_copy(

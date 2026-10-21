@@ -8,12 +8,13 @@ engine deterministic and fully testable.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from hr_agents.errors import DomainError
+from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     ApprovalRequest,
@@ -377,6 +378,44 @@ class ApprovalEngine:
     def find(self, request_id: UUID) -> ApprovalRequest | None:
         """A request by id, or ``None``. Reading a request never changes it."""
         return self._store.get(request_id)
+
+    def decided(
+        self,
+        approval_id: UUID,
+        *,
+        error: type[DomainError] = ApprovalError,
+        allowed: Collection[ApprovalStatus] = (
+            ApprovalStatus.APPROVED,
+            ApprovalStatus.REJECTED,
+            ApprovalStatus.EXPIRED,
+        ),
+        subject: str = "request",
+    ) -> ApprovalRequest:
+        """Load an approval that reached an outcome the caller may act on.
+
+        Leave, payroll and compliance each re-derived the same facts: the approval
+        exists, it reached a terminal decision that domain can apply, and an
+        approval outcome names the human who made it. Three copies is three places
+        for a fourth domain to copy a version that forgot the last check.
+
+        ``error`` is the caller's own domain error, so routers keep mapping the
+        failure without learning about approvals. A missing approval is a shaped
+        404; an outcome the caller cannot apply is a 409.
+        """
+        request = self.find(approval_id)
+        if request is None:
+            raise error(
+                f"unknown approval {approval_id}",
+                code=DomainCode.UNKNOWN_RECORD,
+                status=404,
+            )
+        if request.status not in allowed:
+            raise error(
+                f"approval {approval_id} is {request.status.value}; no {subject} transition"
+            )
+        if request.status is ApprovalStatus.APPROVED and not request.decided_by:
+            raise error("approval has no named human decider")
+        return request
 
     @property
     def audit(self) -> AuditChain:

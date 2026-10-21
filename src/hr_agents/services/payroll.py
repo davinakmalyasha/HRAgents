@@ -1032,25 +1032,9 @@ class PayrollService:
         if run is None:
             raise PayrollError(f"no payroll run linked to approval {approval_id}")
 
-        approval = self._approvals._store.get(approval_id)
-        if approval is None:
-            raise PayrollError(
-                f"unknown approval {approval_id}",
-                code=DomainCode.UNKNOWN_RECORD,
-                status=404,
-            )
-        if approval.status not in {
-            ApprovalStatus.APPROVED,
-            ApprovalStatus.REJECTED,
-            ApprovalStatus.EXPIRED,
-        }:
-            raise PayrollError(
-                f"approval {approval_id} is {approval.status.value}; no run transition"
-            )
+        approval = self._approvals.decided(approval_id, error=PayrollError, subject="run")
 
         approved = approval.status is ApprovalStatus.APPROVED
-        if approved and not approval.decided_by:
-            raise PayrollError("approval has no named human decider")
         if approved:
             can, reason = run.can_sign_off()
             if not can:

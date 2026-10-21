@@ -15,6 +15,7 @@ from tests.actors import (
     manager as manager_principal,
 )
 
+from hr_agents.errors import DomainCode
 from hr_agents.identity import ActorError, ActorProvenance, ActorRef
 from hr_agents.models import (
     ApprovalRequest,
@@ -194,6 +195,60 @@ def test_withdraw(engine: ApprovalEngine) -> None:
 def test_unknown_request_raises(engine: ApprovalEngine) -> None:
     with pytest.raises(ApprovalError, match="unknown approval"):
         engine.decide(uuid4(), actor=ActorRef.legacy("someone"), approve=True)
+
+
+# --- the shared decision accessor --------------------------------------------
+
+
+def test_decided_returns_a_terminal_approval(engine: ApprovalEngine) -> None:
+    request = create_request(engine)
+    decision = engine.decide(request.id, actor=manager_principal("Rina"), approve=True)
+
+    assert engine.decided(request.id) == decision.request
+
+
+def test_decided_refuses_a_pending_approval(engine: ApprovalEngine) -> None:
+    request = create_request(engine)
+    with pytest.raises(ApprovalError, match="no request transition"):
+        engine.decided(request.id)
+
+
+def test_decided_respects_the_callers_allowed_outcomes(engine: ApprovalEngine) -> None:
+    request = create_request(engine)
+    engine.withdraw(request.id, actor=manager_principal("sari@example.com"), reason="changed")
+
+    with pytest.raises(ApprovalError, match="no request transition"):
+        engine.decided(request.id)
+    withdrawn = engine.decided(request.id, allowed={ApprovalStatus.WITHDRAWN})
+    assert withdrawn.status is ApprovalStatus.WITHDRAWN
+
+
+def test_decided_unknown_approval_is_a_shaped_404(engine: ApprovalEngine) -> None:
+    with pytest.raises(ApprovalError) as excinfo:
+        engine.decided(uuid4())
+
+    assert excinfo.value.code is DomainCode.UNKNOWN_RECORD
+    assert excinfo.value.status == 404
+
+
+def test_decided_requires_a_named_human_on_an_approved_row(
+    engine: ApprovalEngine,
+) -> None:
+    """Defensive: the model refuses this shape, but a restored row could carry it."""
+    raw = ApprovalRequest.model_construct(
+        id=uuid4(),
+        subject=ApprovalSubject.LEAVE_REQUEST,
+        subject_id="leave-raw",
+        title="Raw row",
+        assignee_role=ApproverRole.MANAGER,
+        status=ApprovalStatus.APPROVED,
+        decided_by=None,
+        decided_at=None,
+    )
+    engine._store.add(raw)
+
+    with pytest.raises(ApprovalError, match="named human"):
+        engine.decided(raw.id)
 
 
 # --- SLA escalation ----------------------------------------------------------
