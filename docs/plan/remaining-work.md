@@ -214,9 +214,12 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       the purge blanks the employee's name on the line while keeping amounts, ids and
       the period, because a run is a tax record and the ledger must still add up; the
       run is fed at export, so the pseudonymous line is what the ledger sees.
-- [ ] **Consolidate the 13 `_record` audit methods, 6 state-transition formats, and the triplicated
-      approval→status sync** behind one auditor, one declarative state machine, and one
-      `ApprovalEngine.await_decision()`.
+- [~] **Consolidate the audit and transition shapes.** The triplicated approval→status sync is
+      now one `ApprovalEngine.decided(approval_id, error=..., allowed=..., subject=...)`
+      accessor: it owns the shaped 404, the terminal-outcome check and the named-decider guard,
+      and leave, payroll and compliance call it instead of reading the engine's private store.
+      Remaining: the 13 `_record` methods, the six state-transition formats, and the declarative
+      state machine behind them.
 
 ---
 
