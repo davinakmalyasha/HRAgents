@@ -19,8 +19,9 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [ ] Home attention lists: cap + "view all" once queues grow; virtualize long lists
 - [x] Manual pipeline stage transitions on the board: designed transition policy first
       (`docs/architecture/board-transitions.md`), then dnd-kit drag with keyboard support
-- [ ] Home: surface role-scoped 403s as an explicit "not available for your role" state
-      (today they degrade silently to empty sections — and a 500 renders as "nothing needs you")
+- [x] Home: role-scoped 403s are named ("Not available for your role") instead of rendering
+      as empty queues, and any other failure shows a retryable alert; "nothing needs you" only
+      appears when all three queues answered.
 - [x] N+1 audit of DB adapters once Postgres persistence lands (eager loading for timelines)
 - [x] **LLM latency: the k extraction runs now execute concurrently** (`asyncio.gather`) instead of
       sequentially — k runs were k× the wall clock for no added signal

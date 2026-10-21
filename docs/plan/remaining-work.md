@@ -572,7 +572,8 @@ documented.
 
 ### 2.3 Attention-first home
 - [x] "Needs you today" wired to real queues: overdue approvals, overdue tasks, open handoffs
-      (role-scoped 403s degrade to empty sections rather than error walls)
+      (role-scoped 403s are named as role-restricted; any other failure is a retryable alert, so
+      "nothing needs you" is only said when every queue answered)
 - [x] "Watching" section: pending approvals within SLA and open tasks
 - [x] No vanity metrics; every item deep-links to the workspace queue (`/w/{id}?room=queue`)
 
