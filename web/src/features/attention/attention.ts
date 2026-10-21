@@ -1,4 +1,5 @@
 import type { components } from '@/api/schema'
+import { HttpError } from '@/lib/httpError'
 import { isWorkspaceId, type WorkspaceId } from '@/lib/workspaces'
 
 export type Approval = components['schemas']['ApprovalView']
@@ -6,6 +7,29 @@ export type Task = components['schemas']['TaskView']
 export type Handoff = components['schemas']['HandoffView']
 
 export type AttentionTone = 'error' | 'waiting'
+export type AttentionQueue = 'approvals' | 'tasks' | 'handoffs'
+
+export interface AttentionFailure {
+  queue: AttentionQueue
+  kind: 'forbidden' | 'failed'
+}
+
+/**
+ * A queue that did not answer is not an empty queue.
+ *
+ * A role-scoped 403 means "you may not see this" and is a permission fact, not
+ * a calm queue; anything else means the check itself failed. Collapsing both to
+ * ``[]`` made the home page say "nothing needs you" when it had not asked.
+ */
+export function attentionFailure(queue: AttentionQueue, error: unknown): AttentionFailure | null {
+  if (error === null || error === undefined) {
+    return null
+  }
+  return {
+    queue,
+    kind: error instanceof HttpError && error.status === 403 ? 'forbidden' : 'failed',
+  }
+}
 export type AttentionSource = 'approval' | 'task' | 'handoff'
 
 export interface AttentionItem {

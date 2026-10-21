@@ -44,7 +44,16 @@
     "needsYou": "Perlu Anda hari ini",
     "needsYouEmpty": "Tidak ada yang perlu Anda tangani saat ini.",
     "watching": "Dipantau",
-    "watchingEmpty": "Belum ada pekerjaan berjalan."
+    "watchingEmpty": "Belum ada pekerjaan berjalan.",
+    "sources": {
+      "approvals": "persetujuan",
+      "tasks": "tugas",
+      "handoffs": "serah terima"
+    },
+    "roleRestricted": "Tidak tersedia untuk peran Anda",
+    "roleRestrictedDetail": "{{sources}} tidak tersedia untuk peran ini.",
+    "loadFailed": "Sebagian antrean tidak bisa dimuat.",
+    "retry": "Coba lagi"
   },
   "rooms": {
     "board": "Papan",

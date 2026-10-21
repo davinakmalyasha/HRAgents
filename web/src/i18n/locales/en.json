@@ -44,7 +44,16 @@
     "needsYou": "Needs you today",
     "needsYouEmpty": "Nothing needs you right now. Enjoy the calm.",
     "watching": "Watching",
-    "watchingEmpty": "No work in flight yet."
+    "watchingEmpty": "No work in flight yet.",
+    "sources": {
+      "approvals": "approvals",
+      "tasks": "tasks",
+      "handoffs": "handoffs"
+    },
+    "roleRestricted": "Not available for your role",
+    "roleRestrictedDetail": "{{sources}} are not available for this role.",
+    "loadFailed": "Some queues could not be loaded.",
+    "retry": "Retry"
   },
   "rooms": {
     "board": "Board",

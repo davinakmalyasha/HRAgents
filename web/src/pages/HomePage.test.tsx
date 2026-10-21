@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,10 +17,18 @@ vi.mock('@/features/setup/useSetup', () => ({
 }))
 
 const attention = vi.hoisted(() => ({
-  current: { isLoading: false, needsYou: [], watching: [] } as {
+  current: {
+    isLoading: false,
+    needsYou: [],
+    watching: [],
+    failures: [],
+    retry: vi.fn(),
+  } as {
     isLoading: boolean
     needsYou: Array<Record<string, unknown>>
     watching: Array<Record<string, unknown>>
+    failures: Array<{ queue: string; kind: 'forbidden' | 'failed' }>
+    retry: () => void
   },
 }))
 
@@ -30,7 +39,13 @@ vi.mock('@/features/attention/useAttention', () => ({
 import { HomePage } from './HomePage'
 
 beforeEach(() => {
-  attention.current = { isLoading: false, needsYou: [], watching: [] }
+  attention.current = {
+    isLoading: false,
+    needsYou: [],
+    watching: [],
+    failures: [],
+    retry: vi.fn(),
+  }
   setupState.current = { data: undefined }
   setupState.seed.mutate.mockClear()
 })
@@ -47,6 +62,8 @@ describe('HomePage', () => {
   it('renders needs-you and watching items with workspace deep links', () => {
     attention.current = {
       isLoading: false,
+      failures: [],
+      retry: vi.fn(),
       needsYou: [
         {
           id: 'approval-1',
@@ -81,11 +98,54 @@ describe('HomePage', () => {
     )
   })
 
-  it('celebrates empty queues', () => {
+  it('celebrates empty queues only when every queue answered', () => {
     renderHome()
 
     expect(screen.getByText(i18n.t('home.needsYouEmpty'))).toBeInTheDocument()
     expect(screen.getByText(i18n.t('home.watchingEmpty'))).toBeInTheDocument()
+  })
+
+  it('names a restricted queue instead of calling it empty', () => {
+    attention.current = {
+      isLoading: false,
+      needsYou: [],
+      watching: [],
+      failures: [{ queue: 'approvals', kind: 'forbidden' }],
+      retry: vi.fn(),
+    }
+
+    renderHome()
+
+    expect(screen.getByText(i18n.t('home.roleRestricted'))).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        i18n.t('home.roleRestrictedDetail', {
+          sources: i18n.t('home.sources.approvals'),
+        }),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('home.needsYouEmpty'))).not.toBeInTheDocument()
+    expect(screen.queryByText(i18n.t('home.watchingEmpty'))).not.toBeInTheDocument()
+  })
+
+  it('reports a failed queue and offers a retry', async () => {
+    const retry = vi.fn()
+    attention.current = {
+      isLoading: false,
+      needsYou: [],
+      watching: [],
+      failures: [{ queue: 'tasks', kind: 'failed' }],
+      retry,
+    }
+
+    renderHome()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(i18n.t('home.loadFailed'))
+    expect(screen.queryByText(i18n.t('home.needsYouEmpty'))).not.toBeInTheDocument()
+
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: i18n.t('home.retry') }))
+    expect(retry).toHaveBeenCalledTimes(1)
   })
 
   it('offers the first-run checklist while the install is empty', () => {
