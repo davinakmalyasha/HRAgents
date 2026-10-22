@@ -10,6 +10,9 @@ import { formatDateTime } from '@/lib/dates'
 
 import { OpsRequestError, type DeadLetterView } from '@/features/ops/opsApi'
 import { useDeadLetters, useRequeueDeadLetter } from '@/features/ops/useOps'
+import { ProviderList } from '@/features/providers/ProviderList'
+import { ProviderRequestError } from '@/features/providers/providersApi'
+import { useProviders } from '@/features/providers/useProviders'
 
 /**
  * The operations queue: submissions the pipeline accepted and could not process.
@@ -22,6 +25,7 @@ import { useDeadLetters, useRequeueDeadLetter } from '@/features/ops/useOps'
 export function OperationsPage() {
   const { t } = useTranslation()
   const letters = useDeadLetters()
+  const providers = useProviders()
 
   return (
     <section aria-labelledby="ops-heading" className="flex flex-col gap-5">
@@ -31,6 +35,26 @@ export function OperationsPage() {
         </h1>
         <p className="text-ink-muted mt-1 max-w-prose text-sm">{t('ops.hint')}</p>
       </div>
+
+      <section aria-labelledby="providers-heading" className="flex flex-col gap-2">
+        <h2 id="providers-heading" className="text-ink-strong text-lg font-medium">
+          {t('providers.title')}
+        </h2>
+        <p className="text-ink-muted max-w-prose text-sm">{t('providers.hint')}</p>
+        {providers.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : providers.isError ? (
+          <EmptyState
+            title={
+              providers.error instanceof ProviderRequestError && providers.error.status === 403
+                ? t('providers.forbidden')
+                : t('providers.unavailable')
+            }
+          />
+        ) : (
+          <ProviderList providers={providers.data ?? []} />
+        )}
+      </section>
 
       {letters.isLoading ? (
         <Skeleton className="h-40" />

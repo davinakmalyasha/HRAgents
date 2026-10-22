@@ -1273,5 +1273,29 @@
     "firstJobLink": "Create a job",
     "done": "Done",
     "todo": "To do"
+  },
+  "providers": {
+    "title": "Providers",
+    "hint": "What each capability is wired to, and whether it answers. Configuration is masked; a padlock means the environment decides.",
+    "locked": "locked by environment",
+    "forbidden": "Not available for your role.",
+    "unavailable": "Provider status could not be loaded.",
+    "status": {
+      "ok": "Answering",
+      "degraded": "Degraded",
+      "misconfigured": "Misconfigured",
+      "unavailable": "Unavailable"
+    },
+    "capability": {
+      "llm": "Model",
+      "embeddings": "Embeddings",
+      "email_send": "Email (send)",
+      "email_receive": "Email (receive)",
+      "whatsapp": "WhatsApp",
+      "calendar": "Calendar",
+      "storage": "Storage",
+      "vector_store": "Vector store",
+      "queue": "Queue"
+    }
   }
 }

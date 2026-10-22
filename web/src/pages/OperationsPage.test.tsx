@@ -20,6 +20,17 @@ const state = vi.hoisted(() => ({
   requeue: vi.fn(),
 }))
 
+const providers = vi.hoisted(() => ({
+  data: [] as unknown[],
+  isLoading: false,
+  isError: false,
+  error: null as unknown,
+}))
+
+vi.mock('@/features/providers/useProviders', () => ({
+  useProviders: () => providers,
+}))
+
 vi.mock('@/features/ops/useOps', () => ({
   useDeadLetters: () => ({
     isLoading: state.isLoading,

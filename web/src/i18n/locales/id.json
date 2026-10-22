@@ -1273,5 +1273,29 @@
     "firstJobLink": "Buat lowongan",
     "done": "Selesai",
     "todo": "Belum"
+  },
+  "providers": {
+    "title": "Provider",
+    "hint": "Setiap kemampuan diarahkan ke provider mana, dan apakah ia menjawab. Konfigurasi disamarkan; ikon gembok berarti lingkungan yang menentukan.",
+    "locked": "dikunci oleh lingkungan",
+    "forbidden": "Tidak tersedia untuk peran Anda.",
+    "unavailable": "Status provider tidak bisa dimuat.",
+    "status": {
+      "ok": "Menjawab",
+      "degraded": "Terganggu",
+      "misconfigured": "Konfigurasi salah",
+      "unavailable": "Tidak tersedia"
+    },
+    "capability": {
+      "llm": "Model",
+      "embeddings": "Embedding",
+      "email_send": "Email (kirim)",
+      "email_receive": "Email (terima)",
+      "whatsapp": "WhatsApp",
+      "calendar": "Kalender",
+      "storage": "Penyimpanan",
+      "vector_store": "Penyimpanan vektor",
+      "queue": "Antrean"
+    }
   }
 }

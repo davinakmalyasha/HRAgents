@@ -2576,6 +2576,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description Every capability, with the provider in use and its health.
+         *
+         *     An unconfigured capability is not an error: the product ships offline
+         *     defaults for most of them, and saying "not configured" would read as a
+         *     fault where there is none.
+         */
+        get: operations["list_providers_v1_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queue": {
         parameters: {
             query?: never;
@@ -3664,6 +3688,12 @@ export interface components {
             /** Phones */
             phones?: string[];
         };
+        /**
+         * Capability
+         * @description External capabilities the platform consumes.
+         * @enum {string}
+         */
+        Capability: "llm" | "embeddings" | "email_send" | "email_receive" | "whatsapp" | "calendar" | "storage" | "vector_store" | "queue";
         /**
          * Channel
          * @enum {string}
@@ -5628,6 +5658,17 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[ProviderStatusView] */
+        Page_ProviderStatusView_: {
+            /** Items */
+            items: components["schemas"]["ProviderStatusView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[RateTableView] */
         Page_RateTableView_: {
             /** Items */
@@ -5945,6 +5986,41 @@ export interface components {
          * @enum {string}
          */
         ProposalStatus: "proposed" | "pending_approval" | "auto_scheduled" | "confirmed" | "cancelled" | "superseded";
+        /**
+         * ProviderHealthStatus
+         * @enum {string}
+         */
+        ProviderHealthStatus: "ok" | "degraded" | "misconfigured" | "unavailable";
+        /**
+         * ProviderStatusView
+         * @description What one capability is wired to, and whether it answers.
+         *
+         *     ``config`` is masked: a secret is shown as its last four characters and
+         *     nothing else, because this view is an operator's troubleshooting aid, not
+         *     a place to read a key out of the database.
+         */
+        ProviderStatusView: {
+            capability: components["schemas"]["Capability"];
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** Detail */
+            detail: string;
+            /** Display Name */
+            display_name: string;
+            /** Docs Url */
+            docs_url?: string | null;
+            /** Locked */
+            locked: boolean;
+            /** Provider Id */
+            provider_id: string;
+            /** Requires Network */
+            requires_network: boolean;
+            /** Source */
+            source: string;
+            status: components["schemas"]["ProviderHealthStatus"];
+        };
         /**
          * PurgeAction
          * @description What happens when a retained record reaches its expiry.
@@ -25721,6 +25797,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_providers_v1_providers_get: {
+        parameters: {
+            query?: {
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ProviderStatusView_"];
                 };
             };
             /** @description The request could not be understood. */

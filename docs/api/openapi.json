@@ -1866,6 +1866,22 @@
         "title": "CandidateInput",
         "type": "object"
       },
+      "Capability": {
+        "description": "External capabilities the platform consumes.",
+        "enum": [
+          "llm",
+          "embeddings",
+          "email_send",
+          "email_receive",
+          "whatsapp",
+          "calendar",
+          "storage",
+          "vector_store",
+          "queue"
+        ],
+        "title": "Capability",
+        "type": "string"
+      },
       "Channel": {
         "enum": [
           "email",
@@ -7299,6 +7315,41 @@
         "title": "Page[OverrideView]",
         "type": "object"
       },
+      "Page_ProviderStatusView_": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderStatusView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "Page[ProviderStatusView]",
+        "type": "object"
+      },
       "Page_RateTableView_": {
         "additionalProperties": false,
         "properties": {
@@ -8097,6 +8148,80 @@
         ],
         "title": "ProposalStatus",
         "type": "string"
+      },
+      "ProviderHealthStatus": {
+        "enum": [
+          "ok",
+          "degraded",
+          "misconfigured",
+          "unavailable"
+        ],
+        "title": "ProviderHealthStatus",
+        "type": "string"
+      },
+      "ProviderStatusView": {
+        "additionalProperties": false,
+        "description": "What one capability is wired to, and whether it answers.\n\n``config`` is masked: a secret is shown as its last four characters and\nnothing else, because this view is an operator's troubleshooting aid, not\na place to read a key out of the database.",
+        "properties": {
+          "capability": {
+            "$ref": "#/components/schemas/Capability"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "docs_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Docs Url"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "provider_id": {
+            "title": "Provider Id",
+            "type": "string"
+          },
+          "requires_network": {
+            "title": "Requires Network",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProviderHealthStatus"
+          }
+        },
+        "required": [
+          "capability",
+          "provider_id",
+          "display_name",
+          "status",
+          "detail",
+          "locked",
+          "source",
+          "requires_network"
+        ],
+        "title": "ProviderStatusView",
+        "type": "object"
       },
       "PurgeAction": {
         "description": "What happens when a retained record reaches its expiry.",
@@ -36718,6 +36843,154 @@
         "summary": "Start a new run that replaces a reviewed one; the reviewed run is not rewritten",
         "tags": [
           "payroll"
+        ]
+      }
+    },
+    "/v1/providers": {
+      "get": {
+        "description": "Every capability, with the provider in use and its health.\n\nAn unconfigured capability is not an error: the product ships offline\ndefaults for most of them, and saying \"not configured\" would read as a\nfault where there is none.",
+        "operationId": "list_providers_v1_providers_get",
+        "parameters": [
+          {
+            "description": "Maximum items to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "Maximum items to return.",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Items to skip before the slice.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "description": "Items to skip before the slice.",
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ProviderStatusView_"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The request could not be understood."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Credentials are missing (`auth_required`) or refused (`auth_invalid`)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The record is not in a state that allows this."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request body exceeded the configured ceiling."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limited. `Retry-After` carries the interval in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A dependency the request needs is not running."
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "providers"
         ]
       }
     },
