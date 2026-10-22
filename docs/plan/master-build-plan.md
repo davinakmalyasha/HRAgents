@@ -302,7 +302,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Auth screens: sign-in with the API key, session gate on /v1/session, sign-out, 401 handling that returns the person to where they were; password reset is N/A for key auth (documented)
 - [ ] Mobile-first layouts (solo HR lives on their phone)
 - [x] i18n from day one: English + Bahasa Indonesia (locale files, language switcher, key-parity test)
-- [ ] Settings → Connections: provider list with health badges, config forms (schema-generated), Test buttons, env-lock padlocks
+- [~] Settings → Connections: the provider list with health badges, env-lock padlocks and masked
+      configuration ships read-only (`GET /v1/providers`, rendered on the operations page); the config
+      forms and Test buttons still need the encrypted settings store to write into
 
 ### 6.2 Chat front door
 - [x] Chat UI with workspace quick-switch (sidebar rail; every workspace's Chat room, Ask HR runs

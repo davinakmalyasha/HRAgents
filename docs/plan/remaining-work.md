@@ -725,8 +725,11 @@ latency, costs, and failure modes documented.
       compose stack with postgres+pgvector, redis, minio, mailpit, a one-shot `migrate` service
       the API waits on, and `scheduler`/`messaging` loops; `/healthz` + `/readyz` (per-dependency
       readiness, 503 when degraded)
-- [ ] Provider settings UI with health badges, env-lock indicators, masked secrets (Settings →
-      Connections)
+- [~] Provider settings UI with health badges, env-lock indicators, masked secrets: the
+      read-only half ships (`GET /v1/providers` — one row per capability, the provider in use,
+      its own health check, a padlock when the environment locks it, and configuration masked to
+      the last four characters), rendered on the operations page. Writing configuration still
+      needs the encrypted settings store, so the forms and Test buttons stay open.
 - [x] Local-model mode (Ollama): `docs/deployment.md` §8 documents the fully-offline provider
       set (llm.ollama, embeddings.ollama or the no-download `embeddings.hash`,
       storage.local_disk, queue.memory, whatsapp.manual_links, calendar.manual_slots,

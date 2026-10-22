@@ -56,6 +56,13 @@ First start takes a few minutes (dashboard build). Watch progress with
 > existing volume, run `ALTER ROLE hragents NOSUPERUSER NOCREATEROLE NOBYPASSRLS;`
 > by hand.
 
+### What is wired
+
+`GET /v1/providers` (admin key) reports, for every capability, the provider in use, whether
+the environment locks it, and what that provider's own health check says. Configuration comes
+back masked — the last four characters of a secret, never the secret. The same list is on the
+operations page (`/app/ops`).
+
 ### Starter content
 
 A fresh install is empty by design. The dashboard's first-run card offers the
