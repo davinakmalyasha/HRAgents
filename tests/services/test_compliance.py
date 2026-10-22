@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from structlog.testing import CapturingLogger
 from tests.actors import data_protection
 
 from hr_agents.identity import ActorRef
@@ -29,6 +30,7 @@ from hr_agents.services import (
     PurgeHandler,
     add_months,
 )
+from hr_agents.services import compliance as compliance_module
 from hr_agents.services.audit import AuditChain
 
 NOW = datetime(2026, 3, 10, 9, 0, tzinfo=UTC)
@@ -921,3 +923,33 @@ def test_verify_audit_chain_detects_tampering(
 def test_get_record_unknown_raises(service: ComplianceService) -> None:
     with pytest.raises(ComplianceError, match="unknown retention record"):
         service.get_record(uuid4())
+
+
+def test_a_purge_sweep_logs_its_summary(
+    service: ComplianceService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One line per sweep: what it destroyed, spared, skipped and failed."""
+    service.set_policy(
+        entity=RecordEntity.CANDIDATE,
+        name="Candidate records",
+        retention_months=24,
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    broken = track_candidate(service)
+    track_candidate(service)  # the record the sweep should still purge
+
+    def handler(item: RetentionRecord, action: PurgeAction) -> str:
+        if item.id == broken.id:
+            raise RuntimeError("store unavailable")
+        return "removed"
+
+    service.register_purge_handler(RecordEntity.CANDIDATE, handler)
+    logger = CapturingLogger()
+    monkeypatch.setattr(compliance_module, "logger", logger)
+
+    service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
+
+    summaries = [call for call in logger.calls if call.args and call.args[0] == "retention.purge"]
+    assert len(summaries) == 1
+    assert summaries[0].kwargs["purged"] == 1
+    assert summaries[0].kwargs["failed"] == 1

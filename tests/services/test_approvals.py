@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from structlog.testing import CapturingLogger
 from tests.actors import (
     approver,
 )
@@ -25,6 +26,7 @@ from hr_agents.models import (
     Urgency,
 )
 from hr_agents.services import ApprovalEngine, ApprovalError
+from hr_agents.services import approvals as approvals_module
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ApprovalStore
 
@@ -545,3 +547,18 @@ def test_reassign_keeps_the_approval_decidable(engine: ApprovalEngine) -> None:
     )
     engine.decide(moved.id, actor=approver(moved.assignee_role, "Rina"), approve=True)
     assert reloaded(engine, moved).status is ApprovalStatus.APPROVED
+
+
+def test_status_changes_are_logged(engine: ApprovalEngine, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The audit chain is the record; the log is what an operator watches."""
+    logger = CapturingLogger()
+    monkeypatch.setattr(approvals_module, "logger", logger)
+
+    request = create_request(engine, requested_by="Budi")
+    engine.decide(request.id, actor=manager_principal("Rina"), approve=True)
+
+    created = [call for call in logger.calls if call.args and call.args[0] == "approval.created"]
+    decided = [call for call in logger.calls if call.args and call.args[0] == "approval.decided"]
+    assert created[0].kwargs["assignee_role"] == "manager"
+    assert decided[0].kwargs["decision"] == "approved"
+    assert decided[0].kwargs["actor"] == "Rina"

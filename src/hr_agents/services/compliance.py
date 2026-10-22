@@ -598,6 +598,16 @@ class ComplianceService:
                 },
             )
 
+        logger.info(
+            "retention.purge",
+            dry_run=dry_run,
+            purged=len(outcomes),
+            skipped=len(skipped),
+            failed=len(failed),
+            held=len(report.held),
+            uncovered=len(report.uncovered),
+            actor=actor.actor_id,
+        )
         return PurgeReport(
             executed_at=moment,
             dry_run=dry_run,

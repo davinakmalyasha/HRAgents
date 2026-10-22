@@ -16,6 +16,7 @@ from uuid import UUID
 
 from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
+from hr_agents.logging import get_logger
 from hr_agents.models import (
     ApprovalRequest,
     ApprovalStatus,
@@ -27,6 +28,8 @@ from hr_agents.models import (
 from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.people_store import ApprovalStore
+
+logger = get_logger(__name__)
 
 
 class ApprovalError(DomainError, RuntimeError):
@@ -83,6 +86,13 @@ class ApprovalEngine:
         request = request.model_copy(update={"sla_deadline": request.default_deadline()})
         self._store.add(request)
         self._record(request, action="approval.created", actor=actor)
+        logger.info(
+            "approval.created",
+            approval_id=str(request.id),
+            subject=request.subject.value,
+            assignee_role=request.assignee_role.value,
+            urgency=request.urgency.value,
+        )
         return request
 
     # --- decisions ------------------------------------------------------
@@ -130,6 +140,14 @@ class ApprovalEngine:
         )
         self._store.save(decided)
         self._record(decided, action=f"approval.{action}", actor=actor)
+        logger.info(
+            "approval.decided",
+            approval_id=str(decided.id),
+            subject=decided.subject.value,
+            decision=action,
+            actor=actor.actor_id,
+            role=actor.role,
+        )
         return ApprovalDecision(request=decided, action=action)
 
     def _require_authority(

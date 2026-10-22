@@ -17,12 +17,16 @@ from collections.abc import Iterable
 
 from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
+from hr_agents.logging import get_logger
 from hr_agents.providers.queue import QueueBackend
 from hr_agents.services.audit import AuditChain
 
 EXPIRED_LEASE_GRACE_SECONDS = 300.0
 """Long enough that a slow handler is not re-run, short enough that a wedged
 worker is visible within a scheduler tick or two (the worker lease is 120s)."""
+
+
+logger = get_logger(__name__)
 
 
 class QueueOpsError(DomainError, RuntimeError):
@@ -56,6 +60,12 @@ async def requeue_dead_letter(
         raise QueueOpsError("requeueing a dead letter requires a reason")
     requeued = await queue.requeue_dead(message_id)
     if requeued:
+        logger.info(
+            "ops.dead_letter_requeued",
+            message_id=message_id,
+            actor=actor.actor_id,
+            reason=reason.strip(),
+        )
         audit.append(
             actor=actor.audit_actor(),
             action="ops.dead_letter_requeued",
