@@ -329,3 +329,50 @@ def test_readyz_endpoint_reflects_the_report(started_client: TestClient) -> None
 
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
+
+
+def test_eviction_keeps_a_busy_principals_window() -> None:
+    """The table is bounded without resetting the counters of live principals.
+
+    The old policy dropped the oldest *inserted* bucket, which could be a busy
+    principal's: their counter restarted and their limit stopped meaning
+    anything, which is a way to make the limiter useless for everybody else.
+    """
+    now = [1000.0]
+    limiter = RateLimiter(limit=2, window_seconds=60.0, max_tracked_keys=2, _now=lambda: now[0])
+
+    assert limiter.check("busy")[0] is True
+    now[0] = 1001.0
+    assert limiter.check("other")[0] is True
+    now[0] = 1002.0
+    assert limiter.check("busy")[0] is True
+    now[0] = 1003.0
+    assert limiter.check("new")[0] is True
+
+    assert limiter.tracked_keys <= 2
+    # The busy principal keeps both of its hits, so a third request is refused.
+    assert limiter.check("busy")[0] is False
+    # The least recently used bucket was the one that went.
+    assert limiter.check("other")[0] is True
+
+
+def test_a_throttled_caller_does_not_clear_its_own_bucket() -> None:
+    """A refused request must not reset the window it was refused against."""
+    limiter = RateLimiter(limit=1, window_seconds=60.0, max_tracked_keys=1, _now=lambda: 1000.0)
+
+    assert limiter.check("a")[0] is True
+    assert limiter.check("a")[0] is False
+    assert limiter.tracked_keys == 1
+    assert limiter.check("a")[0] is False, "a refusal must not start the window over"
+
+
+def test_expired_buckets_are_pruned_before_the_least_recently_used() -> None:
+    now = [1000.0]
+    limiter = RateLimiter(limit=5, window_seconds=60.0, max_tracked_keys=2, _now=lambda: now[0])
+
+    limiter.check("old")
+    now[0] = 1061.0
+    limiter.check("recent")
+    limiter.check("newer")
+
+    assert limiter.tracked_keys <= 2

@@ -62,6 +62,7 @@ class RateLimiter:
     window_seconds: float = 60.0
     max_tracked_keys: int = 10_000
     _hits: dict[str, deque[float]] = field(default_factory=lambda: defaultdict(deque))
+    _last_hit: dict[str, float] = field(default_factory=dict)
     _now: Callable[[], float] = time.monotonic
 
     def check(self, key: str) -> tuple[bool, float]:
@@ -70,27 +71,54 @@ class RateLimiter:
         window = self._hits[key]
         while window and now - window[0] >= self.window_seconds:
             window.popleft()
+        self._last_hit[key] = now
         if len(window) >= self.limit:
             return False, max(0.0, self.window_seconds - (now - window[0]))
         window.append(now)
-        self._evict(now)
+        self._evict(now, key)
         return True, 0.0
 
-    def _evict(self, now: float) -> None:
-        """Bound the bucket table.
+    @property
+    def tracked_keys(self) -> int:
+        """How many client buckets are held. Bounded by ``max_tracked_keys``."""
+        return len(self._hits)
+
+    def _evict(self, now: float, keep: str) -> None:
+        """Bound the bucket table without resetting anybody's window.
 
         Buckets are only trimmed on *reuse*, so a caller presenting a fresh
         client address on every request would otherwise grow this dict until the
-        process died. Insertion order is preserved, so the oldest bucket is the
-        least likely to be in active use.
+        process died.
+
+        The old policy dropped the oldest *inserted* buckets, which could be a
+        busy principal's: their counter restarted and their limit stopped
+        meaning anything, which is a way to make the limiter useless for
+        everybody else. Buckets whose window has fully expired go first, then the
+        least recently used -- and never the key being checked, or a throttled
+        caller would clear its own bucket and start over.
         """
         if len(self._hits) <= self.max_tracked_keys:
             return
-        for stale_key in list(self._hits)[: len(self._hits) - self.max_tracked_keys]:
-            del self._hits[stale_key]
+        for key, window in list(self._hits.items()):
+            if key == keep:
+                continue
+            if not window or now - window[0] >= self.window_seconds:
+                del self._hits[key]
+                self._last_hit.pop(key, None)
+        while len(self._hits) > self.max_tracked_keys:
+            victim = min(
+                (key for key in self._hits if key != keep),
+                key=lambda key: self._last_hit.get(key, 0.0),
+                default=None,
+            )
+            if victim is None:
+                return
+            del self._hits[victim]
+            self._last_hit.pop(victim, None)
 
     def reset(self) -> None:
         self._hits.clear()
+        self._last_hit.clear()
 
 
 def client_key(request: Request) -> str:
