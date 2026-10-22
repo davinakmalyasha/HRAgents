@@ -96,6 +96,13 @@ class EvaluationFlag(StrEnum):
     INCONSISTENT_RUNS = "inconsistent_runs"
     CERTIFICATION_MISMATCH = "certification_mismatch"
     INJECTION_SUSPECTED = "injection_suspected"
+    DOCUMENT_TRUNCATED = "document_truncated"
+    """The submitted document was cut short, so the extraction is incomplete.
+
+    Not a low score and not a bad candidate: a document too long to read in
+    full would otherwise be scored on the part that was read, which reads as a
+    missing qualification. It routes to a person like any other anomaly.
+    """
     CALENDAR_CONSTRAINT = "calendar_constraint"
     CONSENT_MISSING = "consent_missing"
     """No active consent for the purpose, so nothing was evaluated.

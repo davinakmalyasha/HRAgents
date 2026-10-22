@@ -177,6 +177,7 @@ class ApplicationPipeline:
         resume_text: str,
         job: JobSpecification,
         consent_active: bool,
+        source_truncated: bool = False,
         config: PipelineConfig | None = None,
     ) -> PipelineResult:
         """Extract, score, and route one application.
@@ -267,6 +268,11 @@ class ApplicationPipeline:
             max_severity = max(max_severity, result.guard.risk_severity)
             if result.guard.blocking:
                 flags.append(EvaluationFlag.INJECTION_SUSPECTED)
+
+        if source_truncated:
+            # The document was cut short on the way in. Scoring the part that was
+            # read would understate the candidate without saying so.
+            flags.append(EvaluationFlag.DOCUMENT_TRUNCATED)
 
         if EvaluationFlag.INJECTION_SUSPECTED in flags:
             self._audit.append_system(

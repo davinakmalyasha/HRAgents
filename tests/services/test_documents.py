@@ -1,3 +1,6 @@
+import pytest
+
+from hr_agents.services import documents as documents_module
 from hr_agents.services.documents import (
     extract_text,
     guess_kind,
@@ -96,3 +99,35 @@ def test_redact_multiple_identifiers() -> None:
     assert result.counts["phone"] == 1
     assert result.counts["id_number"] == 1
     assert result.total_redacted == 3
+
+
+def test_long_text_is_cut_and_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A document longer than the cap is cut, and the cut is reported.
+
+    The report is the point: a CV that is missing its middle must not be
+    scored as if it were the whole thing.
+    """
+    monkeypatch.setattr(documents_module, "MAX_EXTRACTED_CHARS", 100)
+
+    extracted = documents_module.extract_document(b"a" * 250, "cv.txt")
+
+    assert extracted.truncated is True
+    assert len(extracted.text) == 100
+
+
+def test_short_text_is_whole(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(documents_module, "MAX_EXTRACTED_CHARS", 100)
+
+    extracted = documents_module.extract_document(b"a" * 40, "cv.txt")
+
+    assert extracted.truncated is False
+    assert extracted.text == "a" * 40
+
+
+def test_a_long_pdf_is_cut_at_the_page_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A page bomb is a denial of service, not a CV."""
+    monkeypatch.setattr(documents_module, "MAX_EXTRACTED_PAGES", 0)
+
+    extracted = documents_module.extract_document(_build_minimal_pdf("hello"), "cv.pdf")
+
+    assert extracted.truncated is True

@@ -185,3 +185,55 @@ def test_undispatched_dispatcher_refuses_with_the_outage_reason() -> None:
                 record, SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
             )
         )
+
+
+def test_a_truncated_document_travels_with_the_payload(
+    documents: DocumentService, queue: MemoryQueueBackend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A CV that was cut short must say so on the message, not just in the text.
+
+    The worker cannot see the document; it can only see the payload. Without
+    the flag, a CV missing its middle would be scored as if it were whole.
+    """
+    from hr_agents.services import documents as documents_module
+
+    monkeypatch.setattr(documents_module, "MAX_EXTRACTED_CHARS", 32)
+    document_id = upload(documents, body=b"A" * 200, kind="cv", filename="cv.txt")
+    submission = SubmissionInput(
+        job_id=uuid4(),
+        source_channel="api",
+        consent_granted=True,
+        candidate_name="Budi Santoso",
+        document_ids=[document_id],
+    )
+    store = ApplicationStore()
+    record, _created = store.submit(submission)
+    dispatcher = EvaluationDispatcher(queue=queue, documents=documents)
+
+    asyncio.run(dispatcher.dispatch(record, submission))
+
+    messages = asyncio.run(queue.claim(EVALUATION_TOPIC))
+    payload = messages[0].payload
+    assert payload["source_truncated"] is True
+    assert len(payload["resume_text"]) == 32
+
+
+def test_a_whole_document_is_not_marked_truncated(
+    documents: DocumentService, queue: MemoryQueueBackend
+) -> None:
+    document_id = upload(documents, body=b"Resume body", kind="cv", filename="cv.txt")
+    submission = SubmissionInput(
+        job_id=uuid4(),
+        source_channel="api",
+        consent_granted=True,
+        candidate_name="Budi Santoso",
+        document_ids=[document_id],
+    )
+    store = ApplicationStore()
+    record, _created = store.submit(submission)
+    dispatcher = EvaluationDispatcher(queue=queue, documents=documents)
+
+    asyncio.run(dispatcher.dispatch(record, submission))
+
+    messages = asyncio.run(queue.claim(EVALUATION_TOPIC))
+    assert messages[0].payload["source_truncated"] is False

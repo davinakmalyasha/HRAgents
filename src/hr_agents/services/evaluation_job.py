@@ -26,13 +26,20 @@ def evaluation_payload(
     job_id: UUID,
     resume_text: str,
     candidate_name: str = "",
+    source_truncated: bool = False,
 ) -> dict[str, Any]:
-    """Build the message payload for one evaluation job."""
+    """Build the message payload for one evaluation job.
+
+    ``source_truncated`` says the document was cut short on the way in. The
+    pipeline turns it into an anomaly flag, so a CV whose middle is missing
+    reaches a person instead of a score.
+    """
     return {
         "application_id": str(application_id),
         "job_id": str(job_id),
         "resume_text": resume_text,
         "candidate_name": candidate_name,
+        "source_truncated": source_truncated,
     }
 
 
@@ -61,6 +68,7 @@ class EvaluationJobHandler:
         job_id = UUID(str(message.payload["job_id"]))
         resume_text = str(message.payload["resume_text"])
         candidate_name = str(message.payload.get("candidate_name", ""))
+        source_truncated = bool(message.payload.get("source_truncated", False))
 
         application = self._applications.get(application_id)
         if application is None:
@@ -92,6 +100,7 @@ class EvaluationJobHandler:
                 resume_text=resume_text,
                 job=job,
                 consent_active=consent_active,
+                source_truncated=source_truncated,
                 config=self._config,
             )
         except Exception as exc:

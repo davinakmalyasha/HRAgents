@@ -243,3 +243,26 @@ async def test_audit_chain_records_decisions(pipeline: ApplicationPipeline) -> N
     assert actions[0] == "pipeline.started"
     assert any(action.startswith("pipeline.decision.") for action in actions)
     assert audit.verify() == -1
+
+
+async def test_a_truncated_source_is_flagged_and_routes_to_a_person(
+    pipeline: ApplicationPipeline,
+) -> None:
+    """A CV that was cut short must not be scored as if it were whole.
+
+    The score would be computed from the part that was read, which reads as a
+    missing qualification. The flag sends it to a person instead.
+    """
+    result = await pipeline.process(
+        application_id="app-truncated",
+        resume_text=RESUME,
+        consent_active=True,
+        job=make_job(),
+        source_truncated=True,
+        config=config(),
+    )
+
+    evaluation = evaluated(result)
+    assert EvaluationFlag.DOCUMENT_TRUNCATED in evaluation.flags
+    assert result.policy.decision is PolicyDecision.HITL_ANOMALY
+    assert "document_truncated" in " ".join(result.policy.reasons)

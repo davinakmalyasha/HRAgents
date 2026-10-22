@@ -7,10 +7,11 @@ what :class:`~hr_agents.services.evaluation_job.EvaluationJobHandler` expects.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from uuid import UUID
 
 from hr_agents.providers.queue import QueueBackend
-from hr_agents.services.documents import extract_text
+from hr_agents.services.documents import extract_document
 from hr_agents.services.evaluation_job import EVALUATION_TOPIC, evaluation_payload
 from hr_agents.services.ingestion import ApplicationRecord, SubmissionInput
 from hr_agents.services.recruiting import DocumentService, RecruitingError, StoredDocument
@@ -24,6 +25,20 @@ class DispatchSkipped(Exception):
     """The application cannot be evaluated — no extractable source text."""
 
 
+@dataclass(frozen=True)
+class SourceText:
+    """The text to evaluate, the document it came from, and whether it is whole.
+
+    ``truncated`` travels with the text because the two facts have to reach the
+    pipeline together: a cut-short CV that is scored on the part that was read
+    understates the candidate without saying so.
+    """
+
+    text: str
+    primary: StoredDocument | None
+    truncated: bool
+
+
 class EvaluationDispatcher:
     """Publishes accepted applications onto the evaluation queue."""
 
@@ -31,13 +46,11 @@ class EvaluationDispatcher:
         self._queue = queue
         self._documents = documents
 
-    def resolve_source_text(self, document_ids: list[UUID]) -> tuple[str, StoredDocument | None]:
-        """Concatenate the extractable text of the submission's documents.
+    def resolve_source(self, document_ids: list[UUID]) -> SourceText:
+        """The extractable text of the submission's documents, and whether it is whole.
 
-        Returns the text and the primary document, or raises
-        :class:`DispatchSkipped` when nothing can be read. PII redaction happens
-        inside the agent's injection guard path, not here, so the message carries
-        exactly what was submitted.
+        PII redaction happens inside the agent's injection guard path, not here, so
+        the message carries exactly what was submitted.
         """
         ordered: list[StoredDocument] = []
         for document_id in document_ids:
@@ -56,20 +69,31 @@ class EvaluationDispatcher:
                 return (len(_SOURCE_KIND_PRIORITY), document.filename or "")
 
         ordered.sort(key=rank)
-        parts = [extract_text(document.content, document.filename or "") for document in ordered]
+        parts: list[str] = []
+        truncated = False
+        for document in ordered:
+            extracted = extract_document(document.content, document.filename or "")
+            truncated = truncated or extracted.truncated
+            parts.append(extracted.text)
         text = "\n\n".join(part for part in parts if part).strip()
         if not text:
             raise DispatchSkipped("referenced documents produced no extractable text")
-        return text, ordered[0]
+        return SourceText(text=text, primary=ordered[0], truncated=truncated)
+
+    def resolve_source_text(self, document_ids: list[UUID]) -> tuple[str, StoredDocument | None]:
+        """The text and the primary document, or raises :class:`DispatchSkipped`."""
+        source = self.resolve_source(document_ids)
+        return source.text, source.primary
 
     async def dispatch(self, record: ApplicationRecord, submission: SubmissionInput) -> str:
         """Publish one application for evaluation; returns the queue message id."""
-        resume_text, _primary = self.resolve_source_text(list(submission.document_ids))
+        source = self.resolve_source(list(submission.document_ids))
         payload = evaluation_payload(
             application_id=record.id,
             job_id=record.job_id,
-            resume_text=resume_text,
+            resume_text=source.text,
             candidate_name=submission.candidate_name,
+            source_truncated=source.truncated,
         )
         return await self._queue.publish(EVALUATION_TOPIC, payload)
 
@@ -87,6 +111,9 @@ class UndispatchedDispatcher:
 
     def __init__(self, reason: str) -> None:
         self._reason = reason
+
+    def resolve_source(self, document_ids: list[UUID]) -> SourceText:
+        raise DispatchSkipped(self._reason)
 
     def resolve_source_text(self, document_ids: list[UUID]) -> tuple[str, StoredDocument | None]:
         raise DispatchSkipped(self._reason)

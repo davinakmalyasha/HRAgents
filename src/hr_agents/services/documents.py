@@ -85,16 +85,58 @@ def redact_pii(text: str) -> RedactionResult:
     return RedactionResult(text=text, counts=counts)
 
 
-def extract_text(data: bytes, filename: str = "") -> str:
-    """Extract plain text from a document.
+MAX_EXTRACTED_CHARS = 200_000
+"""How much text one document may contribute to an evaluation."""
+
+MAX_EXTRACTED_PAGES = 200
+"""How many pages of a PDF are read. A page bomb is a denial of service, not a CV."""
+
+
+@dataclass(frozen=True)
+class ExtractedText:
+    """Extracted text, and whether it is the whole document.
+
+    The flag is the point. A CV that was cut short is not a shorter CV; it is a
+    document whose middle is missing, and scoring it as if it were complete
+    would quietly understate a candidate. Callers pass the flag on, and the
+    evaluation routes to a person instead of a score.
+    """
+
+    text: str
+    truncated: bool
+
+
+def extract_document(data: bytes, filename: str = "") -> ExtractedText:
+    """Extract plain text from a document, bounded.
 
     PDFs are parsed with pypdf; text-like files are decoded as UTF-8 with
-    replacement. Unsupported binaries decode best-effort.
+    replacement. Both are cut at ``MAX_EXTRACTED_CHARS``, and a PDF at
+    ``MAX_EXTRACTED_PAGES`` pages: a 10 MiB file of ten thousand pages would
+    otherwise cost minutes of parsing and produce a CV that is quietly missing
+    its middle.
     """
     if filename.lower().endswith(".pdf") or data[:5] == b"%PDF-":
         reader = PdfReader(io.BytesIO(data))
         pages: list[str] = []
-        for page in reader.pages:
-            pages.append(page.extract_text() or "")
-        return "\n".join(pages).strip()
-    return data.decode("utf-8", errors="replace").strip()
+        total = 0
+        truncated = False
+        for index, page in enumerate(reader.pages):
+            if index >= MAX_EXTRACTED_PAGES:
+                truncated = True
+                break
+            page_text = page.extract_text() or ""
+            pages.append(page_text)
+            total += len(page_text)
+            if total >= MAX_EXTRACTED_CHARS:
+                truncated = index + 1 < len(reader.pages)
+                break
+        return ExtractedText("\n".join(pages).strip()[:MAX_EXTRACTED_CHARS], truncated)
+    decoded = data.decode("utf-8", errors="replace").strip()
+    if len(decoded) > MAX_EXTRACTED_CHARS:
+        return ExtractedText(decoded[:MAX_EXTRACTED_CHARS], True)
+    return ExtractedText(decoded, False)
+
+
+def extract_text(data: bytes, filename: str = "") -> str:
+    """Extract plain text from a document (see :func:`extract_document`)."""
+    return extract_document(data, filename).text
