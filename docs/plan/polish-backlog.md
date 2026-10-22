@@ -54,9 +54,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] Dead letters carry their reason: `QueueMessage.failed_reason` / `failed_at` are populated by
       all three backends, so an operator can see why a message died
 - [~] Structured logging through the service layer: the pipeline's decision, the worker's
-      per-message outcome and each scheduler job now emit structured lines, and every request
-      carries a correlation id that the logs inherit and the response echoes. The rest of the
-      service layer is still silent
+      per-message outcome, each scheduler job, approval creation/decisions, the retention sweep's
+      summary and dead-letter requeues emit structured lines, and every request carries a
+      correlation id that the logs inherit and the response echoes. The rest of the service layer
+      is still silent
 - [x] Request/correlation id bound to `structlog.contextvars` and echoed in responses
 - [x] Dead-letter dashboard (`/app/ops`: metadata only, reason-gated requeue recorded
       on the audit chain) and the worker stuck-job reaper (`queue-reaper` scheduler job,

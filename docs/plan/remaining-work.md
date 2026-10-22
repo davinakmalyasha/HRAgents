@@ -690,22 +690,22 @@ approval, a payroll prep + sign-off, and an offboarding end-to-end without touch
 CommandCode). Expand to the full dataset and record honest latency/cost.
 
 ### 4.1 Dataset (50 profiles)
-- [ ] 18 engineering profiles (backend, frontend, data, mobile, DevOps) — EN/ID mixed
-- [ ] 32 non-IT profiles (finance, operations, sales, admin, customer support) to prove the
-      extraction layer generalizes beyond engineering
-- [ ] Formats: PDF + Markdown + JSON per profile class (fixtures committed, sizes representative)
-- [ ] The 4 name-swap fairness pairs embedded in the set (scoring invariance, not just harness)
+- [x] `evals/profiles.py`: 18 engineering and 32 non-IT (finance, operations, sales, admin,
+      customer support) profiles, EN/ID mixed, in Markdown + JSON + a real PDF rendered by a
+      deterministic writer the extractor reads back
+- [x] The 4 name-swap fairness pairs are embedded in the set (scoring invariance, not just the
+      harness), and `scripts/run_evals.py` imports the extraction suite
 
 ### 4.2 Edge cases (~15)
-- [ ] Date overlap / unexplained gap; career change; overqualified; freelance history
-- [ ] Fake certification; scanned (image-only) PDF; oversize document; malformed JSON export
-- [ ] 2 prompt-injection CVs (whitespace + multi-line variants)
-- [ ] Ghost-job mismatch: profile far below job requirements
+- [x] Date overlap / unexplained gap; career change; overqualified; freelance history; fake
+      certification; a blank (no text layer) PDF; oversize document; malformed JSON export; two
+      prompt-injection CVs; and the ghost-job mismatch — all in `evals/profiles.py` and asserted
+      offline
 
 ### 4.3 Suites to add
-- [ ] Resume extraction: structural assertions across all 50 + edge cases
+- [x] Resume extraction: structural assertions across all 50 + edge cases (offline, no real LLM)
 - [ ] Feedback faithfulness: grounding validator against stored evaluations (live model)
-- [ ] Policy regression: threshold routing table (pure, fast, runs offline)
+- [x] Policy regression: threshold routing table (pure, fast, runs offline)
 - [ ] Fairness: distribution monitoring on the real scoring path (not just counterfactuals)
 - [ ] Keep the honest latency section in `benchmarks.md` updated (p50/p95, per-model)
 
@@ -786,6 +786,13 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 - [ ] GitHub social preview image + demo assets (screenshots/GIF)
 - [ ] Immutable releases for tags, once the release flow has settled
 - [ ] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps
+- [ ] **Release automation is blocked on a GitHub-side GraphQL failure.** The `release-please`
+      workflow fails on its `pullRequestsSince` history scan with GitHub's generic "Something went
+      wrong while executing your query"; the same query succeeds from `gh api`, so it is the
+      action's rapid scan hitting a GitHub limit, not the config. Nothing has been released yet
+      (manifest `0.0.0`, no tag), so the scan covers the whole history. Recommended: cut `v0.1.0`
+      by hand (changelog + tag + manifest) so the next scan is short; the human release step is
+      unchanged.
 
 **Exit criteria:** a stranger can evaluate the product from the README alone, reproduce the
 benchmarks, and self-host without contacting the author.
