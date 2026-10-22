@@ -34,7 +34,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       jobs and operations load on demand; entry 891 KB → 425 KB, TBT 190 ms → 60 ms in the
       Lighthouse mobile run). Icon tree-shaking is already implicit in the named lucide imports;
       a CI bundle/Lighthouse budget is the remaining piece.
-- [ ] Ingest path: streaming hash + parser short-circuit for oversize documents
+- [x] Ingest path: extraction is bounded (200k characters, 200 PDF pages) and a cut-short
+      document says so -- the flag travels on the queue message and the evaluation raises
+      `document_truncated`, which routes the candidate to a person instead of scoring the part
+      that was read. The streaming hash was not needed: the body ceiling already bounds the
+      upload at 10 MiB and the bytes are in memory for storage.
 
 ## Observability
 
