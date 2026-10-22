@@ -16,7 +16,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] Pagination on every collection endpoint: all 49 list routes answer the `Page[T]`
       envelope, and every list that grows with the business now runs its predicate, ORDER BY,
       LIMIT/OFFSET and count in SQL rather than `select(Table)` plus a Python `sorted`
-- [ ] Home attention lists: cap + "view all" once queues grow; virtualize long lists
+- [~] Home attention lists: the home reads one page (50 items) per queue instead of walking
+      every page of three queues on every load, and it says what it did not show ("Showing 50
+      of 143 approvals") with a link to the queue for the rest. Long-list virtualization is
+      not needed at that size.
 - [x] Manual pipeline stage transitions on the board: designed transition policy first
       (`docs/architecture/board-transitions.md`), then dnd-kit drag with keyboard support
 - [x] Home: role-scoped 403s are named ("Not available for your role") instead of rendering
