@@ -1,6 +1,8 @@
 import pytest
+from structlog.testing import CapturingLogger
 
 from hr_agents.providers.queue import MemoryQueueBackend, QueueMessage
+from hr_agents.services import worker as worker_module
 from hr_agents.services.worker import Handler, Worker, WorkerConfig
 
 TOPIC = "tests.work"
@@ -98,3 +100,26 @@ def test_worker_requires_config(queue: MemoryQueueBackend) -> None:
 
     with pytest.raises(ValueError, match="WorkerConfig"):
         Worker(queue, handler)
+
+
+async def test_a_failed_message_is_logged_with_its_error(
+    queue: MemoryQueueBackend, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A dead letter with no log line is a dead letter an operator cannot explain."""
+
+    async def handler(message: QueueMessage) -> None:
+        raise RuntimeError("provider timeout")
+
+    await queue.publish(TOPIC, {"n": 1})
+    worker = make_worker(queue, handler)
+    logger = CapturingLogger()
+    monkeypatch.setattr(worker_module, "logger", logger)
+
+    await worker.run_once()
+
+    failures = [
+        call for call in logger.calls if call.args and call.args[0] == "worker.message_failed"
+    ]
+    assert len(failures) == 1
+    assert failures[0].kwargs["error"] == "RuntimeError"
+    assert failures[0].kwargs["topic"] == TOPIC

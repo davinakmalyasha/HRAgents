@@ -20,8 +20,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from hr_agents.api.metrics import record_scheduler_run
+from hr_agents.logging import get_logger
 from hr_agents.main import create_app
 from hr_agents.services.scheduler import JOB_NAMES, Scheduler, format_report
+
+logger = get_logger(__name__)
 
 
 def parse_at(raw: str | None) -> datetime | None:
@@ -60,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     scheduler = Scheduler(
         people=app.state.people,
         recruiting=app.state.recruiting,
-        replies=app.state.messaging.replies,  # type: ignore[attr-defined]
+        replies=app.state.messaging.replies,
     )
     try:
         report = scheduler.run(args.job, now=parse_at(args.at), purge=args.purge)
@@ -70,6 +73,12 @@ def main(argv: list[str] | None = None) -> int:
 
     for job in report.jobs:
         record_scheduler_run(job.name, job.ok)
+        logger.info(
+            "scheduler.job",
+            job=job.name,
+            ok=job.ok,
+            detail=job.detail if hasattr(job, "detail") else "",
+        )
 
     payload = report.model_dump_json(indent=2)
     if args.json:

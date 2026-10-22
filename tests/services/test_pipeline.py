@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from pydantic_ai.models.test import TestModel
+from structlog.testing import CapturingLogger
 
 from hr_agents.agents import AgentRuntime
 from hr_agents.agents.resume_deconstructor import ResumeDeconstructor
@@ -16,6 +17,7 @@ from hr_agents.models import (
     Recommendation,
     TechnicalEvaluation,
 )
+from hr_agents.services import pipeline as pipeline_module
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.dimensions import ENGINEERING, snapshot_for
 from hr_agents.services.pipeline import (
@@ -266,3 +268,30 @@ async def test_a_truncated_source_is_flagged_and_routes_to_a_person(
     assert EvaluationFlag.DOCUMENT_TRUNCATED in evaluation.flags
     assert result.policy.decision is PolicyDecision.HITL_ANOMALY
     assert "document_truncated" in " ".join(result.policy.reasons)
+
+
+async def test_the_pipeline_logs_its_decision(
+    pipeline: ApplicationPipeline, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The decision is on the audit chain *and* in the logs.
+
+    The chain is the record; the log is what an operator sees while waiting
+    for the thing to happen. The logger is swapped for a capturing one rather
+    than read off the global configuration, which caches its processors on
+    first use.
+    """
+    logger = CapturingLogger()
+    monkeypatch.setattr(pipeline_module, "logger", logger)
+
+    await pipeline.process(
+        application_id="app-log",
+        resume_text=RESUME,
+        consent_active=True,
+        job=make_job(),
+        config=config(),
+    )
+
+    decisions = [call for call in logger.calls if call.args and call.args[0] == "pipeline.decision"]
+    assert len(decisions) == 1
+    assert decisions[0].kwargs["application_id"] == "app-log"
+    assert decisions[0].kwargs["decision"] in {item.value for item in PolicyDecision}

@@ -20,6 +20,7 @@ from pydantic import Field
 from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.injection_guard import InjectionGuard
 from hr_agents.agents.resume_deconstructor import ResumeDeconstructor
+from hr_agents.logging import get_logger
 from hr_agents.models import (
     CandidateProfile,
     EvaluationFlag,
@@ -39,6 +40,8 @@ from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.rubrics import RubricRegistry
 from hr_agents.services.scoring import ScoringResult, dimensions_evidenced, score_candidate
 from hr_agents.tools.registry import ToolRegistry
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -334,6 +337,15 @@ class ApplicationPipeline:
         )
         recommendation = _recommendation_for(policy.decision)
         evaluation = evaluation.model_copy(update={"recommendation": recommendation})
+
+        logger.info(
+            "pipeline.decision",
+            application_id=application_id,
+            decision=policy.decision.value,
+            s_tech=round(s_tech, 6),
+            sigma=round(sigma, 6),
+            flags=[flag.value for flag in evaluation.flags],
+        )
 
         # 4. Audit + persist
         self._audit.append_system(

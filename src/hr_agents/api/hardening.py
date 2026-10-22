@@ -27,6 +27,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from hr_agents.api.auth import AuthenticationMiddleware
 from hr_agents.api.metrics import record_http_request
 from hr_agents.api.problem import PROBLEM_MEDIA_TYPE, ProblemCode, problem_uri
+from hr_agents.api.request_id import RequestIdMiddleware
 from hr_agents.config import Settings, get_settings
 
 DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024
@@ -352,6 +353,9 @@ def install_hardening(
     # the rate limiter for the limiter's per-principal bucket to work at all --
     # `client_key` reads `request.state.actor_id`, which nothing else sets.
     app.add_middleware(AuthenticationMiddleware, settings=settings)
+    # Outermost, so the id is bound before anything else runs and every log line
+    # the request produces carries it.
+    app.add_middleware(RequestIdMiddleware)
 
 
 def readiness_report(app: FastAPI) -> dict[str, Any]:

@@ -11,9 +11,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from hr_agents.logging import get_logger
 from hr_agents.providers.queue import QueueBackend, QueueMessage
 
 Handler = Callable[[QueueMessage], Awaitable[Any]]
+
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -63,6 +67,14 @@ class Worker:
             except Exception as exc:
                 self.stats.failed += 1
                 self.stats.errors.append(f"{message.id}: {type(exc).__name__}: {exc}")
+                logger.error(
+                    "worker.message_failed",
+                    topic=self._config.topic,
+                    message_id=message.id,
+                    attempts=message.attempts,
+                    error=type(exc).__name__,
+                    detail=str(exc),
+                )
                 if message.attempts + 1 >= self._config.max_attempts:
                     await self._queue.fail(message.id, reason=str(exc))
                     self.stats.dead_lettered += 1
@@ -73,4 +85,10 @@ class Worker:
 
             await self._queue.ack(message.id)
             self.stats.processed += 1
+            logger.info(
+                "worker.message_processed",
+                topic=self._config.topic,
+                message_id=message.id,
+                attempts=message.attempts,
+            )
         return len(messages)
