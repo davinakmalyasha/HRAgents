@@ -128,15 +128,11 @@ class Settings(BaseSettings):
     # fails startup loudly rather than silently serving agents with no runbooks.
     skills_root: str | None = None
 
-    # --- External integrations ---
-    github_token: str | None = None
-    crossref_mailto: str = "team@example.com"
-
     # --- Messaging bridges ---
+    # The transports themselves are configured through the provider layer
+    # (`HRAGENTS_PROVIDER_*_CONFIG`); the only switch here is whether the
+    # sandbox may transmit at all.
     messaging_sandbox: bool = True
-    whatsapp_phone_number_id: str | None = None
-    whatsapp_access_token: str | None = None
-    telegram_bot_token: str | None = None
     smtp_host: str = "localhost"
     smtp_port: int = 1025
     smtp_from: str = "hragents@example.com"
