@@ -8236,7 +8236,8 @@
         "description": "Whether a purge pass actually touched the underlying store.\n\n``SKIPPED`` is a first-class result, not an error: the ledger disposition\nis still recorded, but nothing was deleted or anonymized. Reporting that as\na success would be a data-protection lie in both the API response and the\naudit chain.",
         "enum": [
           "purged",
-          "skipped"
+          "skipped",
+          "failed"
         ],
         "title": "PurgeOutcomeStatus",
         "type": "string"
@@ -8302,6 +8303,14 @@
             "format": "date-time",
             "title": "Executed At",
             "type": "string"
+          },
+          "failed": {
+            "description": "Records whose purge handler raised. The sweep continued past them, they were not marked purged, and the next sweep retries them.",
+            "items": {
+              "$ref": "#/components/schemas/PurgeOutcomeView"
+            },
+            "title": "Failed",
+            "type": "array"
           },
           "held": {
             "items": {

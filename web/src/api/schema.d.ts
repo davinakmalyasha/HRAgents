@@ -6037,7 +6037,7 @@ export interface components {
          *     audit chain.
          * @enum {string}
          */
-        PurgeOutcomeStatus: "purged" | "skipped";
+        PurgeOutcomeStatus: "purged" | "skipped" | "failed";
         /** PurgeOutcomeView */
         PurgeOutcomeView: {
             action: components["schemas"]["PurgeAction"];
@@ -6071,6 +6071,11 @@ export interface components {
              * Format: date-time
              */
             executed_at: string;
+            /**
+             * Failed
+             * @description Records whose purge handler raised. The sweep continued past them, they were not marked purged, and the next sweep retries them.
+             */
+            failed?: components["schemas"]["PurgeOutcomeView"][];
             /** Held */
             held: string[];
             /** Purged */

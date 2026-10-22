@@ -250,6 +250,13 @@ class PurgeReportView(StrictModel):
             "is still present; the retention ledger was not marked purged for them."
         ),
     )
+    failed: list[PurgeOutcomeView] = Field(
+        default_factory=list,
+        description=(
+            "Records whose purge handler raised. The sweep continued past them, they were "
+            "not marked purged, and the next sweep retries them."
+        ),
+    )
 
     @classmethod
     def from_model(cls, report: PurgeReport) -> PurgeReportView:
@@ -261,6 +268,7 @@ class PurgeReportView(StrictModel):
             held=report.held,
             uncovered=report.uncovered,
             skipped=[PurgeOutcomeView.from_model(item) for item in report.skipped],
+            failed=[PurgeOutcomeView.from_model(item) for item in report.failed],
         )
 
 

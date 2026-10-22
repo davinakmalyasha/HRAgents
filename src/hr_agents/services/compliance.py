@@ -485,6 +485,7 @@ class ComplianceService:
 
         outcomes: list[PurgeOutcome] = []
         skipped: list[PurgeOutcome] = []
+        failed: list[PurgeOutcome] = []
         for item in report.due:
             detail: str | None
             purged: bool
@@ -492,7 +493,48 @@ class ComplianceService:
                 detail = "dry run; no store mutation performed"
                 purged = False
             else:
-                detail = self._apply_purge(item.record, item.action, actor)
+                try:
+                    detail = self._apply_purge(item.record, item.action, actor)
+                except Exception as exc:
+                    # One broken handler must not stop the sweep: the records
+                    # after it would never be purged either. The record stays
+                    # unpurged, so the next sweep retries it, and the failure is
+                    # reported rather than swallowed.
+                    logger.error(
+                        "purge_handler_failed",
+                        entity=item.record.entity.value,
+                        subject_id=item.record.subject_id,
+                        actor=actor,
+                        error=type(exc).__name__,
+                        detail=str(exc),
+                    )
+                    failed.append(
+                        PurgeOutcome(
+                            record_id=item.record.id,
+                            entity=item.record.entity,
+                            subject_kind=item.record.subject_kind,
+                            subject_id=item.record.subject_id,
+                            action=item.action,
+                            detail=f"{type(exc).__name__}: {exc}",
+                            status=PurgeOutcomeStatus.FAILED,
+                            purged=False,
+                        )
+                    )
+                    self._record(
+                        action="compliance.record_purge_failed",
+                        subject_type="retention_record",
+                        subject_id=str(item.record.id),
+                        actor=actor,
+                        payload={
+                            "entity": item.record.entity.value,
+                            "subject_id": item.record.subject_id,
+                            "action": item.action.value,
+                            "error": type(exc).__name__,
+                            "detail": str(exc),
+                            "source": "retention_job",
+                        },
+                    )
+                    continue
                 purged = detail is not None
                 if purged:
                     updated = item.record.model_copy(
@@ -564,6 +606,7 @@ class ComplianceService:
             held=[record.id for record in report.held],
             uncovered=[record.id for record in report.uncovered],
             skipped=skipped,
+            failed=failed,
         )
 
     # --- erasure workflow --------------------------------------------------

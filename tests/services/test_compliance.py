@@ -16,6 +16,7 @@ from hr_agents.models import (
     LawfulBasis,
     NotificationRecipient,
     PurgeAction,
+    PurgeOutcomeStatus,
     RecordEntity,
     RetentionRecord,
     SubjectKind,
@@ -361,6 +362,41 @@ def test_purge_uses_registered_handler(service: ComplianceService) -> None:
 
     assert seen == [(str(record.id), PurgeAction.ANONYMIZE)]
     assert report.purged[0].detail == "removed from candidate store"
+
+
+def test_a_failing_handler_does_not_stop_the_sweep(service: ComplianceService) -> None:
+    """One broken handler must not block the records after it.
+
+    The sweep used to abort on the first failure, so one poisoned record kept
+    every later record from ever being purged. The failure is now isolated:
+    the record stays unpurged (the next sweep retries it), the sweep
+    continues, and the failure is reported rather than swallowed.
+    """
+    service.set_policy(
+        entity=RecordEntity.CANDIDATE,
+        name="Candidate records",
+        retention_months=24,
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    broken = track_candidate(service)
+    healthy = track_candidate(service)
+
+    def handler(item: RetentionRecord, action: PurgeAction) -> str:
+        if item.id == broken.id:
+            raise RuntimeError("store unavailable")
+        return "removed from candidate store"
+
+    service.register_purge_handler(RecordEntity.CANDIDATE, handler)
+    report = service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
+
+    assert [item.record_id for item in report.failed] == [broken.id]
+    assert report.failed[0].status is PurgeOutcomeStatus.FAILED
+    assert "store unavailable" in report.failed[0].detail
+    assert [item.record_id for item in report.purged] == [healthy.id]
+    assert not service.get_record(broken.id).purged, "a failed record is retried, not written off"
+    assert service.get_record(healthy.id).purged
+    actions = [entry.action for entry in service._audit.entries]
+    assert "compliance.record_purge_failed" in actions
 
 
 def test_dry_run_does_not_call_handler(service: ComplianceService) -> None:

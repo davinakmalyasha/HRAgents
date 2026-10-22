@@ -172,6 +172,31 @@ describe('a purge report says what it did and what it did not', () => {
     expect(purgeSummary(dry).destroyed).toBe(0)
     expect(purgeSummary(dry).spared).toBe(1)
   })
+
+  it('counts the records whose handler failed', () => {
+    /**A failed purge is neither destroyed nor spared: the data may be half
+     * erased, and the operator has to see it rather than read a clean summary.
+     */
+    const withFailure = {
+      ...report,
+      failed: [
+        {
+          record_id: 'rec-5',
+          entity: 'employee' as const,
+          subject_kind: 'employee' as const,
+          subject_id: 'emp-5',
+          action: 'delete' as const,
+          purged: false,
+          detail: 'RuntimeError: store unavailable',
+          status: 'failed' as const,
+        },
+      ],
+    }
+
+    const summary = purgeSummary(withFailure)
+    expect(summary.failed).toBe(1)
+    expect(summary.destroyed).toBe(1)
+  })
 })
 
 type Consent = components['schemas']['ConsentView']

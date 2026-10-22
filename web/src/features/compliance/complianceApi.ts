@@ -489,11 +489,13 @@ export function unverifiedTables(tables: RateTableView[]): RateTableView[] {
 export function purgeSummary(report: PurgeReportView): {
   destroyed: number
   spared: number
+  failed: number
   stillPresent: string[]
 } {
   return {
     destroyed: purgedOutcomes(report.purged).length,
     spared: sparedOutcomes(report.skipped ?? []).length,
+    failed: (report.failed ?? []).length,
     stillPresent: [...report.held, ...report.uncovered],
   }
 }

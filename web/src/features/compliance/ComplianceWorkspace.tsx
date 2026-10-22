@@ -666,6 +666,12 @@ function PurgePanel() {
               {t('compliance.stillPresent', { count: summary.stillPresent.length })}
             </p>
           ) : null}
+          {summary.failed > 0 ? (
+            <p className="mt-1 flex items-center gap-2 text-xs">
+              <StatusBadge tone="error" labelKey="compliance.purgeFailedBadge" />
+              {t('compliance.purgeFailed', { count: summary.failed })}
+            </p>
+          ) : null}
         </div>
       ) : null}
 

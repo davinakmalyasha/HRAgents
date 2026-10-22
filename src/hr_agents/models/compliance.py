@@ -194,6 +194,12 @@ class PurgeOutcomeStatus(StrEnum):
 
     PURGED = "purged"
     SKIPPED = "skipped"
+    FAILED = "failed"
+    """The handler raised. Nothing was marked purged, so the record is retried.
+
+    Distinct from ``SKIPPED``, which means there was no handler at all. A
+    failure is a broken handler, and it is retried rather than forgotten.
+    """
 
 
 class PurgeOutcome(StrictModel):
@@ -225,6 +231,11 @@ class PurgeReport(StrictModel):
         default_factory=list,
         description="Records whose entity has no registered store purge handler; "
         "the ledger was updated but no data was removed",
+    )
+    failed: list[PurgeOutcome] = Field(
+        default_factory=list,
+        description="Records whose purge handler raised. The sweep continued, the "
+        "record was not marked purged, and the next sweep retries it.",
     )
 
 
