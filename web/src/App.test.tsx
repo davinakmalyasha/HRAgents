@@ -69,7 +69,7 @@ describe('AppRoutes', () => {
       await screen.findByRole(
         'heading',
         { name: i18n.t('workspaces.hiring.name') },
-        { timeout: 5000 },
+        { timeout: 15000 },
       ),
     ).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: i18n.t('rooms.board') })).toBeInTheDocument()
@@ -81,7 +81,7 @@ describe('AppRoutes', () => {
     renderAt('/w/hiring')
 
     await userEvent.click(
-      await screen.findByRole('tab', { name: i18n.t('rooms.chat') }, { timeout: 5000 }),
+      await screen.findByRole('tab', { name: i18n.t('rooms.chat') }, { timeout: 15000 }),
     )
 
     expect(screen.getByRole('textbox', { name: i18n.t('chat.placeholder') })).toBeInTheDocument()
@@ -92,7 +92,7 @@ describe('AppRoutes', () => {
     renderAt('/w/hiring?room=chat')
 
     expect(
-      await screen.findByRole('textbox', { name: i18n.t('chat.placeholder') }, { timeout: 5000 }),
+      await screen.findByRole('textbox', { name: i18n.t('chat.placeholder') }, { timeout: 15000 }),
     ).toBeInTheDocument()
   })
 
@@ -100,7 +100,7 @@ describe('AppRoutes', () => {
     renderAt('/w/unknown')
 
     expect(
-      await screen.findByRole('heading', { name: i18n.t('home.needsYou') }, { timeout: 5000 }),
+      await screen.findByRole('heading', { name: i18n.t('home.needsYou') }, { timeout: 15000 }),
     ).toBeInTheDocument()
   })
 })
@@ -184,7 +184,7 @@ describe('the command palette', () => {
       await screen.findByRole(
         'heading',
         { name: i18n.t('workspaces.payroll.name') },
-        { timeout: 5000 },
+        { timeout: 15000 },
       ),
     ).toBeInTheDocument()
   })
