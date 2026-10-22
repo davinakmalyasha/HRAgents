@@ -13,9 +13,9 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 - [ ] Database: index review per hot query (approvals by role+status, tasks overdue, queue scans,
       evaluations by application, audit_log by sequence)
-- [ ] Pagination on every collection endpoint (jobs, approvals, tasks, audit entries, calendar) —
-      43 of 45 list endpoints are still unbounded, and nearly every DB list is `select(Table)` with
-      no `LIMIT` followed by a Python `sorted`
+- [x] Pagination on every collection endpoint: all 49 list routes answer the `Page[T]`
+      envelope, and every list that grows with the business now runs its predicate, ORDER BY,
+      LIMIT/OFFSET and count in SQL rather than `select(Table)` plus a Python `sorted`
 - [ ] Home attention lists: cap + "view all" once queues grow; virtualize long lists
 - [x] Manual pipeline stage transitions on the board: designed transition policy first
       (`docs/architecture/board-transitions.md`), then dnd-kit drag with keyboard support
@@ -53,24 +53,31 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       on the audit chain) and the worker stuck-job reaper (`queue-reaper` scheduler job,
       leases expired beyond five minutes go back to pending with the attempt counted);
       the dead-letter alert ships in `ops/alerts/hragents.rules.yml`
-- [ ] OTel traces — declared as a dependency and never wired. Three unused packages ship in the
-      production image; drop them or instrument
+- [x] OTel traces: the three unwired packages (`opentelemetry-sdk`,
+      `opentelemetry-instrumentation-fastapi`, `opentelemetry-exporter-otlp-proto-http`) are out
+      of the runtime dependencies, so the production image no longer carries them; the tracing
+      itself stays open under Phase 9 observability
 - [ ] Cost tracking: no `usage()` call exists anywhere, so "what did this candidate cost" is
       unanswerable
-- [ ] `lizard` is a runtime dependency imported nowhere; `Settings.github_token`,
-      `crossref_mailto`, and `telegram_bot_token` are read zero times yet advertised in
-      `.env.example`
+- [x] Dependency and setting hygiene: `lizard` is used (`services/ast_analysis.py`, with
+      `radon` for Python), so it stays; `tenacity` and `orjson` were never imported and are
+      gone; `Settings.github_token`, `crossref_mailto`, `telegram_bot_token` and the two
+      WhatsApp credentials were read by nobody and have been removed, and
+      `tests/test_env_example.py` now fails if `.env.example` advertises a setting that does
+      not exist
 
 ## Security maximization
 
-- [ ] Rate limits (per API key and per IP) on public surfaces; stricter on uploads and auth.
-      Two live defects: `request.state.actor_id` is never assigned, so the "per principal" docstring
-      is false and it is per key/IP; and `X-Forwarded-For` is trusted blindly, so an attacker gets a
-      fresh bucket per request
-- [ ] Rate-limiter key eviction. `_hits` is only pruned on *reuse*, so rotating `X-Forwarded-For`
-      grows the dict without bound — an unauthenticated memory-exhaustion vector
-- [ ] Body-size ceiling is header-only. A chunked request bypasses the middleware, and
-      `POST /v1/documents` does `await file.read()` before the service-level size check
+- [x] Rate limits on public surfaces: the authentication middleware resolves the principal
+      before the limiter runs, so the bucket is per principal; otherwise it is per client
+      address, and `X-Forwarded-For` is honoured only behind an explicit
+      `HRAGENTS_TRUST_PROXY_HEADERS=true`
+- [x] Rate-limiter key eviction: the bucket table is bounded by `max_tracked_keys`, expired
+      buckets are pruned first, and what goes next is the least recently used -- never the
+      principal being checked, whose window a refusal must not reset
+- [x] Body-size ceiling: the middleware counts bytes as they stream in, so a chunked upload
+      is stopped mid-flight, and a declared length is refused without reading a byte; the
+      document endpoint's own limit matches the middleware's
 - [ ] Key management: rotation procedure for API keys and provider credentials; kid metadata
 - [ ] Upload scanning hook (ClamAV/YARA adapter) behind the storage provider. No MIME sniffing
       either: `kind` is a client-supplied form field, and an arbitrary binary is decoded as UTF-8
