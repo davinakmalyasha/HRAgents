@@ -191,8 +191,12 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       arrive -- and the handoff queue). **Every persist path with a model to carry a version
       is guarded.** Three set-whole writes keep last-write-wins and say so rather than being
       silently claimed: leave balance adjustments, the holiday calendar and interviewer
-      availability. The "one transaction per service method" half -- what would make a
-      mid-loop erasure atomic rather than half-finished -- is still open.
+      availability. The "one transaction per service method" half is still open, but the
+      erasure half is no longer a silent half-state: a purge handler that raises is isolated
+      (the sweep continues past it), the record is left unpurged so the next sweep retries it,
+      the failure is reported in the purge report and on the compliance screen, and the audit
+      chain records it. True atomicity still needs one transaction across the stores, which
+      the handlers do not share.
 - [x] **Schema integrity.** Migrations `0022`–`0026` added named foreign keys for every
       reference the services already guarantee (the one deliberate exception,
       `scheduling_availability.interviewer_id`, is recorded under the reference-integrity
