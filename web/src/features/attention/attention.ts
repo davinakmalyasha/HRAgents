@@ -77,6 +77,32 @@ function byDue(items: AttentionItem[]): AttentionItem[] {
 }
 
 /** Partition live work into "decisions gated on you" and "agents are handling it". */
+/**
+ * The workspace most of these items live in.
+ *
+ * A section-level "view all" link needs one destination, and the items in a
+ * section can come from several workspaces. The most common one is the honest
+ * answer: it is where most of the work actually is.
+ */
+export function dominantWorkspace(items: AttentionItem[]): WorkspaceId | null {
+  const counts = new Map<WorkspaceId, number>()
+  for (const item of items) {
+    if (item.workspace === null) {
+      continue
+    }
+    counts.set(item.workspace, (counts.get(item.workspace) ?? 0) + 1)
+  }
+  let best: WorkspaceId | null = null
+  let bestCount = 0
+  for (const [workspace, count] of counts) {
+    if (count > bestCount) {
+      best = workspace
+      bestCount = count
+    }
+  }
+  return best
+}
+
 export function buildAttention(input: AttentionInput): Attention {
   const needsYou: AttentionItem[] = []
   const watching: AttentionItem[] = []

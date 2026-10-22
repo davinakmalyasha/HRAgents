@@ -23,12 +23,19 @@ const attention = vi.hoisted(() => ({
     watching: [],
     failures: [],
     retry: vi.fn(),
+    limitedQueues: [],
   } as {
     isLoading: boolean
     needsYou: Array<Record<string, unknown>>
     watching: Array<Record<string, unknown>>
     failures: Array<{ queue: string; kind: 'forbidden' | 'failed' }>
     retry: () => void
+    limitedQueues: Array<{
+      queue: string
+      shown: number
+      total: number
+      workspace: string | null
+    }>
   },
 }))
 
@@ -45,6 +52,7 @@ beforeEach(() => {
     watching: [],
     failures: [],
     retry: vi.fn(),
+    limitedQueues: [],
   }
   setupState.current = { data: undefined }
   setupState.seed.mutate.mockClear()
@@ -64,6 +72,7 @@ describe('HomePage', () => {
       isLoading: false,
       failures: [],
       retry: vi.fn(),
+      limitedQueues: [],
       needsYou: [
         {
           id: 'approval-1',
@@ -112,6 +121,7 @@ describe('HomePage', () => {
       watching: [],
       failures: [{ queue: 'approvals', kind: 'forbidden' }],
       retry: vi.fn(),
+      limitedQueues: [],
     }
 
     renderHome()
@@ -136,6 +146,7 @@ describe('HomePage', () => {
       watching: [],
       failures: [{ queue: 'tasks', kind: 'failed' }],
       retry,
+      limitedQueues: [],
     }
 
     renderHome()
@@ -205,5 +216,32 @@ describe('HomePage', () => {
     renderHome()
 
     expect(screen.queryByText(i18n.t('setup.title'))).not.toBeInTheDocument()
+  })
+
+  it('says when a queue was only partly shown, and links to the rest', () => {
+    attention.current = {
+      isLoading: false,
+      needsYou: [],
+      watching: [],
+      failures: [],
+      retry: vi.fn(),
+      limitedQueues: [{ queue: 'approvals', shown: 50, total: 143, workspace: 'approvals' }],
+    }
+
+    renderHome()
+
+    expect(
+      screen.getByText(
+        i18n.t('home.queueLimited', {
+          queue: i18n.t('home.sources.approvals'),
+          shown: 50,
+          total: 143,
+        }),
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: i18n.t('home.viewAll') })).toHaveAttribute(
+      'href',
+      '/w/approvals?room=queue',
+    )
   })
 })

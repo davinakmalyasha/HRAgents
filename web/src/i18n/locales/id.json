@@ -53,7 +53,9 @@
     "roleRestricted": "Tidak tersedia untuk peran Anda",
     "roleRestrictedDetail": "{{sources}} tidak tersedia untuk peran ini.",
     "loadFailed": "Sebagian antrean tidak bisa dimuat.",
-    "retry": "Coba lagi"
+    "retry": "Coba lagi",
+    "queueLimited": "Menampilkan {{shown}} dari {{total}} {{queue}}.",
+    "viewAll": "Lihat semua"
   },
   "rooms": {
     "board": "Papan",

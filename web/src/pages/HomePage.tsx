@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 
 import { EmptyState } from '@/components/feedback/EmptyState'
 import { StatusBadge } from '@/components/status/StatusBadge'
@@ -12,7 +13,7 @@ import { useSetup } from '@/features/setup/useSetup'
 
 export function HomePage() {
   const { t } = useTranslation()
-  const { needsYou, watching, isLoading, failures, retry } = useAttention()
+  const { needsYou, watching, isLoading, failures, retry, limitedQueues } = useAttention()
   const setup = useSetup()
   const restricted = failures.filter((failure) => failure.kind === 'forbidden')
   const failed = failures.filter((failure) => failure.kind === 'failed')
@@ -40,6 +41,27 @@ export function HomePage() {
           <StatusBadge tone="waiting" labelKey="home.roleRestricted" />
           {t('home.roleRestrictedDetail', { sources: queueNames(restricted) })}
         </p>
+      ) : null}
+
+      {limitedQueues.length > 0 ? (
+        <ul className="text-ink-muted flex flex-col gap-1 text-xs">
+          {limitedQueues.map((queue) => (
+            <li key={queue.queue} className="flex flex-wrap items-center gap-2">
+              <span>
+                {t('home.queueLimited', {
+                  queue: t(`home.sources.${queue.queue}`),
+                  shown: queue.shown,
+                  total: queue.total,
+                })}
+              </span>
+              {queue.workspace ? (
+                <Link className="font-medium underline" to={`/w/${queue.workspace}?room=queue`}>
+                  {t('home.viewAll')}
+                </Link>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       ) : null}
 
       <section aria-labelledby="needs-you" className="flex flex-col gap-3">

@@ -53,7 +53,9 @@
     "roleRestricted": "Not available for your role",
     "roleRestrictedDetail": "{{sources}} are not available for this role.",
     "loadFailed": "Some queues could not be loaded.",
-    "retry": "Retry"
+    "retry": "Retry",
+    "queueLimited": "Showing {{shown}} of {{total}} {{queue}}.",
+    "viewAll": "View all"
   },
   "rooms": {
     "board": "Board",
