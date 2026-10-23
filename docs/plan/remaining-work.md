@@ -793,13 +793,14 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 - [ ] GitHub social preview image + demo assets (screenshots/GIF)
 - [ ] Immutable releases for tags, once the release flow has settled
 - [ ] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps
-- [~] **Release automation is intermittent, but has produced its release PR.** `release-please`
-      opened PR #3 ("release hr-agents 0.1.0"), then failed twice on GitHub's side during its
-      `pullRequestsSince` history scan ("Something went wrong while executing your query"); the
-      same query succeeds from `gh api`, so it is a burst/scan-size limit on GitHub, not this
-      repository's configuration. The most recent run succeeded and the PR is open. Merging it is
-      the public release act and stays a human decision; until then the manifest is `0.0.0` and
-      no tag exists, so each scan covers the whole history.
+- [x] **First release published.** PR #3 was re-opened to run the required CI checks (the bot
+      pushed with `GITHUB_TOKEN`, whose events do not trigger workflows), passed all six, and was
+      squash-merged; `release-please` then published `hr-agents-v0.1.0` with the changelog. The
+      wheel and sdist were built from the tag, checked with twine, and attached. Two earlier
+      release-please runs had failed on GitHub's `pullRequestsSince` scan ("Something went wrong
+      while executing your query"); the next succeeded, so that is an intermittent GitHub limit,
+      not this repository's configuration. `release.yml` also gained a `workflow_dispatch` path
+      because bot-published releases cannot trigger the `release: published` event themselves.
 
 **Exit criteria:** a stranger can evaluate the product from the README alone, reproduce the
 benchmarks, and self-host without contacting the author.

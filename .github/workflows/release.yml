@@ -3,6 +3,14 @@ name: Release artifacts
 on:
   release:
     types: [published]
+  # Release Please creates releases with GITHUB_TOKEN, and GitHub does not run
+  # workflows from events that token triggers. The artifacts for a bot-published
+  # release are therefore built by running this workflow with its tag.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to attach artifacts to (e.g. hr-agents-v0.1.0)"
+        required: true
 
 permissions:
   contents: write
@@ -13,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
@@ -20,6 +30,6 @@ jobs:
       - run: uv build
       - run: uvx twine check dist/*
       - name: Upload artifacts to the release
-        run: gh release upload "${{ github.event.release.tag_name }}" dist/* --clobber
+        run: gh release upload "${{ github.event.release.tag_name || inputs.tag }}" dist/* --clobber
         env:
           GH_TOKEN: ${{ github.token }}
