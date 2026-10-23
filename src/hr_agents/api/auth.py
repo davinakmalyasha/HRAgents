@@ -172,3 +172,23 @@ def require_actor(permission: Permission) -> Callable[..., Awaitable[ActorRef]]:
         return current_actor(request)
 
     return dependency
+
+
+def settings_role_lookup(settings: Settings) -> Callable[[str], RoleId | None]:
+    """The live role directory push fan-out checks before delivering.
+
+    With role-bound principals configured, the operator's list *is* the
+    directory: a removed actor returns ``None`` and a changed role is honoured,
+    so a subscription row cannot keep delivering a queue the person no longer
+    holds. Without them the deployment is the documented single-operator mode,
+    where the one authenticated identity is an HR admin.
+    """
+    if settings.api_principals:
+        roles = {entry.actor_id: entry.role for entry in settings.api_principals}
+        return roles.get
+    operator = settings.actor_name or (LOCAL_OPERATOR_ACTOR if not settings.api_keys else "api-key")
+
+    def lookup(actor_id: str) -> RoleId | None:
+        return RoleId.HR_ADMIN if actor_id == operator else None
+
+    return lookup

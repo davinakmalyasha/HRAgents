@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from hr_agents import __version__
 from hr_agents.agents.runtime import AgentRuntime
 from hr_agents.agentset import AgentSet, KnowledgeUnavailableError, build_agent_set
+from hr_agents.api.auth import settings_role_lookup
 from hr_agents.api.hardening import install_hardening, readiness_report
 from hr_agents.api.metrics import PROMETHEUS_CONTENT_TYPE
 from hr_agents.api.metrics import render_async as render_metrics
@@ -52,6 +53,7 @@ from hr_agents.api.routers import onboarding as onboarding_router
 from hr_agents.api.routers import payroll as payroll_router
 from hr_agents.api.routers import people as people_router
 from hr_agents.api.routers import providers as providers_router
+from hr_agents.api.routers import push as push_router
 from hr_agents.api.routers import setup as setup_router
 from hr_agents.config import Settings, get_settings
 from hr_agents.db import create_sync_engine, create_sync_session_factory
@@ -70,6 +72,7 @@ from hr_agents.services.chat import ChatService, ConversationStore
 from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
 from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.people import PeopleServices
+from hr_agents.services.push import PushService, PushStore, PyWebPushSender
 from hr_agents.services.recruiting import (
     RecruitingServices,
     register_recruitment_purge_handlers,
@@ -326,6 +329,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         approvals=people_services.approvals,
     )
     app.state.people = people_services
+    # Push subscriptions and the approval fan-out. The sender is built only when
+    # the operator supplied a VAPID pair; without one the API still stores
+    # subscriptions and the notification routes answer "not configured", so an
+    # install can be prepared before its keys are issued.
+    push_store: PushStore
+    if session_factory is None:
+        push_store = PushStore()
+    else:
+        from hr_agents.db.push import DbPushStore
+
+        push_store = DbPushStore(session_factory)
+    push_sender = None
+    if settings.vapid_private_key and settings.vapid_public_key and settings.vapid_subject:
+        push_sender = PyWebPushSender(
+            private_key=settings.vapid_private_key,
+            subject=settings.vapid_subject,
+        )
+    push = PushService(
+        push_store,
+        sender=push_sender,
+        role_lookup=settings_role_lookup(settings),
+    )
+    app.state.push = push
+    people_services.approvals.set_notifier(push)
     app.state.onboarding = people_services.onboarding
     app.state.leave = people_services.leave
     app.state.compliance = people_services.compliance
@@ -373,6 +400,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(offers.router, responses=ERROR_RESPONSES)
     app.include_router(setup_router.router, responses=ERROR_RESPONSES)
     app.include_router(providers_router.router, responses=ERROR_RESPONSES)
+    app.include_router(push_router.router, responses=ERROR_RESPONSES)
     app.include_router(rubrics.router, responses=ERROR_RESPONSES)
     app.include_router(people_router.employees_router, responses=ERROR_RESPONSES)
     app.include_router(people_router.org_units_router, responses=ERROR_RESPONSES)

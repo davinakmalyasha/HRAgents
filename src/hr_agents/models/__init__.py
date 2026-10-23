@@ -196,6 +196,7 @@ from hr_agents.models.portfolio import (
     PublicationEvidence,
     RepoEvidence,
 )
+from hr_agents.models.push import PushSubscription
 from hr_agents.models.scheduling import (
     TERMINAL_PROPOSAL_STATUSES,
     InterviewerAvailability,
@@ -337,6 +338,7 @@ __all__ = [
     "PurgeOutcome",
     "PurgeOutcomeStatus",
     "PurgeReport",
+    "PushSubscription",
     "RateEntry",
     "RateTable",
     "RateTableKind",

@@ -44,6 +44,7 @@ class Permission(StrEnum):
     TASKS_WRITE = "tasks:write"
     SELF_SERVICE = "self_service"
     CHAT_USE = "chat:use"
+    NOTIFICATIONS_USE = "notifications:use"
     AUDIT_READ = "audit:read"
 
 
@@ -63,6 +64,7 @@ ROLE_PERMISSIONS: dict[RoleId, frozenset[Permission]] = {
             Permission.PEOPLE_WRITE,
             Permission.TASKS_WRITE,
             Permission.CHAT_USE,
+            Permission.NOTIFICATIONS_USE,
         }
     ),
     RoleId.FINANCE: frozenset(
@@ -75,6 +77,7 @@ ROLE_PERMISSIONS: dict[RoleId, frozenset[Permission]] = {
             Permission.TASKS_WRITE,
             Permission.APPROVALS_DECIDE,
             Permission.CHAT_USE,
+            Permission.NOTIFICATIONS_USE,
         }
     ),
     RoleId.MANAGER: frozenset(
@@ -88,9 +91,12 @@ ROLE_PERMISSIONS: dict[RoleId, frozenset[Permission]] = {
             # by `ActorRef.may_act_for`, not by holding this.
             Permission.SELF_SERVICE,
             Permission.CHAT_USE,
+            Permission.NOTIFICATIONS_USE,
         }
     ),
-    RoleId.EMPLOYEE: frozenset({Permission.SELF_SERVICE, Permission.CHAT_USE}),
+    RoleId.EMPLOYEE: frozenset(
+        {Permission.SELF_SERVICE, Permission.CHAT_USE, Permission.NOTIFICATIONS_USE}
+    ),
 }
 
 

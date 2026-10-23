@@ -392,3 +392,29 @@ class CandidateReplyRecord(TenantScoped, Base):
     received_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class PushSubscriptionRecord(TenantScoped, Base):
+    """One browser's Web Push endpoint. Referenced by nobody; owned by one actor."""
+
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (
+        Index("ix_push_subscriptions_tenant", "tenant_id"),
+        UniqueConstraint(
+            "tenant_id", "actor_id", "endpoint", name="uq_push_subscriptions_actor_endpoint"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    actor_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), nullable=False)
+    endpoint: Mapped[str] = mapped_column(String(512), nullable=False)
+    p256dh: Mapped[str] = mapped_column(String(500), nullable=False)
+    auth: Mapped[str] = mapped_column(String(200), nullable=False)
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

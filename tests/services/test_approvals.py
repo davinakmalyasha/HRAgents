@@ -562,3 +562,36 @@ def test_status_changes_are_logged(engine: ApprovalEngine, monkeypatch: pytest.M
     assert created[0].kwargs["assignee_role"] == "manager"
     assert decided[0].kwargs["decision"] == "approved"
     assert decided[0].kwargs["actor"] == "Rina"
+
+
+def test_a_new_approval_notifies_the_configured_channel(engine: ApprovalEngine) -> None:
+    """The queue is only useful if somebody learns it exists before the SLA."""
+    calls: list[ApprovalRequest] = []
+
+    class Recorder:
+        def approval_created(self, request: ApprovalRequest) -> None:
+            calls.append(request)
+
+    engine.set_notifier(Recorder())
+    request = create_request(engine)
+
+    assert [item.id for item in calls] == [request.id]
+
+
+def test_a_broken_notifier_cannot_stop_the_approval(
+    engine: ApprovalEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Alerting is best-effort; filing the request is not."""
+    logger = CapturingLogger()
+    monkeypatch.setattr(approvals_module, "logger", logger)
+
+    class Broken:
+        def approval_created(self, request: ApprovalRequest) -> None:
+            raise RuntimeError("push service unreachable")
+
+    engine.set_notifier(Broken())
+    request = create_request(engine)
+
+    assert engine.find(request.id) is not None
+    events = [call.args[0] for call in logger.calls if call.args]
+    assert "approval.notify_failed" in events

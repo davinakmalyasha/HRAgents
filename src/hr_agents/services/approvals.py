@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Protocol
 from uuid import UUID
 
 from hr_agents.errors import DomainCode, DomainError
@@ -36,6 +36,17 @@ class ApprovalError(DomainError, RuntimeError):
     """Raised for invalid approval operations."""
 
 
+class ApprovalNotifier(Protocol):
+    """Out-of-band alerting for a newly queued approval.
+
+    Deliberately narrow and synchronous: the engine must create an approval even
+    when the notifier cannot reach anybody, so implementations return quickly
+    and the engine still guards the call.
+    """
+
+    def approval_created(self, request: ApprovalRequest) -> None: ...
+
+
 @dataclass
 class ApprovalDecision:
     request: ApprovalRequest
@@ -45,9 +56,20 @@ class ApprovalDecision:
 class ApprovalEngine:
     """Create and decide approval requests with SLA escalation."""
 
-    def __init__(self, store: ApprovalStore, *, audit: AuditChain | None = None) -> None:
+    def __init__(
+        self,
+        store: ApprovalStore,
+        *,
+        audit: AuditChain | None = None,
+        notifier: ApprovalNotifier | None = None,
+    ) -> None:
         self._store = store
         self._audit = audit or AuditChain()
+        self._notifier = notifier
+
+    def set_notifier(self, notifier: ApprovalNotifier | None) -> None:
+        """Late-bind the notifier; composition builds push after this engine."""
+        self._notifier = notifier
 
     # --- creation -------------------------------------------------------
 
@@ -93,7 +115,20 @@ class ApprovalEngine:
             assignee_role=request.assignee_role.value,
             urgency=request.urgency.value,
         )
+        self._notify(request)
         return request
+
+    def _notify(self, request: ApprovalRequest) -> None:
+        if self._notifier is None:
+            return
+        try:
+            self._notifier.approval_created(request)
+        except Exception:
+            logger.warning(
+                "approval.notify_failed",
+                approval_id=str(request.id),
+                exc_info=True,
+            )
 
     # --- decisions ------------------------------------------------------
 

@@ -54,7 +54,7 @@ def test_employee_chats_and_acts_on_their_own_records() -> None:
     holding this. They still see no employee directory and touch nobody else's.
     """
     assert ROLE_PERMISSIONS[RoleId.EMPLOYEE] == frozenset(
-        {Permission.CHAT_USE, Permission.SELF_SERVICE}
+        {Permission.CHAT_USE, Permission.SELF_SERVICE, Permission.NOTIFICATIONS_USE}
     )
 
     employee = Principal(actor_id="sari", role=RoleId.EMPLOYEE)
