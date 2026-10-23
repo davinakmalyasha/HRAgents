@@ -1298,5 +1298,17 @@
       "vector_store": "Penyimpanan vektor",
       "queue": "Antrean"
     }
+  },
+  "push": {
+    "turnOn": "Aktifkan notifikasi",
+    "on": "Notifikasi aktif",
+    "blocked": "Notifikasi diblokir",
+    "blockedHint": "Peramban ini memblokir notifikasi HRAgents. Izinkan di pengaturan situs, lalu muat ulang.",
+    "error": {
+      "permission": "Izin notifikasi tidak diberikan.",
+      "subscribe": "Peramban ini tidak dapat berlangganan notifikasi.",
+      "save": "Langganan tidak dapat disimpan.",
+      "deliver": "Notifikasi uji tidak dapat dikirim."
+    }
   }
 }

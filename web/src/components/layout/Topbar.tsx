@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 
 import { useSession, useSignOut } from '@/features/auth/session'
 import { InstallAppButton } from '@/features/pwa/InstallAppButton'
+import { NotificationsButton } from '@/features/pwa/NotificationsButton'
 import { storedApiKey } from '@/lib/auth'
 
 import { LanguageSwitcher } from './LanguageSwitcher'
@@ -32,6 +33,7 @@ export function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
           </kbd>
         </button>
         <InstallAppButton />
+        <NotificationsButton />
         <Identity />
         <LanguageSwitcher />
         <ThemeToggle />

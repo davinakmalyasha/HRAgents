@@ -63,6 +63,31 @@ the environment locks it, and what that provider's own health check says. Config
 back masked — the last four characters of a secret, never the secret. The same list is on the
 operations page (`/app/ops`).
 
+### Push notifications (optional)
+
+Notifications stay off until the operator issues a VAPID pair **for this
+deployment**. No key is shipped: a committed private key would let anyone
+impersonate the sender for every install.
+
+```bash
+uv run python scripts/vapid_keys.py
+```
+
+Copy the three printed lines into `.env` and restart. The private key stays on
+the server; `GET /v1/push/config` serves only the public half. With keys
+configured the topbar shows a bell: turning it on subscribes this browser and
+sends one test notification, so "on" is a demonstrated fact rather than a
+promise.
+
+New approvals are announced to the roles that may decide them. Payloads name
+the subject ("a leave request needs your decision") and never the employee or
+an amount: a lock screen is not an access-controlled surface. Delivery is
+best-effort and runs outside the approval path, so an unreachable push service
+cannot block the decision it was announcing. An endpoint the browser has
+dropped (404/410) is pruned, and a person whose key is removed or whose role
+changes stops receiving pings. Browsers require HTTPS for service workers;
+`localhost` is the exception.
+
 ### Starter content
 
 A fresh install is empty by design. The dashboard's first-run card offers the

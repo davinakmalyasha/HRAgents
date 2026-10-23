@@ -1298,5 +1298,17 @@
       "vector_store": "Vector store",
       "queue": "Queue"
     }
+  },
+  "push": {
+    "turnOn": "Turn on notifications",
+    "on": "Notifications on",
+    "blocked": "Notifications blocked",
+    "blockedHint": "This browser has blocked notifications for HRAgents. Allow them in the site settings, then reload.",
+    "error": {
+      "permission": "Notification permission was not granted.",
+      "subscribe": "This browser could not subscribe to notifications.",
+      "save": "The subscription could not be saved.",
+      "deliver": "The test notification could not be delivered."
+    }
   }
 }

@@ -660,8 +660,15 @@ documented.
       no API caching, so an offline queue can never serve stale decisions)
 - [x] Install prompt: the topbar offers install only when Chromium fires
       `beforeinstallprompt`, prompts once, and disappears after `appinstalled`; Safari has no
-      such event, so the button never pretends. Push notifications remain open: they need VAPID
-      key management, subscription storage and event fan-out on approvals/SLAs/interviews.
+      such event, so the button never pretends.
+- [x] Push notifications: operator-generated VAPID keys (none shipped; empty keys hide the
+      toggle), a per-actor subscription table (migration `0029`, RLS + tenant index), a topbar
+      toggle that enables/disables this browser and sends one test notification, a service-worker
+      `push`/`notificationclick` handler, and best-effort fan-out from `ApprovalEngine.create` to
+      the roles that may decide the request. Delivery is out-of-band (an executor, never the
+      approval path), a 404/410 prunes the dead endpoint, transient failures keep it, and the
+      sender re-resolves the person's live role so a revoked key stops receiving pings. Payloads
+      name the subject, never the employee: a lock screen is not an access-controlled surface.
 - [x] Lighthouse PWA + mobile performance pass (target ≥ 90 PWA score): PWA **100**,
       accessibility **100**, best practices **96** (the console 502s are the preview server
       without an API), performance **88** on Lighthouse 11 mobile throttling. Route-level lazy

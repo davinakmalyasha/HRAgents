@@ -61,7 +61,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 3. Deterministic core & pipeline | Done |
 | 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **In progress** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄 |
 | 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **Done** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅ (conversation-store Postgres adapter lands with Phase 6) |
-| 6. Web app + PWA | **In progress** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, scheduling ✅, job management ✅, candidate communications ✅, PWA shell ✅ (settings, XLSX, push remain) |
+| 6. Web app + PWA | **In progress** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, scheduling ✅, job management ✅, candidate communications ✅, PWA shell ✅ + install prompt + push notifications ✅ (settings, XLSX remain) |
 | 7. Integrations (messaging, Google, files, MCP) | Not started |
 | 8. Departments (onboarding, records, leave, payroll prep, performance, offboarding) | **Done (Wave 1 engines)** — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅ |
 | 9. Deployment & compliance | Not started |

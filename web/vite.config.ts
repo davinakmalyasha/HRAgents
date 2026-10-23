@@ -45,6 +45,8 @@ export default defineConfig({
         // Static shell only: HR data is never cached, every read hits the API.
         navigateFallback: '/app/index.html',
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Push delivery lives outside the caching worker; this appends it.
+        importScripts: ['push-sw.js'],
       },
     }),
   ],
