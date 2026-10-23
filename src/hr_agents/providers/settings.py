@@ -41,6 +41,15 @@ class ResolvedProvider(StrictModel):
     source: str = "default"
 
 
+_SETTINGS_OVERRIDES: dict[Capability, ResolvedProvider] = {}
+"""Selections loaded from the encrypted settings store at startup.
+
+Process-wide because provider resolution is: the LLM runtime, the queue, the
+messaging bridges and the health page all ask this module. Only rows a human
+saved are here, and an environment lock still wins.
+"""
+
+
 def _env_key(capability: Capability, suffix: str) -> str:
     return f"{ENV_PREFIX}{capability.value.upper()}{suffix}"
 
@@ -61,7 +70,41 @@ def resolve_provider_settings(
     """
     from hr_agents.providers.registry import default_registry
 
-    return resolve_provider_settings_with_registry(env, default_registry())
+    resolved = resolve_provider_settings_with_registry(env, default_registry())
+    if env is not None:
+        return resolved
+    return merge_settings_overrides(resolved, _SETTINGS_OVERRIDES)
+
+
+def install_settings_overrides(overrides: Mapping[Capability, ResolvedProvider]) -> None:
+    """Replace the stored selections the process resolves with."""
+    global _SETTINGS_OVERRIDES
+    _SETTINGS_OVERRIDES = dict(overrides)
+
+
+def clear_settings_overrides() -> None:
+    """Forget stored selections (tests, and a deliberate reset)."""
+    _SETTINGS_OVERRIDES.clear()
+
+
+def merge_settings_overrides(
+    env_resolved: Mapping[Capability, ResolvedProvider],
+    overrides: Mapping[Capability, ResolvedProvider],
+) -> dict[Capability, ResolvedProvider]:
+    """The stored selection wins unless the environment locks the capability.
+
+    The documented contract is "the Settings UI wins by default; an env var can
+    lock a capability". A lock is authoritative because it is how a deployment
+    pins infrastructure it cannot let a dashboard edit — the compose stack locks
+    the queue for exactly that reason.
+    """
+    merged = dict(env_resolved)
+    for capability, override in overrides.items():
+        current = merged.get(capability)
+        if current is not None and current.locked:
+            continue
+        merged[capability] = override
+    return merged
 
 
 def _load_dotenv_once() -> None:

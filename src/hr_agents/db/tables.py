@@ -418,3 +418,20 @@ class PushSubscriptionRecord(TenantScoped, Base):
     last_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class ProviderSettingRecord(TenantScoped, Base):
+    """One capability's operator-chosen provider. The config is sealed."""
+
+    __tablename__ = "provider_settings"
+    __table_args__ = (
+        Index("ix_provider_settings_tenant", "tenant_id"),
+        UniqueConstraint("tenant_id", "capability", name="uq_provider_settings_capability"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    capability: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    config_sealed: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

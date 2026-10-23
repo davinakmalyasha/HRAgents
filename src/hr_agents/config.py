@@ -77,6 +77,12 @@ class Settings(BaseSettings):
         """Sync-driver URL for store adapters (psycopg); see ADR 0005."""
         return self.database_url.replace("+asyncpg", "+psycopg")
 
+    # --- Editable provider settings ---
+    # Fernet key(s) that seal provider credentials entered in the dashboard.
+    # Comma-separated rotates: the first encrypts, the rest decrypt. Empty
+    # leaves the provider surface read-only. The key is never shipped.
+    settings_encryption_key: str = ""
+
     # --- Department clock (scheduler) ---
     # Slack-compatible webhook for a failed scheduler run. The URL is a bearer
     # secret; it is never logged and never included in the alert body.

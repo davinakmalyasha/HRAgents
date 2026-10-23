@@ -196,6 +196,7 @@ from hr_agents.models.portfolio import (
     PublicationEvidence,
     RepoEvidence,
 )
+from hr_agents.models.provider_setting import ProviderSetting
 from hr_agents.models.push import PushSubscription
 from hr_agents.models.scheduling import (
     TERMINAL_PROPOSAL_STATUSES,
@@ -332,6 +333,7 @@ __all__ = [
     "PortfolioSummary",
     "ProjectEntry",
     "ProposalStatus",
+    "ProviderSetting",
     "Publication",
     "PublicationEvidence",
     "PurgeAction",

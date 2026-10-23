@@ -65,6 +65,7 @@ from hr_agents.errors import DomainError
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
 from hr_agents.models import ApproverRole
+from hr_agents.providers.registry import default_registry as default_provider_registry
 from hr_agents.queue import QueueUnavailableError, resolve_queue_backend
 from hr_agents.rbac import validate_approver_coverage
 from hr_agents.services import ApplicationStore, AuditChain
@@ -72,11 +73,13 @@ from hr_agents.services.chat import ChatService, ConversationStore
 from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
 from hr_agents.services.front_door import FrontDoor
 from hr_agents.services.people import PeopleServices
+from hr_agents.services.provider_settings import ProviderSettingsService, ProviderSettingsStore
 from hr_agents.services.push import PushService, PushStore, PyWebPushSender
 from hr_agents.services.recruiting import (
     RecruitingServices,
     register_recruitment_purge_handlers,
 )
+from hr_agents.services.sealing import FernetSealer, SealerError
 from hr_agents.services.workspace_requests import HandoffService, WorkspaceRequestStore
 from hr_agents.workspaces import default_registry
 
@@ -307,6 +310,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # can reach the same factory. Without it they had no way to be durable: they
     # held their state in dicts and a restart emptied the Ask HR transcript.
     app.state.session_factory = session_factory
+
+    # Provider settings: the dashboard half of the provider layer. Without a key
+    # nothing can be written; with Postgres and a key the rows are sealed at
+    # rest. Loaded here because the messaging transports and the agent runtime
+    # both resolve through the same process-wide map.
+    sealer = None
+    if settings.settings_encryption_key:
+        try:
+            sealer = FernetSealer(settings.settings_encryption_key)
+        except SealerError as exc:
+            raise RuntimeError(f"HRAGENTS_SETTINGS_ENCRYPTION_KEY is invalid: {exc}") from exc
+    provider_store: ProviderSettingsStore
+    if session_factory is not None and sealer is not None:
+        from hr_agents.db.provider_settings import DbProviderSettingsStore
+
+        provider_store = DbProviderSettingsStore(session_factory, sealer)
+    else:
+        provider_store = ProviderSettingsStore()
+    provider_settings = ProviderSettingsService(
+        provider_store,
+        registry=default_provider_registry(),
+        sealer=sealer,
+        audit=audit,
+    )
+    provider_settings.install()
+    app.state.provider_settings = provider_settings
 
     app.state.store = store
     app.state.audit = audit
