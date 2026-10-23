@@ -189,22 +189,28 @@ class PushService:
     def list_for(self, actor_id: str) -> list[PushSubscription]:
         return self._store.for_actor(actor_id)
 
-    def approval_created(self, request: ApprovalRequest) -> None:
+    def approval_queued(self, request: ApprovalRequest, *, event: str = "created") -> None:
         """Fan an approval out to the roles that may decide it.
 
-        Called from `ApprovalEngine.create`; must never raise. The recipient set
-        is the approver roles for the assigned role, intersected with live
-        identities on the sending side.
+        Called from the approval engine on creation and on escalation; must
+        never raise. The recipient set is the approver roles for the assigned
+        role, intersected with live identities on the sending side.
         """
         roles = approver_holders(request.assignee_role.value)
         if not roles:
             return
         subject = request.subject.value.replace("_", " ")
+        if event == "escalated":
+            title = "Approval overdue"
+            body = f"A {subject} is past its SLA and still needs a decision."
+        else:
+            title = "Approval waiting"
+            body = f"A {subject} needs your decision ({request.urgency.value})."
         self.notify_role_holders(
             roles,
             {
-                "title": "Approval waiting",
-                "body": f"A {subject} needs your decision ({request.urgency.value}).",
+                "title": title,
+                "body": body,
                 "url": "/app/",
                 "tag": f"approval-{request.id}",
             },

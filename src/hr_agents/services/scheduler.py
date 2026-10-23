@@ -9,11 +9,14 @@ acted on, because breach response is a human decision.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from typing import TYPE_CHECKING
 
+import httpx
+
 from hr_agents.identity import ActorRef
+from hr_agents.logging import get_logger
 from hr_agents.models import (
     ApproverRole,
     StrictModel,
@@ -24,6 +27,8 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.queue_ops import EXPIRED_LEASE_GRACE_SECONDS
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     from hr_agents.messaging.store import ReplyStore
@@ -343,3 +348,55 @@ _HANDLERS = {
     JOB_REPLY_SLA: Scheduler._run_reply_sla,
     JOB_QUEUE_REAPER: Scheduler._run_queue_reaper,
 }
+
+
+def alert_payload(report: SchedulerReport) -> dict[str, object]:
+    """A Slack-compatible summary of a failed run, with no secrets in it.
+
+    The report contains job names, counts and error strings; it never contains a
+    record, a person or a configured credential. That is what makes it safe to
+    send to a chat channel an operator watches.
+    """
+    failed = [job for job in report.jobs if not job.ok]
+    detail = "; ".join(f"{job.name}: {job.error or 'unknown error'}" for job in failed)
+    return {
+        "text": (
+            f"HRAgents scheduler: {len(failed)} of {len(report.jobs)} job(s) failed"
+            + (f" — {detail}" if detail else "")
+        ),
+        "started_at": report.started_at.isoformat(),
+        "dry_run": report.dry_run,
+        "failed_jobs": [{"name": job.name, "error": job.error} for job in failed],
+    }
+
+
+def send_failure_alert(
+    report: SchedulerReport,
+    webhook: str,
+    *,
+    post: Callable[..., object] | None = None,
+    timeout: float = 5.0,
+) -> bool:
+    """POST the failure summary when a run failed; True only if a request went out.
+
+    Never raises: an unreachable chat channel must not turn a failed job into a
+    crashed clock. The webhook URL is a bearer credential, so it stays out of
+    the payload and the log line.
+    """
+    if not webhook or all(job.ok for job in report.jobs):
+        return False
+    if not webhook.startswith(("https://", "http://")):
+        logger.warning("scheduler.alert_skipped", reason="webhook must be an http(s) URL")
+        return False
+    sender = post or httpx.post
+    try:
+        response = sender(webhook, json=alert_payload(report), timeout=timeout)
+    except Exception:
+        logger.warning("scheduler.alert_failed", reason="transport", exc_info=True)
+        return False
+    status_code = getattr(response, "status_code", 0)
+    if status_code >= 400:
+        logger.warning("scheduler.alert_failed", reason="response", status=status_code)
+        return False
+    logger.info("scheduler.alerted", failed=sum(1 for job in report.jobs if not job.ok))
+    return True

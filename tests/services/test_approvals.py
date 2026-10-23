@@ -566,16 +566,35 @@ def test_status_changes_are_logged(engine: ApprovalEngine, monkeypatch: pytest.M
 
 def test_a_new_approval_notifies_the_configured_channel(engine: ApprovalEngine) -> None:
     """The queue is only useful if somebody learns it exists before the SLA."""
-    calls: list[ApprovalRequest] = []
+    calls: list[tuple[ApprovalRequest, str]] = []
 
     class Recorder:
-        def approval_created(self, request: ApprovalRequest) -> None:
-            calls.append(request)
+        def approval_queued(self, request: ApprovalRequest, *, event: str = "created") -> None:
+            calls.append((request, event))
 
     engine.set_notifier(Recorder())
     request = create_request(engine)
 
-    assert [item.id for item in calls] == [request.id]
+    assert [(item.id, event) for item, event in calls] == [(request.id, "created")]
+
+
+def test_an_escalation_pings_the_queue_again(engine: ApprovalEngine) -> None:
+    """An SLA that has already slipped is the notification that matters."""
+    calls: list[tuple[ApprovalRequest, str]] = []
+
+    class Recorder:
+        def approval_queued(self, request: ApprovalRequest, *, event: str = "created") -> None:
+            calls.append((request, event))
+
+    engine.set_notifier(Recorder())
+    request = create_request(engine)
+
+    engine.escalate_overdue(now=datetime.now(UTC) + timedelta(days=10))
+
+    assert [(item.id, event) for item, event in calls] == [
+        (request.id, "created"),
+        (request.id, "escalated"),
+    ]
 
 
 def test_a_broken_notifier_cannot_stop_the_approval(
@@ -586,7 +605,7 @@ def test_a_broken_notifier_cannot_stop_the_approval(
     monkeypatch.setattr(approvals_module, "logger", logger)
 
     class Broken:
-        def approval_created(self, request: ApprovalRequest) -> None:
+        def approval_queued(self, request: ApprovalRequest, *, event: str = "created") -> None:
             raise RuntimeError("push service unreachable")
 
     engine.set_notifier(Broken())

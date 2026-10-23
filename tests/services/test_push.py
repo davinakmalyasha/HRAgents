@@ -204,7 +204,7 @@ def test_approval_payloads_name_the_subject_not_the_person() -> None:
     push = service(sender=sender)
     subscribe(push, actor_id="rina")
 
-    push.approval_created(
+    push.approval_queued(
         ApprovalRequest(
             subject=ApprovalSubject.LEAVE_REQUEST,
             subject_id="leave-1",
@@ -221,6 +221,28 @@ def test_approval_payloads_name_the_subject_not_the_person() -> None:
     assert "leave request" in str(payload["body"])
     assert "Sari" not in str(payload["body"])
     assert payload["url"] == "/app/"
+
+
+def test_an_escalation_says_the_sla_already_slipped() -> None:
+    sender = RecordingSender()
+    push = service(sender=sender)
+    subscribe(push, actor_id="rina", role=RoleId.FINANCE)
+
+    push.approval_queued(
+        ApprovalRequest(
+            subject=ApprovalSubject.PAYROLL_RUN,
+            subject_id="run-1",
+            title="March payroll",
+            assignee_role=ApproverRole.FINANCE,
+            requested_by="finance-bot",
+            urgency=Urgency.CRITICAL,
+        ),
+        event="escalated",
+    )
+
+    payload = sender.sent[0][1]
+    assert payload["title"] == "Approval overdue"
+    assert "past its SLA" in str(payload["body"])
 
 
 def test_the_sender_refuses_configuration_it_cannot_use() -> None:

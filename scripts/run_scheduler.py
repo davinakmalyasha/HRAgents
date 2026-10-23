@@ -20,9 +20,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from hr_agents.api.metrics import record_scheduler_run
+from hr_agents.config import get_settings
 from hr_agents.logging import get_logger
 from hr_agents.main import create_app
-from hr_agents.services.scheduler import JOB_NAMES, Scheduler, format_report
+from hr_agents.services.scheduler import (
+    JOB_NAMES,
+    Scheduler,
+    format_report,
+    send_failure_alert,
+)
 
 logger = get_logger(__name__)
 
@@ -96,6 +102,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.json:
         print(format_report(report))
+    webhook = get_settings().scheduler_alert_webhook
+    if webhook:
+        send_failure_alert(report, webhook)
     return 0 if all(job.ok for job in report.jobs) else 1
 
 

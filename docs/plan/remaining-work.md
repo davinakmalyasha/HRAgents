@@ -667,8 +667,10 @@ documented.
       `push`/`notificationclick` handler, and best-effort fan-out from `ApprovalEngine.create` to
       the roles that may decide the request. Delivery is out-of-band (an executor, never the
       approval path), a 404/410 prunes the dead endpoint, transient failures keep it, and the
-      sender re-resolves the person's live role so a revoked key stops receiving pings. Payloads
-      name the subject, never the employee: a lock screen is not an access-controlled surface.
+      sender re-resolves the person's live role so a revoked key stops receiving pings. Escalated
+      approvals ping the queue again with an "overdue" body; expiry is terminal and silent.
+      Payloads name the subject, never the employee: a lock screen is not an access-controlled
+      surface.
 - [x] Lighthouse PWA + mobile performance pass (target ≥ 90 PWA score): PWA **100**,
       accessibility **100**, best practices **96** (the console 502s are the preview server
       without an API), performance **88** on Lighthouse 11 mobile throttling. Route-level lazy
@@ -763,7 +765,9 @@ latency, costs, and failure modes documented.
       anti-ghosting check (a dispatched message with no reply after 72h becomes a recruiter
       follow-up task) — all through `scripts/run_scheduler.py` (one CLI over the app containers,
       `--job` selectable, `--json` output, nonzero exit on job failure), and composed into
-      `docker-compose.yml` as a 15-minute loop. Remains: alerting on the report.
+      `docker-compose.yml` as a 15-minute loop. A failed run can also post one Slack-compatible
+      message to `HRAGENTS_SCHEDULER_ALERT_WEBHOOK` (job names and errors, never records; the
+      URL is never logged); a transport failure is logged and cannot change the exit code.
 - [ ] Managed cloud SaaS + billing — **deferred until proven demand** (`[-]` in master plan)
 - [ ] Dedicated instance (BYOC) recipes — only if requested
 - [ ] Office Connector folder-sync agent — only if demanded

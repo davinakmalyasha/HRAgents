@@ -37,14 +37,17 @@ class ApprovalError(DomainError, RuntimeError):
 
 
 class ApprovalNotifier(Protocol):
-    """Out-of-band alerting for a newly queued approval.
+    """Out-of-band alerting for an approval that entered a queue.
 
-    Deliberately narrow and synchronous: the engine must create an approval even
-    when the notifier cannot reach anybody, so implementations return quickly
-    and the engine still guards the call.
+    ``event`` is ``"created"`` or ``"escalated"``: both are actionable, but an
+    escalation is a reminder that the SLA has already slipped, and the two read
+    differently on a lock screen. Deliberately narrow and synchronous: the
+    engine must create or escalate an approval even when the notifier cannot
+    reach anybody, so implementations return quickly and the engine guards the
+    call.
     """
 
-    def approval_created(self, request: ApprovalRequest) -> None: ...
+    def approval_queued(self, request: ApprovalRequest, *, event: str = "created") -> None: ...
 
 
 @dataclass
@@ -118,15 +121,16 @@ class ApprovalEngine:
         self._notify(request)
         return request
 
-    def _notify(self, request: ApprovalRequest) -> None:
+    def _notify(self, request: ApprovalRequest, *, event: str = "created") -> None:
         if self._notifier is None:
             return
         try:
-            self._notifier.approval_created(request)
+            self._notifier.approval_queued(request, event=event)
         except Exception:
             logger.warning(
                 "approval.notify_failed",
                 approval_id=str(request.id),
+                trigger=event,
                 exc_info=True,
             )
 
@@ -330,6 +334,7 @@ class ApprovalEngine:
             )
             self._store.save(escalated)
             self._record(escalated, action="approval.escalated", actor=who)
+            self._notify(escalated, event="escalated")
             changed.append(escalated)
         return changed
 
@@ -353,6 +358,7 @@ class ApprovalEngine:
                 )
                 self._store.save(escalated)
                 self._record(escalated, action="approval.escalated")
+                self._notify(escalated, event="escalated")
         return expired
 
     def requeue_escalated(self, request_id: UUID, *, actor: ActorRef) -> ApprovalRequest:
