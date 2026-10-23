@@ -50,7 +50,66 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      # Scan before pushing: an image that fails the gate must never become the
+      # published `latest`. The amd64 build is the scan target; the multi-arch
+      # push below reuses its cache.
+      - name: Build the scan target
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.18.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: hragents-scan:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan for fixable critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: hragents-scan:local
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+
+      - name: Write an SPDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: hragents-scan:local
+          format: spdx-json
+          output: sbom.spdx.json
+          exit-code: "0"
+
+      - name: Record the scan and SBOM on the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" trivy.sarif sbom.spdx.json --clobber
+
+      - name: Keep the reports even when the gate fails
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: trivy-sarif
+          path: |
+            trivy.sarif
+            sbom.spdx.json
+          if-no-files-found: ignore
+
+      - name: Fail on a fixable critical
+        shell: bash
+        run: |
+          findings=$(jq '[.runs[].results[]?] | length' trivy.sarif)
+          if [ "$findings" -gt 0 ]; then
+            echo "::error::Trivy found $findings fixable CRITICAL finding(s); see the release's trivy.sarif"
+            jq -r '.runs[].results[]? | "\(.ruleId) — \(.message.text | split("\n")[0])"' trivy.sarif
+            exit 1
+          fi
+          echo "No fixable CRITICAL findings."
+
+      - name: Push the multi-arch image
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.18.0
         with:
           context: .
@@ -69,41 +128,7 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           # The SBOM and max-mode provenance are attached to the image digest in
           # the registry, so they travel with the image rather than the release
-          # page. An SPDX copy is also attached to the release below.
+          # page. An SPDX copy is also attached to the release above.
           sbom: true
           provenance: mode=max
           cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan for critical vulnerabilities
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ steps.version.outputs.image }}:${{ steps.version.outputs.version }}
-          format: sarif
-          output: trivy.sarif
-          severity: CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-
-      - name: Write an SPDX SBOM
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          image-ref: ${{ steps.version.outputs.image }}:${{ steps.version.outputs.version }}
-          format: spdx-json
-          output: sbom.spdx.json
-          exit-code: "0"
-
-      - name: Attach the scan and SBOM to the release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "$TAG" trivy.sarif sbom.spdx.json --clobber
-
-      - name: Keep the SARIF even when the scan fails
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: trivy-sarif
-          path: trivy.sarif
-          if-no-files-found: ignore
