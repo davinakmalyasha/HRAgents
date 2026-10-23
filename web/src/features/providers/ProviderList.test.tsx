@@ -1,10 +1,21 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
 
 import i18n from '@/i18n'
 
 import { ProviderList } from './ProviderList'
 import type { ProviderStatusView } from './providersApi'
+
+vi.mock('./ProviderSettingsDialog', () => ({
+  ProviderSettingsDialog: ({
+    provider,
+  }: {
+    provider: ProviderStatusView
+    open: boolean
+    onOpenChange: (open: boolean) => void
+  }) => <div role="dialog">configure {provider.capability}</div>,
+}))
 
 function provider(overrides: Partial<ProviderStatusView> = {}): ProviderStatusView {
   return {
@@ -18,6 +29,7 @@ function provider(overrides: Partial<ProviderStatusView> = {}): ProviderStatusVi
     requires_network: true,
     docs_url: null,
     config: {},
+    editable: true,
     ...overrides,
   } as ProviderStatusView
 }
@@ -33,9 +45,10 @@ describe('ProviderList', () => {
   })
 
   it('marks a provider the environment locked', () => {
-    render(<ProviderList providers={[provider({ locked: true })]} />)
+    render(<ProviderList providers={[provider({ locked: true, editable: false })]} />)
 
     expect(screen.getByText(i18n.t('providers.locked'))).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Configure/ })).toBeNull()
   })
 
   it('shows the masked configuration, never a secret', () => {
@@ -43,5 +56,24 @@ describe('ProviderList', () => {
 
     expect(screen.getByText('…alue')).toBeInTheDocument()
     expect(document.body.textContent).toContain('api_key=')
+  })
+
+  it('opens the configuration form only when the row is editable', async () => {
+    const user = userEvent.setup()
+    render(<ProviderList providers={[provider()]} />)
+
+    await user.click(
+      screen.getByRole('button', {
+        name: i18n.t('providers.configure.action', { capability: 'Model' }),
+      }),
+    )
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('configure llm')
+  })
+
+  it('explains the read-only state when no key is configured', () => {
+    render(<ProviderList providers={[provider({ editable: false })]} />)
+
+    expect(screen.getByText(i18n.t('providers.readOnlyHint'))).toBeInTheDocument()
   })
 })

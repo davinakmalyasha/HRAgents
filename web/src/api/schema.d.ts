@@ -2600,6 +2600,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/providers/{capability}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Configure Provider
+         * @description Store this capability's provider and config, sealed, with a named human.
+         *
+         *     The new selection resolves immediately for anything built after this point;
+         *     services constructed at startup (the model runtime, the queue backend) keep
+         *     what they were built with until the process restarts, which the response
+         *     says rather than pretending otherwise.
+         */
+        put: operations["configure_provider_v1_providers__capability__put"];
+        post?: never;
+        /**
+         * Clear Provider
+         * @description Remove the stored selection; the environment or default takes over.
+         */
+        delete: operations["clear_provider_v1_providers__capability__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/providers/{capability}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provider Options
+         * @description The providers registered for one capability, with forms from their schemas.
+         */
+        get: operations["provider_options_v1_providers__capability__options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/providers/{capability}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Provider
+         * @description Build and probe a candidate configuration without saving it.
+         *
+         *     This is the Test button: it proves the credential works before it replaces
+         *     one that already does.
+         */
+        post: operations["test_provider_v1_providers__capability__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/push/config": {
         parameters: {
             query?: never;
@@ -6075,11 +6147,91 @@ export interface components {
          * @enum {string}
          */
         ProposalStatus: "proposed" | "pending_approval" | "auto_scheduled" | "confirmed" | "cancelled" | "superseded";
+        /** ProviderConfigureRequest */
+        ProviderConfigureRequest: {
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** Provider Id */
+            provider_id: string;
+        };
+        /**
+         * ProviderConfigureView
+         * @description The saved selection, its current health, and when it takes effect.
+         */
+        ProviderConfigureView: {
+            /**
+             * Restart Required
+             * @description The stored selection resolves for every new resolution immediately, but services already built at startup (the model runtime, the queue) keep the provider they were constructed with until a restart.
+             * @default true
+             */
+            restart_required: boolean;
+            status: components["schemas"]["ProviderStatusView"];
+        };
+        /**
+         * ProviderField
+         * @description One config field, derived from the provider's own Pydantic model.
+         */
+        ProviderField: {
+            /** Default */
+            default?: unknown | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Name */
+            name: string;
+            /** Required */
+            required: boolean;
+            /** Secret */
+            secret: boolean;
+            /** Title */
+            title: string;
+            /** Type */
+            type: string;
+        };
         /**
          * ProviderHealthStatus
          * @enum {string}
          */
         ProviderHealthStatus: "ok" | "degraded" | "misconfigured" | "unavailable";
+        /**
+         * ProviderOption
+         * @description A registered provider plus the form its config model describes.
+         */
+        ProviderOption: {
+            /** Description */
+            description: string;
+            /** Display Name */
+            display_name: string;
+            /** Docs Url */
+            docs_url?: string | null;
+            /** Fields */
+            fields: components["schemas"]["ProviderField"][];
+            /** Provider Id */
+            provider_id: string;
+            /** Requires Network */
+            requires_network: boolean;
+        };
+        /**
+         * ProviderOptionsView
+         * @description What the operator may choose for one capability, and why they cannot.
+         */
+        ProviderOptionsView: {
+            capability: components["schemas"]["Capability"];
+            /** Editable */
+            editable: boolean;
+            /** Locked */
+            locked: boolean;
+            /** Providers */
+            providers: components["schemas"]["ProviderOption"][];
+            /** Selected Provider Id */
+            selected_provider_id: string | null;
+            /** Source */
+            source: string;
+        };
         /**
          * ProviderStatusView
          * @description What one capability is wired to, and whether it answers.
@@ -6100,6 +6252,12 @@ export interface components {
             display_name: string;
             /** Docs Url */
             docs_url?: string | null;
+            /**
+             * Editable
+             * @description Whether the dashboard may change this capability. False when the environment locks it, or when no encryption key is configured.
+             * @default false
+             */
+            editable: boolean;
             /** Locked */
             locked: boolean;
             /** Provider Id */
@@ -6108,6 +6266,21 @@ export interface components {
             requires_network: boolean;
             /** Source */
             source: string;
+            status: components["schemas"]["ProviderHealthStatus"];
+        };
+        /** ProviderTestRequest */
+        ProviderTestRequest: {
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** Provider Id */
+            provider_id: string;
+        };
+        /** ProviderTestView */
+        ProviderTestView: {
+            /** Detail */
+            detail: string;
             status: components["schemas"]["ProviderHealthStatus"];
         };
         /**
@@ -26071,6 +26244,428 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_ProviderStatusView_"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    configure_provider_v1_providers__capability__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                capability: components["schemas"]["Capability"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderConfigureRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderConfigureView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    clear_provider_v1_providers__capability__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                capability: components["schemas"]["Capability"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    provider_options_v1_providers__capability__options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                capability: components["schemas"]["Capability"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderOptionsView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    test_provider_v1_providers__capability__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                capability: components["schemas"]["Capability"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderTestView"];
                 };
             };
             /** @description The request could not be understood. */

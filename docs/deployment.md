@@ -77,6 +77,28 @@ the environment locks it, and what that provider's own health check says. Config
 back masked — the last four characters of a secret, never the secret. The same list is on the
 operations page (`/app/ops`).
 
+### Editing providers
+
+The operations page (`/app/ops`) can change a capability's provider and its
+configuration once the operator supplies an encryption key. Without one the
+panel stays read-only — a credential will not be stored in the clear.
+
+```bash
+uv run python scripts/settings_key.py
+```
+
+Put the printed line in `.env` and restart. The key seals every config before
+it is written; responses show only the last four characters of a secret, and a
+blank secret on update keeps the stored value. A stored selection wins over
+`.env` unless the environment locks the capability
+(`HRAGENTS_PROVIDER_<CAPABILITY>_LOCK=true`); the compose stack locks the queue.
+Services built at startup — the model runtime, the queue — take a change after
+a restart, which the response says.
+
+To rotate the key, prepend the new key to the comma-separated list, restart,
+re-save the providers you changed (the UI keeps the secret when the field is
+blank), then remove the old key.
+
 ### Push notifications (optional)
 
 Notifications stay off until the operator issues a VAPID pair **for this

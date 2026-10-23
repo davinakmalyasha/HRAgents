@@ -552,7 +552,8 @@
       "failed": "Something went wrong.",
       "rateLimited": "Too many requests. Wait a moment and try again."
     },
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "loading": "Loading…"
   },
   "onboarding": {
     "plansTitle": "Onboarding plans",
@@ -1297,6 +1298,24 @@
       "storage": "Storage",
       "vector_store": "Vector store",
       "queue": "Queue"
+    },
+    "readOnlyHint": "Set HRAGENTS_SETTINGS_ENCRYPTION_KEY to edit providers here.",
+    "configure": {
+      "action": "Configure {{capability}}",
+      "title": "Configure {{capability}}",
+      "hint": "Secrets are encrypted at rest. A blank secret keeps the stored value; services built at startup apply the change after a restart.",
+      "provider": "Provider",
+      "save": "Save",
+      "saving": "Saving…",
+      "test": "Test",
+      "testing": "Testing…",
+      "clear": "Clear stored setting",
+      "confirmClear": "Confirm clear",
+      "cleared": "Stored provider setting cleared.",
+      "saved": "Provider saved. Restart to apply it everywhere.",
+      "failed": "The provider change was refused.",
+      "secretKept": "Unchanged ({{mask}}) — leave blank to keep",
+      "secretNew": "Enter the secret"
     }
   },
   "push": {

@@ -552,7 +552,8 @@
       "failed": "Terjadi kesalahan.",
       "rateLimited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi."
     },
-    "skipToContent": "Lompat ke konten"
+    "skipToContent": "Lompat ke konten",
+    "loading": "Memuat…"
   },
   "onboarding": {
     "plansTitle": "Rencana onboarding",
@@ -1297,6 +1298,24 @@
       "storage": "Penyimpanan",
       "vector_store": "Penyimpanan vektor",
       "queue": "Antrean"
+    },
+    "readOnlyHint": "Atur HRAGENTS_SETTINGS_ENCRYPTION_KEY untuk mengubah provider di sini.",
+    "configure": {
+      "action": "Atur {{capability}}",
+      "title": "Atur {{capability}}",
+      "hint": "Rahasia dienkripsi saat disimpan. Rahasia kosong berarti nilai tersimpan dipertahankan; layanan yang dibangun saat mulai memakai perubahan setelah restart.",
+      "provider": "Provider",
+      "save": "Simpan",
+      "saving": "Menyimpan…",
+      "test": "Uji",
+      "testing": "Menguji…",
+      "clear": "Hapus pengaturan tersimpan",
+      "confirmClear": "Konfirmasi hapus",
+      "cleared": "Pengaturan provider tersimpan telah dihapus.",
+      "saved": "Provider tersimpan. Restart untuk menerapkannya di semua tempat.",
+      "failed": "Perubahan provider ditolak.",
+      "secretKept": "Tidak berubah ({{mask}}) — biarkan kosong untuk mempertahankan",
+      "secretNew": "Masukkan rahasia"
     }
   },
   "push": {

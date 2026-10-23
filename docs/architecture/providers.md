@@ -91,21 +91,36 @@ Rules:
 | Setup wizard | First run | Guided: Database → Admin → LLM → Email → WhatsApp (skippable) |
 | Settings UI | HR admin | Change provider, rotate keys, test connection |
 
-**Precedence:** UI value wins by default. If an env var explicitly locks a field
-(`HRAGENTS_LOCK_llm__api_key=true`), the UI shows a padlock and the env value wins. This lets a
-freelancer pre-configure a client's install while solo adopters use the UI freely.
+**Precedence:** the stored (UI) selection wins by default. If the environment
+explicitly locks the capability (`HRAGENTS_PROVIDER_LLM_LOCK=true`), the UI shows
+a padlock and the environment value wins. The compose stack locks the queue,
+because infrastructure wiring is not a dashboard choice. The other capabilities
+are the operator's to change; a deployment that pins one should say so with the
+lock rather than relying on people not touching the form.
 
 ### 4.2 Storage
 
-- Non-secret config: `provider_configs` table (tenant-scoped from Phase 5)
-- Secrets: encrypted at rest (application-level encryption key from env); masked in every
-  response (`sk-…4f2a`); **never** written to logs or audit payloads — audits record a key hash.
+- One row per capability in `provider_settings` (tenant-scoped, unique on
+  `(tenant_id, capability)`, migration `0030`).
+- The whole config is sealed before it is written: Fernet, with the key from
+  `HRAGENTS_SETTINGS_ENCRYPTION_KEY`. No key means the surface is read-only.
+  Comma-separated keys rotate: the first encrypts, the rest still decrypt.
+- The API masks every secret to its last four characters (`…4f2a`) and never
+  echoes one back. A blank secret on update keeps the stored value; only the
+  same provider's secrets are reused, so switching provider cannot inherit
+  another service's credential.
+- Secrets are **never** written to logs or audit payloads. The audit entry
+  records the capability, the provider id and the field *names*.
 
 ### 4.3 Change discipline
 
-Every provider config change writes an audit entry: who, capability, provider id, changed field
-names (values redacted), and the health-check result before/after. Rollback = re-apply previous
-entry through the same API.
+Every provider config change writes an audit entry: who, capability, provider
+id, changed field names (values redacted). The response returns the selection's
+current health. A change takes effect for anything resolved after it — the
+providers page immediately — while services already built at startup (the model
+runtime, the queue backend) keep their provider until the process restarts,
+which the API states instead of pretending a live swap happened. Rollback is
+clearing the stored row: the environment/default takes over again.
 
 ---
 

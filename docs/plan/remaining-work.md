@@ -738,11 +738,15 @@ latency, costs, and failure modes documented.
       compose stack with postgres+pgvector, redis, minio, mailpit, a one-shot `migrate` service
       the API waits on, and `scheduler`/`messaging` loops; `/healthz` + `/readyz` (per-dependency
       readiness, 503 when degraded)
-- [~] Provider settings UI with health badges, env-lock indicators, masked secrets: the
-      read-only half ships (`GET /v1/providers` — one row per capability, the provider in use,
-      its own health check, a padlock when the environment locks it, and configuration masked to
-      the last four characters), rendered on the operations page. Writing configuration still
-      needs the encrypted settings store, so the forms and Test buttons stay open.
+- [x] Provider settings UI with health badges, env-lock indicators, masked secrets, and
+      editing: `GET /v1/providers` reports the capability, provider, health, padlock and masked
+      config; `PUT /v1/providers/{capability}` stores a validated selection whose config is
+      sealed (Fernet, `HRAGENTS_SETTINGS_ENCRYPTION_KEY`, migration `0030`), and
+      `POST …/test` probes a candidate without saving. The form is derived from the provider's
+      own Pydantic model, secrets are write-only and a blank one keeps the stored value, an
+      environment lock is authoritative, and the audit entry records field names only. The
+      operations page renders the Configure dialog; a deployment without a key gets an honest
+      read-only panel. Built services apply a change after a restart, which the API states.
 - [x] Local-model mode (Ollama): `docs/deployment.md` §8 documents the fully-offline provider
       set (llm.ollama, embeddings.ollama or the no-download `embeddings.hash`,
       storage.local_disk, queue.memory, whatsapp.manual_links, calendar.manual_slots,
