@@ -385,6 +385,22 @@ def score_candidate(
         _systems_literacy(profile, rubric),
         _verifiable_certifications(profile),
     ]
+    # A dimension the extraction could not point at must not contribute. The
+    # alternative — keeping a title- or tenure-shaped number with no reference —
+    # is how a confident-looking score outruns the record it is supposed to
+    # describe. Policy pairs this with a gate: missing evidence also blocks an
+    # automatic rejection, because an extraction gap is not a candidate's fault.
+    # A "neutral" stack score exists when the *job* states no requirements; there
+    # is no candidate fact to cite for it, and zeroing it would punish a person
+    # for an empty job description. Every other unevidenced dimension scores 0.
+    stack_neutral = not (job.must_have_skills or job.nice_to_have_skills or job.stack)
+    breakdown = [
+        _evidence_first(
+            item,
+            neutral=item.dimension is ScoreDimension.STACK_ALIGNMENT and stack_neutral,
+        )
+        for item in breakdown
+    ]
 
     weighted = [item.model_copy(update={"weight": weights[item.dimension]}) for item in breakdown]
 
@@ -395,6 +411,23 @@ def score_candidate(
         verifiable_certifications=weighted[3].score,
     )
     return ScoringResult(vector=vector, breakdown=weighted)
+
+
+def _evidence_first(item: DimensionScore, *, neutral: bool = False) -> DimensionScore:
+    """Zero a dimension that carries no reference, and say why in its rationale.
+
+    ``neutral`` is for the one score that is a statement about the job rather
+    than about the candidate (no requirements were stated), so there is nothing
+    to cite and nothing to punish.
+    """
+    if item.evidence or neutral:
+        return item
+    return item.model_copy(
+        update={
+            "score": 0.0,
+            "rationale": f"{item.rationale} — no supporting evidence; contributes 0",
+        }
+    )
 
 
 def score_runs(

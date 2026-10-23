@@ -455,21 +455,26 @@ Remaining in this area:
       model for a family, tenure becomes the default answer. Needs a role-specific sufficiency test
       ("has this person actually done this job") scored independently of how long they have been
       employed.
-- [~] **Evidence-first scoring.** Every dimension now carries the references that produced it:
-      stack alignment gathers the matched terms' skill/tech-stack refs, systems literacy the
-      competency-category and highlight-match refs, and technical depth/certifications their own
-      pools — deduplicated and bounded. The auto-schedule gate requires at least one reference at
-      or above `0.5` per dimension, so an unevidenced extraction cannot be scheduled. What remains
-      is the score rule itself: an unevidenced dimension still contributes its score and routes to
-      a person instead of zeroing, which changes the calibration and needs a deliberate threshold
-      decision.
+- [x] **Evidence-first scoring, with a deliberate calibration.** Every dimension carries the
+      references that produced it (deduplicated, bounded), and a dimension with **no** reference
+      now contributes **0** with that stated in its rationale — a senior title or long tenure is
+      not evidence by itself. The policy engine pairs this with the missing-evidence bar in both
+      directions: insufficient evidence cannot auto-schedule (existing) and cannot auto-reject
+      (new), because the score fell for an extraction gap, not for the candidate. Both routes go
+      to `HITL_MANUAL`. The decision table and formulas in `docs/architecture/hitl-bounds.md` are
+      updated; the calibration corpus carries provenance so it measures the weights, and the
+      engineering vector is pinned as a serialized snapshot.
 - [ ] **Real credential registries per family** (BNSP, AWS/Google/Azure, ACCA/CPA/CFA). Today
       `verify_credential` is a dict lookup with no data, so a genuine certificate and a Coursera
       badge score the same.
-- [ ] **Templates for `engineering`, `finance`, `sales`, `admin`, `operations`,
-      `customer_support`**, with thresholds as template data behind the same `verified` gate as rate
-      tables. **The engineering template must produce byte-identical scores to today** — that is the
-      regression test proving the generalization is additive.
+- [x] **Per-family templates, pinned.** Templates ship for all eight `JobFamily` values
+      (`engineering`, `finance`, `education`, `healthcare`, `legal`, `operations`, `sales`,
+      `general`; admin- and support-shaped jobs live under `general`/`operations`), each with its
+      own breadth vocabulary, signal keywords, title tiers and weight mix. Thresholds travel in a
+      verified rubric version's payload, so changing bands is the same named-human act as changing
+      a statutory rate. The engineering template is pinned twice: its rubric digest, and a
+      serialized score vector (`test_the_engineering_scores_are_pinned_byte_for_byte`), so any
+      drift is a visible, deliberate edit.
 - [x] **The auto-schedule gate is evidence-aware.** Clearing `S ≥ 0.85` with `σ ≤ 0.05` no longer
       schedules if any dimension carries no `EvidenceRef`: it routes to `HITL_MANUAL` with that
       reason. Zero non-calendar flags and the run-agreement σ remain conditions. The evaluation

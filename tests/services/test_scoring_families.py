@@ -49,7 +49,7 @@ from hr_agents.models import (
 from hr_agents.models.policy import PolicyDecision, PolicyThresholds
 from hr_agents.services.dimensions import families
 from hr_agents.services.policy import evaluate_policy
-from hr_agents.services.scoring import score_candidate
+from hr_agents.services.scoring import dimensions_evidenced, score_candidate
 
 REFERENCE_DATE = date(2025, 1, 1)
 FLOOR = 0.70
@@ -81,6 +81,7 @@ def _decision(profile: CandidateProfile, job: JobSpecification) -> PolicyDecisio
         s_tech=result.s_tech(job.effective_weights()),
         sigma=0.0,
         thresholds=PolicyThresholds(),
+        evidence_sufficient=dimensions_evidenced(result.breakdown),
     ).decision
 
 
@@ -289,8 +290,16 @@ def test_a_teacher_is_not_auto_rejected() -> None:
     profile = CandidateProfile(
         full_name="Budi Santoso",
         skills=[
-            Skill(name="Curriculum Design", category=SkillCategory.EDUCATION),
-            Skill(name="Classroom Management", category=SkillCategory.EDUCATION),
+            Skill(
+                name="Curriculum Design",
+                category=SkillCategory.EDUCATION,
+                evidence=[_source("Curriculum Design")],
+            ),
+            Skill(
+                name="Classroom Management",
+                category=SkillCategory.EDUCATION,
+                evidence=[_source("Classroom Management")],
+            ),
         ],
         experience=[
             ExperienceEntry(
@@ -303,6 +312,7 @@ def test_a_teacher_is_not_auto_rejected() -> None:
                     "Redesigned the national curriculum for two subjects",
                     "Coached 40 teachers on formative assessment",
                 ],
+                evidence=[_source("Head of Department")],
             )
         ],
     )

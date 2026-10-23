@@ -76,6 +76,22 @@ def test_auto_band_with_missing_evidence_routes_to_a_person() -> None:
     assert "no evidence" in result.reasons[0]
 
 
+def test_missing_evidence_never_produces_an_automatic_rejection() -> None:
+    """An extraction gap must not zero a candidate under the rejection floor.
+
+    Evidence-first scoring gives an unevidenced dimension 0 instead of credit it
+    cannot point at. That lowers S, so the policy engine must route the result to
+    a person even below the merit floor: the alternative rejects somebody for the
+    extractor's failure, which is exactly what the merit floor exists to prevent.
+    """
+    below = evaluate_policy(s_tech=0.42, sigma=0.01, mutual_slots=3, evidence_sufficient=False)
+    assert below.decision is PolicyDecision.HITL_MANUAL
+    assert "before any rejection" in below.reasons[0]
+
+    soft = evaluate_policy(s_tech=0.70, sigma=0.01, mutual_slots=3, evidence_sufficient=False)
+    assert soft.decision is PolicyDecision.HITL_MANUAL
+
+
 def test_auto_band_with_evidence_still_schedules() -> None:
     result = evaluate_policy(
         s_tech=0.95,

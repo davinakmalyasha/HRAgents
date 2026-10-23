@@ -41,7 +41,7 @@ from evals.scoring_calibration import (
 
 from hr_agents.models import PolicyDecision, PolicyThresholds
 from hr_agents.services.policy import evaluate_policy
-from hr_agents.services.scoring import score_candidate
+from hr_agents.services.scoring import dimensions_evidenced, score_candidate
 
 FLOOR = 0.70
 """``soft_rejection_floor``. Hard-coded here on purpose.
@@ -59,8 +59,12 @@ def score_of(profile, job) -> float:  # type: ignore[no-untyped-def]
 
 
 def decision_of(profile, job) -> PolicyDecision:  # type: ignore[no-untyped-def]
+    result = score_candidate(profile, job, reference_date=REFERENCE_DATE)
     return evaluate_policy(
-        s_tech=score_of(profile, job), sigma=0.0, thresholds=PolicyThresholds()
+        s_tech=result.s_tech(job.effective_weights()),
+        sigma=0.0,
+        thresholds=PolicyThresholds(),
+        evidence_sufficient=dimensions_evidenced(result.breakdown),
     ).decision
 
 

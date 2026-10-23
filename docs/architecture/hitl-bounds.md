@@ -28,6 +28,7 @@ AUTO_SCHEDULE  ⟺  S_tech ≥ 0.85
                 ∧ flags = ∅
                 ∧ mutual_slots ≥ min_interviewer_slots (default 2)
                 ∧ consent.active = true
+                ∧ evidence.sufficient = true
 ```
 
 - `S_tech` — weighted mean of the four-dimension score tensor across k=3 independent runs.
@@ -39,6 +40,7 @@ AUTO_SCHEDULE  ⟺  S_tech ≥ 0.85
 
 ```
 REJECT_AUTO  ⟺  S_tech < 0.70 ∧ flags = ∅ ∧ consent.active = true
+               ∧ evidence.sufficient = true
 ```
 
 - Only below the technical-merit floor, with no anomalies, and always accompanied by a feedback
@@ -140,9 +142,21 @@ Evaluated top to bottom; first match wins.
 | 1 | `consent.active = false` | halt processing | system (audited) |
 | 2 | `flags ≠ ∅` (any) | `HITL_ANOMALY` | human reviewer |
 | 3 | `mutual_slots < min_interviewer_slots` | `HITL_CALENDAR` | recruiter/lead |
-| 4 | `S_tech ≥ 0.85 ∧ σ ≤ 0.05` | `AUTO_SCHEDULE` | system |
-| 5 | `0.70 ≤ S_tech < 0.85` | `HITL_SOFT_REJECTION` | engineering lead sign-off required |
-| 6 | `S_tech < 0.70` | `REJECT_AUTO` | system (+ feedback + audit) |
+| 4 | auto band `∧ ¬evidence.sufficient` | `HITL_MANUAL` | human reviewer |
+| 5 | `S_tech ≥ 0.85 ∧ σ ≤ 0.05 ∧ evidence.sufficient` | `AUTO_SCHEDULE` | system |
+| 6 | `¬evidence.sufficient` (any other score) | `HITL_MANUAL` | human reviewer |
+| 7 | `0.70 ≤ S_tech < 0.85 ∧ evidence.sufficient` | `HITL_SOFT_REJECTION` | engineering lead sign-off required |
+| 8 | `S_tech < 0.70 ∧ evidence.sufficient` | `REJECT_AUTO` | system (+ feedback + audit) |
+
+**Evidence-first scoring.** A dimension the extraction could not point at
+contributes **0**, not a title- or tenure-shaped estimate; the rationale says
+so. That lowers `S_tech` for thin extractions, so the decision table also makes
+missing evidence a bar to *automation in both directions*: it can never clear
+the scheduling band (row 4) and it can never clear the rejection floor (row 6).
+The asymmetry is deliberate — over-crediting an unevidenced dimension can
+schedule someone nobody can justify, while under-crediting it could reject
+someone for the extractor's gap. Routing both to a person is the only outcome
+that is true to the record.
 
 ## 5. Override semantics
 

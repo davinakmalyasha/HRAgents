@@ -17,7 +17,7 @@ from hr_agents.models import (
     SourceType,
     VerificationStatus,
 )
-from hr_agents.services.dimensions import ENGINEERING
+from hr_agents.services.dimensions import ENGINEERING, FINANCE
 from hr_agents.services.scoring import (
     dimensions_evidenced,
     normalize_skill,
@@ -40,52 +40,59 @@ def make_job(**overrides: object) -> JobSpecification:
 
 
 def make_profile() -> CandidateProfile:
-    return CandidateProfile(
-        full_name="Budi Santoso",
-        experience=[
-            ExperienceEntry(
-                company="Nusantara Systems",
-                title="Senior Software Engineer",
-                start_date=date(2020, 1, 1),
-                end_date=date(2023, 1, 1),
-                tech_stack=["Python", "FastAPI", "PostgreSQL", "Redis"],
-                highlights=[
-                    "Designed an event-driven API platform with queue-based ingestion",
-                    "Improved p99 latency and throughput across distributed services",
-                    "Introduced CI/CD and observability with Docker and Kubernetes",
-                ],
-            ),
-            ExperienceEntry(
-                company="Merdeka AI",
-                title="Lead Engineer",
-                start_date=date(2023, 1, 1),
-                end_date=date(2025, 1, 1),
-                tech_stack=["Python", "Go", "PydanticAI", "Kafka"],
-                highlights=["Built ML platform services with caching and schema registries"],
-            ),
-        ],
-        skills=[
-            Skill(name="py", category=SkillCategory.LANGUAGE, claimed_proficiency=5),
-            Skill(name="Postgres", category=SkillCategory.DATABASE, claimed_proficiency=5),
-            Skill(name="FastAPI", category=SkillCategory.FRAMEWORK, claimed_proficiency=5),
-            Skill(name="Kubernetes", category=SkillCategory.DEVOPS, claimed_proficiency=4),
-            Skill(name="AWS", category=SkillCategory.CLOUD, claimed_proficiency=4),
-            Skill(name="Redis", category=SkillCategory.DATABASE, claimed_proficiency=4),
-            Skill(name="Kafka", category=SkillCategory.SYSTEMS, claimed_proficiency=4),
-            Skill(name="Pandas", category=SkillCategory.DATA, claimed_proficiency=3),
-        ],
-        projects=[
-            ProjectEntry(name="hr-agents", tech_stack=["Python", "PydanticAI"]),
-            ProjectEntry(name="queue-lab", tech_stack=["Go", "Redis"]),
-            ProjectEntry(name="ast-explorer", tech_stack=["Python"]),
-        ],
-        certifications=[
-            CertificationClaim(
-                name="AWS Solutions Architect",
-                issuer="AWS",
-                status=VerificationStatus.VERIFIED,
-            )
-        ],
+    """An evidenced engineering profile: every record carries provenance.
+
+    The math tests are about components and weights, so their fixture must
+    survive evidence-first scoring. The unevidenced case is its own test.
+    """
+    return _sourced(
+        CandidateProfile(
+            full_name="Budi Santoso",
+            experience=[
+                ExperienceEntry(
+                    company="Nusantara Systems",
+                    title="Senior Software Engineer",
+                    start_date=date(2020, 1, 1),
+                    end_date=date(2023, 1, 1),
+                    tech_stack=["Python", "FastAPI", "PostgreSQL", "Redis"],
+                    highlights=[
+                        "Designed an event-driven API platform with queue-based ingestion",
+                        "Improved p99 latency and throughput across distributed services",
+                        "Introduced CI/CD and observability with Docker and Kubernetes",
+                    ],
+                ),
+                ExperienceEntry(
+                    company="Merdeka AI",
+                    title="Lead Engineer",
+                    start_date=date(2023, 1, 1),
+                    end_date=date(2025, 1, 1),
+                    tech_stack=["Python", "Go", "PydanticAI", "Kafka"],
+                    highlights=["Built ML platform services with caching and schema registries"],
+                ),
+            ],
+            skills=[
+                Skill(name="py", category=SkillCategory.LANGUAGE, claimed_proficiency=5),
+                Skill(name="Postgres", category=SkillCategory.DATABASE, claimed_proficiency=5),
+                Skill(name="FastAPI", category=SkillCategory.FRAMEWORK, claimed_proficiency=5),
+                Skill(name="Kubernetes", category=SkillCategory.DEVOPS, claimed_proficiency=4),
+                Skill(name="AWS", category=SkillCategory.CLOUD, claimed_proficiency=4),
+                Skill(name="Redis", category=SkillCategory.DATABASE, claimed_proficiency=4),
+                Skill(name="Kafka", category=SkillCategory.SYSTEMS, claimed_proficiency=4),
+                Skill(name="Pandas", category=SkillCategory.DATA, claimed_proficiency=3),
+            ],
+            projects=[
+                ProjectEntry(name="hr-agents", tech_stack=["Python", "PydanticAI"]),
+                ProjectEntry(name="queue-lab", tech_stack=["Go", "Redis"]),
+                ProjectEntry(name="ast-explorer", tech_stack=["Python"]),
+            ],
+            certifications=[
+                CertificationClaim(
+                    name="AWS Solutions Architect",
+                    issuer="AWS",
+                    status=VerificationStatus.VERIFIED,
+                )
+            ],
+        )
     )
 
 
@@ -215,6 +222,24 @@ def test_an_explicit_template_overrides_the_family_default() -> None:
     assert narrowed.vector.technical_depth == default.vector.technical_depth
 
 
+def _unsourced(profile: CandidateProfile) -> CandidateProfile:
+    """The same profile with every provenance reference removed."""
+    return profile.model_copy(
+        update={
+            "skills": [skill.model_copy(update={"evidence": []}) for skill in profile.skills],
+            "experience": [
+                entry.model_copy(update={"evidence": []}) for entry in profile.experience
+            ],
+            "projects": [
+                project.model_copy(update={"evidence": []}) for project in profile.projects
+            ],
+            "certifications": [
+                cert.model_copy(update={"evidence": []}) for cert in profile.certifications
+            ],
+        }
+    )
+
+
 def _sourced(profile: CandidateProfile) -> CandidateProfile:
     """The same profile with one provenance reference on every record."""
     source = EvidenceRef(
@@ -236,15 +261,18 @@ def _sourced(profile: CandidateProfile) -> CandidateProfile:
     )
 
 
-def test_evidence_flows_to_every_dimension_without_changing_scores() -> None:
-    plain = score_candidate(make_profile(), make_job(), reference_date=REFERENCE)
-    sourced = score_candidate(_sourced(make_profile()), make_job(), reference_date=REFERENCE)
+def test_evidence_flows_to_every_dimension_and_is_what_gets_credited() -> None:
+    sourced = score_candidate(make_profile(), make_job(), reference_date=REFERENCE)
+    plain = score_candidate(_unsourced(make_profile()), make_job(), reference_date=REFERENCE)
 
-    assert sourced.vector == plain.vector
     assert dimensions_evidenced(sourced.breakdown)
-    assert not dimensions_evidenced(plain.breakdown)
     for item in sourced.breakdown:
         assert item.evidence, item.dimension
+
+    assert not dimensions_evidenced(plain.breakdown)
+    assert plain.s_tech(make_job().effective_weights()) < sourced.s_tech(
+        make_job().effective_weights()
+    )
 
 
 def test_evidence_is_deduplicated_and_stable() -> None:
@@ -300,3 +328,52 @@ def test_routing_thresholds_do_not_change_scores() -> None:
     )
     assert governed.vector == plain.vector
     assert [item.score for item in governed.breakdown] == [item.score for item in plain.breakdown]
+
+
+def test_an_unevidenced_dimension_scores_zero_even_with_a_senior_title() -> None:
+    """A title is not evidence: the professional dimension must not count it.
+
+    The extractor can return a senior title with no competency skills and no
+    signal highlights. The old rule let the title-tier component alone produce a
+    score, which is a number with nothing behind it; evidence-first scoring
+    zeroes the dimension and says so in the rationale.
+    """
+    profile = CandidateProfile(
+        full_name="Rina",
+        experience=[
+            ExperienceEntry(
+                company="Nusantara Finance",
+                title="Senior Accountant",
+                start_date=date(2015, 1, 1),
+                end_date=date(2023, 1, 1),
+            )
+        ],
+    )
+
+    result = score_candidate(
+        profile, make_job(title="Accountant"), reference_date=REFERENCE, template=FINANCE
+    )
+
+    systems = next(
+        item for item in result.breakdown if item.dimension is ScoreDimension.SYSTEMS_LITERACY
+    )
+    assert systems.score == 0.0
+    assert "no supporting evidence" in systems.rationale
+    assert dimensions_evidenced(result.breakdown) is False
+
+
+def test_the_engineering_scores_are_pinned_byte_for_byte() -> None:
+    """The generalization contract: the engineering template still scores exactly.
+
+    Every per-family template was added *around* this one, and threshold changes
+    are supposed to be deliberate and visible. A snapshot of the serialized
+    vector is the cheapest way to see either kind of drift in one line. If a
+    scoring rule or the engineering template changes on purpose, this string
+    moves in the same commit, with the reason in the message.
+    """
+    result = score_candidate(make_profile(), make_job(), reference_date=REFERENCE)
+
+    assert result.vector.model_dump_json() == (
+        '{"technical_depth":0.86875,"stack_alignment":0.875,'
+        '"systems_literacy":0.98,"verifiable_certifications":0.8}'
+    )

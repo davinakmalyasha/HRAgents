@@ -102,6 +102,18 @@ def evaluate_policy(
             decision=PolicyDecision.AUTO_SCHEDULE, reasons=reasons, thresholds=thresholds
         )
 
+    if not evidence_sufficient:
+        # An unevidenced dimension scores zero, which can push a candidate under
+        # the merit floor. Rejecting them for that would reject them for the
+        # extractor's gap, so any rejection-shaped route becomes a manual review.
+        reasons.append(
+            f"s_tech {s_tech:.3f} is outside the automation band and at least one "
+            "dimension carries no evidence; a person must review before any rejection"
+        )
+        return PolicyEvaluation(
+            decision=PolicyDecision.HITL_MANUAL, reasons=reasons, thresholds=thresholds
+        )
+
     if s_tech >= thresholds.soft_rejection_floor:
         reasons.append(
             f"s_tech {s_tech:.3f} within soft-rejection band "

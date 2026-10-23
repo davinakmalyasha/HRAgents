@@ -94,6 +94,16 @@ class Occupation:
     """
 
 
+def _ref(text: str) -> EvidenceRef:
+    """Every synthetic record cites the CV it was (pretend-)extracted from.
+
+    The corpus models what the extractor returns, and that output carries
+    provenance. Scoring is evidence-first, so a corpus without references would
+    exercise the zeroing rule instead of the weights it exists to measure.
+    """
+    return EvidenceRef(source_type=SourceType.RESUME, locator="cv.pdf", excerpt=text[:80])
+
+
 def _experience(
     company: str,
     title: str,
@@ -109,11 +119,12 @@ def _experience(
         end_date=REFERENCE_DATE,
         highlights=list(highlights),
         tech_stack=list(stack),
+        evidence=[_ref(f"{title} at {company}")],
     )
 
 
 def _skills(*pairs: tuple[str, SkillCategory]) -> list[Skill]:
-    return [Skill(name=name, category=category) for name, category in pairs]
+    return [Skill(name=name, category=category, evidence=[_ref(name)]) for name, category in pairs]
 
 
 def _projects(count: int, *, open_source: bool = True) -> list[ProjectEntry]:
@@ -122,6 +133,7 @@ def _projects(count: int, *, open_source: bool = True) -> list[ProjectEntry]:
             name=f"portfolio project {index}",
             description="Built and shipped an end-to-end system.",
             is_open_source=open_source,
+            evidence=[_ref(f"portfolio project {index}")],
         )
         for index in range(count)
     ]
@@ -481,6 +493,7 @@ def _publications(count: int) -> list[Publication]:
             year=2023,
             peer_reviewed=True,
             citation_count=3,
+            evidence=[_ref(f"Teaching practice note {index}")],
         )
         for index in range(count)
     ]
