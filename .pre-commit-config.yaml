@@ -14,6 +14,10 @@ repos:
       - id: check-merge-conflict
       - id: check-toml
       - id: check-yaml
+        # mkdocs.yml uses the `!!python/name:` tag Material documents for
+        # Mermaid fences; PyYAML's safe loader cannot resolve it, and the
+        # pre-commit environment does not have pymdownx installed.
+        exclude: ^mkdocs\.yml$
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: mixed-line-ending

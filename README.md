@@ -8,6 +8,7 @@ offers paid integration services for companies that want it running without the
 technical work — see [Work with the author](#work-with-the-author).
 
 [![CI](https://github.com/davinakmalyasha/HRAgents/actions/workflows/ci.yml/badge.svg)](https://github.com/davinakmalyasha/HRAgents/actions/workflows/ci.yml)
+[![Docs](https://github.com/davinakmalyasha/HRAgents/actions/workflows/docs.yml/badge.svg)](https://davinakmalyasha.github.io/HRAgents/)
 [![CodeQL](https://github.com/davinakmalyasha/HRAgents/actions/workflows/codeql.yml/badge.svg)](https://github.com/davinakmalyasha/HRAgents/actions/workflows/codeql.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
@@ -84,6 +85,25 @@ Logs: `docker compose logs -f api worker`. Stop: `docker compose down`.
 Data survives; `docker compose down -v` deletes it.
 
 ---
+
+## How the pieces fit
+
+```mermaid
+flowchart LR
+    CV[CV / portfolio] --> EXTRACT[Extraction agents]
+    EXTRACT -->|structured evidence + refs| SCORE[Deterministic scorer]
+    SCORE -->|S, σ, evidence| POLICY[Policy engine]
+    POLICY -->|auto-schedule| SCHED[Scheduling]
+    POLICY -->|HITL| HUMAN[Named human]
+    HUMAN -->|decision + reason| AUDIT[(Audit chain)]
+    SCHED --> AUDIT
+    HUMAN --> DEPTS[Leave · Payroll · Growth · Compliance · Offboarding]
+    DEPTS --> AUDIT
+```
+
+The reasoning behind this split, and the exact automation bounds, are in
+[`docs/architecture/`](docs/architecture/) and the rendered
+[docs site](https://davinakmalyasha.github.io/HRAgents/).
 
 ## Why this exists
 
@@ -190,6 +210,10 @@ docker/            Postgres init scripts (demote the superuser so RLS applies)
 ```
 
 ## Documentation
+
+The rendered site — with a searchable architecture, deployment guide and API
+reference — is at **<https://davinakmalyasha.github.io/HRAgents/>**. The same
+sources live here:
 
 - [Master build plan](docs/plan/master-build-plan.md) — the full checklist: phases, departments, progress
 - [Remaining work](docs/plan/remaining-work.md) — MCP layer → dashboard → evals → ops → paper & release

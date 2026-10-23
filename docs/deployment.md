@@ -279,7 +279,7 @@ containers also have `HEALTHCHECK`s, so `docker compose ps` shows the truth.
 ### Alerting
 
 The repository ships Prometheus rules for the canaries and the usual API
-signals: [`ops/alerts/hragents.rules.yml`](../ops/alerts/hragents.rules.yml).
+signals: [`ops/alerts/hragents.rules.yml`](https://github.com/davinakmalyasha/HRAgents/blob/main/ops/alerts/hragents.rules.yml).
 Scrape the API with a job named `hragents-api` and load the file as a rule
 file; nothing else is required.
 

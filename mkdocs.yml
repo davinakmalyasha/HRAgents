@@ -1,0 +1,82 @@
+site_name: HRAgents
+site_description: A virtual HR team for the HR department of one — deterministic scoring, human decisions, every outcome reconstructible.
+site_url: https://davinakmalyasha.github.io/HRAgents/
+repo_url: https://github.com/davinakmalyasha/HRAgents
+repo_name: davinakmalyasha/HRAgents
+edit_uri: edit/main/docs/
+docs_dir: docs
+copyright: Apache-2.0 · built in Jakarta
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: black
+      accent: deep orange
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: black
+      accent: deep orange
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+  - swagger-ui-tag
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Architecture:
+      - System architecture: architecture/system-architecture.md
+      - Human-in-the-loop bounds: architecture/hitl-bounds.md
+      - Provider layer: architecture/providers.md
+      - Data storage: architecture/data-storage.md
+      - Board transitions: architecture/board-transitions.md
+      - Benchmarks: architecture/benchmarks.md
+  - Deployment & operations: deployment.md
+  - API reference: api.md
+  - Decisions:
+      - ADR index: adr/README.md
+      - LLM extracts, code decides: adr/0001-llm-extracts-deterministic-scores.md
+      - HITL bounds in code: adr/0002-hitl-bounds-in-code.md
+      - No shell tools, ever: adr/0003-no-shell-tools.md
+      - The provider layer: adr/0004-provider-layer.md
+      - Sync domain, async edge: adr/0005-sync-domain-async-edge.md
+      - Tenancy and RLS: adr/0006-tenancy-rls.md
+  - Research:
+      - Literature review: research/literature-review.md
+  - Project:
+      - Master build plan: plan/master-build-plan.md
+      - Remaining work: plan/remaining-work.md
+      - Problem statement: plan/problem-statement.md
+      - Release process: plan/release-process.md

@@ -61,6 +61,10 @@ dev = [
     "pre-commit>=3.8",
     "hypothesis>=6.100",
 ]
+docs = [
+    "mkdocs-material>=9.6",
+    "mkdocs-swagger-ui-tag>=0.6",
+]
 
 [build-system]
 requires = ["hatchling"]

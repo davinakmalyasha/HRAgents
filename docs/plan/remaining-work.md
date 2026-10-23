@@ -792,16 +792,26 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       one" platform framing; honest limitations section
 - [ ] Measured results: ingestion throughput (36,509 req/min measured), eval scores, fairness-audit
       results, live-model latency, cost per application
-- [ ] README: 5-minute quickstart, demo dataset, screenshots/GIF, architecture diagram
+- [~] README: the 5-minute quickstart, demo dataset and an inline Mermaid architecture diagram
+      ship. Screenshots/GIF and the GitHub social preview remain.
 - [ ] README "Work with the author / freelance integration" finalized (services, contact, scope)
 - [ ] Demo video / GIF walkthrough (2–3 minutes: ingest → review → override → schedule)
-- [ ] API docs site (OpenAPI rendered) + operator runbooks (backup, upgrade, provider failures,
-      incident response with the breach workflow)
+- [x] API docs site (OpenAPI rendered by the docs site from the committed spec) + operator
+      runbooks (backup, upgrade, provider failures, incident response with the breach workflow) in
+      `deployment.md`
 - [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates, security policy, ADRs, release
       process (landed early with the repo-infrastructure work — see `master-build-plan.md` Phase 1)
-- [ ] Docs site (mkdocs-material + GitHub Pages), versioned with releases
-- [ ] Container image on GHCR: multi-arch, Trivy-scanned (needs `Dockerfile`, Phase 9)
-- [ ] SBOM + build provenance attestations attached to releases
+- [~] Docs site (mkdocs-material + GitHub Pages): `docs.yml` builds and deploys on every docs
+      change; the site carries the architecture, deployment, API reference and ADRs. Versioned
+      docs (`mike`) remain, so old releases do not keep their own site yet.
+- [~] Container image on GHCR: the `image.yml` pipeline builds `linux/amd64` + `linux/arm64`,
+      scans before pushing, and fails on a fixable CRITICAL. The pipeline was added after the 0.1.0
+      release and its first run found a fixable CRITICAL in the 0.1.0 lockfile (certifi), so the
+      0.1.0 image is superseded rather than re-tagged; the next release builds clean.
+- [~] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
+      the release, and buildx attaches the SBOM and max-mode provenance to the image digest. The
+      0.1.0 run failed its own gate before attaching them (see above); the next release carries all
+      four.
 - [ ] PyPI publishing — only if a library use case appears (currently deferred)
 - [ ] GitHub social preview image + demo assets (screenshots/GIF)
 - [ ] Immutable releases for tags, once the release flow has settled
