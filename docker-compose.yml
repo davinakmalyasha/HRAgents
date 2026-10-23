@@ -12,7 +12,9 @@ x-app: &app
   build:
     context: .
     dockerfile: Dockerfile
-  image: hragents:local
+  # Set HRAGENTS_IMAGE to a published tag to run the release instead of
+  # building: `HRAGENTS_IMAGE=ghcr.io/...:0.1.0 docker compose pull`.
+  image: ${HRAGENTS_IMAGE:-hragents:local}
   # Optional first-run values from `scripts/setup.py`; the environment block
   # below still wins for the stack's fixed wiring.
   env_file:

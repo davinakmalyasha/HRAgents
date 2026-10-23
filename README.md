@@ -32,6 +32,14 @@ uv run python scripts/setup.py     # operator name, admin key, timezone, offline
 docker compose up --build -d
 ```
 
+Prefer the published image over a local build? Every release is a multi-arch
+container on GHCR:
+
+```bash
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose up -d --no-build
+```
+
 `scripts/setup.py` writes `.env` (gitignored), which compose loads; it prints the
 dashboard key once. (No `uv` on the host? Copy `.env.example` to `.env` and set the
 same values by hand.) Paste the key into the sign-in screen at

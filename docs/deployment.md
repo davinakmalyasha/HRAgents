@@ -26,6 +26,20 @@ Then:
 docker compose up --build
 ```
 
+To run the published release instead of building it, select a tag and skip the
+build:
+
+```bash
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose up -d --no-build
+```
+
+Images are multi-arch (`linux/amd64` and `linux/arm64`). Each release publishes
+the exact version, its `major.minor`, `latest`, and a `sha-…` tag. The release
+workflow fails on CRITICAL vulnerabilities it can fix, and attaches the Trivy
+SARIF and an SPDX SBOM to the release; the SBOM and max-mode provenance are
+also attached to the image digest in the registry.
+
 What starts:
 
 | Service | What it does | Notes |
