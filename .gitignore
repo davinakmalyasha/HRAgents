@@ -78,3 +78,6 @@ docs/FINAL-SWEEP.md
 
 # mkdocs build output
 site/
+
+# playwright MCP output
+.playwright-mcp/

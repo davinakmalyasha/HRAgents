@@ -105,6 +105,15 @@ The reasoning behind this split, and the exact automation bounds, are in
 [`docs/architecture/`](docs/architecture/) and the rendered
 [docs site](https://davinakmalyasha.github.io/HRAgents/).
 
+## A look inside
+
+![Home: the work that needs a human today](docs/assets/screenshots/home.png)
+
+![People and records: directory, org chart, probation and expiry queue](docs/assets/screenshots/records.png)
+
+The approvals queue and the operations page (providers, dead letters) are in the
+[docs site](https://davinakmalyasha.github.io/HRAgents/latest/).
+
 ## Why this exists
 
 Indonesian SMEs run hiring and HR on one overloaded person, WhatsApp, and spreadsheets.
@@ -224,6 +233,7 @@ sources live here:
 - [HR domain guide](docs/plan/hr-domain-guide.md) — how HR actually works, Indonesian specifics, glossary
 - [Literature review](docs/research/literature-review.md) — evidence base and design principles
 - [System architecture](docs/architecture/system-architecture.md) — pipeline, HITL flows, Mermaid diagrams
+- [Paper](docs/paper.md) — design, measured behaviour and honest limitations
 - [Deployment & operations](docs/deployment.md) — self-host with Docker Compose, backups, runbooks
 - [HITL bounds](docs/architecture/hitl-bounds.md) — exact automation boundaries and anti-goals
 - [Benchmarks](docs/architecture/benchmarks.md) — measured performance

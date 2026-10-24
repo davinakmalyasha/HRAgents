@@ -73,6 +73,7 @@ nav:
       - The provider layer: adr/0004-provider-layer.md
       - Sync domain, async edge: adr/0005-sync-domain-async-edge.md
       - Tenancy and RLS: adr/0006-tenancy-rls.md
+  - Paper: paper.md
   - Research:
       - Literature review: research/literature-review.md
   - Project:

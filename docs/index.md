@@ -66,6 +66,18 @@ The full pipeline, the automation bounds, and the data model are documented
 under [Architecture](architecture/system-architecture.md); the exact decision
 table is in [Human-in-the-loop bounds](architecture/hitl-bounds.md).
 
+## A look inside
+
+The demo dataset, seeded through the real services:
+
+![Home: the work that needs a human today](assets/screenshots/home.png)
+
+![Approvals: one queue for every department, with the reason a decision needs](assets/screenshots/approvals.png)
+
+![People and records: directory, org chart, probation and expiry queue](assets/screenshots/records.png)
+
+![Operations: every provider's state, masked configuration, and the dead-letter queue](assets/screenshots/operations.png)
+
 ## Status
 
 `v0.1.0` — the core loop, nine workspaces, the PWA, payroll preparation,
