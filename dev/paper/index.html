@@ -1588,9 +1588,10 @@ Redis add deployment latency.</p>
 <li><strong>Live-model fairness is unproven.</strong> The fairness harness swaps names,
    gender-coded names, photos and schools through the deterministic scorer; a
    live-model run needs a working upstream and is not part of CI.</li>
-<li><strong>Credential registries are empty.</strong> <code>verify_credential</code> has the shape of a
-   registry but no issuer data, so a genuine certificate and a badge currently
-   verify alike.</li>
+<li><strong>Credential registries are operator imports.</strong> The registry exists and
+   gates scoring once verified, but there is no issuer API or dashboard importer
+   yet: rows arrive through the API, and an install that imports nothing treats
+   every claim as before.</li>
 <li><strong>Role fit is a coverage gate, not a model.</strong> Tenure-driven depth with thin
    must-have coverage now routes to a person, but the check is token coverage of
    the job's requirements; a richer per-family sufficiency model is future work.</li>

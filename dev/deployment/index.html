@@ -637,6 +637,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#verified-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#push-notifications-optional" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1465,6 +1476,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#verified-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#push-notifications-optional" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1803,6 +1825,20 @@ a restart, which the response says.</p>
 <p>To rotate the key, prepend the new key to the comma-separated list, restart,
 re-save the providers you changed (the UI keeps the secret when the field is
 blank), then remove the old key.</p>
+<h3 id="verified-credentials">Verified credentials<a class="headerlink" href="#verified-credentials" title="Permanent link">&para;</a></h3>
+<p>A certificate on a CV is a claim. The credential registry is where an operator
+records what the issuer actually confirmed, and scoring only trusts it once a
+named human has verified the registry with a source.</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/v1/credentials<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w">   </span>-d<span class="w"> </span><span class="s1">'{"name":"AWS certifications","issuer":"AWS"}'</span>
+<span class="c1"># add the rows you checked, then certify them</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>localhost:8000/v1/credentials/<span class="nv">$ID</span>/entries<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w">   </span>-d<span class="w"> </span><span class="s1">'{"entries":[{"name":"AWS Solutions Architect","expires_on":"2027-01-01"}]}'</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/v1/credentials/<span class="nv">$ID</span>/verify<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w">   </span>-d<span class="w"> </span><span class="s1">'{"source_note":"issuer page, 2026-10-24"}'</span>
+</code></pre></div>
+<p>A registry is inert until verified. Once at least one is usable, a claim that
+matches nothing counts as <strong>unverified</strong> (a Coursera badge and a genuine
+certificate stop scoring alike), while an entry past <code>expires_on</code> answers
+expired. Editing entries invalidates the verification, exactly like a rate
+table. The dashboard form is not built yet; the API is the import path today.</p>
 <h3 id="push-notifications-optional">Push notifications (optional)<a class="headerlink" href="#push-notifications-optional" title="Permanent link">&para;</a></h3>
 <p>Notifications stay off until the operator issues a VAPID pair <strong>for this
 deployment</strong>. No key is shipped: a committed private key would let anyone
