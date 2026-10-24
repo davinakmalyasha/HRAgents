@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.2.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.1.0...hr-agents-v0.2.0) (2026-10-24)
+
+
+### Features
+
+* **notifications:** ping the queue on escalation, alert on a failed clock ([0d69de8](https://github.com/davinakmalyasha/HRAgents/commit/0d69de8802f6aed62a46b33ee3f2218d76c25bc8))
+* **providers:** a Configure form generated from each provider's schema ([69c3586](https://github.com/davinakmalyasha/HRAgents/commit/69c3586aee41b86403cf5609ab1c62ccaf4a54bb))
+* **providers:** operator-editable settings, sealed at rest ([5116892](https://github.com/davinakmalyasha/HRAgents/commit/5116892afd3d8226ab050c781b2024a9d33dadfb))
+* **scoring:** a dimension without evidence contributes zero ([ade5070](https://github.com/davinakmalyasha/HRAgents/commit/ade5070612f47c0428ef93b441fb9177e2095cc4))
+
+
+### Bug Fixes
+
+* **ci:** gate on CRITICAL, not on every SARIF result ([ac2c003](https://github.com/davinakmalyasha/HRAgents/commit/ac2c003bb5f8309adf8172ca2fe8bf8d75b636c6))
+* **ci:** GHCR needs a lowercase repository path ([b16d422](https://github.com/davinakmalyasha/HRAgents/commit/b16d422cc6bfcd023aa7da039eee4cb7fb65c060))
+* **ci:** scan before pushing, and fail on a fixable critical ([9e8875e](https://github.com/davinakmalyasha/HRAgents/commit/9e8875ed24a4d71611eccb00d98091cfae0ce42c))
+
+
+### Documentation
+
+* a rendered site for the architecture, deployment and API ([f5ea17f](https://github.com/davinakmalyasha/HRAgents/commit/f5ea17f1b7aaa164aa565f7fd225fb97fca048e4))
+* record how the image pipeline fails ([70ada53](https://github.com/davinakmalyasha/HRAgents/commit/70ada538d9dde8be45969f3035d0da13675bee35))
+
 ## 0.1.0 (2026-10-23)
 
 
