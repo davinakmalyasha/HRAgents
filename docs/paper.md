@@ -153,9 +153,10 @@ Redis add deployment latency.
 
 Honest, current, and tracked in the repository:
 
-1. **Live-model fairness is unproven.** The fairness harness swaps names,
-   gender-coded names, photos and schools through the deterministic scorer; a
-   live-model run needs a working upstream and is not part of CI.
+1. **Live-model fairness is unproven.** The harness compares name-swapped CV
+   pairs by a decision signature (skills, experience, education, certifications,
+   scored vector) and fails a live run on divergence; CI exercises the wiring
+   offline, where the model is deterministic and cannot show bias.
 2. **Credential registries are operator imports.** The registry exists and
    gates scoring once verified, but there is no issuer API or dashboard importer
    yet: rows arrive through the API, and an install that imports nothing treats

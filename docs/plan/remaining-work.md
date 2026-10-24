@@ -489,10 +489,13 @@ Remaining in this area:
       inspectable. `TechnicalEvaluation.runs` already refuses a single run (minimum two), so σ is
       measured rather than definitionally zero. Making a dimension *contribute score only with
       evidence* remains the evidence-first item above.
-- [ ] **Extraction fairness pairs on the agent, not the scorer**: generated CV pairs differing only in
-      name, gender-coded name, photo, or school, run through the *agent*, asserting identical
-      extracted skills and scores. `tests/services/test_fairness.py` currently swaps fields the
-      scorer never reads, so it proves nothing about the real risk.
+- [~] **Extraction fairness pairs on the agent, not the scorer.** The dataset's name-swapped CV
+      pairs are now compared as pairs: `evals/fairness.py` builds a decision signature (normalized
+      skills, experience shape, education, certifications and the scored vector) that excludes the
+      swapped name, and `scripts/run_evals.py` prints divergent pairs and fails a live run on any.
+      CI exercises the wiring with the offline model, which cannot exhibit model bias; the live
+      comparison still needs a provider that accepts this deployment's configuration. Gender-coded
+      names, photos and school swaps beyond the dataset's name pairs remain.
 
 ---
 

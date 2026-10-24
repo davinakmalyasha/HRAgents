@@ -19,11 +19,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from evals.fairness import divergent_pairs  # noqa: E402
 from evals.resume_extraction import ResumeCase, build_dataset  # noqa: E402
 
 from hr_agents.agents import AgentDeps, AgentRuntime  # noqa: E402
 from hr_agents.agents.resume_deconstructor import ResumeDeconstructor  # noqa: E402
 from hr_agents.knowledge import KnowledgeRetriever  # noqa: E402
+from hr_agents.models import CandidateProfile  # noqa: E402
 from hr_agents.services.audit import AuditChain  # noqa: E402
 from hr_agents.skills import SkillRegistry, load_library  # noqa: E402
 from hr_agents.tools import (  # noqa: E402
@@ -95,6 +97,21 @@ async def main(live: bool) -> int:
 
     failed = _failed_assertions(report)
 
+    # Fairness is a property of the pair, not of either case alone: both members
+    # can pass every structural assertion while the model extracts different
+    # skills from them. Compare what a decision could actually use.
+    pairs: dict[str, list[tuple[str, CandidateProfile]]] = {}
+    for case in report.cases:
+        pair_id = getattr(case.inputs, "pair_id", None)
+        if pair_id is None or case.output is None:
+            continue
+        pairs.setdefault(pair_id, []).append((case.name, case.output.profile))
+    diverged = divergent_pairs(pairs)
+    note = "" if live else " (offline model; only meaningful with --live)"
+    print(f"\nFairness pairs: {len(pairs)} checked, {len(diverged)} divergent{note}")
+    for pair_id, members in diverged.items():
+        print(f"  - {pair_id}: {', '.join(sorted(members))}")
+
     # Task errors (exceptions: provider outages, schema failures) are failures.
     if report.failures:
         print("\nCases that raised errors:")
@@ -111,13 +128,16 @@ async def main(live: bool) -> int:
             case: [name for name in names if name not in SEMANTIC_ASSERTIONS]
             for case, names in failed.items()
         }
-        blocking = {case: names for case, names in blocking.items() if names}
+        blocking = {case_name: names for case_name, names in blocking.items() if names}
+
+    if live and diverged:
+        blocking = {**blocking, "<fairness>": sorted(diverged)}
 
     if report.failures or blocking:
         if blocking:
             print("\nFailing assertions:")
-            for case, names in blocking.items():
-                print(f"  - {case}: {', '.join(names)}")
+            for case_name, names in blocking.items():
+                print(f"  - {case_name}: {', '.join(names)}")
         return 1
 
     if live:
