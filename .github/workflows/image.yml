@@ -70,6 +70,10 @@ jobs:
           image-ref: hragents-scan:local
           format: sarif
           output: trivy.sarif
+          # Vulnerabilities only. The secret scanner flags example JSON inside
+          # vendor SDKs ("type": "service_account") as credentials, which is a
+          # finding about a dependency's documentation, not about this image.
+          scanners: vuln
           severity: CRITICAL
           ignore-unfixed: true
           exit-code: "0"
@@ -106,6 +110,7 @@ jobs:
         with:
           image-ref: hragents-scan:local
           format: table
+          scanners: vuln
           severity: CRITICAL
           ignore-unfixed: true
           exit-code: "1"

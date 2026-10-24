@@ -27,7 +27,8 @@ ENV PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:$PATH" \
     HRAGENTS_WEB_DIST=/app/web/dist \
-    HRAGENTS_SKILLS_ROOT=/app/skills
+    HRAGENTS_SKILLS_ROOT=/app/skills \
+    UV_CACHE_DIR=/tmp/uv-cache
 
 # libpq for psycopg, curl for the container healthcheck, postgresql-client for
 # scripts/backup.py (pg_dump/psql/createdb/dropdb) which the backup runbook
@@ -54,6 +55,7 @@ COPY scripts/ ./scripts/
 COPY skills/ ./skills/
 COPY alembic.ini ./
 RUN uv sync --locked --no-dev \
+    && rm -rf /tmp/uv-cache \
     && chmod +x scripts/*.py \
     && useradd --create-home --uid 10001 hragents \
     && chown -R hragents:hragents /app
