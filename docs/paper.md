@@ -156,9 +156,10 @@ Honest, current, and tracked in the repository:
 1. **Live-model fairness is unproven.** The fairness harness swaps names,
    gender-coded names, photos and schools through the deterministic scorer; a
    live-model run needs a working upstream and is not part of CI.
-2. **Credential registries are empty.** `verify_credential` has the shape of a
-   registry but no issuer data, so a genuine certificate and a badge currently
-   verify alike.
+2. **Credential registries are operator imports.** The registry exists and
+   gates scoring once verified, but there is no issuer API or dashboard importer
+   yet: rows arrive through the API, and an install that imports nothing treats
+   every claim as before.
 3. **Role fit is a coverage gate, not a model.** Tenure-driven depth with thin
    must-have coverage now routes to a person, but the check is token coverage of
    the job's requirements; a richer per-family sufficiency model is future work.

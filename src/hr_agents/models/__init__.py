@@ -80,6 +80,7 @@ from hr_agents.models.compliance import (
     SubjectKind,
 )
 from hr_agents.models.contract import Contract, ContractStatus, ContractType
+from hr_agents.models.credentials import CredentialEntry, CredentialRegistry
 from hr_agents.models.employee import (
     EMPLOYEE_TRANSITIONS,
     ERASED_NAME,
@@ -263,7 +264,9 @@ __all__ = [
     "ContractType",
     "Conversation",
     "ConversationState",
+    "CredentialEntry",
     "CredentialEvidence",
+    "CredentialRegistry",
     "DimensionScore",
     "DispositionAction",
     "DocumentKind",

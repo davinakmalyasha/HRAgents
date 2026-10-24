@@ -15,6 +15,10 @@ from hr_agents.services.audit import AuditChain
 from hr_agents.services.calendar import CalendarService
 from hr_agents.services.compliance import ComplianceService, PurgeHandler
 from hr_agents.services.contracts import ContractService
+from hr_agents.services.credentials import (
+    CredentialRegistryService,
+    CredentialRegistryStore,
+)
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.growth import GrowthService
 from hr_agents.services.leave import LeaveService
@@ -132,6 +136,7 @@ class PeopleServices:
     approvals: ApprovalEngine = field(init=False)
     tasks: TaskEngine = field(init=False)
     rate_tables: RateTableService = field(init=False)
+    credentials: CredentialRegistryService = field(init=False)
     onboarding: OnboardingService = field(init=False)
     leave: LeaveService = field(init=False)
     payroll: PayrollService = field(init=False)
@@ -146,6 +151,7 @@ class PeopleServices:
         approval_store: ApprovalStore
         task_store: TaskStore
         rate_table_store: RateTableStore
+        credential_store: CredentialRegistryStore
         compliance_store: ComplianceStore
         growth_store: GrowthStore
         offboarding_store: OffboardingStore
@@ -156,10 +162,12 @@ class PeopleServices:
             approval_store = ApprovalStore()
             task_store = TaskStore()
             rate_table_store = RateTableStore()
+            credential_store = CredentialRegistryStore()
             compliance_store = ComplianceStore()
             growth_store = GrowthStore()
             offboarding_store = OffboardingStore()
         else:
+            from hr_agents.db.credentials import DbCredentialRegistryStore
             from hr_agents.db.domain import (
                 DbComplianceStore,
                 DbGrowthStore,
@@ -178,6 +186,7 @@ class PeopleServices:
             approval_store = DbApprovalStore(self.session_factory)
             task_store = DbTaskStore(self.session_factory)
             rate_table_store = DbRateTableStore(self.session_factory)
+            credential_store = DbCredentialRegistryStore(self.session_factory)
             compliance_store = DbComplianceStore(self.session_factory)
             growth_store = DbGrowthStore(self.session_factory)
             offboarding_store = DbOffboardingStore(self.session_factory)
@@ -196,6 +205,7 @@ class PeopleServices:
         )
         self.contracts = ContractService(contract_store, audit=self.audit, tasks=tasks)
         self.rate_tables = RateTableService(rate_table_store, audit=self.audit)
+        self.credentials = CredentialRegistryService(credential_store, audit=self.audit)
         leave: LeaveService
         if self.session_factory is None:
             leave = LeaveService(employees=self.employees, approvals=approvals, audit=self.audit)

@@ -36,6 +36,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.credentials import CredentialRegistryService
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.rubrics import RubricRegistry
 from hr_agents.services.scoring import (
@@ -168,6 +169,7 @@ class ApplicationPipeline:
         storage: StoragePort,
         audit: AuditChain,
         rubrics: RubricRegistry | None = None,
+        credentials: CredentialRegistryService | None = None,
         guard: InjectionGuard | None = None,
         config: PipelineConfig | None = None,
     ) -> None:
@@ -175,6 +177,7 @@ class ApplicationPipeline:
         self._storage = storage
         self._audit = audit
         self._rubrics = rubrics or RubricRegistry()
+        self._credentials = credentials
         self._guard = guard or InjectionGuard()
         self._config = config
 
@@ -290,6 +293,21 @@ class ApplicationPipeline:
                 payload={"severity": max_severity},
             )
             actions.append("pipeline.injection_flagged")
+
+        # 1b. Certificates an operator has actually verified. With no usable
+        #     registry this is the identity function; with one, an unmatched
+        #     claim stops counting as verified.
+        if self._credentials is not None and self._credentials.has_usable():
+            profiles = [
+                profile.model_copy(
+                    update={
+                        "certifications": self._credentials.verify_claims(
+                            profile.certifications, as_of=config.reference_date
+                        )
+                    }
+                )
+                for profile in profiles
+            ]
 
         primary = profiles[0]
 

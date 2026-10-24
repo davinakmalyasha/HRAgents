@@ -99,6 +99,25 @@ To rotate the key, prepend the new key to the comma-separated list, restart,
 re-save the providers you changed (the UI keeps the secret when the field is
 blank), then remove the old key.
 
+### Verified credentials
+
+A certificate on a CV is a claim. The credential registry is where an operator
+records what the issuer actually confirmed, and scoring only trusts it once a
+named human has verified the registry with a source.
+
+```bash
+curl -s -X POST localhost:8000/v1/credentials -H "X-API-Key: $KEY"   -d '{"name":"AWS certifications","issuer":"AWS"}'
+# add the rows you checked, then certify them
+curl -s -X PUT localhost:8000/v1/credentials/$ID/entries -H "X-API-Key: $KEY"   -d '{"entries":[{"name":"AWS Solutions Architect","expires_on":"2027-01-01"}]}'
+curl -s -X POST localhost:8000/v1/credentials/$ID/verify -H "X-API-Key: $KEY"   -d '{"source_note":"issuer page, 2026-10-24"}'
+```
+
+A registry is inert until verified. Once at least one is usable, a claim that
+matches nothing counts as **unverified** (a Coursera badge and a genuine
+certificate stop scoring alike), while an entry past `expires_on` answers
+expired. Editing entries invalidates the verification, exactly like a rate
+table. The dashboard form is not built yet; the API is the import path today.
+
 ### Push notifications (optional)
 
 Notifications stay off until the operator issues a VAPID pair **for this

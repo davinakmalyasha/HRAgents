@@ -48,6 +48,7 @@ from hr_agents.api.routers import (
     workspaces,
 )
 from hr_agents.api.routers import chat as chat_router
+from hr_agents.api.routers import credentials as credentials_router
 from hr_agents.api.routers import leave as leave_router
 from hr_agents.api.routers import onboarding as onboarding_router
 from hr_agents.api.routers import payroll as payroll_router
@@ -429,6 +430,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(offers.router, responses=ERROR_RESPONSES)
     app.include_router(setup_router.router, responses=ERROR_RESPONSES)
     app.include_router(providers_router.router, responses=ERROR_RESPONSES)
+    app.include_router(credentials_router.router, responses=ERROR_RESPONSES)
     app.include_router(push_router.router, responses=ERROR_RESPONSES)
     app.include_router(rubrics.router, responses=ERROR_RESPONSES)
     app.include_router(people_router.employees_router, responses=ERROR_RESPONSES)

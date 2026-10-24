@@ -435,3 +435,25 @@ class ProviderSettingRecord(TenantScoped, Base):
     config_sealed: Mapped[str] = mapped_column(Text, nullable=False)
     updated_by: Mapped[str] = mapped_column(String(200), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class CredentialRegistryRecord(TenantScoped, Base):
+    """Operator-verified credential rows, one registry per issuer and name."""
+
+    __tablename__ = "credential_registries"
+    __table_args__ = (
+        Index("ix_credential_registries_tenant", "tenant_id"),
+        UniqueConstraint(
+            "tenant_id", "issuer", "name", name="uq_credential_registries_issuer_name"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    issuer: Mapped[str] = mapped_column(String(200), nullable=False)
+    entries: Mapped[list[dict[str, Any]]] = mapped_column(JSONVariant, nullable=False)
+    verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    verified_by: Mapped[str | None] = mapped_column(String(200))
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_note: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

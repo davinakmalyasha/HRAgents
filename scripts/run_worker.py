@@ -56,6 +56,7 @@ def build_pipeline(app, agent_set, config: PipelineConfig) -> ApplicationPipelin
         storage=storage,
         audit=app.state.audit,
         rubrics=app.state.recruiting.rubrics,
+        credentials=app.state.people.credentials,
         config=config,
     )
 

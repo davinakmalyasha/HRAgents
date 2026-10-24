@@ -467,9 +467,13 @@ Remaining in this area:
       to `HITL_MANUAL`. The decision table and formulas in `docs/architecture/hitl-bounds.md` are
       updated; the calibration corpus carries provenance so it measures the weights, and the
       engineering vector is pinned as a serialized snapshot.
-- [ ] **Real credential registries per family** (BNSP, AWS/Google/Azure, ACCA/CPA/CFA). Today
-      `verify_credential` is a dict lookup with no data, so a genuine certificate and a Coursera
-      badge score the same.
+- [x] **Operator-verified credential registries.** A registry is a named, issuer-scoped list of
+      rows an operator checked (status, credential id, expiry, source), behind the same
+      named-human `verified` gate as rate tables (migration `0031`, `/v1/credentials`). With at
+      least one usable registry, a matched claim takes the registry's answer (verified / failed /
+      expired) and an unmatched claim becomes unverified before scoring, so a genuine certificate
+      and a badge no longer score alike. With none configured, claims are untouched. The
+      dashboard import form remains; the API is the current path.
 - [x] **Per-family templates, pinned.** Templates ship for all eight `JobFamily` values
       (`engineering`, `finance`, `education`, `healthcare`, `legal`, `operations`, `sales`,
       `general`; admin- and support-shaped jobs live under `general`/`operations`), each with its
