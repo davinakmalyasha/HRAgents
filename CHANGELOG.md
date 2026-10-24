@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.2.0...hr-agents-v0.3.0) (2026-10-24)
+
+
+### Features
+
+* **scoring:** tenure is not role fit ([0201652](https://github.com/davinakmalyasha/HRAgents/commit/02016523ee3bb0261ff57ef36f725450d4595e21))
+
+
+### Bug Fixes
+
+* **ci:** gate the image on vulnerabilities, not vendor example strings ([57e162b](https://github.com/davinakmalyasha/HRAgents/commit/57e162b118ac108569182ccaa123262f1eccc3ee))
+
+
+### Documentation
+
+* real screenshots, the paper, and versioned docs in the plan ([5351cb8](https://github.com/davinakmalyasha/HRAgents/commit/5351cb840f300b74a948d2357074002b80454a96))
+* version the site, so a release keeps its own documentation ([7bab9d0](https://github.com/davinakmalyasha/HRAgents/commit/7bab9d0ccabe283fa7f741ec133139919eb09983))
+
 ## [0.2.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.1.0...hr-agents-v0.2.0) (2026-10-24)
 
 
