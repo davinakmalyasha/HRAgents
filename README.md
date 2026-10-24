@@ -107,11 +107,11 @@ The reasoning behind this split, and the exact automation bounds, are in
 
 ## A look inside
 
-![Home: the work that needs a human today](docs/assets/screenshots/home.png)
+![A tour of the demo: home, approvals, people and records, operations](docs/assets/screenshots/tour.gif)
 
-![People and records: directory, org chart, probation and expiry queue](docs/assets/screenshots/records.png)
-
-The approvals queue and the operations page (providers, dead letters) are in the
+Four screens from the demo dataset — the attention-first home, the shared
+approvals queue, people and records, and the operations page with every
+provider's state. More in the
 [docs site](https://davinakmalyasha.github.io/HRAgents/latest/).
 
 ## Why this exists

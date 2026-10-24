@@ -68,6 +68,8 @@ table is in [Human-in-the-loop bounds](architecture/hitl-bounds.md).
 
 ## A look inside
 
+![A tour of the demo: home, approvals, people and records, operations](assets/screenshots/tour.gif)
+
 The demo dataset, seeded through the real services:
 
 ![Home: the work that needs a human today](assets/screenshots/home.png)

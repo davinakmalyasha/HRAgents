@@ -798,9 +798,9 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       the offline and live eval tables (5/5, mean 81.7 s), and the scoring regression vector are in
       `benchmarks.md` and the paper. Fairness results are scorer-level only (the live-model pair is
       blocked), and cost per application is not yet instrumented.
-- [~] README: the 5-minute quickstart, demo dataset, an inline Mermaid architecture diagram and
-      real screenshots of the running demo ship. The GIF walkthrough and the GitHub social preview
-      remain.
+- [~] README: the 5-minute quickstart, demo dataset, an inline Mermaid architecture diagram, a
+      four-screen tour GIF and real screenshots of the running demo ship. The narrated demo video
+      and the GitHub social preview remain.
 - [ ] README "Work with the author / freelance integration" finalized (services, contact, scope)
 - [ ] Demo video / GIF walkthrough (2–3 minutes: ingest → review → override → schedule)
 - [x] API docs site (OpenAPI rendered by the docs site from the committed spec) + operator
