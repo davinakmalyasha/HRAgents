@@ -807,7 +807,10 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 - [~] Container image on GHCR: the `image.yml` pipeline builds `linux/amd64` + `linux/arm64`,
       scans before pushing, and fails on a fixable CRITICAL. The pipeline was added after the 0.1.0
       release and its first run found a fixable CRITICAL in the 0.1.0 lockfile (certifi), so the
-      0.1.0 image is superseded rather than re-tagged; the next release builds clean.
+      0.1.0 image is superseded rather than re-tagged; the next release builds clean. A second
+      dispatch of the 0.1.0 tag validated the new ordering: it built, scanned, attached the reports,
+      failed the CRITICAL gate, and **skipped the push** — the failure mode is now a published
+      finding, not a published image.
 - [~] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
       the release, and buildx attaches the SBOM and max-mode provenance to the image digest. The
       0.1.0 run failed its own gate before attaching them (see above); the next release carries all
