@@ -1,6 +1,6 @@
 [project]
 name = "hr-agents"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deterministic, auditable multi-agent candidate evaluation engine for technical recruitment"
 readme = "README.md"
 requires-python = ">=3.14"
