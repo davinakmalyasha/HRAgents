@@ -77,6 +77,16 @@ class DimensionScore(StrictModel):
     weight: float = Field(ge=0.0)
     rationale: str
     evidence: list[EvidenceRef] = Field(default_factory=list)
+    components: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "The sub-signals that produced the score, by name. `technical_depth` "
+            "exposes its weighted tenure/breadth/projects/publications parts and "
+            "`stack_alignment` its must-have/nice-to-have/stack coverage, which is "
+            "what lets policy ask whether tenure is carrying a role-fit-thin "
+            "candidate without re-deriving the math."
+        ),
+    )
 
 
 class ScoringRun(StrictModel):

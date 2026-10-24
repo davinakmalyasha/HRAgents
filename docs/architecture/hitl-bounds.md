@@ -148,6 +148,12 @@ Evaluated top to bottom; first match wins.
 | 7 | `0.70 ≤ S_tech < 0.85 ∧ evidence.sufficient` | `HITL_SOFT_REJECTION` | engineering lead sign-off required |
 | 8 | `S_tech < 0.70 ∧ evidence.sufficient` | `REJECT_AUTO` | system (+ feedback + audit) |
 
+**Tenure is not role fit.** A candidate whose depth is carried by tenure while
+fewer than half of the job's must-have skills are evidenced is routed to a person
+even if the score clears the scheduling band. The component values used by the
+rule (tenure's weighted share of depth, must-have coverage) travel on the stored
+breakdown, so the decision is inspectable after the fact.
+
 **Evidence-first scoring.** A dimension the extraction could not point at
 contributes **0**, not a title- or tenure-shaped estimate; the rationale says
 so. That lowers `S_tech` for thin extractions, so the decision table also makes

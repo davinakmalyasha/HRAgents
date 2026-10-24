@@ -20,6 +20,7 @@ def evaluate_policy(
     mutual_slots: int | None = None,
     consent_active: bool = True,
     evidence_sufficient: bool = True,
+    fit_sufficient: bool = True,
     thresholds: PolicyThresholds | None = None,
     settings: Settings | None = None,
 ) -> PolicyEvaluation:
@@ -82,6 +83,16 @@ def evaluate_policy(
         s_tech >= thresholds.auto_schedule_min_score
         and sigma <= thresholds.auto_schedule_max_variance
     )
+    if not fit_sufficient:
+        reasons.append(
+            "depth is carried by tenure while less than half of the must-have "
+            "skills are evidenced; a person must review whether this is the right "
+            "role, not just a long career"
+        )
+        return PolicyEvaluation(
+            decision=PolicyDecision.HITL_MANUAL, reasons=reasons, thresholds=thresholds
+        )
+
     if in_auto_band and not evidence_sufficient:
         reasons.append(
             f"s_tech {s_tech:.3f} and σ {sigma:.4f} clear the automation band, "

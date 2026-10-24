@@ -451,10 +451,13 @@ Remaining in this area:
       `evidence_density(taxonomy)`, `tenure_saturation(cap)`, `credential_registry(family)`,
       `title_seniority_tiers(family)`. A single per-family keyword taxonomy is the change that makes
       the model general.
-- [ ] **Tenure must not outweigh fit.** The remaining construct-validity problem: with no rich evidence
-      model for a family, tenure becomes the default answer. Needs a role-specific sufficiency test
-      ("has this person actually done this job") scored independently of how long they have been
-      employed.
+- [x] **Tenure must not outweigh fit (first gate).** Depth now exposes its weighted
+      tenure/breadth/projects/publications components, stack alignment exposes its must-have
+      coverage, and policy routes a candidate to a person when tenure carries at least half of
+      depth while fewer than half of the must-have skills are evidenced. The rule blocks automation
+      in both directions and never changes the score. What remains is a richer, per-family
+      sufficiency model (domain-specific evidence beyond must-have token coverage) rather than the
+      first gate.
 - [x] **Evidence-first scoring, with a deliberate calibration.** Every dimension carries the
       references that produced it (deduplicated, bounded), and a dimension with **no** reference
       now contributes **0** with that stated in its rationale — a senior title or long tenure is
@@ -788,12 +791,16 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 
 ## 6. Paper, docs & release (Phase 10)
 
-- [ ] Paper: recruitment deep-dive (deterministic scoring + HITL bounds) plus the "HR department of
-      one" platform framing; honest limitations section
-- [ ] Measured results: ingestion throughput (36,509 req/min measured), eval scores, fairness-audit
-      results, live-model latency, cost per application
-- [~] README: the 5-minute quickstart, demo dataset and an inline Mermaid architecture diagram
-      ship. Screenshots/GIF and the GitHub social preview remain.
+- [x] Paper: `docs/paper.md` — deterministic scoring and HITL bounds, the "department of one"
+      framing, measured throughput/latency/eval results, and a limitations section that names what
+      is unproven (live-model fairness, credential registries, tenure sufficiency, cost).
+- [~] Measured results: ingestion throughput (36,509 req/min, p50 93 ms/p99 169 ms, 0 errors),
+      the offline and live eval tables (5/5, mean 81.7 s), and the scoring regression vector are in
+      `benchmarks.md` and the paper. Fairness results are scorer-level only (the live-model pair is
+      blocked), and cost per application is not yet instrumented.
+- [~] README: the 5-minute quickstart, demo dataset, an inline Mermaid architecture diagram and
+      real screenshots of the running demo ship. The GIF walkthrough and the GitHub social preview
+      remain.
 - [ ] README "Work with the author / freelance integration" finalized (services, contact, scope)
 - [ ] Demo video / GIF walkthrough (2–3 minutes: ingest → review → override → schedule)
 - [x] API docs site (OpenAPI rendered by the docs site from the committed spec) + operator

@@ -227,6 +227,12 @@ def _technical_depth(
         weight=0.0,
         rationale=rationale,
         evidence=_dedupe_evidence(_evidence_pool(profile)),
+        components={
+            "tenure": float(weights["tenure"]) * tenure,
+            "breadth": float(weights["breadth"]) * breadth,
+            "projects": float(weights["projects"]) * projects,
+            "publications": float(weights["publications"]) * publications,
+        },
     )
 
 
@@ -254,9 +260,11 @@ def _stack_alignment(profile: CandidateProfile, job: JobSpecification) -> Dimens
     score = 0.0
     parts: list[str] = []
     matched: list[EvidenceRef] = []
+    coverage: dict[str, float] = {}
     for label, required, weight in active:
         covered = required & available
         part = _coverage(required, available)
+        coverage[label.replace("-", "_")] = part
         score += (weight / total_weight) * part
         missing = sorted(required - available)
         for term in sorted(covered):
@@ -272,6 +280,7 @@ def _stack_alignment(profile: CandidateProfile, job: JobSpecification) -> Dimens
         weight=0.0,
         rationale="; ".join(parts),
         evidence=_dedupe_evidence(matched),
+        components=coverage,
     )
 
 
@@ -428,6 +437,33 @@ def _evidence_first(item: DimensionScore, *, neutral: bool = False) -> Dimension
             "rationale": f"{item.rationale} — no supporting evidence; contributes 0",
         }
     )
+
+
+def role_fit_sufficient(
+    breakdown: Iterable[DimensionScore], *, must_have_floor: float = 0.5
+) -> bool:
+    """Whether the record supports the role, not just a long career in *a* role.
+
+    Tenure is a real signal, but a candidate whose depth is carried by tenure
+    while fewer than half of the job's must-have skills are evidenced has not
+    shown they can do *this* job. The check is deliberately narrow: it only
+    fires when the must-have requirements exist and are thin, and it never
+    lowers the score — policy routes the case to a person instead.
+    """
+    depth = next(
+        (item for item in breakdown if item.dimension is ScoreDimension.TECHNICAL_DEPTH),
+        None,
+    )
+    stack = next(
+        (item for item in breakdown if item.dimension is ScoreDimension.STACK_ALIGNMENT), None
+    )
+    if depth is None or stack is None or depth.score <= 0:
+        return True
+    tenure = depth.components.get("tenure", 0.0)
+    must_have = stack.components.get("must_have")
+    if must_have is None:
+        return True
+    return not (tenure >= 0.5 * depth.score and must_have < must_have_floor)
 
 
 def score_runs(

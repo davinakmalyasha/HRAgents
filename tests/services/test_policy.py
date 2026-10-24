@@ -92,6 +92,21 @@ def test_missing_evidence_never_produces_an_automatic_rejection() -> None:
     assert soft.decision is PolicyDecision.HITL_MANUAL
 
 
+def test_a_tenure_driven_thin_fit_is_reviewed_not_automated() -> None:
+    """Tenure is not role fit, even when the score clears the band."""
+    result = evaluate_policy(
+        s_tech=0.95,
+        sigma=0.01,
+        mutual_slots=3,
+        fit_sufficient=False,
+    )
+    assert result.decision is PolicyDecision.HITL_MANUAL
+    assert "must-have skills" in result.reasons[0]
+
+    below = evaluate_policy(s_tech=0.42, sigma=0.01, mutual_slots=3, fit_sufficient=False)
+    assert below.decision is PolicyDecision.HITL_MANUAL
+
+
 def test_auto_band_with_evidence_still_schedules() -> None:
     result = evaluate_policy(
         s_tech=0.95,

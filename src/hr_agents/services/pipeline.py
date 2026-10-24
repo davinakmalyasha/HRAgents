@@ -38,7 +38,12 @@ from hr_agents.models import (
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.rubrics import RubricRegistry
-from hr_agents.services.scoring import ScoringResult, dimensions_evidenced, score_candidate
+from hr_agents.services.scoring import (
+    ScoringResult,
+    dimensions_evidenced,
+    role_fit_sufficient,
+    score_candidate,
+)
 from hr_agents.tools.registry import ToolRegistry
 
 logger = get_logger(__name__)
@@ -326,6 +331,7 @@ class ApplicationPipeline:
         # Automation must not outrun its evidence: a dimension with no reference
         # cannot justify sending somebody straight to scheduling.
         evidence_sufficient = dimensions_evidenced(evaluation.breakdown)
+        fit_sufficient = role_fit_sufficient(evaluation.breakdown)
         policy = evaluate_policy(
             s_tech=s_tech,
             sigma=sigma,
@@ -333,6 +339,7 @@ class ApplicationPipeline:
             mutual_slots=config.mutual_slots,
             consent_active=consent_active,
             evidence_sufficient=evidence_sufficient,
+            fit_sufficient=fit_sufficient,
             thresholds=rubric.thresholds,
         )
         recommendation = _recommendation_for(policy.decision)

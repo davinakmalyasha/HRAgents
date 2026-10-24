@@ -41,7 +41,11 @@ from evals.scoring_calibration import (
 
 from hr_agents.models import PolicyDecision, PolicyThresholds
 from hr_agents.services.policy import evaluate_policy
-from hr_agents.services.scoring import dimensions_evidenced, score_candidate
+from hr_agents.services.scoring import (
+    dimensions_evidenced,
+    role_fit_sufficient,
+    score_candidate,
+)
 
 FLOOR = 0.70
 """``soft_rejection_floor``. Hard-coded here on purpose.
@@ -250,3 +254,31 @@ def test_the_corpus_reference_date_does_not_drift_with_the_wall_clock() -> None:
     assert date(2025, 1, 1) == REFERENCE_DATE
     case = CASES["engineering_strong"]
     assert score_of(case.profile, case.job) == score_of(case.profile, case.job)
+
+
+def test_tenure_does_not_carry_a_role_fit_thin_candidate_to_automation() -> None:
+    """Equal tenure in the wrong field must not read as role fit.
+
+    The corpus's "tenured misfit" keeps the strong candidate's history and drops
+    the required skills, but some families' must-haves overlap a broad résumé.
+    This test states the mechanism directly: with the skills gone and the tenure
+    intact, the gate must close; with the skills present, it must stay open.
+    """
+    strong = CASES["engineering_strong"]
+    without_skills = strong.profile.model_copy(
+        update={
+            "skills": [],
+            "projects": [],
+            "experience": [
+                entry.model_copy(update={"tech_stack": []}) for entry in strong.profile.experience
+            ],
+        }
+    )
+
+    thin = score_candidate(without_skills, strong.job, reference_date=REFERENCE_DATE)
+    matched = score_candidate(strong.profile, strong.job, reference_date=REFERENCE_DATE)
+
+    stack = next(item for item in thin.breakdown if item.dimension.value == "stack_alignment")
+    assert stack.components["must_have"] == 0.0
+    assert role_fit_sufficient(thin.breakdown) is False
+    assert role_fit_sufficient(matched.breakdown) is True
