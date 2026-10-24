@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.3.0...hr-agents-v0.4.0) (2026-10-24)
+
+
+### Features
+
+* **credentials:** operator-verified registries gate certificate claims ([8397e7b](https://github.com/davinakmalyasha/HRAgents/commit/8397e7b8218d578428dd8a8bddb01bbd0f8c8324))
+* **evals:** compare fairness pairs as pairs, not as two cases ([4e85546](https://github.com/davinakmalyasha/HRAgents/commit/4e8554674287aeec0ca7587433f0d51723433ae4))
+
+
+### Documentation
+
+* a four-screen tour, captured from the running demo ([7287264](https://github.com/davinakmalyasha/HRAgents/commit/7287264151fbfde40bb1cbc13ae8e494c0a027dc))
+
 ## [0.3.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.2.0...hr-agents-v0.3.0) (2026-10-24)
 
 
