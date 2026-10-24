@@ -1,0 +1,2652 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A virtual HR team for the HR department of one — deterministic scoring, human decisions, every outcome reconstructible.">
+      
+      
+      
+        <link rel="canonical" href="https://davinakmalyasha.github.io/HRAgents/dev/research/literature-review/">
+      
+      
+        <link rel="prev" href="../../adr/0006-tenancy-rls/">
+      
+      
+        <link rel="next" href="../../plan/master-build-plan/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Literature review - HRAgents</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#literature-review-deterministic-auditable-technical-recruitment" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="HRAgents" class="md-header__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            HRAgents
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Literature review
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="HRAgents" class="md-nav__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    HRAgents
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/system-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/hitl-bounds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-loop bounds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/board-transitions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment & operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-llm-extracts-deterministic-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM extracts, code decides
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-hitl-bounds-in-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HITL bounds in code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-no-shell-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    No shell tools, ever
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0004-provider-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-sync-domain-async-edge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sync domain, async edge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-tenancy-rls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy and RLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Literature review
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Literature review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-purpose-and-method" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Purpose and Method
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Purpose and Method">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#01-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.1 Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#02-method-and-inclusion-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2 Method and inclusion criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#03-known-limitations-of-this-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.3 Known limitations of this review
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-screening-bottleneck-time-bounded-low-fidelity-human-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The Screening Bottleneck: Time-Bounded, Low-Fidelity Human Review
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. The Screening Bottleneck: Time-Bounded, Low-Fidelity Human Review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-subjectivity-and-discrimination-the-empirical-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Subjectivity and Discrimination: The Empirical Record
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Subjectivity and Discrimination: The Empirical Record">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-bertrand-mullainathan-2004-resume-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Bertrand &amp; Mullainathan (2004) — résumé audit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-quillian-pager-hexel-midtben-2017-meta-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Quillian, Pager, Hexel &amp; Midtbøen (2017) — meta-analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-automation-failures-why-ai-screening-has-failed-once-already" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Automation Failures: Why "AI Screening" Has Failed Once Already
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Automation Failures: Why &#34;AI Screening&#34; Has Failed Once Already">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-amazons-machine-learning-recruiting-engine-reuters-2018" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Amazon's machine-learning recruiting engine (Reuters, 2018)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-synthesis-the-core-lesson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Synthesis — the core lesson
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-regulatory-landscape-high-risk-classification-is-now-explicit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Regulatory Landscape: High-Risk Classification Is Now Explicit
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Regulatory Landscape: High-Risk Classification Is Now Explicit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-eu-ai-act-regulation-eu-20241689" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 EU AI Act — Regulation (EU) 2024/1689
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-gdpr-regulation-eu-2016679-article-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 GDPR — Regulation (EU) 2016/679, Article 22
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-indonesia-uu-no-27-tahun-2022-pelindungan-data-pribadi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Indonesia — UU No. 27 Tahun 2022 (Pelindungan Data Pribadi)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-standards-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Standards references
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-indonesian-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The Indonesian Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. The Indonesian Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-macro-labor-statistics-verified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Macro labor statistics (verified)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-hiring-practice-observations-qualitative-no-verified-domestic-dataset-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Hiring-practice observations (qualitative; no verified domestic dataset exists)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-research-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Research gap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-skills-based-hiring-and-global-demand-signals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Skills-Based Hiring and Global Demand Signals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-synthesis-evidence-design-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Synthesis: Evidence → Design Principles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Synthesis: Evidence → Design Principles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-the-resulting-thesis-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 The resulting thesis statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-what-this-review-does-not-claim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 What this review does not claim
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-source-verification-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Source Verification Table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/master-build-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master build plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/remaining-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remaining work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/problem-statement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Problem statement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plan/release-process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release process
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-purpose-and-method" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Purpose and Method
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="0. Purpose and Method">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#01-purpose" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.1 Purpose
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#02-method-and-inclusion-criteria" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.2 Method and inclusion criteria
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#03-known-limitations-of-this-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.3 Known limitations of this review
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-the-screening-bottleneck-time-bounded-low-fidelity-human-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. The Screening Bottleneck: Time-Bounded, Low-Fidelity Human Review
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. The Screening Bottleneck: Time-Bounded, Low-Fidelity Human Review">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Evidence
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-subjectivity-and-discrimination-the-empirical-record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Subjectivity and Discrimination: The Empirical Record
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Subjectivity and Discrimination: The Empirical Record">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-bertrand-mullainathan-2004-resume-audit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Bertrand &amp; Mullainathan (2004) — résumé audit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-quillian-pager-hexel-midtben-2017-meta-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Quillian, Pager, Hexel &amp; Midtbøen (2017) — meta-analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-automation-failures-why-ai-screening-has-failed-once-already" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Automation Failures: Why "AI Screening" Has Failed Once Already
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Automation Failures: Why &#34;AI Screening&#34; Has Failed Once Already">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-amazons-machine-learning-recruiting-engine-reuters-2018" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Amazon's machine-learning recruiting engine (Reuters, 2018)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-synthesis-the-core-lesson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Synthesis — the core lesson
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-regulatory-landscape-high-risk-classification-is-now-explicit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Regulatory Landscape: High-Risk Classification Is Now Explicit
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Regulatory Landscape: High-Risk Classification Is Now Explicit">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-eu-ai-act-regulation-eu-20241689" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 EU AI Act — Regulation (EU) 2024/1689
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-gdpr-regulation-eu-2016679-article-22" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 GDPR — Regulation (EU) 2016/679, Article 22
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-indonesia-uu-no-27-tahun-2022-pelindungan-data-pribadi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Indonesia — UU No. 27 Tahun 2022 (Pelindungan Data Pribadi)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-standards-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Standards references
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-synthesis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Synthesis
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-the-indonesian-context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. The Indonesian Context
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. The Indonesian Context">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-macro-labor-statistics-verified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Macro labor statistics (verified)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-hiring-practice-observations-qualitative-no-verified-domestic-dataset-exists" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Hiring-practice observations (qualitative; no verified domestic dataset exists)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-research-gap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Research gap
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-skills-based-hiring-and-global-demand-signals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Skills-Based Hiring and Global Demand Signals
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-synthesis-evidence-design-principles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Synthesis: Evidence → Design Principles
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Synthesis: Evidence → Design Principles">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-the-resulting-thesis-statement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 The resulting thesis statement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-what-this-review-does-not-claim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 What this review does not claim
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-source-verification-table" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Source Verification Table
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/davinakmalyasha/HRAgents/edit/main/docs/research/literature-review.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="literature-review-deterministic-auditable-technical-recruitment">Literature Review: Deterministic, Auditable Technical Recruitment<a class="headerlink" href="#literature-review-deterministic-auditable-technical-recruitment" title="Permanent link">&para;</a></h1>
+<p><strong>Project:</strong> HRAgents — Multi-Agent Candidate Evaluation Engine
+<strong>Document type:</strong> Structured literature review supporting the technical paper and system design
+<strong>Research window:</strong> Sources verified 2026-09-11
+<strong>Status:</strong> Living document — expanded as the system evolves</p>
+<hr />
+<h2 id="0-purpose-and-method">0. Purpose and Method<a class="headerlink" href="#0-purpose-and-method" title="Permanent link">&para;</a></h2>
+<h3 id="01-purpose">0.1 Purpose<a class="headerlink" href="#01-purpose" title="Permanent link">&para;</a></h3>
+<p>This review establishes the evidentiary foundation for a simple claim:</p>
+<blockquote>
+<p>Technical hiring in Indonesia (and globally) is bottlenecked not by a lack of candidates, but by
+screening processes that are <strong>subjective, temporally constrained, structurally opaque, and legally
+unprepared</strong>. Automation that merely accelerates those processes inherits their flaws. Automation
+that replaces <em>judgment</em> with <em>deterministic, auditable evaluation</em> — and reserves human judgment
+for decisions that materially affect people — can do better.</p>
+</blockquote>
+<p>The review serves three purposes:</p>
+<ol>
+<li><strong>Evidence for the paper's problem statement</strong> — that legacy screening is measurably biased,
+   time-constrained, and increasingly regulated.</li>
+<li><strong>Design constraints for the system</strong> — each finding below maps to a concrete architectural
+   decision (see §7).</li>
+<li><strong>Citation base</strong> — a verified bibliography (<code>sources.bib</code>) so the paper makes no unsourced
+   quantitative claims.</li>
+</ol>
+<h3 id="02-method-and-inclusion-criteria">0.2 Method and inclusion criteria<a class="headerlink" href="#02-method-and-inclusion-criteria" title="Permanent link">&para;</a></h3>
+<p>Sources were retrieved and verified directly (not cited second-hand) on 2026-09-11. Verification
+methods: direct retrieval of the published abstract/full text where accessible; archived captures
+(Internet Archive Wayback Machine) where the publisher blocks automated access; official legal
+databases for statutes; official statistics APIs for quantitative data.</p>
+<p>Inclusion criteria:</p>
+<ul>
+<li><strong>Peer-reviewed or authoritative</strong>: peer-reviewed journals (AER, PNAS), national/international
+  statistics (World Bank Open Data, based on ILO modeled estimates), primary legal instruments
+  (Regulation (EU) 2024/1689; GDPR; UU 27/2022), or reputable practitioner research (HBR; Ladders
+  eye-tracking study).</li>
+<li><strong>Directly relevant</strong> to one of: screening cognition, hiring discrimination, automation of hiring,
+  AI regulation, or the Indonesian labor/legal context.</li>
+<li><strong>Verified</strong>: every entry in §8 was accessible on the date shown. Contested or non-verifiable
+  industry statistics (e.g., widely circulated but unsourced "75% of resumes are rejected by ATS"
+  claims) were <strong>excluded</strong>.</li>
+</ul>
+<h3 id="03-known-limitations-of-this-review">0.3 Known limitations of this review<a class="headerlink" href="#03-known-limitations-of-this-review" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Indonesian-language academic literature on algorithmic hiring is scarce; the Indonesian section
+  relies on primary law and World Bank/ILO statistics rather than domestic hiring-funnel research,
+  which does not appear to be publicly benchmarked. This is itself a finding (§5.3).</li>
+<li>Some sources are practitioner rather than peer-reviewed (Ladders, HBR). They are included for
+  cognitive/operational claims, not for causal inference, and are labeled as such.</li>
+<li>The Amazon/Reuters case (§3.1) is investigative journalism, not a controlled study. It is treated
+  as a documented industry case, and its internal details are attributed to named anonymous sources
+  in the original reporting.</li>
+</ul>
+<hr />
+<h2 id="1-the-screening-bottleneck-time-bounded-low-fidelity-human-review">1. The Screening Bottleneck: Time-Bounded, Low-Fidelity Human Review<a class="headerlink" href="#1-the-screening-bottleneck-time-bounded-low-fidelity-human-review" title="Permanent link">&para;</a></h2>
+<h3 id="11-evidence">1.1 Evidence<a class="headerlink" href="#11-evidence" title="Permanent link">&para;</a></h3>
+<p><strong>Ladders eye-tracking study (2012; updated 2018).</strong> In an eye-tracking study of professional
+recruiters reviewing résumés, Ladders found recruiters make an initial "fit / no fit" decision in
+approximately <strong>6 seconds</strong> (2012) and updated the finding in 2018 to <strong>7.4 seconds</strong> using
+eye-tracking data. The study also found that recruiters fixate on current title/company, then
+previous position, then dates, then education — and that candidate photographs (common on online
+profiles) actively delayed locating relevant skills and experience information.</p>
+<ul>
+<li>Source: Ladders Eye-Tracking Study; Ladders article, archived captures 2019-01-02 and
+  2020-12-30 (<code>sources.bib</code>: <code>ladders2018eyetracking</code>).</li>
+<li>Interpretation: the "7.4 seconds" figure is a <em>median initial scan</em>, not total evaluation time.
+  It does not mean hiring decisions take 7.4 seconds — but it does mean that <strong>whatever a résumé
+  fails to communicate in its first few visual seconds is at severe risk of never being considered</strong>.
+  Keyword-shaped résumés win; substance-dense résumés that require reading lose.</li>
+</ul>
+<p><strong>HBR — Cappelli (2019), "Your Approach to Hiring Is All Wrong."</strong> Cappelli's central argument:
+"Businesses have never done as much hiring as they do today. They've never spent as much money
+doing it. And they've never done a worse job of it." He attributes the failure to outsourced
+sourcing, broken algorithms, and the absence of structured evaluation, and notes that the
+companion piece's title — "Data Science Can't Fix Hiring (Yet)" — reflects the immaturity of
+data-driven hiring rather than its impossibility.</p>
+<ul>
+<li>Source: Harvard Business Review, May–June 2019 issue (<code>sources.bib</code>: <code>cappelli2019hiring</code>).</li>
+</ul>
+<h3 id="12-synthesis">1.2 Synthesis<a class="headerlink" href="#12-synthesis" title="Permanent link">&para;</a></h3>
+<p>Human screening at scale is <strong>structurally lossy</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Human screening reality</th>
+<th>Consequence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Attention budget</td>
+<td>~7 seconds per résumé, initial pass</td>
+<td>Dense technical evidence is skipped</td>
+</tr>
+<tr>
+<td>Consistency</td>
+<td>Varies by mood, time of day, workload, fatigue</td>
+<td>Non-reproducible decisions</td>
+</tr>
+<tr>
+<td>Evidence depth</td>
+<td>Keyword matching, visual salience</td>
+<td>Portfolio/metadata ignored</td>
+</tr>
+<tr>
+<td>Record</td>
+<td>Usually none</td>
+<td>Decisions cannot be audited or challenged</td>
+</tr>
+<tr>
+<td>Feedback</td>
+<td>Usually none</td>
+<td>Candidates cannot learn or contest</td>
+</tr>
+</tbody>
+</table>
+<p>This is not recruiter incompetence; it is an impossible workload. A human cannot perform deep
+technical evaluation thousands of times per week, and should not be asked to.</p>
+<hr />
+<h2 id="2-subjectivity-and-discrimination-the-empirical-record">2. Subjectivity and Discrimination: The Empirical Record<a class="headerlink" href="#2-subjectivity-and-discrimination-the-empirical-record" title="Permanent link">&para;</a></h2>
+<h3 id="21-bertrand-mullainathan-2004-resume-audit">2.1 Bertrand &amp; Mullainathan (2004) — résumé audit<a class="headerlink" href="#21-bertrand-mullainathan-2004-resume-audit" title="Permanent link">&para;</a></h3>
+<p>The canonical field experiment in hiring discrimination: fictitious résumés with randomly assigned
+White- or African-American-sounding names were sent to job ads in Boston and Chicago. <strong>White names
+received 50 percent more callbacks for interviews.</strong> Callback rates were more responsive to résumé
+quality for White names than for Black names, and the racial gap was <strong>uniform across occupation,
+industry, and employer size</strong>.</p>
+<ul>
+<li>Source: <em>American Economic Review</em> 94(4), September 2004, pp. 991–1013.
+  DOI: <a href="https://doi.org/10.1257/0002828042002561">10.1257/0002828042002561</a>. Abstract verified
+  directly (<code>sources.bib</code>: <code>bertrand2004emily</code>).</li>
+</ul>
+<h3 id="22-quillian-pager-hexel-midtben-2017-meta-analysis">2.2 Quillian, Pager, Hexel &amp; Midtbøen (2017) — meta-analysis<a class="headerlink" href="#22-quillian-pager-hexel-midtben-2017-meta-analysis" title="Permanent link">&para;</a></h3>
+<p>A meta-analysis of field experiments (audit studies) across multiple countries and decades. Title
+finding, verified via the published record: <strong>no change in racial discrimination in hiring over
+time</strong> — callback gaps between majority and minority applicants remained essentially stable.</p>
+<ul>
+<li>Source: <em>PNAS</em> 114(41), October 2017, pp. 10870–10875.
+  DOI: <a href="https://doi.org/10.1073/pnas.1706255114">10.1073/pnas.1706255114</a>
+  (<code>sources.bib</code>: <code>quillian2017meta</code>).</li>
+</ul>
+<h3 id="23-synthesis">2.3 Synthesis<a class="headerlink" href="#23-synthesis" title="Permanent link">&para;</a></h3>
+<p>Two independent, methodologically strong lines of evidence establish that:</p>
+<ol>
+<li>Discrimination in initial screening is <strong>large, persistent, and not self-correcting</strong> — it did
+   not diminish over the decades studied.</li>
+<li>It operates at the <strong>earliest, lowest-information stage</strong> (the callback decision), exactly where
+   current ATS pipelines concentrate automation.</li>
+<li>Any system trained to imitate historical screening decisions inherits this signal. This is the
+   direct cause of the failure described in §3.</li>
+</ol>
+<p><strong>Design implication (carried into §7):</strong> names, gender, photos, nationality, religion, and other
+protected attributes must be excluded from scoring by construction — and this must be <em>tested</em>,
+not merely asserted. The audit-study methodology in §2.1 can be adapted as an internal fairness
+protocol: periodically inject counterfactual variants of the same candidate profile (names swapped,
+demographic markers removed) and verify score invariance.</p>
+<hr />
+<h2 id="3-automation-failures-why-ai-screening-has-failed-once-already">3. Automation Failures: Why "AI Screening" Has Failed Once Already<a class="headerlink" href="#3-automation-failures-why-ai-screening-has-failed-once-already" title="Permanent link">&para;</a></h2>
+<h3 id="31-amazons-machine-learning-recruiting-engine-reuters-2018">3.1 Amazon's machine-learning recruiting engine (Reuters, 2018)<a class="headerlink" href="#31-amazons-machine-learning-recruiting-engine-reuters-2018" title="Permanent link">&para;</a></h3>
+<p>Reuters documented Amazon's internal ML recruiting effort in detail:</p>
+<ul>
+<li>Starting in 2014, a team in Edinburgh built <strong>500 computer models</strong> for specific job functions and
+  locations, trained on candidate résumés submitted over a <strong>10-year period</strong> and roughly <strong>50,000
+  terms</strong>.</li>
+<li>By 2015, Amazon discovered the system was <strong>not gender-neutral</strong>: because historical résumés came
+  overwhelmingly from men, the models "taught itself that male candidates were preferable."
+  It <strong>penalized résumés containing the word "women's"</strong> (e.g., "women's chess club captain") and
+  <strong>downgraded graduates of two all-women's colleges</strong>.</li>
+<li>Bias was not the only failure: "Problems with the data that underpinned the models' judgments
+  meant that unqualified candidates were often recommended for all manner of jobs." The tool
+  returned results "almost at random."</li>
+<li>Amazon reportedly edited the models to neutralize specific terms, concluded the systemic issue
+  could not be guaranteed fixed, and <strong>disbanded the team</strong>; a "much-watered down version" was
+  later retained for chores such as de-duplicating candidate profiles.</li>
+<li>The stated industry ambition at the time: "They literally wanted it to be an engine where I'm
+  going to give you 100 resumes, it will spit out the top five, and we'll hire those."</li>
+<li>LinkedIn's John Jersin, in the same article: <strong>"I certainly would not trust any AI system today
+  to make a hiring decision on its own. The technology is just not ready yet."</strong></li>
+<li>
+<p>Context statistic cited in the article: a 2017 CareerBuilder survey found <strong>55% of U.S. HR
+  managers expected AI to be a regular part of their work within five years</strong>.</p>
+</li>
+<li>
+<p>Source: Dastin, J. (2018-10-10), Reuters, "Amazon scraps secret AI recruiting tool that showed
+  bias against women" (<code>sources.bib</code>: <code>dastin2018amazon</code>). Full text verified 2026-09-11.</p>
+</li>
+</ul>
+<h3 id="32-synthesis-the-core-lesson">3.2 Synthesis — the core lesson<a class="headerlink" href="#32-synthesis-the-core-lesson" title="Permanent link">&para;</a></h3>
+<p>The Amazon case is not an argument against automation. It is an argument against <strong>learning
+preferences from historical human decisions</strong>, and against <strong>opaque models making consequential
+judgments</strong>. The historical data encoded human bias and noise at the same time — the model learned
+both, and could not distinguish them.</p>
+<p>Three failure modes to engineer against (all appear simultaneously in §3.1):</p>
+<ol>
+<li><strong>Proxy learning</strong> — the model used correlated features (words, institution names, writing style)
+   as stand-ins for merit.</li>
+<li><strong>Opaqueness</strong> — executives could not determine whether the bias was removed because the model's
+   reasoning was not inspectable.</li>
+<li><strong>Decision authority</strong> — the system was positioned to <em>rank and eliminate</em> people, the highest-
+   stakes use, before it was demonstrably fit for the lowest-stakes use.</li>
+</ol>
+<p><strong>Design implication (carried into §7):</strong> no training on historical hiring outcomes; LLMs used for
+<em>extraction</em> (résumé → structured facts with provenance) rather than <em>judgment</em>; scoring expressed
+as a transparent, inspectable function with explicit factors; human sign-off required for
+consequential negative actions.</p>
+<hr />
+<h2 id="4-regulatory-landscape-high-risk-classification-is-now-explicit">4. Regulatory Landscape: High-Risk Classification Is Now Explicit<a class="headerlink" href="#4-regulatory-landscape-high-risk-classification-is-now-explicit" title="Permanent link">&para;</a></h2>
+<h3 id="41-eu-ai-act-regulation-eu-20241689">4.1 EU AI Act — Regulation (EU) 2024/1689<a class="headerlink" href="#41-eu-ai-act-regulation-eu-20241689" title="Permanent link">&para;</a></h3>
+<p>The EU AI Act explicitly classifies employment-related AI as <strong>high-risk</strong>. Annex III, point 4
+("Employment, workers' management and access to self-employment"), sub-point (a), covers:</p>
+<blockquote>
+<p>"AI systems intended to be used for the recruitment or selection of natural persons, in particular
+to place targeted job advertisements, to analyse and filter job applications, and to evaluate
+candidates."</p>
+</blockquote>
+<p>High-risk systems trigger obligations relevant to this project, including (titles verified in the
+Act's structure): risk management (Art. 9), data governance (Art. 10), technical documentation
+(Art. 11), <strong>record-keeping (Art. 12)</strong>, transparency (Art. 13), <strong>human oversight (Art. 14)</strong>,
+accuracy/robustness/cybersecurity (Art. 15), and <strong>automatically generated logs (Art. 19)</strong>.</p>
+<p><strong>Article 14 (Human Oversight)</strong> — key provisions verified:</p>
+<ul>
+<li>Oversight must be <em>effective</em>, including human-machine interface tools (14(1)).</li>
+<li>Oversight aims to prevent or minimise risks to fundamental rights, including <strong>non-discrimination</strong>
+  (14(2)).</li>
+<li>Oversight measures must let the human: understand the system's capacities and limits and <strong>detect
+  anomalies, dysfunctions and unexpected performance</strong> (14(4)(a)); remain aware of <strong>automation
+  bias</strong> (14(4)(b)); correctly interpret output (14(4)(c)); <strong>disregard, override or reverse</strong>
+  output (14(4)(d)); and <strong>interrupt</strong> the system (14(4)(e)).</li>
+</ul>
+<p><strong>Article 86</strong> grants a right to explanation of individual decision-making for affected persons
+(title verified; detailed conditions in the Act).</p>
+<ul>
+<li>Sources: EUR-Lex ELI <code>reg/2024/1689/oj</code>; verified text mirror at
+  <code>artificialintelligenceact.eu/annex/3/</code> and <code>/article/14/</code> (<code>sources.bib</code>: <code>eu2024aiact</code>).</li>
+<li>Note on timing: the Act enters into application in staged phases. The explorer states that
+  Annex III high-risk obligations apply from <strong>2 December 2027</strong>. The <em>design</em> implications are
+  relevant regardless, and the Act is a global reference standard.</li>
+</ul>
+<h3 id="42-gdpr-regulation-eu-2016679-article-22">4.2 GDPR — Regulation (EU) 2016/679, Article 22<a class="headerlink" href="#42-gdpr-regulation-eu-2016679-article-22" title="Permanent link">&para;</a></h3>
+<p>Even where a jurisdiction lacks an AI-specific statute, data-protection law often governs automated
+hiring. GDPR Article 22 (verified full text):</p>
+<ul>
+<li>22(1): data subjects have the right not to be subject to a decision <strong>based solely on automated
+  processing</strong> that produces legal effects or similarly significantly affects them.</li>
+<li>
+<p>22(3): where such decisions are permitted, the controller must implement safeguards including
+  <strong>the right to obtain human intervention, to express their point of view, and to contest the
+  decision</strong>.</p>
+</li>
+<li>
+<p>Source: <code>gdpr-info.eu/art-22-gdpr/</code> (<code>sources.bib</code>: <code>gdpr2016art22</code>).</p>
+</li>
+</ul>
+<h3 id="43-indonesia-uu-no-27-tahun-2022-pelindungan-data-pribadi">4.3 Indonesia — UU No. 27 Tahun 2022 (Pelindungan Data Pribadi)<a class="headerlink" href="#43-indonesia-uu-no-27-tahun-2022-pelindungan-data-pribadi" title="Permanent link">&para;</a></h3>
+<p>Indonesia's Personal Data Protection Law, enacted and effective <strong>17 October 2022</strong>
+(LN.2022/No.196; TLN No.6820), establishes the national framework for processing personal data.
+Verified from the official JDIH/BPK database:</p>
+<ul>
+<li>Personal data is split into <strong>specific</strong> categories (health data; biometric data; genetic data;
+  criminal records; data concerning children; personal financial data; and/or data otherwise
+  designated) and <strong>general</strong> categories (full name; sex; nationality; religion; marital status;
+  and/or combinations used to identify a person).</li>
+<li>The law regulates: principles; types of personal data; <strong>data-subject rights</strong>; processing;
+  <strong>controller and processor obligations</strong>; transfers; administrative sanctions; the supervisory
+  institution; international cooperation; dispute resolution; prohibited uses; and <strong>criminal
+  provisions</strong>.</li>
+<li>
+<p>Purpose anchors include protection of the right to personal self-protection under the 1945
+  Constitution.</p>
+</li>
+<li>
+<p>Source: peraturan.bpk.go.id, <em>UU No. 27 Tahun 2022 tentang Pelindungan Data Pribadi</em>
+  (<code>sources.bib</code>: <code>indonesia2022pdp</code>).</p>
+</li>
+</ul>
+<p><strong>Hiring-specific reading:</strong> candidate CVs, phone numbers, email addresses, photos, birth dates,
+salary history, and assessment outputs are personal data. A recruitment platform is a <strong>data
+controller/processor</strong> under UU PDP. Consent, purpose limitation, retention limits (no indefinite
+"talent pools"), data-subject access/correction/erasure rights, and security obligations apply.
+Automated evaluation additionally produces new personal data (scores, flags) that inherit those
+obligations.</p>
+<h3 id="44-standards-references">4.4 Standards references<a class="headerlink" href="#44-standards-references" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>NIST AI Risk Management Framework (AI RMF 1.0)</strong>, NIST AI 100-1 (January 2023) — voluntary
+  framework structured around Govern, Map, Measure, Manage; widely used as the operational baseline
+  for AI risk programs (<code>sources.bib</code>: <code>nist2023airmf</code>).</li>
+<li><strong>ISO/IEC 42001:2023</strong> — AI management systems standard, used for organizational governance of
+  AI (<code>sources.bib</code>: <code>iso42001</code>).</li>
+</ul>
+<h3 id="45-synthesis">4.5 Synthesis<a class="headerlink" href="#45-synthesis" title="Permanent link">&para;</a></h3>
+<p>The regulatory direction is unambiguous: <strong>automated employment screening is now explicitly
+governed, and human oversight is a legal requirement, not a feature choice.</strong> A system designed to
+<em>auto-reject</em> candidates without human involvement sits close to the statutory line in multiple
+jurisdictions (GDPR Art. 22; EU AI Act human-oversight duties; UU PDP's lawful-processing and
+rights regime). A system that auto-<em>schedules</em> (reversible, positive, low-harm) while requiring a
+human for rejections (consequential, negative, hard to reverse) is aligned with every framework
+reviewed here.</p>
+<hr />
+<h2 id="5-the-indonesian-context">5. The Indonesian Context<a class="headerlink" href="#5-the-indonesian-context" title="Permanent link">&para;</a></h2>
+<h3 id="51-macro-labor-statistics-verified">5.1 Macro labor statistics (verified)<a class="headerlink" href="#51-macro-labor-statistics-verified" title="Permanent link">&para;</a></h3>
+<p>World Bank Open Data, based on ILO modeled estimates, accessed 2026-09-11 (dataset last updated
+2026-07-13) (<code>sources.bib</code>: <code>worldbank2026indonesia</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Indicator</th>
+<th>2020</th>
+<th>2021</th>
+<th>2022</th>
+<th>2023</th>
+<th>2024</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unemployment, total (% of labor force) <code>SL.UEM.TOTL.ZS</code></td>
+<td>4.255</td>
+<td>3.827</td>
+<td>3.462</td>
+<td>3.308</td>
+<td>3.301</td>
+</tr>
+<tr>
+<td>Unemployment, youth 15–24 (% of labor force 15–24) <code>SL.UEM.1524.ZS</code></td>
+<td>14.773</td>
+<td>13.800</td>
+<td>14.054</td>
+<td>13.015</td>
+<td>13.075</td>
+</tr>
+</tbody>
+</table>
+<p>Interpretation:</p>
+<ul>
+<li>Headline unemployment is comparatively low (~3.3%), but <strong>youth unemployment is ~4x higher
+  (~13%)</strong> — with roughly one in eight young labor-force participants unemployed (modeled estimate).</li>
+<li>The youth cohort is exactly the population applying for entry-level technical roles through
+  high-volume funnels. Screening failure at scale hits them hardest.</li>
+<li>Caveat: modeled ILO estimates differ from national BPS survey figures; they are used here for
+  comparability, with the source and method disclosed.</li>
+</ul>
+<h3 id="52-hiring-practice-observations-qualitative-no-verified-domestic-dataset-exists">5.2 Hiring-practice observations (qualitative; no verified domestic dataset exists)<a class="headerlink" href="#52-hiring-practice-observations-qualitative-no-verified-domestic-dataset-exists" title="Permanent link">&para;</a></h3>
+<p>Based only on common, documented regional practice and the absence of countervailing evidence —
+labeled as qualitative, not statistical:</p>
+<ul>
+<li>Applications arrive through mixed channels: job portals, email, LinkedIn, and in many companies
+  <strong>WhatsApp</strong> — creating fragmented records with no single source of truth.</li>
+<li>Recruiters frequently operate without structured role specifications; screening heuristics are
+  personal rather than documented.</li>
+<li>Feedback to rejected candidates is rare or boilerplate; response latency is often indefinite.</li>
+<li>"Overqualified" and "underqualified" are used as rejection categories without operational
+  definitions.</li>
+</ul>
+<p>These observations are included because they motivate product requirements (multi-channel
+ingestion, explicit role specification scoring, guaranteed response SLAs, defined factor scoring)
+— but they are <em>not</em> cited as measured facts, and the paper must present them as design premises
+requiring validation.</p>
+<h3 id="53-research-gap">5.3 Research gap<a class="headerlink" href="#53-research-gap" title="Permanent link">&para;</a></h3>
+<p>No public, methodologically transparent benchmark of Indonesian technical hiring funnels was located
+during this review. The paper should therefore:</p>
+<ol>
+<li>Use the global evidence (§1–§3) as the problem statement.</li>
+<li>Treat Indonesian specifics as <strong>premises and constraints</strong> (law, channels, WhatsApp prevalence),
+   not quantified facts.</li>
+<li>Position the system's own logs as a future contribution: an auditable dataset of <em>how</em> screening
+   decisions are actually made — which the current ecosystem does not produce.</li>
+</ol>
+<hr />
+<h2 id="6-skills-based-hiring-and-global-demand-signals">6. Skills-Based Hiring and Global Demand Signals<a class="headerlink" href="#6-skills-based-hiring-and-global-demand-signals" title="Permanent link">&para;</a></h2>
+<p>The World Economic Forum's <strong>Future of Jobs Report 2025</strong> (published 7 January 2025) aggregates the
+views of over 1,000 employers representing 14+ million workers across 22 industry clusters and 55
+economies, covering 2025–2030. It documents technological change, economic uncertainty, demographic
+shifts and the green transition as labor-market drivers, and reports that <strong>skills gaps are among
+the principal barriers to business transformation</strong>, with reskilling/upskilling central to employer
+strategies.</p>
+<ul>
+<li>Source: WEF, <em>Future of Jobs Report 2025</em> (<code>sources.bib</code>: <code>wef2025futureofjobs</code>).</li>
+</ul>
+<p>Relevance:</p>
+<ul>
+<li>The report's employer-level perspective confirms demand-side pressure toward <strong>skills-based
+  evaluation</strong> rather than credential-based screening.</li>
+<li>A system that evaluates <em>demonstrated capability</em> (code, complexity metrics, verified artifacts,
+  publication records) directly operationalizes the skills-based direction — while a 7.4-second
+  human scan (see §1) cannot.</li>
+<li>Caveat: the report is employer-survey-based (self-reported), so it evidences <em>intent and
+  perception</em>, not measured hiring outcomes.</li>
+</ul>
+<hr />
+<h2 id="7-synthesis-evidence-design-principles">7. Synthesis: Evidence → Design Principles<a class="headerlink" href="#7-synthesis-evidence-design-principles" title="Permanent link">&para;</a></h2>
+<p>Every architectural commitment in HRAgents traces to a finding above. This mapping is normative:
+it defines what the system must do to honestly claim it addresses the evidence.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Finding (source)</th>
+<th>Design principle (system response)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P1</td>
+<td>Screens operate in seconds; dense evidence is skipped (§1.1)</td>
+<td><strong>Extraction before judgment.</strong> Agents read and structure the full profile, not a 7-second glance.</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>Human screening is inconsistent and unauditable (§1.2)</td>
+<td><strong>Deterministic scoring.</strong> The same inputs must produce the same score, with the formula and every input exposed.</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>Discrimination is large, persistent, and enters at callback/screening (§2)</td>
+<td><strong>Constructive blindness + fairness testing.</strong> Protected attributes are excluded from scoring; counterfactual name/attribute-swap audits run continuously.</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>Learning from historical hiring decisions reproduces bias and noise (§3.1)</td>
+<td><strong>No outcome-trained ranking models.</strong> Scoring is a hand-specified, inspectable function; LLMs never rank by "fit".</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>Opaque models cannot be audited (§3.2)</td>
+<td><strong>Provenance + hash-chained audit log.</strong> Every score cites its evidence; every decision is reconstructible.</td>
+</tr>
+<tr>
+<td>P6</td>
+<td>AI hiring evaluations are explicitly high-risk; human oversight is a legal duty (§4)</td>
+<td><strong>HITL gates.</strong> Auto-schedule only for high-confidence, positive actions; every rejection above a technical-merit floor requires named human sign-off.</td>
+</tr>
+<tr>
+<td>P7</td>
+<td>Solely automated consequential decisions are restricted; contestants have rights (§4.2–4.3)</td>
+<td><strong>Contestable outcomes.</strong> Feedback reports, explanation endpoints, and override/appeal paths.</td>
+</tr>
+<tr>
+<td>P8</td>
+<td>Candidate data is protected personal data; retention and consent are obligations (§4.3)</td>
+<td><strong>Compliance as architecture.</strong> Consent capture, data minimization, retention policies, erasure workflows, RBAC, PII redaction before model calls.</td>
+</tr>
+<tr>
+<td>P9</td>
+<td>Employers want skills evidence, not credentials (§6)</td>
+<td><strong>Artifact-based evaluation.</strong> Repositories, AST complexity, publications, verified certifications are first-class signals.</td>
+</tr>
+<tr>
+<td>P10</td>
+<td>Indonesian funnels are fragmented across channels (§5.2)</td>
+<td><strong>Unified async ingestion + candidate communication.</strong> WhatsApp/Telegram/email bridges, one candidate record, guaranteed response SLA.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="71-the-resulting-thesis-statement">7.1 The resulting thesis statement<a class="headerlink" href="#71-the-resulting-thesis-statement" title="Permanent link">&para;</a></h3>
+<blockquote>
+<p>Replace subjective screening with <strong>deterministic technical evaluation</strong>:
+LLM agents <em>extract</em> verifiable evidence into structured JSON; a hand-specified, inspectable
+<strong>tensor score</strong> evaluates that evidence; <strong>humans own every consequential negative decision</strong>;
+and every step is recorded in a tamper-evident audit trail. Automation does the reading,
+arithmetic, and logistics. People do the judging — with better evidence and less bias, not less
+accountability.</p>
+</blockquote>
+<h3 id="72-what-this-review-does-not-claim">7.2 What this review does <em>not</em> claim<a class="headerlink" href="#72-what-this-review-does-not-claim" title="Permanent link">&para;</a></h3>
+<ul>
+<li>It does not claim LLMs are unbiased. It claims their <em>role</em> can be constrained to extraction,
+  where bias affects fidelity (testable) rather than opportunity (consequential).</li>
+<li>It does not claim deterministic scoring is fair by itself. It claims it is <strong>inspectable</strong>,
+  which is the precondition for auditing fairness. Fairness must be measured, per §2.1's
+  methodology, not assumed.</li>
+<li>It does not claim the Indonesian observations in §5.2 are statistically established. They are
+  premises the system is built to test and record.</li>
+</ul>
+<hr />
+<h2 id="8-source-verification-table">8. Source Verification Table<a class="headerlink" href="#8-source-verification-table" title="Permanent link">&para;</a></h2>
+<p>All sources accessed 2026-09-11 unless noted. "Verified via" states exactly what was retrieved.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Source</th>
+<th>Type</th>
+<th>Verified via</th>
+<th>Supports</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bertrand2004emily</code></td>
+<td>Bertrand &amp; Mullainathan (2004), AER 94(4):991–1013</td>
+<td>Peer-reviewed</td>
+<td>AEA abstract page, full abstract</td>
+<td>§2.1 discrimination magnitude</td>
+</tr>
+<tr>
+<td><code>quillian2017meta</code></td>
+<td>Quillian et al. (2017), PNAS 114(41):10870–10875</td>
+<td>Peer-reviewed meta-analysis</td>
+<td>DOI resolution + publication record</td>
+<td>§2.2 persistence of discrimination</td>
+</tr>
+<tr>
+<td><code>dastin2018amazon</code></td>
+<td>Reuters (2018), Amazon AI recruiting tool</td>
+<td>Investigative journalism</td>
+<td>Full text retrieved</td>
+<td>§3.1 automation failure case</td>
+</tr>
+<tr>
+<td><code>ladders2018eyetracking</code></td>
+<td>Ladders eye-tracking study (2012; updated 2018)</td>
+<td>Practitioner study</td>
+<td>Two Wayback captures (2019, 2020) incl. article text and study PDF link</td>
+<td>§1.1 6 s / 7.4 s scan time</td>
+</tr>
+<tr>
+<td><code>cappelli2019hiring</code></td>
+<td>Cappelli (2019), HBR May–Jun 2019</td>
+<td>Practitioner article</td>
+<td>Article page + summary block</td>
+<td>§1.1 hiring process critique</td>
+</tr>
+<tr>
+<td><code>eu2024aiact</code></td>
+<td>Regulation (EU) 2024/1689 (AI Act)</td>
+<td>Primary law</td>
+<td>Annex III + Art. 14 full text mirrors; EUR-Lex ELI</td>
+<td>§4.1 high-risk + oversight duties</td>
+</tr>
+<tr>
+<td><code>gdpr2016art22</code></td>
+<td>Regulation (EU) 2016/679, Art. 22</td>
+<td>Primary law</td>
+<td>Full article text</td>
+<td>§4.2 automated decision rights</td>
+</tr>
+<tr>
+<td><code>indonesia2022pdp</code></td>
+<td>UU No. 27/2022 (Pelindungan Data Pribadi)</td>
+<td>Primary law</td>
+<td>Official BPK/JDIH record + abstract</td>
+<td>§4.3 Indonesian data law</td>
+</tr>
+<tr>
+<td><code>worldbank2026indonesia</code></td>
+<td>World Bank Open Data (ILO modeled estimates)</td>
+<td>Official statistics</td>
+<td>Live API query, JSON values above</td>
+<td>§5.1 labor statistics</td>
+</tr>
+<tr>
+<td><code>wef2025futureofjobs</code></td>
+<td>WEF Future of Jobs Report 2025</td>
+<td>Employer survey report</td>
+<td>Official publication page</td>
+<td>§6 skills-based demand</td>
+</tr>
+<tr>
+<td><code>nist2023airmf</code></td>
+<td>NIST AI RMF 1.0 / NIST AI 100-1 (2023)</td>
+<td>Standards framework</td>
+<td>Standard reference (not fetched)</td>
+<td>§4.4 risk governance</td>
+</tr>
+<tr>
+<td><code>iso42001</code></td>
+<td>ISO/IEC 42001:2023</td>
+<td>Standards framework</td>
+<td>Standard reference (not fetched)</td>
+<td>§4.4 AI management systems</td>
+</tr>
+<tr>
+<td><code>pydanticai</code></td>
+<td>PydanticAI documentation</td>
+<td>Software documentation</td>
+<td>Project documentation site</td>
+<td>Implementation basis (Ch. systems)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-references">9. References<a class="headerlink" href="#9-references" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Bertrand, M., &amp; Mullainathan, S. (2004). Are Emily and Greg More Employable Than Lakisha and Jamal? A Field Experiment on Labor Market Discrimination. <em>American Economic Review</em>, 94(4), 991–1013. https://doi.org/10.1257/0002828042002561</li>
+<li>Quillian, L., Pager, D., Hexel, O., &amp; Midtbøen, A. H. (2017). Meta-analysis of field experiments shows no change in racial discrimination in hiring over time. <em>Proceedings of the National Academy of Sciences</em>, 114(41), 10870–10875. https://doi.org/10.1073/pnas.1706255114</li>
+<li>Dastin, J. (2018, October 10). Insight: Amazon scraps secret AI recruiting tool that showed bias against women. Reuters. https://www.reuters.com/article/us-amazon-com-jobs-automation-insight-idUSKCN1MK08G</li>
+<li>Ladders. (2018). <em>Eye-Tracking Study</em> (TheLadders-EyeTracking-StudyC2.pdf); article: "You have 7.4 seconds to make an impression: How recruiters see your resume." Archived: https://web.archive.org/web/20201230113653/https://www.theladders.com/career-advice/you-only-get-6-seconds-of-fame-make-it-count</li>
+<li>Cappelli, P. (2019, May–June). Your Approach to Hiring Is All Wrong. <em>Harvard Business Review</em>. https://hbr.org/2019/05/your-approach-to-hiring-is-all-wrong</li>
+<li>European Union. (2024). Regulation (EU) 2024/1689 of the European Parliament and of the Council laying down harmonised rules on artificial intelligence (AI Act). https://eur-lex.europa.eu/eli/reg/2024/1689/oj</li>
+<li>European Union. (2016). Regulation (EU) 2016/679 (General Data Protection Regulation), Article 22. https://gdpr-info.eu/art-22-gdpr/</li>
+<li>Republic of Indonesia. (2022). Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi (LN.2022/No.196, TLN No.6820). https://peraturan.bpk.go.id/Details/229798/uu-no-27-tahun-2022</li>
+<li>World Bank. (2026). Unemployment, total and youth (ILO modeled estimates) — Indonesia [Data set]. World Bank Open Data. https://api.worldbank.org/v2/country/IDN/indicator/SL.UEM.1524.ZS</li>
+<li>World Economic Forum. (2025). <em>The Future of Jobs Report 2025</em>. https://www.weforum.org/publications/the-future-of-jobs-report-2025/</li>
+<li>National Institute of Standards and Technology. (2023). <em>Artificial Intelligence Risk Management Framework (AI RMF 1.0)</em> (NIST AI 100-1). https://doi.org/10.6028/NIST.AI.100-1</li>
+<li>ISO/IEC. (2023). <em>ISO/IEC 42001:2023 — Information technology — Artificial intelligence — Management system</em>.</li>
+<li>Pydantic. (2026). PydanticAI documentation. https://ai.pydantic.dev/</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../adr/0006-tenancy-rls/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Tenancy and RLS">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Tenancy and RLS
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../plan/master-build-plan/" class="md-footer__link md-footer__link--next" aria-label="Next: Master build plan">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Master build plan
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Apache-2.0 · built in Jakarta
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "content.code.copy", "content.action.edit", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
