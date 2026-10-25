@@ -89,7 +89,7 @@ function precedingUserText(messages: ChatMessage[], index: number): string {
 export function ChatPanel({ workspace }: ChatPanelProps) {
   const { t } = useTranslation()
   const scope = workspace ?? 'policy'
-  const { thread, send } = useChat(scope, workspace)
+  const { thread, send, routing } = useChat(scope, workspace)
   const [draft, setDraft] = useState('')
 
   function submit() {
@@ -134,7 +134,9 @@ export function ChatPanel({ workspace }: ChatPanelProps) {
 
       {thread.pending ? (
         <p role="status" className="text-2xs text-ink-muted">
-          {t('chat.thinking')}
+          {routing
+            ? t('chat.routing', { workspace: t(`workspaces.${routing}.name`) })
+            : t('chat.thinking')}
         </p>
       ) : null}
 

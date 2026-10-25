@@ -137,7 +137,35 @@ async def stream_hr(
     workspace: WorkspaceId | None = None,
     conversation_id: UUID | None = None,
 ) -> StreamingResponse:
+    """The routed workspace is sent before the answer, so the wait is explainable.
+
+    The routing decision is deterministic and computed first; if the caller
+    continues a conversation whose workspace this message would leave, the request
+    is refused with the same 409 the non-streaming route returns, before any
+    event is emitted, so the client's restart-and-retry path still works.
+    """
+    decision = chat.route(message, workspace=workspace)
+    if conversation_id is not None:
+        record = chat.get_conversation(conversation_id, principal=principal)
+        if record is not None and record.workspace is not decision.workspace:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"conversation {record.id} belongs to workspace "
+                    f"{record.workspace.value!r}, not {decision.workspace.value!r}"
+                ),
+            )
+
     async def events() -> AsyncIterator[str]:
+        yield _sse(
+            "routing",
+            {
+                "workspace": decision.workspace.value,
+                "reason": decision.reason.value,
+                "matched_keywords": list(decision.matched_keywords),
+                "handoff_options": [item.value for item in decision.alternates],
+            },
+        )
         try:
             reply = await chat.ask(
                 message=message,

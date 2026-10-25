@@ -635,8 +635,10 @@ documented.
       recording; offer expiry runs on the scheduler (`offer-expiry` job)
 
 ### 2.5 Department workspaces (Wave-1 surfaces)
-- [~] Ask HR: chat with citations and handoff suggestions done; progressive SSE streaming and
-      tool-call visibility remain (see polish backlog)
+- [~] Ask HR: chat with citations and handoff suggestions done; the SSE route now emits the
+      routed workspace before the answer and the panel names it while waiting. Token-level
+      streaming would require replacing the structured policy output, and per-tool-call events
+      remain; both are recorded in the polish backlog.
 - [x] Onboarding workspace: plan board (progress, blockers, overdue first), checklist room ordered by
       what needs a human now, complete/waive with a named actor (a waiver needs a reason and is not
       offered for required steps), document collection status with linking of an on-file document,

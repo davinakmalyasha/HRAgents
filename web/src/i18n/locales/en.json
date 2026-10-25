@@ -336,7 +336,8 @@
       "action": "Hand off to {{workspace}}",
       "queued": "Queued in {{workspace}}.",
       "failed": "Could not queue the handoff."
-    }
+    },
+    "routing": "Asking the {{workspace}} workspace…"
   },
   "review": {
     "title": "Human sign-off",

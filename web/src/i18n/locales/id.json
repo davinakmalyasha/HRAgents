@@ -336,7 +336,8 @@
       "action": "Serahkan ke {{workspace}}",
       "queued": "Masuk antrean {{workspace}}.",
       "failed": "Gagal memasukkan ke antrean."
-    }
+    },
+    "routing": "Menanyakan ke ruang kerja {{workspace}}…"
   },
   "review": {
     "title": "Persetujuan manusia",

@@ -138,6 +138,10 @@ class ChatService:
         # must not be able to probe for which ids exist.
         return None
 
+    def route(self, message: str, *, workspace: WorkspaceId | None = None) -> RouteDecision:
+        """Which workspace would answer. Deterministic and side-effect free."""
+        return self._front_door.route(message, workspace=workspace)
+
     async def ask(
         self,
         *,
@@ -146,7 +150,7 @@ class ChatService:
         workspace: WorkspaceId | None = None,
         conversation_id: UUID | None = None,
     ) -> ChatReply:
-        decision: RouteDecision = self._front_door.route(message, workspace=workspace)
+        decision: RouteDecision = self.route(message, workspace=workspace)
         definition = self._front_door.registry.get(decision.workspace)
 
         record = self._conversations.get(conversation_id) if conversation_id else None

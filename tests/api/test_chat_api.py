@@ -198,7 +198,9 @@ def test_sse_stream_emits_reply_event() -> None:
             assert response.headers["content-type"].startswith("text/event-stream")
             payload = "".join(response.iter_text())
 
+        assert "event: routing" in payload
         assert "event: reply" in payload
+        assert payload.index("event: routing") < payload.index("event: reply")
         assert "Grounded answer" in payload
         assert '"workspace": "leave"' in payload
 
@@ -291,3 +293,24 @@ def test_chat_is_available_after_startup() -> None:
     with TestClient(app):
         assert app.state.chat is not None
         assert app.state.handoffs is not None
+
+
+def test_the_stream_refuses_a_cross_workspace_conversation_before_any_event() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        _install_fixed_chat(app)
+        first = client.post("/v1/chat", json={"message": "How do I apply for leave?"})
+        assert first.status_code == 200
+        conversation_id = first.json()["conversation_id"]
+
+        response = client.get(
+            "/v1/chat/stream",
+            params={
+                "message": "What is the payroll cut-off?",
+                "workspace": "payroll",
+                "conversation_id": conversation_id,
+            },
+        )
+
+        assert response.status_code == 409
+        assert "belongs to workspace" in response.json()["detail"]

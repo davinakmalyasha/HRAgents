@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,14 +9,27 @@ import { ChatPanel } from './ChatPanel'
 import { chatThreadActions, useChatStore } from './chatStore'
 
 vi.mock('./chatApi', () => ({
-  askHr: vi.fn(),
+  streamHr: vi.fn(),
   requestHandoff: vi.fn(),
 }))
 
-import { askHr, requestHandoff } from './chatApi'
+import { requestHandoff, streamHr } from './chatApi'
 
-const askHrMock = vi.mocked(askHr)
+const streamMock = vi.mocked(streamHr)
 const requestHandoffMock = vi.mocked(requestHandoff)
+
+function answering(reply: ChatReply) {
+  streamMock.mockImplementation(async (_input, callbacks) => {
+    callbacks.onRouting?.({
+      workspace: reply.workspace,
+      reason: 'keyword',
+      matched_keywords: [],
+      handoff_options: [],
+    })
+    callbacks.onReply?.(reply)
+    return { status: 200, reply }
+  })
+}
 
 const REPLY: ChatReply = {
   conversation_id: 'c-1',
@@ -31,13 +44,13 @@ const REPLY: ChatReply = {
 
 beforeEach(() => {
   useChatStore.setState({ threads: {} })
-  askHrMock.mockReset()
+  streamMock.mockReset()
   requestHandoffMock.mockReset()
 })
 
 describe('ChatPanel', () => {
   it('sends a message and renders the grounded answer with citations', async () => {
-    askHrMock.mockResolvedValue({ status: 200, reply: REPLY })
+    answering(REPLY)
     render(<ChatPanel />)
 
     await userEvent.type(screen.getByRole('textbox', { name: i18n.t('chat.placeholder') }), 'cuti?')
@@ -47,15 +60,14 @@ describe('ChatPanel', () => {
     expect(screen.getByRole('list', { name: i18n.t('chat.citations') })).toHaveTextContent(
       'leave-policy.md#saldo',
     )
-    expect(askHrMock).toHaveBeenCalledWith({
-      message: 'cuti?',
-      workspace: undefined,
-      conversationId: null,
-    })
+    expect(streamMock).toHaveBeenCalledWith(
+      { message: 'cuti?', workspace: undefined, conversationId: null },
+      expect.objectContaining({ onRouting: expect.any(Function) }),
+    )
   })
 
   it('restarts the conversation visibly when routing crosses workspaces (409)', async () => {
-    askHrMock
+    streamMock
       .mockResolvedValueOnce({ status: 409 })
       .mockResolvedValueOnce({ status: 200, reply: { ...REPLY, workspace: 'payroll' } })
 
@@ -65,7 +77,7 @@ describe('ChatPanel', () => {
 
     expect(await screen.findByText(i18n.t('chat.newSubject'))).toBeInTheDocument()
     expect(await screen.findByText(REPLY.answer)).toBeInTheDocument()
-    expect(askHrMock).toHaveBeenCalledTimes(2)
+    expect(streamMock).toHaveBeenCalledTimes(2)
   })
 
   it('shows escalations with icon and label', () => {
@@ -115,5 +127,35 @@ describe('ChatPanel', () => {
 
     expect(screen.getByText(i18n.t('chat.thinking'))).toBeInTheDocument()
     expect(screen.getByRole('button', { name: i18n.t('chat.send') })).toBeDisabled()
+  })
+
+  it('names the routed workspace while the answer is pending', async () => {
+    let finish: (result: { status: number; reply: ChatReply }) => void = () => {}
+    streamMock.mockImplementation(async (_input, callbacks) => {
+      callbacks.onRouting?.({
+        workspace: 'leave',
+        reason: 'keyword',
+        matched_keywords: ['cuti'],
+        handoff_options: [],
+      })
+      return new Promise((resolve) => {
+        finish = resolve
+      })
+    })
+    render(<ChatPanel />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: i18n.t('chat.placeholder') }), 'cuti?')
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('chat.send') }))
+
+    expect(
+      await screen.findByText(
+        i18n.t('chat.routing', { workspace: i18n.t('workspaces.leave.name') }),
+      ),
+    ).toBeInTheDocument()
+
+    await act(async () => {
+      finish({ status: 200, reply: REPLY })
+    })
+    expect(await screen.findByText(REPLY.answer)).toBeInTheDocument()
   })
 })
