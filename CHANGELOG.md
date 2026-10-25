@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.6.0...hr-agents-v0.7.0) (2026-10-25)
+
+
+### Features
+
+* **chat:** name the routed workspace while the answer is in flight ([72de0c7](https://github.com/davinakmalyasha/HRAgents/commit/72de0c70a88154f59abe0c023524f6b9a330cad8))
+
+
+### Documentation
+
+* bring the plan and release process up to 0.6.0 ([b5073fe](https://github.com/davinakmalyasha/HRAgents/commit/b5073fee3a45f242b506cf4fb941881fa360df91))
+* regenerate the spec for the stream route's description ([05f9a98](https://github.com/davinakmalyasha/HRAgents/commit/05f9a98bd7c6c43053446ce79fcd871b5a1ddb62))
+* region and tunnel recipes, including the rate-limiter trap ([62416e7](https://github.com/davinakmalyasha/HRAgents/commit/62416e749a86f4b94597f03ed159b8c32a838455))
+
 ## [0.6.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.5.0...hr-agents-v0.6.0) (2026-10-25)
 
 
