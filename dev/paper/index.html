@@ -1711,8 +1711,9 @@ Redis add deployment latency.</p>
 <li><strong>Role fit is a coverage gate, not a model.</strong> Tenure-driven depth with thin
    must-have coverage now routes to a person, but the check is token coverage of
    the job's requirements; a richer per-family sufficiency model is future work.</li>
-<li><strong>Cost is not measured.</strong> Token accounting per application is not yet
-   instrumented, so no cost-per-hire figure is claimed.</li>
+<li><strong>Cost is tokens, not currency.</strong> Each evaluation records its input/output
+   tokens by provider and model, exposed per model; dollar cost is left to the
+   operator's contract, and no cost-per-hire figure is claimed.</li>
 <li><strong>The portfolio agent is not in the pipeline.</strong> Repository and publication
    evidence are implemented but the agent that gathers them is not wired into
    the production path.</li>

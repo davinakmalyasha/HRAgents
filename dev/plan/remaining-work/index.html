@@ -2739,8 +2739,12 @@ latency, costs, and failure modes documented.</p>
 <li>[ ] Region recipes: Jakarta / Singapore deployment notes; Cloudflare Tunnel guide for webhooks</li>
 <li>[ ] Security hardening: key management, secrets rotation, rate limits, upload scanning hook,
       pen-test checklist, dependency scanning in CI</li>
-<li>[ ] Observability: OTel traces (API → pipeline → agents), Prometheus metrics, Grafana dashboard,
-      LLM cost tracking (token accounting per model)</li>
+<li>[~] Observability: optional OTLP/HTTP tracing instruments the API, outbound HTTP and the worker's
+      evaluation/extraction spans (probes and scrapes are excluded); the Prometheus surface gains
+      <code>hragents_llm_tokens{provider,model,kind}</code> and <code>hragents_llm_requests</code>; a Grafana dashboard
+      ships in <code>ops/grafana/</code>; and token usage is recorded per evaluation in <code>llm_usage</code> and
+      surfaced at <code>/v1/ops/usage</code> and on the operations page. Dollar cost is left to the operator's
+      own price table rather than hardcoded per-token rates.</li>
 <li>[x] Data governance: <code>GET /v1/export</code> streams every mapped table as one JSON document
       (admin-only, audited, one read snapshot per table) and the compliance queue downloads it;
       deletion is the retention/erasure workflow with payroll pseudonymization; the deployment
