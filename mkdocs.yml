@@ -76,6 +76,9 @@ nav:
   - Paper: paper.md
   - Research:
       - Literature review: research/literature-review.md
+  - Data governance:
+      - Export, deletion and subprocessors: data-governance.md
+      - DPA template: legal/dpa-template.md
   - Project:
       - Master build plan: plan/master-build-plan.md
       - Remaining work: plan/remaining-work.md

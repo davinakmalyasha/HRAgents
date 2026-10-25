@@ -11,6 +11,7 @@ import { formatDateTime } from '@/lib/dates'
 
 import { CalendarBoard } from './CalendarBoard'
 import { CredentialsSection } from './CredentialsSection'
+import { ExportSection } from './ExportSection'
 import {
   LAWFUL_BASES,
   PURGE_CONFIRMATION,
@@ -261,6 +262,7 @@ export function ComplianceQueue() {
       <BreachSection />
       <RetentionSection />
       <CredentialsSection />
+      <ExportSection />
       <AuditTrailPanel />
     </div>
   )

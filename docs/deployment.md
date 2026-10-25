@@ -120,6 +120,10 @@ table. The compliance queue has the same import path in the dashboard: create a
 registry, paste its rows (one per line, `name | status | id | expiry | notes`),
 then verify it with the source you checked.
 
+### Data governance
+
+Full export, deletion, subprocessors and the DPA template are in [Data governance](data-governance.md).
+
 ### Push notifications (optional)
 
 Notifications stay off until the operator issues a VAPID pair **for this

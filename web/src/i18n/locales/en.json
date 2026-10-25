@@ -1158,6 +1158,16 @@
       "confirmDelete": "Confirm delete",
       "deleteFailed": "The registry could not be deleted.",
       "empty": "No credential registries yet."
+    },
+    "export": {
+      "title": "Export the record",
+      "hint": "Every database row this tenant owns, as one JSON document: employees, documents, leave, payroll, evaluations, approvals and the audit chain. Binary attachments live in object storage and are exported separately. The export is audited.",
+      "download": "Download full export",
+      "preparing": "Preparing…",
+      "saved": "Saved {{name}}",
+      "forbidden": "Not available for your role.",
+      "noBackend": "A full export needs the Postgres backend.",
+      "failed": "The export could not be prepared."
     }
   },
   "approvals": {

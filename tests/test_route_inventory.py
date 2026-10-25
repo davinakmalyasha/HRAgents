@@ -34,7 +34,7 @@ def test_every_router_module_is_reachable_by_the_structural_fences() -> None:
     `test_write_routes_declare_their_actor_as_a_dependency` without either
     failing -- the exact failure this file exists to prevent.
     """
-    assert len(MODULES) == 25, f"router modules changed: {MODULES}"
+    assert len(MODULES) == 26, f"router modules changed: {MODULES}"
     for name, router in api_routers():
         assert all_routes_of(router), f"{name} contributes no routes to the fences"
 

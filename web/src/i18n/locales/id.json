@@ -1158,6 +1158,16 @@
       "confirmDelete": "Konfirmasi hapus",
       "deleteFailed": "Registri tidak dapat dihapus.",
       "empty": "Belum ada registri kredensial."
+    },
+    "export": {
+      "title": "Ekspor catatan",
+      "hint": "Setiap baris basis data milik tenant ini, sebagai satu dokumen JSON: karyawan, dokumen, cuti, penggajian, evaluasi, persetujuan dan rantai audit. Lampiran biner ada di penyimpanan objek dan diekspor terpisah. Ekspor dicatat di audit.",
+      "download": "Unduh ekspor lengkap",
+      "preparing": "Menyiapkan…",
+      "saved": "Tersimpan {{name}}",
+      "forbidden": "Tidak tersedia untuk peran Anda.",
+      "noBackend": "Ekspor lengkap memerlukan backend Postgres.",
+      "failed": "Ekspor tidak dapat disiapkan."
     }
   },
   "approvals": {

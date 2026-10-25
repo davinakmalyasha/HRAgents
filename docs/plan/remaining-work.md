@@ -777,7 +777,12 @@ latency, costs, and failure modes documented.
       pen-test checklist, dependency scanning in CI
 - [ ] Observability: OTel traces (API → pipeline → agents), Prometheus metrics, Grafana dashboard,
       LLM cost tracking (token accounting per model)
-- [ ] Data governance: full export, deletion procedures, DPA template, subprocessor list
+- [x] Data governance: `GET /v1/export` streams every mapped table as one JSON document
+      (admin-only, audited, one read snapshot per table) and the compliance queue downloads it;
+      deletion is the retention/erasure workflow with payroll pseudonymization; the deployment
+      guide lists subprocessors and the object-store export path; `docs/legal/dpa-template.md` is a
+      fill-in template (explicitly not legal advice). Binary attachments are not embedded in the
+      JSON — their object-store export is documented separately.
 - [~] Scheduled jobs: retention sweep (dry-run default, `--purge` to apply), approval SLA
       escalation/expiry, breach overdue reporting, review reminders, contract + document expiry
       tasks, offer expiry, overdue-tasks report, audit-chain verification, and the reply-SLA
