@@ -116,7 +116,9 @@ A registry is inert until verified. Once at least one is usable, a claim that
 matches nothing counts as **unverified** (a Coursera badge and a genuine
 certificate stop scoring alike), while an entry past `expires_on` answers
 expired. Editing entries invalidates the verification, exactly like a rate
-table. The dashboard form is not built yet; the API is the import path today.
+table. The compliance queue has the same import path in the dashboard: create a
+registry, paste its rows (one per line, `name | status | id | expiry | notes`),
+then verify it with the source you checked.
 
 ### Push notifications (optional)
 

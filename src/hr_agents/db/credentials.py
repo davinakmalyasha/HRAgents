@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db import tables as t
-from hr_agents.db.mapping import add_model, get_model, list_models, save_model
+from hr_agents.db.mapping import add_model, delete_model, get_model, list_models, save_model
 from hr_agents.models import CredentialRegistry
 from hr_agents.services.credentials import CredentialRegistryStore
 
@@ -36,3 +36,6 @@ class DbCredentialRegistryStore(CredentialRegistryStore):
     def list_all(self) -> list[CredentialRegistry]:
         records = list_models(self._session_factory, CredentialRegistry, t.CredentialRegistryRecord)
         return sorted(records, key=lambda item: (item.issuer.casefold(), item.name))
+
+    def delete(self, registry_id: UUID) -> bool:
+        return delete_model(self._session_factory, t.CredentialRegistryRecord, registry_id)

@@ -60,6 +60,9 @@ class CredentialRegistryStore:
     def list_all(self) -> list[CredentialRegistry]:
         return sorted(self._items.values(), key=lambda item: (item.issuer.casefold(), item.name))
 
+    def delete(self, registry_id: UUID) -> bool:
+        return self._items.pop(registry_id, None) is not None
+
 
 class CredentialRegistryService:
     """Create, verify and apply operator-owned credential registries."""
@@ -136,6 +139,33 @@ class CredentialRegistryService:
 
     def get(self, registry_id: UUID) -> CredentialRegistry | None:
         return self._store.get(registry_id)
+
+    def delete(self, registry_id: UUID, *, actor: ActorRef) -> bool:
+        """Remove a registry and its rows, on the record.
+
+        A mistaken import should be removable rather than left as an inert row
+        named after the wrong issuer. Deleting is audited like every other
+        accepted change to the set of facts the scorer trusts.
+        """
+        registry = self._store.get(registry_id)
+        if registry is None:
+            return False
+        actor.require_human("deleting a credential registry", CredentialRegistryError)
+        removed = self._store.delete(registry_id)
+        if removed:
+            self._audit.append(
+                actor=actor.audit_actor(),
+                action="credential_registry.deleted",
+                subject_type="credential_registry",
+                subject_id=str(registry_id),
+                payload={"name": registry.name, "issuer": registry.issuer},
+            )
+            logger.info(
+                "credential_registry.deleted",
+                registry_id=str(registry_id),
+                actor=actor.actor_id,
+            )
+        return removed
 
     def list_all(self) -> list[CredentialRegistry]:
         return self._store.list_all()

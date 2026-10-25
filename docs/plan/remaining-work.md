@@ -473,7 +473,7 @@ Remaining in this area:
       least one usable registry, a matched claim takes the registry's answer (verified / failed /
       expired) and an unmatched claim becomes unverified before scoring, so a genuine certificate
       and a badge no longer score alike. With none configured, claims are untouched. The
-      dashboard import form remains; the API is the current path.
+      compliance queue imports, verifies and deletes registries from the dashboard.
 - [x] **Per-family templates, pinned.** Templates ship for all eight `JobFamily` values
       (`engineering`, `finance`, `education`, `healthcare`, `legal`, `operations`, `sales`,
       `general`; admin- and support-shaped jobs live under `general`/`operations`), each with its

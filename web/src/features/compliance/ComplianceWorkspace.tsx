@@ -10,6 +10,7 @@ import { useEmployees } from '@/features/records/useRecords'
 import { formatDateTime } from '@/lib/dates'
 
 import { CalendarBoard } from './CalendarBoard'
+import { CredentialsSection } from './CredentialsSection'
 import {
   LAWFUL_BASES,
   PURGE_CONFIRMATION,
@@ -259,6 +260,7 @@ export function ComplianceQueue() {
       <ErasureSection />
       <BreachSection />
       <RetentionSection />
+      <CredentialsSection />
       <AuditTrailPanel />
     </div>
   )

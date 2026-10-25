@@ -90,3 +90,16 @@ def test_an_empty_registry_cannot_be_verified() -> None:
         )
         assert refused.status_code == 422
         assert refused.json()["code"] == "validation_failed"
+
+
+def test_a_registry_can_be_removed() -> None:
+    with TestClient(create_app(settings())) as client:
+        created = client.post(
+            "/v1/credentials",
+            json={"name": "Mistake", "issuer": "Wrong"},
+            headers=ADMIN,
+        ).json()
+
+        assert client.delete(f"/v1/credentials/{created['id']}", headers=ADMIN).status_code == 204
+        assert client.get("/v1/credentials", headers=ADMIN).json()["total"] == 0
+        assert client.delete(f"/v1/credentials/{created['id']}", headers=ADMIN).status_code == 404

@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from hr_agents.api.credential_schemas import (
     CredentialEntriesUpdate,
@@ -66,6 +66,24 @@ def create_registry(
 ) -> CredentialRegistryView:
     registry = credentials.create(name=payload.name, issuer=payload.issuer, actor=actor)
     return CredentialRegistryView.from_model(registry)
+
+
+@router.delete(
+    "/{registry_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a registry and its rows",
+)
+def delete_registry(registry_id: UUID, credentials: CredentialsDep, actor: ActorDep) -> Response:
+    try:
+        removed = credentials.delete(registry_id, actor=actor)
+    except CredentialRegistryError as exc:
+        raise domain_problem(exc) from exc
+    if not removed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="no such credential registry",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{registry_id}", response_model=CredentialRegistryView)

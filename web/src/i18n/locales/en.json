@@ -1133,7 +1133,32 @@
         "submit": "Add date"
       }
     },
-    "purgeFailedBadge": "Purge failed"
+    "purgeFailedBadge": "Purge failed",
+    "credentials": {
+      "title": "Verified credentials ({{count}})",
+      "hint": "A certificate is a claim until the issuer confirms it. Import the rows you checked; scoring trusts a registry only after a named human verifies it with a source.",
+      "newName": "Registry name",
+      "newIssuer": "Issuer",
+      "create": "Create registry",
+      "createFailed": "The registry could not be created.",
+      "entryCount": "{{count}} row(s)",
+      "usable": "Verified and usable",
+      "unverified": "Not verified",
+      "verifiedBy": "verified by {{who}}",
+      "importLabel": "Rows to import",
+      "importHint": "One per line: name | verified/failed/expired | credential id | YYYY-MM-DD | notes",
+      "saveRows": "Save rows",
+      "saveFailed": "The rows could not be saved.",
+      "parseError": "Line {{line}} is not in the expected format.",
+      "sourceLabel": "Source of the verification",
+      "sourcePlaceholder": "Issuer page, date checked",
+      "verify": "Verify registry",
+      "verifyFailed": "The registry could not be verified.",
+      "delete": "Delete registry",
+      "confirmDelete": "Confirm delete",
+      "deleteFailed": "The registry could not be deleted.",
+      "empty": "No credential registries yet."
+    }
   },
   "approvals": {
     "boardTitle": "Approvals",

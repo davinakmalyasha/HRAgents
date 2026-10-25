@@ -152,3 +152,22 @@ def test_an_unknown_registry_is_a_404() -> None:
     with pytest.raises(CredentialRegistryError) as excinfo:
         service().require(uuid4())
     assert excinfo.value.code is DomainCode.UNKNOWN_RECORD
+
+
+def test_deleting_a_registry_removes_it_and_is_audited() -> None:
+    registry_service = service()
+    registry = usable(registry_service)
+
+    assert registry_service.delete(registry.id, actor=HUMAN) is True
+    assert registry_service.list_all() == []
+    assert registry_service._audit.entries[-1].action == "credential_registry.deleted"
+    assert registry_service.delete(registry.id, actor=HUMAN) is False
+
+
+def test_an_agent_cannot_delete_a_registry() -> None:
+    registry_service = service()
+    registry = usable(registry_service)
+
+    with pytest.raises(CredentialRegistryError) as excinfo:
+        registry_service.delete(registry.id, actor=ActorRef.agent("tool:hr_bot"))
+    assert excinfo.value.code is DomainCode.NAMED_HUMAN_REQUIRED

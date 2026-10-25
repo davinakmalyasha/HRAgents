@@ -1133,7 +1133,32 @@
         "submit": "Tambah tanggal"
       }
     },
-    "purgeFailedBadge": "Penghapusan gagal"
+    "purgeFailedBadge": "Penghapusan gagal",
+    "credentials": {
+      "title": "Kredensial terverifikasi ({{count}})",
+      "hint": "Sertifikat hanyalah klaim sampai penerbit memastikannya. Impor baris yang Anda periksa; penilaian hanya memercayai registri setelah seorang manusia memverifikasinya dengan sumber.",
+      "newName": "Nama registri",
+      "newIssuer": "Penerbit",
+      "create": "Buat registri",
+      "createFailed": "Registri tidak dapat dibuat.",
+      "entryCount": "{{count}} baris",
+      "usable": "Terverifikasi dan dapat dipakai",
+      "unverified": "Belum terverifikasi",
+      "verifiedBy": "diverifikasi oleh {{who}}",
+      "importLabel": "Baris untuk diimpor",
+      "importHint": "Satu per baris: nama | verified/failed/expired | id kredensial | YYYY-MM-DD | catatan",
+      "saveRows": "Simpan baris",
+      "saveFailed": "Baris tidak dapat disimpan.",
+      "parseError": "Baris {{line}} tidak sesuai format.",
+      "sourceLabel": "Sumber verifikasi",
+      "sourcePlaceholder": "Halaman penerbit, tanggal dicek",
+      "verify": "Verifikasi registri",
+      "verifyFailed": "Registri tidak dapat diverifikasi.",
+      "delete": "Hapus registri",
+      "confirmDelete": "Konfirmasi hapus",
+      "deleteFailed": "Registri tidak dapat dihapus.",
+      "empty": "Belum ada registri kredensial."
+    }
   },
   "approvals": {
     "boardTitle": "Persetujuan",

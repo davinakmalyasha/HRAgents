@@ -157,10 +157,10 @@ Honest, current, and tracked in the repository:
    pairs by a decision signature (skills, experience, education, certifications,
    scored vector) and fails a live run on divergence; CI exercises the wiring
    offline, where the model is deterministic and cannot show bias.
-2. **Credential registries are operator imports.** The registry exists and
-   gates scoring once verified, but there is no issuer API or dashboard importer
-   yet: rows arrive through the API, and an install that imports nothing treats
-   every claim as before.
+2. **Credential registries are operator imports.** The registry exists, is
+   imported and verified in the dashboard, and gates scoring once verified. There
+   is no issuer API integration: an install that imports nothing treats every
+   claim as before.
 3. **Role fit is a coverage gate, not a model.** Tenure-driven depth with thin
    must-have coverage now routes to a person, but the check is token coverage of
    the job's requirements; a richer per-family sufficiency model is future work.
