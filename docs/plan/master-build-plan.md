@@ -608,9 +608,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 
 - [ ] Paper: recruitment deep-dive + the "HR department of one" platform framing
 - [ ] Measured results: load tests, eval scores, fairness-audit results, latency budgets
-- [ ] `landing/`: Next.js public site (SEO pages: HR automation Indonesia, open-source ATS alternative)
-- [ ] `landing/`: docs section, changelog, demo video embed
-- [ ] `landing/`: "Work with me" page — freelance integration/consulting offer with contact
+- [x] `landing/`: Next.js public site (static export) — home, HR automation Indonesia,
+      open-source ATS alternative, payroll preparation; `NEXT_PUBLIC_SITE_URL` sets
+      canonical/OpenGraph URLs and the build runs in CI
+- [~] `landing/`: links to the rendered docs; an embedded changelog and demo video remain
+- [x] `landing/`: "Work with me" page — freelance integration offer, GitHub contact
 - [ ] README: demo dataset, screenshots, 5-minute quickstart
 - [ ] README "Work with the author / freelance integration" section: name, product, contact, services offered
 - [ ] Demo video / GIF walkthrough

@@ -706,11 +706,17 @@ approval, a payroll prep + sign-off, and an offboarding end-to-end without touch
 
 ## 3. Landing site (Phase 10 early)
 
-- [ ] `landing/` — Next.js SEO site (separate deployment; not part of the self-host product)
-- [ ] Pages: HR automation Indonesia, open-source ATS alternative, payroll prep explainer
-- [ ] Docs section (rendered from `docs/`), changelog, demo video embed
-- [ ] "Work with me" page: freelance integration/consulting offer with contact form
-- [ ] Analytics + OG images; no dark patterns, no fake testimonials
+- [x] `landing/` — Next.js static-export site (`output: "export"`, deployable on any static
+      host; separate from the self-host product). `NEXT_PUBLIC_SITE_URL` supplies canonical,
+      OpenGraph and sitemap URLs; CI builds it.
+- [x] Pages: HR automation Indonesia, open-source ATS alternative, payroll preparation explainer,
+      plus the home page and a work-with-me page
+- [~] Docs section (rendered from `docs/`), changelog, demo video embed: the landing links to the
+      rendered docs; an embedded changelog and video remain (the tour GIF is in the README and the
+      docs home)
+- [x] "Work with me" page: freelance integration/consulting offer with GitHub contact (no form)
+- [~] Analytics + OG images; no dark patterns, no fake testimonials: OG image and metadata ship;
+      analytics is deliberately absent (the footer says so) rather than adding a tracker
 
 ---
 

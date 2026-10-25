@@ -214,7 +214,7 @@ src/hr_agents/
 migrations/        Alembic (PostgreSQL 16)
 tests/             test suite; ruff + mypy clean
 web/               dashboard SPA (React 19 + Vite + Tailwind + shadcn/ui)
-landing/           public site (Next.js) — planned
+landing/           public site (Next.js static export; deployed separately)
 docker/            Postgres init scripts (demote the superuser so RLS applies)
 ```
 
@@ -256,14 +256,18 @@ sources live here:
 - [x] Evaluation worker: the API publishes, a worker claims and runs the pipeline end to end
 - [x] Verified rate tables: enter, verify with a source, and unblock payroll compute
 - [x] Operability: `/readyz` per-dependency, `/metrics` with a stuck-queue canary
-- [~] Dashboard SPA + PWA (monochrome design system) — chat, attention home, hiring board,
-      review queue, batch import, onboarding, records, offline shell; approvals decision UI,
-      XLSX, auth screens, and push remain
-- [ ] Scoring generalized beyond engineering (job-family dimension templates)
-- [ ] Indonesian statutory knowledge base + compliance calendar
-- [ ] MCP layer + integrations (WhatsApp Meta Cloud, Google Workspace, files, HRIS)
-- [ ] Full eval suite (50 profiles + fairness pairs) and the technical paper
-- [ ] Self-host setup wizard, demo dataset, and public release (Apache-2.0)
+- [x] Dashboard SPA + PWA (monochrome design system) — chat, attention home, hiring board,
+      review queue, batch import, onboarding, records, approvals, XLSX review packets, auth
+      screens, offline shell, install prompt, push notifications
+- [x] Scoring generalized beyond engineering — eight family rubrics, a per-family evidence
+      taxonomy, composable primitives, evidence-first calibration
+- [~] Indonesian statutory knowledge: the compliance calendar and operator-verified rate tables
+      ship; a curated statutory RAG corpus is still a content project
+- [~] Direct integration adapters (SMTP/IMAP, WhatsApp manual links, calendar manual slots,
+      storage) ship; the MCP layer and ATS/HRIS/Slack connectors are open
+- [x] Evaluation dataset (50 profiles + edge cases), offline suite, live-capable fairness
+      comparison, and the [technical paper](docs/paper.md)
+- [x] Self-host setup script, demo dataset, docs site, and public releases (Apache-2.0)
 
 ## Technology
 
