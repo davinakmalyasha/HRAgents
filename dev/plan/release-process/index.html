@@ -1343,6 +1343,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reproducible-from-the-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducible from the tag
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pre-release-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1462,6 +1473,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reproducible-from-the-tag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reproducible from the tag
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#pre-release-checklist" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1572,8 +1594,12 @@ Release.</p>
 <ol>
 <li>Merge the release PR (review the generated changelog — edit the PR if needed).</li>
 <li><code>release-please</code> tags and publishes the GitHub Release.</li>
-<li>The <code>Release artifacts</code> workflow builds the sdist and wheel and attaches them to
-   the release (<code>twine check</code> validated).</li>
+<li>Because <code>release-please</code> publishes with <code>GITHUB_TOKEN</code> (whose events do not start
+   workflows), dispatch the three post-release workflows for the tag:</li>
+<li><code>Release artifacts</code> — builds the sdist and wheel (<code>twine check</code> validated)</li>
+<li><code>Release image</code> — builds/scans the multi-arch image before pushing, and attaches
+     the SARIF + SPDX SBOM; provenance and the SBOM are attached to the image digest</li>
+<li><code>Docs</code> with the version input — publishes that version and moves <code>latest</code></li>
 <li>Announce in Discussions; update the README status if the release changes it.</li>
 </ol>
 <h2 id="hotfixes">Hotfixes<a class="headerlink" href="#hotfixes" title="Permanent link">&para;</a></h2>
@@ -1598,22 +1624,38 @@ Release.</p>
 <td>active (workflow <code>release.yml</code>)</td>
 </tr>
 <tr>
-<td>Container image on GHCR</td>
-<td>planned — Phase 9 (needs <code>Dockerfile</code>)</td>
+<td>Container image on GHCR (multi-arch, Trivy-gated)</td>
+<td>active (<code>image.yml</code>; 0.2.0 onward)</td>
+</tr>
+<tr>
+<td>SPDX SBOM + Trivy SARIF on the release</td>
+<td>active; SBOM and max-mode provenance also on the image digest</td>
+</tr>
+<tr>
+<td>Versioned docs (<code>mike</code>)</td>
+<td>active (<code>docs.yml</code>; <code>latest</code> plus each release)</td>
 </tr>
 <tr>
 <td>PyPI package</td>
 <td>deferred — the product is a server, not a library</td>
 </tr>
-<tr>
-<td>SBOM + build provenance attestations</td>
-<td>planned — Phase 10</td>
-</tr>
 </tbody>
 </table>
+<h2 id="reproducible-from-the-tag">Reproducible from the tag<a class="headerlink" href="#reproducible-from-the-tag" title="Permanent link">&para;</a></h2>
+<p>The artifacts are built from the tagged commit with locked inputs:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>checkout<span class="w"> </span>hr-agents-vX.Y.Z
+uv<span class="w"> </span>sync<span class="w"> </span>--locked
+uv<span class="w"> </span>build<span class="w">                 </span><span class="c1"># sdist + wheel</span>
+uvx<span class="w"> </span>twine<span class="w"> </span>check<span class="w"> </span>dist/*
+</code></pre></div>
+<p>The image is built by <code>image.yml</code> from the same ref with pinned base images and
+pinned actions; the pushed digest is recorded by BuildKit provenance. A rebuild
+on the same tag should produce the same Python artifacts; the container layers
+may differ if a base image is re-tagged, which the release notes should say if
+it matters.</p>
 <h2 id="pre-release-checklist">Pre-release checklist<a class="headerlink" href="#pre-release-checklist" title="Permanent link">&para;</a></h2>
 <ul>
-<li>[ ] CI green: quality, migrations, windows, secrets, CodeQL</li>
+<li>[ ] CI green: quality, migrations, postgres-adapters, windows, secrets, web, landing, CodeQL</li>
 <li>[ ] <code>CHANGELOG.md</code> reviewed and human-edited if the generated notes miss nuance</li>
 <li>[ ] <code>docs/plan/master-build-plan.md</code> status table matches reality</li>
 <li>[ ] Upgrade notes written for any migration or config change</li>
