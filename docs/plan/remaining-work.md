@@ -204,7 +204,7 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       `scheduling_availability.interviewer_id`, is recorded under the reference-integrity
       item above), `0023` pinned 38 CHECK constraints mirroring the model validators, and
       every pushed-down list read now orders in SQL (see the pagination item below).
-- [~] **Real purge handlers and a fed retention ledger.** Four entities are done and
+- [x] **Real purge handlers and a fed retention ledger.** Four entities are done and
       the fifth is a deliberate decision. The ledger is fed by the services that
       create records: employee creation, document upload, and application submission
       (a system actor -- ingestion is machine-facing) register `employee`,
@@ -219,7 +219,8 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       pseudonymized rather than skipped (the decision this paragraph used to defer):
       the purge blanks the employee's name on the line while keeping amounts, ids and
       the period, because a run is a tax record and the ledger must still add up; the
-      run is fed at export, so the pseudonymous line is what the ledger sees.
+      run is fed at export, so the pseudonymous line is what the ledger sees. Every attempt is
+      journaled (`purge_jobs`, migration `0033`) and reconciled after a crash.
 - [~] **Consolidate the audit and transition shapes.** The triplicated approval→status sync is
       now one `ApprovalEngine.decided(approval_id, error=..., allowed=..., subject=...)`
       accessor: it owns the shaped 404, the terminal-outcome check and the named-decider guard,
@@ -238,7 +239,7 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
 > transition + step audits), the API→worker→evaluation seam test,
 > `get_evaluation_breakdown` tool, and `scripts/verify_audit.py`.
 
-- [~] **Postgres-backed persistence for the new surfaces.** Most in-memory stores have a
+- [x] **Postgres-backed persistence for the new surfaces.** Most in-memory stores have a
       Postgres adapter behind the same interface, selected by `HRAGENTS_STORE_BACKEND`;
       the adapter suite runs on SQLite locally and PostgreSQL in CI. This item was
       previously ticked `[x]` on the claim that *every* store had an adapter. That was
@@ -433,7 +434,7 @@ Remaining in this area:
       selected by `JobSpecification.job_family`. Every family declares its competency areas, signal
       keywords, title ladder, depth vocabulary, breadth saturation and internal weights; `JobFamily` is
       checked against the registry at import so a family cannot fall back silently.
-- [~] **`DimensionTemplate` as data, not code.** The template itself is now operator data:
+- [x] **`DimensionTemplate` as data, not code.** The template itself is now operator data:
       `rubric_versions` stores full canonical payloads, drafted, verified by a named human with
       a source note behind `rubrics:verify`, activated one per family, audited, and resolved by
       the pipeline with the code template as the fallback. The stored digest is what an
@@ -572,9 +573,9 @@ documented.
       how the wrong thing gets run, and no sign-out item when the install runs as the local operator
 
 ### 2.2 Shell, auth, i18n
-- [~] App shell: sidebar workspaces, topbar, responsive layout; three-room layout component
+- [x] App shell: sidebar workspaces, topbar, responsive layout; three-room layout component
       (Board / Queue / Chat) with placeholders (real surfaces land per workspace)
-- [~] Auth screens: the sign-in screen, session handling and sign-out shipped. The
+- [x] Auth screens: the sign-in screen, session handling and sign-out shipped. The
       dashboard gates on /v1/session, keeps the key in sessionStorage, drops it on any
       401 and returns the person to where they were after signing in. Password reset is
       deliberately absent: the credential is an API key, so the reset path is "rotate the
@@ -643,10 +644,10 @@ documented.
 - [x] Records workspace: employee directory filterable by org unit, org chart with roll-up
       headcount, document vault ordered by urgency, expiry alerts, and named-human document
       verification (backend: `/v1/documents`, `/v1/documents/{id}/verify`, `/v1/org-units`)
-- [~] Leave workspace: board (who is out, per-employee balances) + queue (pending-first
+- [x] Leave workspace: board (who is out, per-employee balances) + queue (pending-first
       requests, cancel with a reason). Decisions are **not** here — they go through the
       approvals inbox, so this surface never offers approve/reject
-- [~] Payroll workspace: runs board, run detail splitting blocking anomalies from advisory
+- [x] Payroll workspace: runs board, run detail splitting blocking anomalies from advisory
       ones, lifecycle-gated compute/submit/cancel, review-packet link (XLSX is review only and
       the "no payments executed" notice is rendered in the UI). Approve/decline is the
       approvals inbox's job, and cancel still needs a real reason typed in
@@ -657,7 +658,7 @@ documented.
       again, plus the reminder runner: a window in days, a run, and the tasks it created --
       with the caveat that deduplication means the list is what this run added, not everything
       outstanding)
-- [~] Offboarding workspace: departing board, per-plan checklist (required vs optional),
+- [x] Offboarding workspace: departing board, per-plan checklist (required vs optional),
       asset return/missing, finalise gated on outstanding required steps **and** asset
       clearance, start-another form whenever plans already exist. Waiving is two-step and
       requires a reason
@@ -792,7 +793,7 @@ latency, costs, and failure modes documented.
       configured-but-unreachable scanner refuses rather than downgrading to unscanned. Remaining:
       an external pen-test and a checklist for it, and wiring the scanner into any future
       object-store ingestion path that bypasses `/v1/documents`.
-- [~] Observability: optional OTLP/HTTP tracing instruments the API, outbound HTTP and the worker's
+- [x] Observability: optional OTLP/HTTP tracing instruments the API, outbound HTTP and the worker's
       evaluation/extraction spans (probes and scrapes are excluded); the Prometheus surface gains
       `hragents_llm_tokens{provider,model,kind}` and `hragents_llm_requests`; a Grafana dashboard
       ships in `ops/grafana/`; and token usage is recorded per evaluation in `llm_usage` and
@@ -804,7 +805,7 @@ latency, costs, and failure modes documented.
       guide lists subprocessors and the object-store export path; `docs/legal/dpa-template.md` is a
       fill-in template (explicitly not legal advice). Binary attachments are not embedded in the
       JSON — their object-store export is documented separately.
-- [~] Scheduled jobs: retention sweep (dry-run default, `--purge` to apply), approval SLA
+- [x] Scheduled jobs: retention sweep (dry-run default, `--purge` to apply), approval SLA
       escalation/expiry, breach overdue reporting, review reminders, contract + document expiry
       tasks, offer expiry, overdue-tasks report, audit-chain verification, and the reply-SLA
       anti-ghosting check (a dispatched message with no reply after 72h becomes a recruiter
@@ -834,31 +835,29 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 - [~] README: the 5-minute quickstart, demo dataset, an inline Mermaid architecture diagram, a
       four-screen tour GIF and real screenshots of the running demo ship. The narrated demo video
       and the GitHub social preview remain.
-- [ ] README "Work with the author / freelance integration" finalized (services, contact, scope)
+- [x] README "Work with the author / freelance integration" finalized (services, contact, scope)
 - [ ] Demo video / GIF walkthrough (2–3 minutes: ingest → review → override → schedule)
 - [x] API docs site (OpenAPI rendered by the docs site from the committed spec) + operator
       runbooks (backup, upgrade, provider failures, incident response with the breach workflow) in
       `deployment.md`
 - [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates, security policy, ADRs, release
       process (landed early with the repo-infrastructure work — see `master-build-plan.md` Phase 1)
-- [~] Docs site (mkdocs-material + GitHub Pages): `docs.yml` builds and deploys on every docs
+- [x] Docs site (mkdocs-material + GitHub Pages): `docs.yml` builds and deploys on every docs
       change; the site carries the architecture, deployment, API reference and ADRs. Versioned
       docs (`mike`) remain, so old releases do not keep their own site yet.
-- [~] Container image on GHCR: the `image.yml` pipeline builds `linux/amd64` + `linux/arm64`,
+- [x] Container image on GHCR: the `image.yml` pipeline builds `linux/amd64` + `linux/arm64`,
       scans before pushing, and fails on a fixable CRITICAL. The pipeline was added after the 0.1.0
-      release and its first run found a fixable CRITICAL in the 0.1.0 lockfile (certifi), so the
-      0.1.0 image is superseded rather than re-tagged; the next release builds clean. A second
-      dispatch of the 0.1.0 tag validated the new ordering: it built, scanned, attached the reports,
-      failed the CRITICAL gate, and **skipped the push** — the failure mode is now a published
-      finding, not a published image.
-- [~] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
-      the release, and buildx attaches the SBOM and max-mode provenance to the image digest. The
-      0.1.0 run failed its own gate before attaching them (see above); the next release carries all
-      four.
+      release; 0.1.0 itself is superseded, while 0.2–0.6 were built, scanned, attested and
+      published (the current image is `0.6.0`/`latest`). A dispatch of the 0.1.0 tag validated the
+      scan-before-push ordering: it attached the reports, failed the CRITICAL gate, and skipped
+      the push — the failure mode is a published finding, not a published image.
+- [x] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
+      the release, and buildx attaches the SBOM and max-mode provenance to the image digest. Every
+      release from 0.2.0 onward carries all four.
 - [ ] PyPI publishing — only if a library use case appears (currently deferred)
 - [ ] GitHub social preview image + demo assets (screenshots/GIF)
 - [ ] Immutable releases for tags, once the release flow has settled
-- [ ] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps
+- [x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in `release-process.md`); v0.1.0–v0.6.0 published
 - [x] **First release published.** PR #3 was re-opened to run the required CI checks (the bot
       pushed with `GITHUB_TOKEN`, whose events do not trigger workflows), passed all six, and was
       squash-merged; `release-please` then published `hr-agents-v0.1.0` with the changelog. The

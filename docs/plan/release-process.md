@@ -47,8 +47,12 @@ Release.
 
 1. Merge the release PR (review the generated changelog — edit the PR if needed).
 2. `release-please` tags and publishes the GitHub Release.
-3. The `Release artifacts` workflow builds the sdist and wheel and attaches them to
-   the release (`twine check` validated).
+3. Because `release-please` publishes with `GITHUB_TOKEN` (whose events do not start
+   workflows), dispatch the three post-release workflows for the tag:
+   - `Release artifacts` — builds the sdist and wheel (`twine check` validated)
+   - `Release image` — builds/scans the multi-arch image before pushing, and attaches
+     the SARIF + SPDX SBOM; provenance and the SBOM are attached to the image digest
+   - `Docs` with the version input — publishes that version and moves `latest`
 4. Announce in Discussions; update the README status if the release changes it.
 
 ## Hotfixes
@@ -64,13 +68,31 @@ Release.
 | Artifact | Status |
 |---|---|
 | sdist + wheel on the GitHub Release | active (workflow `release.yml`) |
-| Container image on GHCR | planned — Phase 9 (needs `Dockerfile`) |
+| Container image on GHCR (multi-arch, Trivy-gated) | active (`image.yml`; 0.2.0 onward) |
+| SPDX SBOM + Trivy SARIF on the release | active; SBOM and max-mode provenance also on the image digest |
+| Versioned docs (`mike`) | active (`docs.yml`; `latest` plus each release) |
 | PyPI package | deferred — the product is a server, not a library |
-| SBOM + build provenance attestations | planned — Phase 10 |
+
+## Reproducible from the tag
+
+The artifacts are built from the tagged commit with locked inputs:
+
+```bash
+git checkout hr-agents-vX.Y.Z
+uv sync --locked
+uv build                 # sdist + wheel
+uvx twine check dist/*
+```
+
+The image is built by `image.yml` from the same ref with pinned base images and
+pinned actions; the pushed digest is recorded by BuildKit provenance. A rebuild
+on the same tag should produce the same Python artifacts; the container layers
+may differ if a base image is re-tagged, which the release notes should say if
+it matters.
 
 ## Pre-release checklist
 
-- [ ] CI green: quality, migrations, windows, secrets, CodeQL
+- [ ] CI green: quality, migrations, postgres-adapters, windows, secrets, web, landing, CodeQL
 - [ ] `CHANGELOG.md` reviewed and human-edited if the generated notes miss nuance
 - [ ] `docs/plan/master-build-plan.md` status table matches reality
 - [ ] Upgrade notes written for any migration or config change
