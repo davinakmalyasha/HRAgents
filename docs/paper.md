@@ -88,7 +88,9 @@ tensor per run; variance across runs (σ) is a first-class input to the policy.
 Four dimensions make the tensor: technical depth, stack alignment, systems
 literacy and verifiable certifications. Each family (engineering, finance,
 education, healthcare, legal, operations, sales, general) supplies its own
-breadth vocabulary, professional signals, title tiers and weight mix; the
+breadth vocabulary, professional signals, title tiers and weight mix, exposed as
+one taxonomy object; the dimensions compose from a small set of pure primitives
+(saturation, evidence density/count, credential credit, title tiers). The
 engineering template's digest and serialized score vector are pinned as
 regression fences.
 

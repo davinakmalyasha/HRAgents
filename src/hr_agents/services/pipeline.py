@@ -40,6 +40,7 @@ from hr_agents.models import (
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.credentials import CredentialRegistryService
 from hr_agents.services.policy import evaluate_policy
+from hr_agents.services.primitives import evidence_count
 from hr_agents.services.rubrics import RubricRegistry
 from hr_agents.services.scoring import (
     ScoringResult,
@@ -389,6 +390,9 @@ class ApplicationPipeline:
                 "recommendation": recommendation.value,
                 "flags": [flag.value for flag in evaluation.flags],
                 "evidence_sufficient": evidence_sufficient,
+                "evidence_refs": sum(
+                    evidence_count(item.evidence) for item in evaluation.breakdown
+                ),
             },
         )
         actions.append(f"pipeline.decision.{policy.decision.value}")

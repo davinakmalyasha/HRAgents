@@ -27,3 +27,7 @@ def test_an_endpoint_installs_the_process_provider() -> None:
 
     assert provider is not None
     assert trace.get_tracer_provider() is provider
+    # The global provider outlives this test; stop its exporter so later
+    # spans in the suite are dropped instead of timing out against a
+    # collector that is not running.
+    getattr(provider, "shutdown", lambda: None)()

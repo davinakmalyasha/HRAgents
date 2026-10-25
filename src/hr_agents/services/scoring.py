@@ -22,7 +22,6 @@ from hr_agents.models import (
     ScoreDimension,
     ScoreVector,
     StrictModel,
-    VerificationStatus,
     business_today,
 )
 from hr_agents.services.dimensions import (
@@ -32,6 +31,12 @@ from hr_agents.services.dimensions import (
     TENURE_SATURATION_MONTHS,
     DimensionTemplate,
     template_for,
+)
+from hr_agents.services.primitives import (
+    credential_credit,
+    evidence_density,
+    saturation,
+    tenure_saturation,
 )
 
 # --- Skill normalization -------------------------------------------------------
@@ -126,12 +131,6 @@ def _breadth_terms(profile: CandidateProfile, template: DimensionTemplate) -> se
     return terms & template.breadth_vocabulary
 
 
-def _coverage(required: set[str], available: set[str]) -> float:
-    if not required:
-        return 0.0
-    return len(required & available) / len(required)
-
-
 def _evidence_pool(profile: CandidateProfile) -> list[EvidenceRef]:
     pool: list[EvidenceRef] = []
     for entry in profile.experience:
@@ -202,10 +201,10 @@ def _technical_depth(
     months = _experience_months(profile, reference_date)
     terms = _breadth_terms(profile, template)
 
-    tenure = min(months / float(TENURE_SATURATION_MONTHS), 1.0)
-    breadth = min(len(terms) / float(template.breadth_saturation), 1.0)
-    projects = min(len(profile.projects) / float(PROJECT_SATURATION), 1.0)
-    publications = min(len(profile.publications) / float(PUBLICATION_SATURATION), 1.0)
+    tenure = tenure_saturation(months, float(TENURE_SATURATION_MONTHS))
+    breadth = template.taxonomy().breadth_component(terms)
+    projects = saturation(len(profile.projects), float(PROJECT_SATURATION))
+    publications = saturation(len(profile.publications), float(PUBLICATION_SATURATION))
 
     weights = template.depth_weights
     score = (
@@ -263,7 +262,7 @@ def _stack_alignment(profile: CandidateProfile, job: JobSpecification) -> Dimens
     coverage: dict[str, float] = {}
     for label, required, weight in active:
         covered = required & available
-        part = _coverage(required, available)
+        part = evidence_density(required, available)
         coverage[label.replace("-", "_")] = part
         score += (weight / total_weight) * part
         missing = sorted(required - available)
@@ -292,24 +291,19 @@ def _systems_literacy(profile: CandidateProfile, template: DimensionTemplate) ->
     list made of software words, which combined to score a career accountant **exactly
     zero** -- not low, zero -- and put them below the automatic-rejection floor.
     """
+    taxonomy = template.taxonomy()
     categories = {skill.category for skill in profile.skills}
-    hits = categories & template.professional_categories
-    category_component = len(hits) / len(template.professional_categories)
+    hits = categories & taxonomy.professional_categories
+    category_component = len(hits) / len(taxonomy.professional_categories)
     category_evidence = [
         ref for skill in profile.skills if skill.category in hits for ref in skill.evidence
     ]
 
-    highlights = " ".join(h.lower() for entry in profile.experience for h in entry.highlights)
-    keyword_hits = sum(1 for keyword in template.signal_keywords if keyword in highlights)
-    keyword_component = min(keyword_hits / template.signal_saturation, 1.0)
-    keyword_evidence: list[EvidenceRef] = []
-    for entry in profile.experience:
-        entry_text = " ".join(h.lower() for h in entry.highlights)
-        if any(keyword in entry_text for keyword in template.signal_keywords):
-            keyword_evidence.extend(entry.evidence)
+    keyword_hits, keyword_evidence = taxonomy.signal_hits(profile.experience)
+    keyword_component = saturation(keyword_hits, float(taxonomy.signal_saturation))
 
     titles = " ".join(entry.title.lower() for entry in profile.experience)
-    seniority_component, matched_tier = template.tier_for(titles)
+    seniority_component, matched_tier = taxonomy.seniority(titles)
 
     weights = template.systems_weights
     score = (
@@ -342,18 +336,13 @@ def _verifiable_certifications(profile: CandidateProfile) -> DimensionScore:
             evidence=[],
         )
 
-    verified = sum(1 for cert in claims if cert.status is VerificationStatus.VERIFIED)
-    expired = sum(1 for cert in claims if cert.status is VerificationStatus.EXPIRED)
-    failed = sum(1 for cert in claims if cert.status is VerificationStatus.FAILED)
-    verified_fraction = verified / len(claims)
-    count_component = min(len(claims) / float(CERT_COUNT_SATURATION), 1.0)
-
-    score = 0.7 * verified_fraction + 0.3 * count_component
+    credit = credential_credit(claims, count_saturation=float(CERT_COUNT_SATURATION))
+    score = credit.score
     rationale = (
-        f"{verified}/{len(claims)} certifications verified"
-        + (f", {expired} expired" if expired else "")
-        + (f", {failed} failed verification" if failed else "")
-        + f"; count signal {count_component:.2f}"
+        f"{credit.verified}/{len(claims)} certifications verified"
+        + (f", {credit.expired} expired" if credit.expired else "")
+        + (f", {credit.failed} failed verification" if credit.failed else "")
+        + f"; count signal {credit.count_component:.2f}"
     )
     evidence: list[EvidenceRef] = []
     for cert in claims:

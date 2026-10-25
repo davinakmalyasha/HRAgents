@@ -30,21 +30,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Collection, Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 
 from pydantic import Field
 
 from hr_agents.models import (
+    EvidenceRef,
+    ExperienceEntry,
     JobFamily,
     PolicyThresholds,
     RubricSnapshot,
     SkillCategory,
     StrictModel,
 )
-
-# Everything that is not a letter or digit in a job title becomes a space, so that
-# "Team Lead, Payments" and "Sr. Accountant" split into the words a tier lists.
-_TITLE_PUNCTUATION = str.maketrans({char: " " for char in ",.;:()[]/'\"&|!?"})
+from hr_agents.services.primitives import saturation, title_seniority_tiers
 
 # Saturation points. These are properties of how much evidence is "enough", not of an
 # occupation, so they are shared: a template that changed them would score its family on a
@@ -70,6 +71,41 @@ their standing. Every family uses the same shape; the families differ in the voc
 A default rather than a required field, so there is one source of truth and a family can
 still override it deliberately.
 """
+
+
+@dataclass(frozen=True)
+class FamilyTaxonomy:
+    """One family's answer to "what counts as evidence".
+
+    The template's fields were already per-family; this view composes them so the
+    scorer has one object to ask, and a future axis can take the same object
+    rather than growing another set of ad-hoc template fields.
+    """
+
+    family: JobFamily
+    breadth_vocabulary: frozenset[str]
+    signal_keywords: tuple[str, ...]
+    professional_categories: frozenset[SkillCategory]
+    title_tiers: tuple[tuple[frozenset[str], float], ...]
+    breadth_saturation: int
+    signal_saturation: int
+
+    def breadth_component(self, terms: Collection[str]) -> float:
+        return saturation(len(terms), float(self.breadth_saturation))
+
+    def signal_hits(self, experience: Sequence[ExperienceEntry]) -> tuple[int, list[EvidenceRef]]:
+        """Keyword hits over all highlights, plus the entries that matched."""
+        highlights = " ".join(h.lower() for entry in experience for h in entry.highlights)
+        hits = sum(1 for keyword in self.signal_keywords if keyword in highlights)
+        evidence: list[EvidenceRef] = []
+        for entry in experience:
+            entry_text = " ".join(h.lower() for h in entry.highlights)
+            if any(keyword in entry_text for keyword in self.signal_keywords):
+                evidence.extend(entry.evidence)
+        return hits, evidence
+
+    def seniority(self, titles: str) -> tuple[float, str]:
+        return title_seniority_tiers(self.title_tiers, titles)
 
 
 class DimensionTemplate(StrictModel):
@@ -138,23 +174,20 @@ class DimensionTemplate(StrictModel):
     )
 
     def tier_for(self, titles: str) -> tuple[float, str]:
-        """``(component, matched_label)`` for a blob of lowercased job titles.
+        """``(component, matched_label)``, delegated to the shared primitive."""
+        return title_seniority_tiers(self.title_tiers, titles)
 
-        Word-boundary matched, first tier wins. The previous implementation used a plain
-        substring test over concatenated titles, so ``sr`` matched any title containing
-        those two letters and ``head`` matched "Ahead of schedule".
-
-        Punctuation is stripped before splitting, because real titles carry it:
-        "Team Lead, Payments" is a lead, and splitting on whitespace alone would leave
-        ``lead,`` which matches no tier.
-        """
-        cleaned = titles.translate(_TITLE_PUNCTUATION)
-        words = set(cleaned.replace("-", " ").replace("/", " ").split())
-        for tokens, value in self.title_tiers:
-            hit = words & tokens
-            if hit:
-                return value, sorted(hit)[0]
-        return 0.0, "unranked"
+    def taxonomy(self) -> FamilyTaxonomy:
+        """The family's evidence vocabulary, in one object the scorer composes."""
+        return FamilyTaxonomy(
+            family=self.family,
+            breadth_vocabulary=self.breadth_vocabulary,
+            signal_keywords=self.signal_keywords,
+            professional_categories=self.professional_categories,
+            title_tiers=self.title_tiers,
+            breadth_saturation=self.breadth_saturation,
+            signal_saturation=self.signal_saturation,
+        )
 
 
 ENGINEERING = DimensionTemplate(

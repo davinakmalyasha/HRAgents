@@ -449,10 +449,14 @@ Remaining in this area:
       tool cites family + digest. Canonicalisation sorts the frozenset-derived fields, and a
       pinned engineering digest makes a rubric edit a deliberate, visible change. Turning the
       template list itself into operator-editable data is the next item, not this one.
-- [ ] **Composable primitive scorers with per-family taxonomies**: `evidence_count`,
-      `evidence_density(taxonomy)`, `tenure_saturation(cap)`, `credential_registry(family)`,
-      `title_seniority_tiers(family)`. A single per-family keyword taxonomy is the change that makes
-      the model general.
+- [~] **Composable primitive scorers with per-family taxonomies.** The arithmetic is composed from
+      pure, independently tested primitives (`saturation`/`tenure_saturation`,
+      `evidence_density`, `evidence_count`, `credential_credit`, `title_seniority_tiers`), and
+      every family exposes one `FamilyTaxonomy` — breadth vocabulary, signal keywords, professional
+      categories, title tiers — that the scorer asks instead of re-deriving from loose template
+      fields. The pinned engineering vector is unchanged, which is the regression proof. Remaining:
+      the public tensor is still the four fixed axes; a fifth axis or a template-schema change is a
+      deliberate contract decision, not an additive refactor.
 - [x] **Tenure must not outweigh fit (first gate).** Depth now exposes its weighted
       tenure/breadth/projects/publications components, stack alignment exposes its must-have
       coverage, and policy routes a candidate to a person when tenure carries at least half of
