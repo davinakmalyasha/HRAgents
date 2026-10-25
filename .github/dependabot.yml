@@ -29,6 +29,22 @@ updates:
       time: "03:00"
       timezone: Asia/Jakarta
     open-pull-requests-limit: 5
+    # openapi-typescript's peer range excludes TypeScript 7; the generator is
+    # part of the build, so a TS major bump has to wait for it.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       web-dependencies:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: "/landing"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"
+      timezone: Asia/Jakarta
+    open-pull-requests-limit: 3
+    groups:
+      landing-dependencies:
         patterns: ["*"]
