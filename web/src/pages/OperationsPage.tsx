@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/dates'
 
 import { OpsRequestError, type DeadLetterView } from '@/features/ops/opsApi'
-import { useDeadLetters, useRequeueDeadLetter } from '@/features/ops/useOps'
+import { useDeadLetters, useRequeueDeadLetter, useUsage } from '@/features/ops/useOps'
 import { ProviderList } from '@/features/providers/ProviderList'
 import { ProviderRequestError } from '@/features/providers/providersApi'
 import { useProviders } from '@/features/providers/useProviders'
@@ -55,6 +55,8 @@ export function OperationsPage() {
           <ProviderList providers={providers.data ?? []} />
         )}
       </section>
+
+      <ModelUsage />
 
       {letters.isLoading ? (
         <Skeleton className="h-40" />
@@ -170,5 +172,58 @@ function DeadLetterRow({ letter }: { letter: DeadLetterView }) {
         </div>
       ) : null}
     </li>
+  )
+}
+
+/**
+ * Token totals are the operator's cost signal; the dollars are their contract,
+ * so the panel reports tokens and requests and leaves pricing to them.
+ */
+function ModelUsage() {
+  const { t } = useTranslation()
+  const usage = useUsage()
+  if (usage.isLoading) {
+    return <Skeleton className="h-24 w-full" />
+  }
+  if (usage.isError || usage.data === undefined) {
+    return <EmptyState title={t('ops.usage.unavailable')} />
+  }
+  const { totals } = usage.data
+  const byModel = usage.data.by_model ?? []
+  return (
+    <section aria-labelledby="usage-heading" className="flex flex-col gap-2">
+      <h2 id="usage-heading" className="text-ink-strong text-lg font-medium">
+        {t('ops.usage.title')}
+      </h2>
+      <p className="text-ink-muted text-sm">
+        {t('ops.usage.totals', {
+          tokens: totals.total_tokens,
+          requests: totals.requests,
+        })}
+      </p>
+      {byModel.length === 0 ? (
+        <EmptyState title={t('ops.usage.empty')} />
+      ) : (
+        <ul className="text-ink-muted text-xs">
+          {byModel.map((item) => (
+            <li
+              key={`${item.provider_id}-${item.model ?? 'unknown'}`}
+              className="border-line flex flex-wrap items-baseline justify-between gap-2 border-b py-1 last:border-b-0"
+            >
+              <span className="font-mono">
+                {item.provider_id} · {item.model ?? 'unknown'}
+              </span>
+              <span>
+                {t('ops.usage.breakdown', {
+                  input: item.input_tokens,
+                  output: item.output_tokens,
+                  requests: item.requests,
+                })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

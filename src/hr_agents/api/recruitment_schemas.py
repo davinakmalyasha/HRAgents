@@ -29,6 +29,7 @@ from hr_agents.models import (
     JobFamily,
     JobSpecification,
     JobStatus,
+    LlmUsage,
     Location,
     Offer,
     OfferRevision,
@@ -163,6 +164,7 @@ class EvaluationView(StrictModel):
     policy: PolicyEvaluation
     policy_version: str
     rubric: RubricSnapshot | None = None
+    usage: LlmUsage | None = None
     created_at: datetime
 
     @classmethod
@@ -184,6 +186,7 @@ class EvaluationView(StrictModel):
             policy=record.policy,
             policy_version=evaluation.policy_version,
             rubric=evaluation.rubric,
+            usage=evaluation.usage,
             created_at=evaluation.created_at,
         )
 

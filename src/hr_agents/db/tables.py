@@ -457,3 +457,26 @@ class CredentialRegistryRecord(TenantScoped, Base):
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source_note: Mapped[str | None] = mapped_column(Text)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class LlmUsageRecord(TenantScoped, Base):
+    """One evaluation's provider usage, for the operations aggregate."""
+
+    __tablename__ = "llm_usage"
+    __table_args__ = (
+        Index("ix_llm_usage_tenant", "tenant_id"),
+        Index("ix_llm_usage_created", "tenant_id", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    evaluation_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("evaluations.id", ondelete="SET NULL")
+    )
+    application_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    model: Mapped[str | None] = mapped_column(String(200))
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cache_read_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    requests: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

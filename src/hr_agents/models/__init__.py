@@ -213,6 +213,13 @@ from hr_agents.models.tasks import (
     TaskSource,
     TaskStatus,
 )
+from hr_agents.models.usage import (
+    LlmUsage,
+    LlmUsageEntry,
+    UsageSummary,
+    UsageTotals,
+    sum_usage,
+)
 
 __all__ = [
     "CYCLE_TRANSITIONS",
@@ -302,6 +309,8 @@ __all__ = [
     "LeaveType",
     "LeaveTypePolicy",
     "Links",
+    "LlmUsage",
+    "LlmUsageEntry",
     "Location",
     "MessageDirection",
     "MessageStatus",
@@ -388,6 +397,8 @@ __all__ = [
     "TemplateStep",
     "TimeSlot",
     "Urgency",
+    "UsageSummary",
+    "UsageTotals",
     "UtcDateTime",
     "VerificationStatus",
     "Versioned",
@@ -398,5 +409,6 @@ __all__ = [
     "canonical_json",
     "payload_digest",
     "set_business_timezone",
+    "sum_usage",
     "utc_now",
 ]

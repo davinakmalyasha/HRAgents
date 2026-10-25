@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from opentelemetry import trace
 from pydantic import Field
 from pydantic_ai import Agent, RunContext
 
@@ -17,7 +18,7 @@ from hr_agents.agents.deps import AgentDeps
 from hr_agents.agents.injection_guard import GuardReport, InjectionGuard
 from hr_agents.agents.runtime import AgentRuntime
 from hr_agents.agents.skill_context import skill_instructions
-from hr_agents.models import CandidateProfile, StrictModel
+from hr_agents.models import CandidateProfile, LlmUsage, StrictModel
 from hr_agents.skills.registry import SkillRegistry
 
 AGENT_NAME = "resume_deconstructor"
@@ -50,6 +51,16 @@ class DeconstructionResult(StrictModel):
     profile: CandidateProfile
     guard: GuardReport
     skill_refs: list[dict[str, str]] = Field(default_factory=list)
+    usage: LlmUsage | None = Field(
+        default=None,
+        description=(
+            "Tokens the extraction consumed, when the runtime measured them. "
+            "The offline test model reports zero, which is true rather than missing."
+        ),
+    )
+
+
+_TRACER = trace.get_tracer("hr_agents.agents")
 
 
 class ResumeDeconstructor:
@@ -93,10 +104,22 @@ class ResumeDeconstructor:
         result: Any = await self._agent.run(
             prompt, deps=deps, usage_limits=self._runtime.usage_limits()
         )
+        measured = getattr(result, "usage", None)
+        usage = None
+        if measured is not None:
+            usage = LlmUsage(
+                provider_id=self._runtime.provider_id,
+                model=self._runtime.model_name,
+                input_tokens=int(measured.input_tokens or 0),
+                output_tokens=int(measured.output_tokens or 0),
+                cache_read_tokens=int(measured.cache_read_tokens or 0),
+                requests=int(measured.requests or 0),
+            )
         return DeconstructionResult(
             profile=result.output,
             guard=report,
             skill_refs=list(self._skill_refs),
+            usage=usage,
         )
 
 

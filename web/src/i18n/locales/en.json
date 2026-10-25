@@ -1286,7 +1286,14 @@
     "requeueReason": "Why is this being retried?",
     "confirmRequeue": "Requeue message",
     "cancel": "Cancel",
-    "requeueFailed": "The requeue was refused. Check the reason and try again."
+    "requeueFailed": "The requeue was refused. Check the reason and try again.",
+    "usage": {
+      "title": "Model usage (30 days)",
+      "totals": "{{tokens}} tokens across {{requests}} requests.",
+      "breakdown": "{{input}} in · {{output}} out · {{requests}} requests",
+      "empty": "No model usage recorded yet.",
+      "unavailable": "Model usage could not be loaded."
+    }
   },
   "setup": {
     "title": "Finish setting up",

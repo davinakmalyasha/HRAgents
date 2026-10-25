@@ -11,6 +11,7 @@ from pydantic import Field
 
 from hr_agents.models.common import EvidenceRef, StrictModel, UtcDateTime, Versioned, utc_now
 from hr_agents.models.job_family import JobFamily
+from hr_agents.models.usage import LlmUsage
 
 
 class ScoreDimension(StrEnum):
@@ -202,6 +203,13 @@ class TechnicalEvaluation(StrictModel):
     recommendation: Recommendation
     policy_version: str = "1.0"
     rubric: RubricSnapshot | None = None
+    usage: LlmUsage | None = Field(
+        default=None,
+        description=(
+            "Tokens the k extraction runs consumed. Old records and the offline "
+            "model may omit it; it is reporting data, never a scoring input."
+        ),
+    )
     created_at: UtcDateTime = Field(default_factory=utc_now)
 
 

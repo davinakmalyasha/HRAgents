@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { listDeadLetters, requeueDeadLetter } from './opsApi'
+import { getUsage, listDeadLetters, requeueDeadLetter } from './opsApi'
+
+export function useUsage(days = 30) {
+  return useQuery({
+    queryKey: ['ops', 'usage', days],
+    queryFn: () => getUsage(days),
+    staleTime: 60_000,
+    retry: false,
+  })
+}
 
 export function useDeadLetters() {
   return useQuery({

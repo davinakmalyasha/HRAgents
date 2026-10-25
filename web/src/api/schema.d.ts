@@ -2468,6 +2468,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ops/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage Summary
+         * @description Tokens consumed by provider and model, for the operator's cost view.
+         */
+        get: operations["usage_summary_v1_ops_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/org-units": {
         parameters: {
             query?: never;
@@ -4836,6 +4856,7 @@ export interface components {
             s_tech: number;
             /** Sigma */
             sigma: number;
+            usage?: components["schemas"]["LlmUsage"] | null;
             /** Weights */
             weights: {
                 [key: string]: number;
@@ -5356,6 +5377,41 @@ export interface components {
             pph21: number;
             /** Total Deductions */
             total_deductions: number;
+        };
+        /**
+         * LlmUsage
+         * @description What one provider/model consumed for one evaluation.
+         */
+        LlmUsage: {
+            /**
+             * Cache Read Tokens
+             * @default 0
+             */
+            cache_read_tokens: number;
+            /**
+             * Input Tokens
+             * @default 0
+             */
+            input_tokens: number;
+            /** Model */
+            model?: string | null;
+            /**
+             * Output Tokens
+             * @default 0
+             */
+            output_tokens: number;
+            /**
+             * Provider Id
+             * @default unknown
+             */
+            provider_id: string;
+            /**
+             * Requests
+             * @default 0
+             */
+            requests: number;
+            /** Total Tokens */
+            readonly total_tokens: number;
         };
         /** Location */
         Location: {
@@ -7626,6 +7682,48 @@ export interface components {
          * @enum {string}
          */
         Urgency: "low" | "normal" | "high" | "critical";
+        /**
+         * UsageSummary
+         * @description What the operations page shows: totals and the split by model.
+         */
+        UsageSummary: {
+            /** By Model */
+            by_model?: components["schemas"]["LlmUsage"][];
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            totals: components["schemas"]["UsageTotals"];
+        };
+        /**
+         * UsageTotals
+         * @description Token counts without attribution.
+         */
+        UsageTotals: {
+            /**
+             * Cache Read Tokens
+             * @default 0
+             */
+            cache_read_tokens: number;
+            /**
+             * Input Tokens
+             * @default 0
+             */
+            input_tokens: number;
+            /**
+             * Output Tokens
+             * @default 0
+             */
+            output_tokens: number;
+            /**
+             * Requests
+             * @default 0
+             */
+            requests: number;
+            /** Total Tokens */
+            readonly total_tokens: number;
+        };
         /**
          * VerificationStatus
          * @description Verification state of a claimed credential or fact.
@@ -25658,6 +25756,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeadLetterRequeueResult"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    usage_summary_v1_ops_usage_get: {
+        parameters: {
+            query?: {
+                /** @description Window in days. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSummary"];
                 };
             };
             /** @description The request could not be understood. */

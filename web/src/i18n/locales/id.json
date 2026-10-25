@@ -1286,7 +1286,14 @@
     "requeueReason": "Mengapa pesan ini dicoba ulang?",
     "confirmRequeue": "Requeue pesan",
     "cancel": "Batal",
-    "requeueFailed": "Requeue ditolak. Periksa alasan lalu coba lagi."
+    "requeueFailed": "Requeue ditolak. Periksa alasan lalu coba lagi.",
+    "usage": {
+      "title": "Penggunaan model (30 hari)",
+      "totals": "{{tokens}} token dalam {{requests}} permintaan.",
+      "breakdown": "{{input}} masuk · {{output}} keluar · {{requests}} permintaan",
+      "empty": "Belum ada penggunaan model yang tercatat.",
+      "unavailable": "Penggunaan model tidak dapat dimuat."
+    }
   },
   "setup": {
     "title": "Selesaikan pengaturan",

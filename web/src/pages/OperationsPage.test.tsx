@@ -27,6 +27,22 @@ const providers = vi.hoisted(() => ({
   error: null as unknown,
 }))
 
+const usage = vi.hoisted(() => ({
+  data: {
+    since: '2026-10-01T00:00:00Z',
+    totals: {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      requests: 0,
+      total_tokens: 0,
+    },
+    by_model: [] as unknown[],
+  },
+  isLoading: false,
+  isError: false,
+}))
+
 vi.mock('@/features/providers/useProviders', () => ({
   useProviders: () => providers,
 }))
@@ -39,6 +55,7 @@ vi.mock('@/features/ops/useOps', () => ({
     data: state.letters,
   }),
   useRequeueDeadLetter: () => ({ mutate: state.requeue, isPending: false, isError: false }),
+  useUsage: () => usage,
 }))
 
 function letter(overrides: Partial<DeadLetterView> = {}): DeadLetterView {
@@ -72,6 +89,17 @@ describe('Operations page', () => {
     state.isError = false
     state.error = null
     state.letters = [letter()]
+    usage.data = {
+      since: '2026-10-01T00:00:00Z',
+      totals: {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        requests: 0,
+        total_tokens: 0,
+      },
+      by_model: [],
+    }
   })
 
   it('shows the message metadata and gates the requeue behind a reason', async () => {
@@ -106,6 +134,36 @@ describe('Operations page', () => {
     expect(
       screen.getByText('Only an HR administrator can see the operations queue.'),
     ).toBeInTheDocument()
+  })
+
+  it('reports token usage per model without inventing a price', () => {
+    usage.data = {
+      since: '2026-10-01T00:00:00Z',
+      totals: {
+        input_tokens: 1200,
+        output_tokens: 300,
+        cache_read_tokens: 0,
+        requests: 4,
+        total_tokens: 1500,
+      },
+      by_model: [
+        {
+          provider_id: 'llm.demo',
+          model: 'model-a',
+          input_tokens: 1200,
+          output_tokens: 300,
+          cache_read_tokens: 0,
+          requests: 4,
+          total_tokens: 1500,
+        },
+      ],
+    }
+
+    renderWith(<OperationsPage />)
+
+    expect(screen.getByText('1500 tokens across 4 requests.')).toBeInTheDocument()
+    expect(screen.getByText('llm.demo · model-a')).toBeInTheDocument()
+    expect(screen.getByText('1200 in · 300 out · 4 requests')).toBeInTheDocument()
   })
 
   it('celebrates an empty dead-letter list as the healthy state', () => {

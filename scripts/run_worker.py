@@ -73,6 +73,7 @@ def build_worker(app, agent_set, queue: QueueBackend, settings: WorkerSettings) 
         evaluations=app.state.recruiting.evaluations,
         jobs=app.state.recruiting.jobs,
         audit=app.state.audit,
+        usage=app.state.llm_usage,
     )
     return Worker(
         queue,

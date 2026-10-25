@@ -77,6 +77,11 @@ class Settings(BaseSettings):
         """Sync-driver URL for store adapters (psycopg); see ADR 0005."""
         return self.database_url.replace("+asyncpg", "+psycopg")
 
+    # --- Tracing (optional) ---
+    # OTLP/HTTP endpoint (Jaeger, Collector, Tempo). Empty means no tracing.
+    otel_endpoint: str = ""
+    otel_service_name: str = "hragents"
+
     # --- Editable provider settings ---
     # Fernet key(s) that seal provider credentials entered in the dashboard.
     # Comma-separated rotates: the first encrypts, the rest decrypt. Empty

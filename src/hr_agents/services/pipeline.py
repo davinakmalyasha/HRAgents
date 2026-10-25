@@ -25,6 +25,7 @@ from hr_agents.models import (
     CandidateProfile,
     EvaluationFlag,
     JobSpecification,
+    LlmUsage,
     PolicyDecision,
     PolicyEvaluation,
     Recommendation,
@@ -33,6 +34,7 @@ from hr_agents.models import (
     TechnicalEvaluation,
     aggregate_runs,
     business_today,
+    sum_usage,
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
@@ -124,6 +126,7 @@ class PipelineResult(StrictModel):
     flags: list[EvaluationFlag] = Field(default_factory=list)
     audit_actions: list[str] = Field(default_factory=list)
     consent_halted: bool = False
+    usage: LlmUsage | None = None
 
 
 def _recommendation_for(decision: PolicyDecision) -> Recommendation:
@@ -311,6 +314,8 @@ class ApplicationPipeline:
 
         primary = profiles[0]
 
+        total_usage = sum_usage([result.usage for result in results if result.usage is not None])
+
         # 2. Deterministic scoring per extraction, then aggregation. The active
         #    verified rubric is resolved once: every run must use the same
         #    template, or sigma would measure rubric drift as extraction noise.
@@ -343,6 +348,7 @@ class ApplicationPipeline:
             flags=sorted({flag for flag in flags}, key=lambda item: item.value),
             recommendation=Recommendation.HUMAN_REVIEW,  # replaced below
             rubric=rubric_snapshot,
+            usage=total_usage,
             created_at=utc_now(),
         )
 
@@ -399,4 +405,5 @@ class ApplicationPipeline:
             recommendation=recommendation,
             flags=evaluation.flags,
             audit_actions=actions,
+            usage=total_usage,
         )

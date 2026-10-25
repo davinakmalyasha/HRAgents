@@ -3,6 +3,7 @@ import { fetchAllPages } from '@/lib/pagination'
 import type { components } from '@/api/schema'
 
 export type DeadLetterView = components['schemas']['DeadLetterView']
+export type UsageSummary = components['schemas']['UsageSummary']
 
 /**
  * A non-2xx answer from an ops endpoint.
@@ -16,6 +17,16 @@ export class OpsRequestError extends Error {
     super(`ops request failed with status ${status}`)
     this.name = 'OpsRequestError'
   }
+}
+
+/** Tokens consumed by provider and model, for the operator's cost view. */
+export async function getUsage(days = 30): Promise<UsageSummary> {
+  const { data, response } = await api.GET('/v1/ops/usage', {
+    params: { query: { days } },
+  })
+  if (!response.ok) throw new OpsRequestError(response.status)
+  if (data === undefined) throw new OpsRequestError(response.status)
+  return data
 }
 
 export async function listDeadLetters(): Promise<DeadLetterView[]> {

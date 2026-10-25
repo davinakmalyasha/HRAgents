@@ -8,9 +8,10 @@ is how the same message dies twice.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 
 from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.ops_schemas import (
@@ -20,6 +21,7 @@ from hr_agents.api.ops_schemas import (
 )
 from hr_agents.api.problem import domain_problem, not_found, unavailable
 from hr_agents.api.schemas import Page
+from hr_agents.models import UsageSummary, utc_now
 from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Permission
 from hr_agents.services.queue_ops import QueueOpsError
@@ -37,6 +39,18 @@ def get_queue(request: Request) -> QueueBackend | None:
 
 
 QueueDep = Annotated[QueueBackend | None, Depends(get_queue)]
+
+
+@router.get("/usage", response_model=UsageSummary)
+def usage_summary(
+    request: Request,
+    days: int = Query(default=30, ge=1, le=365, description="Window in days."),
+) -> UsageSummary:
+    """Tokens consumed by provider and model, for the operator's cost view."""
+    service = getattr(request.app.state, "llm_usage", None)
+    if service is None:
+        raise unavailable("token usage is not available")
+    return service.summary(since=utc_now() - timedelta(days=days))
 
 
 @router.get("/dead-letters", response_model=Page[DeadLetterView])

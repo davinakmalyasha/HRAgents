@@ -21,7 +21,7 @@ import json
 import os
 from collections import defaultdict
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -148,7 +148,36 @@ def render(app: Any) -> str:
         with suppress(Exception):
             lines.append(f"hragents_audit_chain_entries {audit.entry_count()}")
 
+    usage = getattr(app.state, "llm_usage", None)
+    if usage is not None:
+        with suppress(Exception):
+            summary = usage.summary(since=datetime.now(UTC) - timedelta(days=30))
+            if summary.by_model:
+                lines.append("# TYPE hragents_llm_tokens gauge")
+                lines.append("# TYPE hragents_llm_requests gauge")
+                for item in summary.by_model:
+                    labels = (
+                        f'provider="{_label(item.provider_id)}",'
+                        f'model="{_label(item.model or "unknown")}"'
+                    )
+                    lines.append(
+                        f'hragents_llm_tokens{{{labels},kind="input"}} {item.input_tokens}'
+                    )
+                    lines.append(
+                        f'hragents_llm_tokens{{{labels},kind="output"}} {item.output_tokens}'
+                    )
+                    lines.append(
+                        f'hragents_llm_tokens{{{labels},kind="cache_read"}} '
+                        f"{item.cache_read_tokens}"
+                    )
+                    lines.append(f"hragents_llm_requests{{{labels}}} {item.requests}")
+
     return "\n".join(lines) + "\n"
+
+
+def _label(value: str) -> str:
+    """Prometheus label escaping: backslash, quote and newline only."""
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
 
 
 async def queue_metrics(app: Any) -> list[str]:

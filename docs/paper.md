@@ -164,8 +164,9 @@ Honest, current, and tracked in the repository:
 3. **Role fit is a coverage gate, not a model.** Tenure-driven depth with thin
    must-have coverage now routes to a person, but the check is token coverage of
    the job's requirements; a richer per-family sufficiency model is future work.
-4. **Cost is not measured.** Token accounting per application is not yet
-   instrumented, so no cost-per-hire figure is claimed.
+4. **Cost is tokens, not currency.** Each evaluation records its input/output
+   tokens by provider and model, exposed per model; dollar cost is left to the
+   operator's contract, and no cost-per-hire figure is claimed.
 5. **The portfolio agent is not in the pipeline.** Repository and publication
    evidence are implemented but the agent that gathers them is not wired into
    the production path.

@@ -44,10 +44,12 @@ class AgentRuntime:
         *,
         limits: RuntimeLimits | None = None,
         provider_id: str = "llm.test",
+        model_name: str | None = None,
     ) -> None:
         self._model = model
         self._limits = limits or RuntimeLimits()
         self._provider_id = provider_id
+        self._model_name = model_name
 
     # --- constructors ---------------------------------------------------
 
@@ -56,7 +58,7 @@ class AgentRuntime:
         """Deterministic in-process model for tests, CI, and demos."""
         from pydantic_ai.models.test import TestModel
 
-        return cls(TestModel(), limits=limits, provider_id="llm.test")
+        return cls(TestModel(), limits=limits, provider_id="llm.test", model_name="test")
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> AgentRuntime:
@@ -79,7 +81,7 @@ class AgentRuntime:
             raise AgentRuntimeError(
                 f"LLM provider {selection.provider_id!r} did not return a ModelRef"
             )
-        return cls(build_model(ref), provider_id=ref.provider_id)
+        return cls(build_model(ref), provider_id=ref.provider_id, model_name=ref.model_string)
 
     # --- accessors ------------------------------------------------------
 
@@ -96,6 +98,10 @@ class AgentRuntime:
     @property
     def provider_id(self) -> str:
         return self._provider_id
+
+    @property
+    def model_name(self) -> str | None:
+        return self._model_name
 
     def usage_limits(self) -> Any:
         """PydanticAI UsageLimits built from the runtime limits."""

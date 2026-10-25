@@ -57,6 +57,7 @@ from hr_agents.api.routers import people as people_router
 from hr_agents.api.routers import providers as providers_router
 from hr_agents.api.routers import push as push_router
 from hr_agents.api.routers import setup as setup_router
+from hr_agents.api.tracing import configure_tracing
 from hr_agents.config import Settings, get_settings
 from hr_agents.db import create_sync_engine, create_sync_session_factory
 from hr_agents.db.application import DbApplicationStore
@@ -82,6 +83,7 @@ from hr_agents.services.recruiting import (
     register_recruitment_purge_handlers,
 )
 from hr_agents.services.sealing import FernetSealer, SealerError
+from hr_agents.services.usage import LlmUsageService, LlmUsageStore
 from hr_agents.services.workspace_requests import HandoffService, WorkspaceRequestStore
 from hr_agents.workspaces import default_registry
 
@@ -293,6 +295,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         version=__version__,
         lifespan=lifespan,
     )
+    configure_tracing(settings, app=app)
 
     # Persistence: in-memory by default (zero-config dev, tests); Postgres-backed
     # stores when HRAGENTS_STORE_BACKEND=postgres (ADR 0005).
@@ -338,6 +341,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     provider_settings.install()
     app.state.provider_settings = provider_settings
+
+    # Token usage: written by the worker, read by the ops page and /metrics.
+    usage_store: LlmUsageStore
+    if session_factory is None:
+        usage_store = LlmUsageStore()
+    else:
+        from hr_agents.db.usage import DbLlmUsageStore
+
+        usage_store = DbLlmUsageStore(session_factory)
+    app.state.llm_usage = LlmUsageService(usage_store)
 
     app.state.store = store
     app.state.audit = audit

@@ -11,11 +11,14 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from opentelemetry import trace
+
 from hr_agents.providers.queue import QueueMessage
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
 from hr_agents.services.pipeline import ApplicationPipeline, PipelineConfig
 from hr_agents.services.recruiting import EvaluationService, JobService
+from hr_agents.services.usage import LlmUsageService
 
 EVALUATION_TOPIC = "evaluation.evaluate"
 
@@ -43,6 +46,9 @@ def evaluation_payload(
     }
 
 
+_TRACER = trace.get_tracer("hr_agents.worker")
+
+
 class EvaluationJobHandler:
     """Runs the pipeline for one ``evaluation.evaluate`` message."""
 
@@ -55,6 +61,7 @@ class EvaluationJobHandler:
         jobs: JobService,
         audit: AuditChain,
         config: PipelineConfig | None = None,
+        usage: LlmUsageService | None = None,
     ) -> None:
         self._pipeline = pipeline
         self._applications = applications
@@ -62,6 +69,7 @@ class EvaluationJobHandler:
         self._jobs = jobs
         self._audit = audit
         self._config = config
+        self._usage = usage
 
     async def __call__(self, message: QueueMessage) -> None:
         application_id = UUID(str(message.payload["application_id"]))
@@ -95,14 +103,22 @@ class EvaluationJobHandler:
         )
 
         try:
-            result = await self._pipeline.process(
-                application_id=str(application_id),
-                resume_text=resume_text,
-                job=job,
-                consent_active=consent_active,
-                source_truncated=source_truncated,
-                config=self._config,
-            )
+            with _TRACER.start_as_current_span(
+                "evaluation.pipeline",
+                attributes={
+                    "hragents.application_id": str(application_id),
+                    "hragents.job_id": str(job_id),
+                },
+            ) as span:
+                result = await self._pipeline.process(
+                    application_id=str(application_id),
+                    resume_text=resume_text,
+                    job=job,
+                    consent_active=consent_active,
+                    source_truncated=source_truncated,
+                    config=self._config,
+                )
+                span.set_attribute("hragents.recommendation", result.recommendation.value)
         except Exception as exc:
             self._audit.append_system(
                 action="worker.failed",
@@ -142,6 +158,12 @@ class EvaluationJobHandler:
             policy=result.policy,
             source="pipeline",
         )
+        if self._usage is not None and result.usage is not None:
+            self._usage.record(
+                usage=result.usage,
+                application_id=str(application_id),
+                evaluation_id=result.evaluation.id,
+            )
         self._audit.append_system(
             action="worker.completed",
             subject_type="application",
