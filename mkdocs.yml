@@ -64,6 +64,7 @@ nav:
       - Board transitions: architecture/board-transitions.md
       - Benchmarks: architecture/benchmarks.md
   - Deployment & operations: deployment.md
+  - Region & network recipes: regions.md
   - API reference: api.md
   - Decisions:
       - ADR index: adr/README.md

@@ -787,7 +787,9 @@ latency, costs, and failure modes documented.
 - [x] Backup/restore script with a verification drill (`scripts/backup.py --verify` restores into a
       scratch database and re-verifies the audit chain) and a runbook in `docs/deployment.md`;
       measured RTO/RPO numbers are still to be recorded
-- [ ] Region recipes: Jakarta / Singapore deployment notes; Cloudflare Tunnel guide for webhooks
+- [x] Region recipes: Jakarta/Singapore notes (business timezone vs host, residency, latency, backups,
+      TLS) and a Cloudflare Tunnel guide, including the trusted-proxy flag the rate limiter
+      needs and the spoofing risk if the origin stays reachable directly (`docs/regions.md`).
 - [~] Security hardening: rate limits ship (per principal, pruned), dependency scanning runs through
       CodeQL and Dependabot, API keys are role-bound and audited, and the rotation runbook covers
       keys, the settings key, VAPID, provider credentials and infrastructure passwords. Uploads pass
