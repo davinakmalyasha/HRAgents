@@ -16488,6 +16488,7 @@
     },
     "/v1/chat/stream": {
       "get": {
+        "description": "The routed workspace is sent before the answer, so the wait is explainable.\n\nThe routing decision is deterministic and computed first; if the caller\ncontinues a conversation whose workspace this message would leave, the request\nis refused with the same 409 the non-streaming route returns, before any\nevent is emitted, so the client's restart-and-retry path still works.",
         "operationId": "stream_hr_v1_chat_stream_get",
         "parameters": [
           {
