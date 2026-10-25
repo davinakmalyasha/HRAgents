@@ -963,6 +963,121 @@
       
   
   
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data governance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data governance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../data-governance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export, deletion and subprocessors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/dpa-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DPA template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -981,10 +1096,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" checked>
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
             
   
   
@@ -1002,8 +1117,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_9">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2626,7 +2741,12 @@ latency, costs, and failure modes documented.</p>
       pen-test checklist, dependency scanning in CI</li>
 <li>[ ] Observability: OTel traces (API → pipeline → agents), Prometheus metrics, Grafana dashboard,
       LLM cost tracking (token accounting per model)</li>
-<li>[ ] Data governance: full export, deletion procedures, DPA template, subprocessor list</li>
+<li>[x] Data governance: <code>GET /v1/export</code> streams every mapped table as one JSON document
+      (admin-only, audited, one read snapshot per table) and the compliance queue downloads it;
+      deletion is the retention/erasure workflow with payroll pseudonymization; the deployment
+      guide lists subprocessors and the object-store export path; <code>docs/legal/dpa-template.md</code> is a
+      fill-in template (explicitly not legal advice). Binary attachments are not embedded in the
+      JSON — their object-store export is documented separately.</li>
 <li>[~] Scheduled jobs: retention sweep (dry-run default, <code>--purge</code> to apply), approval SLA
       escalation/expiry, breach overdue reporting, review reminders, contract + document expiry
       tasks, offer expiry, overdue-tasks report, audit-chain verification, and the reply-SLA
