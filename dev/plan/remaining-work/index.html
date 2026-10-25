@@ -2673,11 +2673,17 @@ approval, a payroll prep + sign-off, and an offboarding end-to-end without touch
 <hr />
 <h2 id="3-landing-site-phase-10-early">3. Landing site (Phase 10 early)<a class="headerlink" href="#3-landing-site-phase-10-early" title="Permanent link">&para;</a></h2>
 <ul>
-<li>[ ] <code>landing/</code> — Next.js SEO site (separate deployment; not part of the self-host product)</li>
-<li>[ ] Pages: HR automation Indonesia, open-source ATS alternative, payroll prep explainer</li>
-<li>[ ] Docs section (rendered from <code>docs/</code>), changelog, demo video embed</li>
-<li>[ ] "Work with me" page: freelance integration/consulting offer with contact form</li>
-<li>[ ] Analytics + OG images; no dark patterns, no fake testimonials</li>
+<li>[x] <code>landing/</code> — Next.js static-export site (<code>output: "export"</code>, deployable on any static
+      host; separate from the self-host product). <code>NEXT_PUBLIC_SITE_URL</code> supplies canonical,
+      OpenGraph and sitemap URLs; CI builds it.</li>
+<li>[x] Pages: HR automation Indonesia, open-source ATS alternative, payroll preparation explainer,
+      plus the home page and a work-with-me page</li>
+<li>[~] Docs section (rendered from <code>docs/</code>), changelog, demo video embed: the landing links to the
+      rendered docs; an embedded changelog and video remain (the tour GIF is in the README and the
+      docs home)</li>
+<li>[x] "Work with me" page: freelance integration/consulting offer with GitHub contact (no form)</li>
+<li>[~] Analytics + OG images; no dark patterns, no fake testimonials: OG image and metadata ship;
+      analytics is deliberately absent (the footer says so) rather than adding a tracker</li>
 </ul>
 <hr />
 <h2 id="4-evaluations-expansion-phase-44-completion">4. Evaluations expansion (Phase 4.4 completion)<a class="headerlink" href="#4-evaluations-expansion-phase-44-completion" title="Permanent link">&para;</a></h2>
