@@ -12,6 +12,7 @@ export type AuditVerifyView = components['schemas']['AuditVerifyView']
 export type AuditEntryView = components['schemas']['AuditEntryView']
 export type ScanView = components['schemas']['ScanView']
 export type PurgeReportView = components['schemas']['PurgeReportView']
+export type PurgeJobView = components['schemas']['PurgeJobView']
 export type PurgeOutcomeView = components['schemas']['PurgeOutcomeView']
 export type BreachStatus = components['schemas']['BreachStatus']
 export type BreachImpact = components['schemas']['BreachImpact']
@@ -532,4 +533,14 @@ export async function removeCalendarEntry(entryId: string, reason: string): Prom
     body: { reason },
   })
   return response.status === 204
+}
+
+/** The purge journal, newest first: interrupted attempts and their errors. */
+export async function listPurgeJobs(): Promise<PurgeJobView[]> {
+  return fetchAllPages(async (limit, offset) => {
+    const { data } = await api.GET('/v1/compliance/retention/purge-jobs', {
+      params: { query: { limit, offset } },
+    })
+    return data ?? undefined
+  })
 }

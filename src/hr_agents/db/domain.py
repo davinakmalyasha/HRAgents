@@ -36,6 +36,7 @@ from hr_agents.models import (
     OffboardingAsset,
     OffboardingPlan,
     OffboardingTemplate,
+    PurgeJob,
     RecordEntity,
     RetentionPolicy,
     RetentionRecord,
@@ -171,6 +172,19 @@ class DbComplianceStore(ComplianceStore):
         return sorted(policies, key=lambda item: item.entity.value)
 
     # retention records
+    def add_purge_job(self, job: PurgeJob) -> None:
+        add_model(self._session_factory, job, ct.PurgeJobRecord)
+
+    def save_purge_job(self, job: PurgeJob) -> None:
+        save_model(self._session_factory, job, ct.PurgeJobRecord)
+
+    def get_purge_job(self, job_id: UUID) -> PurgeJob | None:
+        return get_model(self._session_factory, PurgeJob, ct.PurgeJobRecord, job_id)
+
+    def list_purge_jobs(self) -> list[PurgeJob]:
+        jobs = list_models(self._session_factory, PurgeJob, ct.PurgeJobRecord)
+        return sorted(jobs, key=lambda item: (item.started_at, str(item.id)))
+
     def add_record(self, record: RetentionRecord) -> None:
         add_model(self._session_factory, record, ct.RetentionRecordTable)
 

@@ -442,3 +442,24 @@ def test_audit_verify_reports_intact_chain() -> None:
     assert body["intact"] is True
     assert body["entry_count"] >= 1
     assert body["first_invalid_seq"] is None
+
+
+def test_the_purge_journal_is_listed_and_filterable() -> None:
+    with make_client() as client:
+        set_policy(client)
+        track_candidate(client, anchor_at=(NOW - timedelta(days=800)).isoformat())
+
+        purged = client.post("/v1/compliance/retention/purge", json={"as_of": NOW.isoformat()})
+        assert purged.status_code == 200, purged.text
+
+        journal = client.get("/v1/compliance/retention/purge-jobs")
+        assert journal.status_code == 200, journal.text
+        body = journal.json()
+        assert body["total"] >= 1
+        assert body["items"][0]["status"] == "done"
+        assert body["items"][0]["action"] == "anonymize"
+
+        failed = client.get(
+            "/v1/compliance/retention/purge-jobs", params={"status": "failed"}
+        ).json()
+        assert failed["total"] == 0

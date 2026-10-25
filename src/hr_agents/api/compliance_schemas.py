@@ -29,6 +29,8 @@ from hr_agents.models import (
     NotificationRecipient,
     OverdueBreachStep,
     PurgeAction,
+    PurgeJob,
+    PurgeJobStatus,
     PurgeOutcome,
     PurgeOutcomeStatus,
     PurgeReport,
@@ -234,6 +236,38 @@ class PurgeOutcomeView(StrictModel):
     @classmethod
     def from_model(cls, outcome: PurgeOutcome) -> PurgeOutcomeView:
         return cls(**outcome.model_dump())
+
+
+class PurgeJobView(StrictModel):
+    """One journal row: an attempt, when it ran, and how it ended."""
+
+    id: UUID
+    record_id: UUID
+    entity: RecordEntity
+    subject_kind: SubjectKind
+    subject_id: str
+    action: PurgeAction
+    status: PurgeJobStatus
+    attempts: int
+    last_error: str | None
+    started_at: UtcDateTime
+    finished_at: UtcDateTime | None
+
+    @classmethod
+    def from_model(cls, job: PurgeJob) -> PurgeJobView:
+        return cls(
+            id=job.id,
+            record_id=job.record_id,
+            entity=job.entity,
+            subject_kind=job.subject_kind,
+            subject_id=job.subject_id,
+            action=job.action,
+            status=job.status,
+            attempts=job.attempts,
+            last_error=job.last_error,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+        )
 
 
 class PurgeReportView(StrictModel):

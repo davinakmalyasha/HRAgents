@@ -1168,6 +1168,12 @@
       "forbidden": "Not available for your role.",
       "noBackend": "A full export needs the Postgres backend.",
       "failed": "The export could not be prepared."
+    },
+    "purgeJobsTitle": "Purge attempts needing attention ({{count}})",
+    "purgeJobStatus": {
+      "running": "Interrupted",
+      "failed": "Failed",
+      "done": "Done"
     }
   },
   "approvals": {

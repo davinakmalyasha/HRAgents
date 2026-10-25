@@ -45,6 +45,8 @@ from hr_agents.models import (
     NotificationRecipient,
     OverdueBreachStep,
     PurgeAction,
+    PurgeJob,
+    PurgeJobStatus,
     PurgeOutcome,
     PurgeOutcomeStatus,
     PurgeReport,
@@ -481,6 +483,10 @@ class ComplianceService:
         """
         actor.require_human_or_system("execute retention purge", ComplianceError)
         moment = as_of or utc_now()
+        if not dry_run:
+            # A crashed sweep leaves `running` rows. Reconcile them before the
+            # new pass: the ledger decides whether the record actually made it.
+            self._reconcile_purge_jobs(actor)
         report = self.scan(as_of=moment)
 
         outcomes: list[PurgeOutcome] = []
@@ -493,6 +499,7 @@ class ComplianceService:
                 detail = "dry run; no store mutation performed"
                 purged = False
             else:
+                job = self._begin_purge_job(item.record, item.action)
                 try:
                     detail = self._apply_purge(item.record, item.action, actor)
                 except Exception as exc:
@@ -519,6 +526,11 @@ class ComplianceService:
                             status=PurgeOutcomeStatus.FAILED,
                             purged=False,
                         )
+                    )
+                    self._finish_purge_job(
+                        job,
+                        failed=True,
+                        detail=f"{type(exc).__name__}: {exc}",
                     )
                     self._record(
                         action="compliance.record_purge_failed",
@@ -572,6 +584,11 @@ class ComplianceService:
                             "source": "retention_job",
                         },
                     )
+                self._finish_purge_job(
+                    job,
+                    failed=not purged,
+                    detail=None if purged else (detail or "no handler removed the record"),
+                )
             outcome = PurgeOutcome(
                 record_id=item.record.id,
                 entity=item.record.entity,
@@ -1150,6 +1167,101 @@ class ComplianceService:
         )
 
     # --- internals ----------------------------------------------------------
+
+    def _begin_purge_job(self, record: RetentionRecord, action: PurgeAction) -> PurgeJob | None:
+        """Open a journal row before the handler runs.
+
+        A journal write failure is logged, not fatal: the handler's own stores
+        are the same database in every deployed backend, so a journal outage is
+        not a reason to leave the sweep half-done while the process is alive.
+        """
+        job = PurgeJob(
+            record_id=record.id,
+            entity=record.entity,
+            subject_kind=record.subject_kind,
+            subject_id=record.subject_id,
+            action=action,
+            started_at=utc_now(),
+        )
+        try:
+            self._store.add_purge_job(job)
+        except Exception:
+            logger.exception(
+                "purge_journal_unavailable",
+                record_id=str(record.id),
+                entity=record.entity.value,
+            )
+            return None
+        return job
+
+    def _finish_purge_job(self, job: PurgeJob | None, *, failed: bool, detail: str | None) -> None:
+        if job is None:
+            return
+        finished = job.model_copy(
+            update={
+                "status": PurgeJobStatus.FAILED if failed else PurgeJobStatus.DONE,
+                "last_error": detail if failed else None,
+                "finished_at": utc_now(),
+                "updated_at": utc_now(),
+            }
+        )
+        try:
+            self._store.save_purge_job(finished)
+        except Exception:
+            logger.exception("purge_journal_save_failed", job_id=str(job.id))
+
+    def _reconcile_purge_jobs(self, actor: ActorRef) -> None:
+        """Close rows a crashed process left ``running``.
+
+        The ledger is the authority: a purged record means the handler finished,
+        and an unpurged one means it must be attempted again by the sweep that
+        follows. Closing the row is what stops a crash from looking like work
+        still in flight forever.
+        """
+        for job in self._store.list_purge_jobs():
+            if job.status is not PurgeJobStatus.RUNNING:
+                continue
+            record = self._store.get_record(job.record_id)
+            completed = record is not None and record.purged_at is not None
+            finished = job.model_copy(
+                update={
+                    "status": PurgeJobStatus.DONE if completed else PurgeJobStatus.FAILED,
+                    "last_error": (
+                        None
+                        if completed
+                        else "interrupted mid-purge; the next sweep retries the record"
+                    ),
+                    "finished_at": utc_now(),
+                    "updated_at": utc_now(),
+                }
+            )
+            try:
+                self._store.save_purge_job(finished)
+            except Exception:
+                logger.exception("purge_journal_save_failed", job_id=str(job.id))
+                continue
+            self._record(
+                action=(
+                    "compliance.purge_job_reconciled"
+                    if completed
+                    else "compliance.purge_job_interrupted"
+                ),
+                subject_type="purge_job",
+                subject_id=str(job.id),
+                actor=actor,
+                payload={
+                    "record_id": str(job.record_id),
+                    "entity": job.entity.value,
+                    "action": job.action.value,
+                },
+            )
+
+    def list_purge_jobs(self, *, status: PurgeJobStatus | None = None) -> list[PurgeJob]:
+        """The journal, newest first, optionally by state."""
+        jobs = self._store.list_purge_jobs()
+        if status is not None:
+            jobs = [item for item in jobs if item.status is status]
+        return list(reversed(jobs))
 
     def _apply_purge(
         self, record: RetentionRecord, action: PurgeAction, actor: ActorRef

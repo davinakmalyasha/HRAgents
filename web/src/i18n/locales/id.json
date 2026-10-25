@@ -1168,6 +1168,12 @@
       "forbidden": "Tidak tersedia untuk peran Anda.",
       "noBackend": "Ekspor lengkap memerlukan backend Postgres.",
       "failed": "Ekspor tidak dapat disiapkan."
+    },
+    "purgeJobsTitle": "Percobaan pembersihan yang perlu perhatian ({{count}})",
+    "purgeJobStatus": {
+      "running": "Terputus",
+      "failed": "Gagal",
+      "done": "Selesai"
     }
   },
   "approvals": {

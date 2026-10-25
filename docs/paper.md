@@ -148,6 +148,8 @@ Redis add deployment latency.
 - **Retention.** Erasure walks a ledger with per-entity handlers; a failing
   handler is isolated and retried rather than silently skipped, payroll is
   pseudonymized, and the sweep reports what it destroyed, spared and failed.
+  Each attempt is journaled before it runs, so a crash is reconciled and retried
+  on the next pass instead of disappearing.
 
 ## 7. Limitations
 

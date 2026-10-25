@@ -31,6 +31,7 @@ from hr_agents.api.compliance_schemas import (
     OverdueStepView,
     PolicySet,
     PolicyView,
+    PurgeJobView,
     PurgeReportView,
     PurgeRequest,
     RecordTrack,
@@ -42,7 +43,13 @@ from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import conflict, domain_problem, not_found
 from hr_agents.api.schemas import Page
 from hr_agents.errors import DomainError
-from hr_agents.models import RecordEntity, SubjectKind, UtcDateTime, business_today
+from hr_agents.models import (
+    PurgeJobStatus,
+    RecordEntity,
+    SubjectKind,
+    UtcDateTime,
+    business_today,
+)
 from hr_agents.rbac import Permission
 from hr_agents.services.calendar import CalendarError, CalendarService
 from hr_agents.services.compliance import (
@@ -273,6 +280,27 @@ def set_legal_hold(
 @router.get("/retention/scan", response_model=ScanView)
 def scan_retention(compliance: ComplianceDep, as_of: UtcDateTime | None = None) -> ScanView:
     return ScanView.from_model(compliance.scan(as_of=as_of))
+
+
+@router.get(
+    "/retention/purge-jobs",
+    response_model=Page[PurgeJobView],
+    dependencies=[Depends(require_permission(Permission.COMPLIANCE_EXECUTE))],
+)
+def list_purge_jobs(
+    compliance: ComplianceDep,
+    paging: PaginationDep,
+    status_filter: Annotated[PurgeJobStatus | None, Query(alias="status")] = None,
+) -> Page[PurgeJobView]:
+    """The purge journal: interrupted attempts, retries and completions."""
+    jobs = compliance.list_purge_jobs(status=status_filter)
+    items = [PurgeJobView.from_model(job) for job in jobs]
+    return Page.of(
+        items[paging.offset : paging.offset + paging.limit],
+        total=len(items),
+        limit=paging.limit,
+        offset=paging.offset,
+    )
 
 
 @router.post(

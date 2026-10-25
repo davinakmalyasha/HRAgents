@@ -10,6 +10,7 @@ import {
   listBreaches,
   listConsents,
   listErasures,
+  listPurgeJobs,
   listRateTables,
   overdueBreachSteps,
   recordConsent,
@@ -203,6 +204,14 @@ export type { PurgeRequest }
  * path means the report the operator read is produced by the code that deletes, not by a
  * separate preview implementation that could disagree with it.
  */
+export function usePurgeJobs() {
+  return useQuery({
+    queryKey: ['compliance', 'purge-jobs'],
+    queryFn: listPurgeJobs,
+    staleTime: 15_000,
+  })
+}
+
 export function usePurge() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -31,6 +31,7 @@ from hr_agents.models import (
     OffboardingPlan,
     OffboardingTemplate,
     OrgUnit,
+    PurgeJob,
     RateTable,
     RecordEntity,
     RetentionPolicy,
@@ -384,6 +385,7 @@ class ComplianceStore:
         self._erasures: dict[UUID, ErasureRequest] = {}
         self._incidents: dict[UUID, BreachIncident] = {}
         self._calendar: dict[UUID, ComplianceCalendarEntry] = {}
+        self._purge_jobs: dict[UUID, PurgeJob] = {}
 
     # consent
     def add_consent(self, consent: ConsentGrant) -> None:
@@ -444,6 +446,21 @@ class ComplianceStore:
         )
         self._consents[consent_id] = redacted
         return redacted
+
+    # purge journal
+    def add_purge_job(self, job: PurgeJob) -> None:
+        self._purge_jobs[job.id] = job
+
+    def save_purge_job(self, job: PurgeJob) -> None:
+        if job.id not in self._purge_jobs:
+            raise KeyError(f"unknown purge job {job.id}")
+        self._purge_jobs[job.id] = job
+
+    def get_purge_job(self, job_id: UUID) -> PurgeJob | None:
+        return self._purge_jobs.get(job_id)
+
+    def list_purge_jobs(self) -> list[PurgeJob]:
+        return sorted(self._purge_jobs.values(), key=lambda item: (item.started_at, str(item.id)))
 
     # retention policies
     def save_policy(self, policy: RetentionPolicy) -> None:

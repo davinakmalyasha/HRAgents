@@ -45,6 +45,7 @@ import {
   useExecuteErasure,
   useOverdueBreachSteps,
   usePurge,
+  usePurgeJobs,
   useRateTables,
   useRecordConsent,
   useRetentionScan,
@@ -546,6 +547,7 @@ function RetentionSection() {
       </div>
 
       <PurgePanel />
+      <PurgeJobsPanel />
       <div>
         <h3 className="text-ink-strong text-base font-medium">
           {t('compliance.rateTableVerifyTitle', { count: unverified.length })}
@@ -604,6 +606,40 @@ function RetentionSection() {
         ) : null}
       </div>
     </section>
+  )
+}
+
+/**
+ * Interrupted or failed purge attempts, when there are any.
+ *
+ * A failed handler leaves the record unpurged for the next sweep and a row in
+ * the journal. Showing the journal is how an operator knows the sweep is not
+ * quietly stuck on the same record every fifteen minutes.
+ */
+function PurgeJobsPanel() {
+  const { t } = useTranslation()
+  const jobs = usePurgeJobs()
+  const open = (jobs.data ?? []).filter((job) => job.status !== 'done')
+  if (open.length === 0) {
+    return null
+  }
+  return (
+    <div>
+      <h3 className="text-ink-strong text-base font-medium">
+        {t('compliance.purgeJobsTitle', { count: open.length })}
+      </h3>
+      <ul className="mt-2 flex flex-col gap-1">
+        {open.map((job) => (
+          <li key={job.id} className="border-line rounded-md border p-2 text-xs">
+            <span className="text-ink-strong font-mono">
+              {job.entity} · {job.subject_id}
+            </span>{' '}
+            <StatusBadge tone="error" labelKey={`compliance.purgeJobStatus.${job.status}`} />
+            <p className="text-ink-muted mt-1">{job.last_error ?? '—'}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 

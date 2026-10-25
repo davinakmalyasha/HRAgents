@@ -500,3 +500,37 @@ class CalendarDeadline(StrictModel):
     subject_id: str = Field(min_length=1, max_length=200)
     subject_name: str = Field(default="", max_length=200)
     detail: str = Field(default="", max_length=200)
+
+
+class PurgeJobStatus(StrEnum):
+    """State of one purge attempt on one retention record."""
+
+    RUNNING = "running"
+    FAILED = "failed"
+    DONE = "done"
+
+
+class PurgeJob(Versioned):
+    """Durable evidence that a purge attempt started, and how it ended.
+
+    The handlers live across stores that do not share a transaction, so the
+    journal cannot make a purge atomic. What it can do is make an interrupted
+    attempt *visible*: a process that dies mid-handler leaves a `running` row,
+    and the next sweep reconciles it (done when the ledger says the record was
+    purged, failed-and-retried otherwise). Handlers must therefore be idempotent;
+    they are, because deleting a missing row and anonymizing are both no-ops on
+    repeat.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    record_id: UUID
+    entity: RecordEntity
+    subject_kind: SubjectKind
+    subject_id: str = Field(min_length=1, max_length=200)
+    action: PurgeAction
+    status: PurgeJobStatus = PurgeJobStatus.RUNNING
+    attempts: int = Field(default=1, ge=1)
+    last_error: str | None = Field(default=None, max_length=1000)
+    started_at: UtcDateTime = Field(default_factory=utc_now)
+    finished_at: UtcDateTime | None = None
+    updated_at: UtcDateTime = Field(default_factory=utc_now)

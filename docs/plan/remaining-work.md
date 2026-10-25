@@ -195,8 +195,10 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       erasure half is no longer a silent half-state: a purge handler that raises is isolated
       (the sweep continues past it), the record is left unpurged so the next sweep retries it,
       the failure is reported in the purge report and on the compliance screen, and the audit
-      chain records it. True atomicity still needs one transaction across the stores, which
-      the handlers do not share.
+      chain records it. Every attempt is now journaled before its handler runs (`purge_jobs`,
+      migration `0033`), so a crash mid-handler leaves a `running` row that the next sweep
+      reconciles against the ledger and retries; handlers are idempotent. That is recoverability,
+      not distributed atomicity — one transaction across the stores is still the open half.
 - [x] **Schema integrity.** Migrations `0022`–`0026` added named foreign keys for every
       reference the services already guarantee (the one deliberate exception,
       `scheduling_availability.interviewer_id`, is recorded under the reference-integrity

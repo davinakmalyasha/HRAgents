@@ -839,6 +839,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/compliance/retention/purge-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Purge Jobs
+         * @description The purge journal: interrupted attempts, retries and completions.
+         */
+        get: operations["list_purge_jobs_v1_compliance_retention_purge_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/compliance/retention/records": {
         parameters: {
             query?: never;
@@ -6047,6 +6067,17 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** Page[PurgeJobView] */
+        Page_PurgeJobView_: {
+            /** Items */
+            items: components["schemas"]["PurgeJobView"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
         /** Page[PushSubscriptionView] */
         Page_PushSubscriptionView_: {
             /** Items */
@@ -6517,6 +6548,45 @@ export interface components {
          * @enum {string}
          */
         PurgeAction: "delete" | "anonymize";
+        /**
+         * PurgeJobStatus
+         * @description State of one purge attempt on one retention record.
+         * @enum {string}
+         */
+        PurgeJobStatus: "running" | "failed" | "done";
+        /**
+         * PurgeJobView
+         * @description One journal row: an attempt, when it ran, and how it ended.
+         */
+        PurgeJobView: {
+            action: components["schemas"]["PurgeAction"];
+            /** Attempts */
+            attempts: number;
+            entity: components["schemas"]["RecordEntity"];
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error */
+            last_error: string | null;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            status: components["schemas"]["PurgeJobStatus"];
+            /** Subject Id */
+            subject_id: string;
+            subject_kind: components["schemas"]["SubjectKind"];
+        };
         /**
          * PurgeOutcomeStatus
          * @description Whether a purge pass actually touched the underlying store.
@@ -13548,6 +13618,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PurgeReportView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_purge_jobs_v1_compliance_retention_purge_jobs_get: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["PurgeJobStatus"] | null;
+                /** @description Maximum items to return. */
+                limit?: number;
+                /** @description Items to skip before the slice. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_PurgeJobView_"];
                 };
             };
             /** @description The request could not be understood. */

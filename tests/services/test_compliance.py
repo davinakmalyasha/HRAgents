@@ -17,6 +17,8 @@ from hr_agents.models import (
     LawfulBasis,
     NotificationRecipient,
     PurgeAction,
+    PurgeJob,
+    PurgeJobStatus,
     PurgeOutcomeStatus,
     RecordEntity,
     RetentionRecord,
@@ -953,3 +955,103 @@ def test_a_purge_sweep_logs_its_summary(
     assert len(summaries) == 1
     assert summaries[0].kwargs["purged"] == 1
     assert summaries[0].kwargs["failed"] == 1
+
+
+def test_a_successful_purge_is_journaled(service: ComplianceService) -> None:
+    service.set_policy(
+        entity=RecordEntity.CANDIDATE,
+        name="Candidate records",
+        retention_months=24,
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    record = track_candidate(service)
+    service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
+
+    jobs = service.list_purge_jobs()
+
+    assert [job.status for job in jobs] == [PurgeJobStatus.DONE]
+    assert jobs[0].record_id == record.id
+    assert jobs[0].action is PurgeAction.ANONYMIZE
+    assert jobs[0].finished_at is not None
+
+
+def test_a_failed_purge_is_journaled_and_the_next_sweep_retries(
+    service: ComplianceService,
+) -> None:
+    service.set_policy(
+        entity=RecordEntity.CANDIDATE,
+        name="Candidate records",
+        retention_months=24,
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    record = track_candidate(service)
+
+    def broken(item: RetentionRecord, action: PurgeAction) -> str:
+        raise RuntimeError("store unavailable")
+
+    service.register_purge_handler(RecordEntity.CANDIDATE, broken)
+    service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
+
+    failed = service.list_purge_jobs(status=PurgeJobStatus.FAILED)
+    assert len(failed) == 1
+    assert "store unavailable" in (failed[0].last_error or "")
+    assert not service.get_record(record.id).purged
+
+    service.register_purge_handler(RecordEntity.CANDIDATE, _recording_handler())
+    service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
+
+    jobs = service.list_purge_jobs()
+    assert [job.status for job in jobs] == [PurgeJobStatus.DONE, PurgeJobStatus.FAILED]
+    assert service.get_record(record.id).purged
+
+
+def test_a_dry_run_writes_no_journal(service: ComplianceService) -> None:
+    service.set_policy(
+        entity=RecordEntity.CANDIDATE,
+        name="Candidate records",
+        retention_months=24,
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    track_candidate(service)
+
+    service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW, dry_run=True)
+
+    assert service.list_purge_jobs() == []
+
+
+def test_an_interrupted_job_is_reconciled_by_the_next_sweep(
+    service: ComplianceService,
+) -> None:
+    """A crash mid-purge leaves `running`; the ledger decides how it ended."""
+    service.set_policy(
+        entity=RecordEntity.CANDIDATE,
+        name="Candidate records",
+        retention_months=600,
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    completed = track_candidate(service, subject_id="done-before-crash")
+    unfinished = track_candidate(service, subject_id="crashed")
+    service._store.save_record(completed.model_copy(update={"purged_at": NOW}))
+
+    def running(record: RetentionRecord) -> PurgeJob:
+        return PurgeJob(
+            record_id=record.id,
+            entity=record.entity,
+            subject_kind=record.subject_kind,
+            subject_id=record.subject_id,
+            action=PurgeAction.ANONYMIZE,
+            started_at=NOW - timedelta(minutes=5),
+        )
+
+    service._store.add_purge_job(running(completed))
+    service._store.add_purge_job(running(unfinished))
+
+    service.execute_purge(actor=ActorRef.system("retention-sweep"), as_of=NOW)
+
+    jobs = {job.record_id: job for job in service.list_purge_jobs()}
+    assert jobs[completed.id].status is PurgeJobStatus.DONE
+    assert jobs[unfinished.id].status is PurgeJobStatus.FAILED
+    assert "interrupted" in (jobs[unfinished.id].last_error or "")
+    actions = [entry.action for entry in service._audit.entries]
+    assert "compliance.purge_job_reconciled" in actions
+    assert "compliance.purge_job_interrupted" in actions

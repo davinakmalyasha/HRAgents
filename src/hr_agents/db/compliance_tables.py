@@ -193,3 +193,28 @@ class ComplianceCalendarEntryTable(TenantScoped, Base):
     created_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class PurgeJobRecord(TenantScoped, Base):
+    """One purge attempt: durable evidence that a handler started, and how it ended."""
+
+    __tablename__ = "purge_jobs"
+    __table_args__ = (
+        Index("ix_purge_jobs_tenant", "tenant_id"),
+        Index("ix_purge_jobs_status", "tenant_id", "status"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    record_id: Mapped[UUID] = mapped_column(
+        ForeignKey("retention_records.id", ondelete="CASCADE"), nullable=False
+    )
+    entity: Mapped[str] = mapped_column(String(40), nullable=False)
+    subject_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
