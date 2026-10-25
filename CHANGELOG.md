@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.4.0...hr-agents-v0.5.0) (2026-10-25)
+
+
+### Features
+
+* **compliance:** import and verify credential registries from the dashboard ([69bcd49](https://github.com/davinakmalyasha/HRAgents/commit/69bcd49c19ced4cbf9fae77d5dc58b6dcd56b2e5))
+* **compliance:** journal every purge attempt and recover from a crash ([d20b411](https://github.com/davinakmalyasha/HRAgents/commit/d20b411e84df29de9cb8c3dc3b30199762c9325a))
+* **governance:** take the whole record with you ([cd41d51](https://github.com/davinakmalyasha/HRAgents/commit/cd41d515fdb98704f16421494d0d64191fa74e32))
+* **observability:** measure what the model cost and trace the work ([effa533](https://github.com/davinakmalyasha/HRAgents/commit/effa533063bfd27b35d880bac9ad3de3a55bca9c))
+* **security:** scan uploads before storing them, and write the rotation runbook ([11fe26c](https://github.com/davinakmalyasha/HRAgents/commit/11fe26cf4b905f26f365f9f85f62c130c9361d44))
+
+
+### Documentation
+
+* regenerate the spec for the scanner error code ([ec4fbf3](https://github.com/davinakmalyasha/HRAgents/commit/ec4fbf3e774271e8befa5008503b91c02d5a0cfa))
+
 ## [0.4.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.3.0...hr-agents-v0.4.0) (2026-10-24)
 
 
