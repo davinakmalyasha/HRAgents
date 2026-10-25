@@ -648,6 +648,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#malware-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Malware scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets-and-rotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets and rotation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#data-governance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1613,6 +1635,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#malware-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Malware scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets-and-rotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets and rotation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#data-governance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1978,6 +2022,51 @@ expired. Editing entries invalidates the verification, exactly like a rate
 table. The compliance queue has the same import path in the dashboard: create a
 registry, paste its rows (one per line, <code>name | status | id | expiry | notes</code>),
 then verify it with the source you checked.</p>
+<h3 id="malware-scanning">Malware scanning<a class="headerlink" href="#malware-scanning" title="Permanent link">&para;</a></h3>
+<p>Uploads are stored unscanned by default, and the audit entry says so. Point the
+API at a ClamAV daemon to scan before storage:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_CLAMAV_HOST</span><span class="o">=</span>clamav<span class="w">      </span><span class="c1"># or localhost, a sidecar, a socket proxy</span>
+<span class="nv">HRAGENTS_CLAMAV_PORT</span><span class="o">=</span><span class="m">3310</span>
+<span class="nv">HRAGENTS_CLAMAV_TIMEOUT</span><span class="o">=</span><span class="m">5</span>
+</code></pre></div>
+<ul>
+<li><strong>clean</strong> → stored; the <code>document.uploaded</code> entry records <code>scan=clean</code>.</li>
+<li><strong>infected</strong> → refused with <code>422</code>; nothing is stored, and
+  <code>document.rejected_malware</code> records the signature — never the file or its name.</li>
+<li><strong>scanner unreachable</strong> → refused with <code>503</code>; the file is <em>not</em> stored. A
+  configured scanner that is down must not silently downgrade to unscanned.</li>
+</ul>
+<p>The scan speaks ClamAV's INSTREAM protocol over TCP, with no shell and a bounded
+timeout. The hook lives in <code>DocumentService.upload</code>, the one path that accepts
+arbitrary bytes; an employee-document row registered against an existing object
+does not bypass it because it carries no content.</p>
+<h3 id="secrets-and-rotation">Secrets and rotation<a class="headerlink" href="#secrets-and-rotation" title="Permanent link">&para;</a></h3>
+<p>Nothing in this repository ships a secret. Rotate after any suspicion, and in
+this order so a rotation cannot lock you out:</p>
+<p><strong>API keys and principals.</strong> Add the new key to <code>HRAGENTS_API_PRINCIPALS</code> (keep
+the old one), restart, move clients, then remove the old entry and restart. A
+removed key answers 401 on the next request and the dashboard drops it. The
+audit chain records the actor id, so rotating a key for the same person keeps the
+same name on the record. An unbound <code>HRAGENTS_API_KEYS</code> key is one shared
+identity; prefer principals.</p>
+<p><strong>Settings encryption key</strong> (provider credentials). Prepend a new key to the
+comma-separated <code>HRAGENTS_SETTINGS_ENCRYPTION_KEY</code>, restart, re-save the
+providers you changed (a blank secret keeps the stored value), then remove the
+old key. Rows stay readable while both keys are present.</p>
+<p><strong>VAPID (push).</strong> Generate a new pair, put it in <code>.env</code>, restart. Existing
+browser subscriptions were bound to the old application key and will not
+deliver; each person must turn the bell off and on (which unsubscribes,
+deletes the server row and re-subscribes with the new key).</p>
+<p><strong>Provider credentials.</strong> Prefer the dashboard (sealed at rest) — Save, then
+Test. If the capability is environment-locked, update the env value and
+restart. Revoke the old credential at the provider only after the Test button
+answers.</p>
+<p><strong>Database, MinIO, SMTP/IMAP.</strong> Change the password on the service, update
+<code>.env</code>/compose, restart, then confirm <code>/readyz</code>. Backups taken before the change
+remain restorable with the old credentials; they do not contain the new one.</p>
+<p><strong>After every rotation</strong>, revoke the old secret at its issuer. The audit chain
+stores actor ids and field names, never the secret value, so it does not need
+rewriting.</p>
 <h3 id="data-governance">Data governance<a class="headerlink" href="#data-governance" title="Permanent link">&para;</a></h3>
 <p>Full export, deletion, subprocessors and the DPA template are in <a href="../data-governance/">Data governance</a>.</p>
 <h3 id="push-notifications-optional">Push notifications (optional)<a class="headerlink" href="#push-notifications-optional" title="Permanent link">&para;</a></h3>
