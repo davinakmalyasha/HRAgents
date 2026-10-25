@@ -1695,7 +1695,9 @@ Redis add deployment latency.</p>
   reviewed run is terminal and a re-run is a linked successor.</li>
 <li><strong>Retention.</strong> Erasure walks a ledger with per-entity handlers; a failing
   handler is isolated and retried rather than silently skipped, payroll is
-  pseudonymized, and the sweep reports what it destroyed, spared and failed.</li>
+  pseudonymized, and the sweep reports what it destroyed, spared and failed.
+  Each attempt is journaled before it runs, so a crash is reconciled and retried
+  on the next pass instead of disappearing.</li>
 </ul>
 <h2 id="7-limitations">7. Limitations<a class="headerlink" href="#7-limitations" title="Permanent link">&para;</a></h2>
 <p>Honest, current, and tracked in the repository:</p>

@@ -1318,6 +1318,15 @@ attachments live in object storage and are exported from the bucket separately:<
 spared, skipped and failed, and a failing handler leaves the record for the next
 pass. Payroll is pseudonymized rather than deleted because it is a tax record.
 Backups keep their own history until their retention window passes.</p>
+<p>Every purge attempt is journaled before its handler runs and closed when it
+finishes. The handlers span stores without a shared transaction, so a purge is
+<strong>recoverable rather than atomic</strong>: if a process dies mid-handler, the row stays
+<code>running</code>, the next sweep reconciles it against the ledger (done when the record
+was purged, retried otherwise), and every handler is idempotent — deleting a
+missing row or anonymizing twice is a no-op. The journal is at
+<code>GET /v1/compliance/retention/purge-jobs</code> and the compliance queue shows attempts
+that need attention, rather than letting the same record fail silently every
+fifteen minutes.</p>
 <p><strong>Subprocessors.</strong> A self-hosted install has none of ours: Postgres, Redis,
 MinIO and Mailpit run on the operator's host. The operators' own configured
 providers (model, email, storage, calendar) are their accounts and their terms.

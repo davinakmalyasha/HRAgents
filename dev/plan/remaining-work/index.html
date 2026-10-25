@@ -2135,8 +2135,10 @@ router. Everything else is subordinate to fixing that.</p>
       erasure half is no longer a silent half-state: a purge handler that raises is isolated
       (the sweep continues past it), the record is left unpurged so the next sweep retries it,
       the failure is reported in the purge report and on the compliance screen, and the audit
-      chain records it. True atomicity still needs one transaction across the stores, which
-      the handlers do not share.</li>
+      chain records it. Every attempt is now journaled before its handler runs (<code>purge_jobs</code>,
+      migration <code>0033</code>), so a crash mid-handler leaves a <code>running</code> row that the next sweep
+      reconciles against the ledger and retries; handlers are idempotent. That is recoverability,
+      not distributed atomicity — one transaction across the stores is still the open half.</li>
 <li>[x] <strong>Schema integrity.</strong> Migrations <code>0022</code>–<code>0026</code> added named foreign keys for every
       reference the services already guarantee (the one deliberate exception,
       <code>scheduling_availability.interviewer_id</code>, is recorded under the reference-integrity
