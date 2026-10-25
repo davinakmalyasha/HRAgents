@@ -55,6 +55,7 @@ from hr_agents.models import (
 from hr_agents.models.money import ZERO, add, money, percent_of, sub
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.compliance import PurgeHandler
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.rate_tables import RateTableError, RateTableService
@@ -1299,8 +1300,9 @@ class PayrollService:
         actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="payroll_run",
             subject_id=str(run.id),

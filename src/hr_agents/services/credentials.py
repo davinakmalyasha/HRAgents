@@ -26,6 +26,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 
 logger = get_logger(__name__)
 
@@ -153,8 +154,9 @@ class CredentialRegistryService:
         actor.require_human("deleting a credential registry", CredentialRegistryError)
         removed = self._store.delete(registry_id)
         if removed:
-            self._audit.append(
-                actor=actor.audit_actor(),
+            record_audit(
+                self._audit,
+                actor=actor,
                 action="credential_registry.deleted",
                 subject_type="credential_registry",
                 subject_id=str(registry_id),
@@ -241,8 +243,9 @@ class CredentialRegistryService:
             "entry_count": len(registry.entries),
         }
         payload.update(extra or {})
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="credential_registry",
             subject_id=str(registry.id),

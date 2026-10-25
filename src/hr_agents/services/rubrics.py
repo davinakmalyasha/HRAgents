@@ -17,6 +17,7 @@ from hr_agents.errors import DomainCode, DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.models import JobFamily, RubricSnapshot, RubricVersion, utc_now
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.dimensions import (
     DimensionTemplate,
     canonical_payload,
@@ -186,8 +187,9 @@ class RubricRegistry:
         actor: ActorRef,
         note: str = "",
     ) -> None:
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="rubric_version",
             subject_id=str(record.id),

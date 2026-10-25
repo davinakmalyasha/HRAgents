@@ -20,6 +20,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.people_store import RateTableStore
 
 
@@ -202,8 +203,9 @@ class RateTableService:
         }
         if extra:
             payload.update(extra)
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="rate_table",
             subject_id=str(table.id),

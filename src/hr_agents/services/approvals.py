@@ -27,6 +27,7 @@ from hr_agents.models import (
 )
 from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.people_store import ApprovalStore
 
 logger = get_logger(__name__)
@@ -552,8 +553,9 @@ class ApprovalEngine:
             payload.update(extra)
         # The SLA sweep and the expiry pass have no caller to name: they are the
         # engine's own clock, so they say so rather than looking like a person.
-        self._audit.append(
-            actor=(actor or ActorRef.system("approval-engine")).audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor or ActorRef.system("approval-engine"),
             action=action,
             subject_type="approval",
             subject_id=str(request.id),

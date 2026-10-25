@@ -24,6 +24,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.people_store import TaskStore
 
 
@@ -267,8 +268,9 @@ class TaskEngine:
         return task
 
     def _record(self, task: TaskItem, *, action: str, actor: ActorRef | str) -> None:
-        self._audit.append(
-            actor=ActorRef.coerce(actor).audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="task",
             subject_id=str(task.id),

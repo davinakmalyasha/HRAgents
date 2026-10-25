@@ -28,6 +28,7 @@ from hr_agents.models import (
 )
 from hr_agents.services.approvals import ApprovalEngine, ApprovalError
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.employees import EmployeeService
 
 logger = get_logger(__name__)
@@ -670,8 +671,9 @@ class LeaveService:
         actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type=subject_type,
             subject_id=subject_id,

@@ -32,6 +32,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.employees import EmployeeError, EmployeeService
 from hr_agents.services.people_store import GrowthStore
 from hr_agents.services.tasks import TaskEngine
@@ -810,8 +811,9 @@ class GrowthService:
             ReviewSummary: "review_summary",
             Goal: "goal",
         }[type(subject)]
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type=subject_type,
             subject_id=str(subject.id),

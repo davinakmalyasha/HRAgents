@@ -27,6 +27,7 @@ from hr_agents.models import (
 )
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.people_store import EmployeeStore
 from hr_agents.services.retention import RetentionLedger
 
@@ -473,8 +474,9 @@ class EmployeeService:
         }
         if extra:
             payload.update(extra)
-        self._audit.append(
-            actor=ActorRef.coerce(actor).audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="employee",
             subject_id=str(employee.id),
@@ -482,8 +484,9 @@ class EmployeeService:
         )
 
     def _record_org(self, unit: OrgUnit, *, action: str, actor: ActorRef | str) -> None:
-        self._audit.append(
-            actor=ActorRef.coerce(actor).audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="org_unit",
             subject_id=str(unit.id),

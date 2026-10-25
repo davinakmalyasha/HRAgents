@@ -29,6 +29,7 @@ from hr_agents.models import (
     business_today,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.contracts import ContractService
 from hr_agents.services.employees import EmployeeError, EmployeeService
 from hr_agents.services.people_store import ComplianceStore
@@ -195,8 +196,9 @@ class CalendarService:
         actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type="compliance_calendar_entry",
             subject_id=str(entry.id),

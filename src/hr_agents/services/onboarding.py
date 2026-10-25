@@ -34,6 +34,7 @@ from hr_agents.models import (
     utc_now,
 )
 from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.tasks import TaskEngine
 
@@ -481,8 +482,9 @@ class OnboardingService:
         actor: ActorRef,
         payload: dict[str, object],
     ) -> None:
-        self._audit.append(
-            actor=actor.audit_actor(),
+        record_audit(
+            self._audit,
+            actor=actor,
             action=action,
             subject_type=subject_type,
             subject_id=subject_id,
