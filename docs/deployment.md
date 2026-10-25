@@ -120,6 +120,63 @@ table. The compliance queue has the same import path in the dashboard: create a
 registry, paste its rows (one per line, `name | status | id | expiry | notes`),
 then verify it with the source you checked.
 
+### Malware scanning
+
+Uploads are stored unscanned by default, and the audit entry says so. Point the
+API at a ClamAV daemon to scan before storage:
+
+```bash
+HRAGENTS_CLAMAV_HOST=clamav      # or localhost, a sidecar, a socket proxy
+HRAGENTS_CLAMAV_PORT=3310
+HRAGENTS_CLAMAV_TIMEOUT=5
+```
+
+- **clean** → stored; the `document.uploaded` entry records `scan=clean`.
+- **infected** → refused with `422`; nothing is stored, and
+  `document.rejected_malware` records the signature — never the file or its name.
+- **scanner unreachable** → refused with `503`; the file is *not* stored. A
+  configured scanner that is down must not silently downgrade to unscanned.
+
+The scan speaks ClamAV's INSTREAM protocol over TCP, with no shell and a bounded
+timeout. The hook lives in `DocumentService.upload`, the one path that accepts
+arbitrary bytes; an employee-document row registered against an existing object
+does not bypass it because it carries no content.
+
+### Secrets and rotation
+
+Nothing in this repository ships a secret. Rotate after any suspicion, and in
+this order so a rotation cannot lock you out:
+
+**API keys and principals.** Add the new key to `HRAGENTS_API_PRINCIPALS` (keep
+the old one), restart, move clients, then remove the old entry and restart. A
+removed key answers 401 on the next request and the dashboard drops it. The
+audit chain records the actor id, so rotating a key for the same person keeps the
+same name on the record. An unbound `HRAGENTS_API_KEYS` key is one shared
+identity; prefer principals.
+
+**Settings encryption key** (provider credentials). Prepend a new key to the
+comma-separated `HRAGENTS_SETTINGS_ENCRYPTION_KEY`, restart, re-save the
+providers you changed (a blank secret keeps the stored value), then remove the
+old key. Rows stay readable while both keys are present.
+
+**VAPID (push).** Generate a new pair, put it in `.env`, restart. Existing
+browser subscriptions were bound to the old application key and will not
+deliver; each person must turn the bell off and on (which unsubscribes,
+deletes the server row and re-subscribes with the new key).
+
+**Provider credentials.** Prefer the dashboard (sealed at rest) — Save, then
+Test. If the capability is environment-locked, update the env value and
+restart. Revoke the old credential at the provider only after the Test button
+answers.
+
+**Database, MinIO, SMTP/IMAP.** Change the password on the service, update
+`.env`/compose, restart, then confirm `/readyz`. Backups taken before the change
+remain restorable with the old credentials; they do not contain the new one.
+
+**After every rotation**, revoke the old secret at its issuer. The audit chain
+stores actor ids and field names, never the secret value, so it does not need
+rewriting.
+
 ### Data governance
 
 Full export, deletion, subprocessors and the DPA template are in [Data governance](data-governance.md).

@@ -10,6 +10,7 @@ from hr_agents.api.deps import ActorDep, require_permission
 from hr_agents.api.recruitment_schemas import DocumentUploadResponse
 from hr_agents.rbac import Permission
 from hr_agents.services.recruiting import (
+    DocumentScanUnavailableError,
     DocumentService,
     DocumentTooLargeError,
     RecruitingError,
@@ -49,6 +50,10 @@ async def upload_document(
     except DocumentTooLargeError as exc:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)
+        ) from exc
+    except DocumentScanUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
     except RecruitingError as exc:
         raise HTTPException(

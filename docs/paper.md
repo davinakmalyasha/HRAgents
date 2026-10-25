@@ -145,6 +145,10 @@ Redis add deployment latency.
   response, and never written to the audit payload.
 - **Immutability.** Payroll runs are editable only while draft/assembling; a
   reviewed run is terminal and a re-run is a linked successor.
+- **Uploads.** An optional ClamAV scan runs before a document is stored: a
+  clean file is recorded as scanned, an infected one is refused with the
+  signature on the chain, and a configured-but-unreachable scanner refuses the
+  upload instead of silently storing it unscanned.
 - **Retention.** Erasure walks a ledger with per-entity handlers; a failing
   handler is isolated and retried rather than silently skipped, payroll is
   pseudonymized, and the sweep reports what it destroyed, spared and failed.

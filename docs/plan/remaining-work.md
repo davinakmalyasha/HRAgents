@@ -775,8 +775,13 @@ latency, costs, and failure modes documented.
       scratch database and re-verifies the audit chain) and a runbook in `docs/deployment.md`;
       measured RTO/RPO numbers are still to be recorded
 - [ ] Region recipes: Jakarta / Singapore deployment notes; Cloudflare Tunnel guide for webhooks
-- [ ] Security hardening: key management, secrets rotation, rate limits, upload scanning hook,
-      pen-test checklist, dependency scanning in CI
+- [~] Security hardening: rate limits ship (per principal, pruned), dependency scanning runs through
+      CodeQL and Dependabot, API keys are role-bound and audited, and the rotation runbook covers
+      keys, the settings key, VAPID, provider credentials and infrastructure passwords. Uploads pass
+      an optional ClamAV scanner before storage: clean is recorded, infected is refused, and a
+      configured-but-unreachable scanner refuses rather than downgrading to unscanned. Remaining:
+      an external pen-test and a checklist for it, and wiring the scanner into any future
+      object-store ingestion path that bypasses `/v1/documents`.
 - [~] Observability: optional OTLP/HTTP tracing instruments the API, outbound HTTP and the worker's
       evaluation/extraction spans (probes and scrapes are excluded); the Prometheus surface gains
       `hragents_llm_tokens{provider,model,kind}` and `hragents_llm_requests`; a Grafana dashboard

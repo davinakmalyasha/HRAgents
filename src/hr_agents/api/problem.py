@@ -83,6 +83,8 @@ class ProblemCode(StrEnum):
     """A consequential action was requested without the reason the domain demands."""
     PAYLOAD_TOO_LARGE = "payload_too_large"
     RATE_LIMITED = "rate_limited"
+    SCANNER_UNAVAILABLE = "scanner_unavailable"
+    """A configured malware scanner did not answer; the upload was refused."""
     SERVICE_UNAVAILABLE = "service_unavailable"
     INTERNAL = "internal"
 
@@ -215,6 +217,7 @@ def unprocessable(detail: str, *, code: ProblemCode = ProblemCode.REASON_REQUIRE
 _DOMAIN_CODE_TO_PROBLEM: dict[DomainCode, ProblemCode] = {
     DomainCode.STATE_CONFLICT: ProblemCode.STATE_CONFLICT,
     DomainCode.STALE_WRITE: ProblemCode.STALE_WRITE,
+    DomainCode.SCANNER_UNAVAILABLE: ProblemCode.SCANNER_UNAVAILABLE,
     DomainCode.UNKNOWN_RECORD: ProblemCode.UNKNOWN_RECORD,
     DomainCode.VALIDATION_FAILED: ProblemCode.VALIDATION_FAILED,
     DomainCode.NAMED_HUMAN_REQUIRED: ProblemCode.NAMED_HUMAN_REQUIRED,

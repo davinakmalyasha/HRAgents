@@ -41,6 +41,7 @@ class DomainCode(StrEnum):
     BLOCKING_ANOMALIES = "blocking_anomalies"
     APPROVAL_ALREADY_DECIDED = "approval_already_decided"
     STALE_WRITE = "stale_write"
+    SCANNER_UNAVAILABLE = "scanner_unavailable"
 
 
 class DomainError(Exception):

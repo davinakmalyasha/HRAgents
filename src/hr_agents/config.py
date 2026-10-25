@@ -77,6 +77,13 @@ class Settings(BaseSettings):
         """Sync-driver URL for store adapters (psycopg); see ADR 0005."""
         return self.database_url.replace("+asyncpg", "+psycopg")
 
+    # --- Upload scanning (optional) ---
+    # ClamAV daemon over TCP. Empty means uploads are stored unscanned and the
+    # audit entry says so. A configured but unreachable scanner refuses uploads.
+    clamav_host: str = ""
+    clamav_port: int = Field(default=3310, ge=1, le=65535)
+    clamav_timeout: float = Field(default=5.0, gt=0.0, le=60.0)
+
     # --- Tracing (optional) ---
     # OTLP/HTTP endpoint (Jaeger, Collector, Tempo). Empty means no tracing.
     otel_endpoint: str = ""

@@ -82,6 +82,7 @@ from hr_agents.services.recruiting import (
     RecruitingServices,
     register_recruitment_purge_handlers,
 )
+from hr_agents.services.scanning import build_scanner
 from hr_agents.services.sealing import FernetSealer, SealerError
 from hr_agents.services.usage import LlmUsageService, LlmUsageStore
 from hr_agents.services.workspace_requests import HandoffService, WorkspaceRequestStore
@@ -371,6 +372,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         applications=store,
         session_factory=session_factory,
         approvals=people_services.approvals,
+        scanner=build_scanner(settings),
     )
     app.state.people = people_services
     # Push subscriptions and the approval fan-out. The sender is built only when

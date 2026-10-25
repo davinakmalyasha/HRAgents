@@ -79,6 +79,7 @@ from hr_agents.services.offers import OfferService
 from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.retention import subject_uuid
 from hr_agents.services.rubrics import RubricRegistry
+from hr_agents.services.scanning import MalwareScanner, NoopScanner, ScanOutcome
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session, sessionmaker
@@ -141,6 +142,20 @@ class DocumentTooLargeError(RecruitingError):
     """Raised when an upload exceeds the configured size ceiling."""
 
 
+class DocumentInfectedError(RecruitingError):
+    """The uploaded bytes failed malware scanning; nothing was stored."""
+
+    code = DomainCode.VALIDATION_FAILED
+    status = 422
+
+
+class DocumentScanUnavailableError(RecruitingError):
+    """A configured scanner did not answer; the upload is refused, not downgraded."""
+
+    code = DomainCode.SCANNER_UNAVAILABLE
+    status = 503
+
+
 class HumanConfirmationRequiredError(RecruitingError):
     """A consequential step a person has not decided yet.
 
@@ -190,9 +205,15 @@ class DocumentService:
     ``_store_document`` primitives; validation and auditing stay here.
     """
 
-    def __init__(self, *, audit: AuditChain | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        audit: AuditChain | None = None,
+        scanner: MalwareScanner | None = None,
+    ) -> None:
         self._documents: dict[UUID, StoredDocument] = {}
         self._audit = audit or AuditChain()
+        self._scanner = scanner or NoopScanner()
 
     # persistence primitives (overridden by database adapters)
 
@@ -225,6 +246,35 @@ class DocumentService:
                 f"document is {len(content)} bytes; limit is {MAX_DOCUMENT_BYTES}"
             )
 
+        scan = self._scanner.scan(content, filename=filename)
+        if scan.outcome is ScanOutcome.INFECTED:
+            # The content and the filename stay out of the chain: the record of a
+            # refusal does not need to repeat an attacker's payload pointer.
+            self._audit.append(
+                actor=self._actor(actor),
+                action="document.rejected_malware",
+                subject_type="document",
+                subject_id="rejected",
+                payload={
+                    "kind": kind,
+                    "size_bytes": len(content),
+                    "scanner": scan.scanner,
+                    "signature": scan.detail,
+                },
+            )
+            raise DocumentInfectedError("the uploaded file failed malware scanning")
+        if scan.outcome is ScanOutcome.UNAVAILABLE:
+            self._audit.append(
+                actor=self._actor(actor),
+                action="document.scan_unavailable",
+                subject_type="document",
+                subject_id="rejected",
+                payload={"kind": kind, "size_bytes": len(content), "scanner": scan.scanner},
+            )
+            raise DocumentScanUnavailableError(
+                "malware scanning is configured but unavailable; the file was not stored"
+            )
+
         document = StoredDocument(
             id=uuid4(),
             kind=kind,
@@ -240,7 +290,12 @@ class DocumentService:
             action="document.uploaded",
             subject_type="document",
             subject_id=str(document.id),
-            payload={"kind": kind, "sha256": document.sha256, "size_bytes": document.size_bytes},
+            payload={
+                "kind": kind,
+                "sha256": document.sha256,
+                "size_bytes": document.size_bytes,
+                "scan": scan.outcome.value,
+            },
         )
         return document
 
@@ -1761,6 +1816,7 @@ class RecruitingServices:
     applications: ApplicationStore | None = None
     session_factory: sessionmaker[Session] | None = None
     approvals: ApprovalEngine | None = None
+    scanner: MalwareScanner | None = None
 
     documents: DocumentService = field(init=False)
     jobs: JobService = field(init=False)
@@ -1772,7 +1828,7 @@ class RecruitingServices:
 
     def __post_init__(self) -> None:
         if self.session_factory is None:
-            self.documents = DocumentService(audit=self.audit)
+            self.documents = DocumentService(audit=self.audit, scanner=self.scanner)
             self.jobs = JobService(audit=self.audit)
             self.evaluations = EvaluationService(audit=self.audit, applications=self.applications)
             self.rubrics = RubricRegistry(audit=self.audit)
@@ -1804,7 +1860,9 @@ class RecruitingServices:
         )
         from hr_agents.db.rubrics import DbRubricStore
 
-        self.documents = DbDocumentService(session_factory=self.session_factory, audit=self.audit)
+        self.documents = DbDocumentService(
+            session_factory=self.session_factory, audit=self.audit, scanner=self.scanner
+        )
         self.jobs = DbJobService(session_factory=self.session_factory, audit=self.audit)
         self.evaluations = DbEvaluationService(
             session_factory=self.session_factory, audit=self.audit, applications=self.applications

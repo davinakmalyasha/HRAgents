@@ -48,6 +48,7 @@ from hr_agents.services.recruiting import (
     StoredDocument,
     normalize_message_id,
 )
+from hr_agents.services.scanning import MalwareScanner
 
 
 def _aware(value: datetime) -> datetime:
@@ -76,8 +77,9 @@ class DbDocumentService(DocumentService):
         *,
         session_factory: sessionmaker[Session],
         audit: AuditChain | None = None,
+        scanner: MalwareScanner | None = None,
     ) -> None:
-        super().__init__(audit=audit)
+        super().__init__(audit=audit, scanner=scanner)
         self._session_factory = session_factory
 
     def _load_document(self, document_id: UUID) -> StoredDocument | None:
