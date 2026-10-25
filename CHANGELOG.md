@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.5.0...hr-agents-v0.6.0) (2026-10-25)
+
+
+### Features
+
+* **landing:** a static marketing site that says what the product refuses to do ([9e11d43](https://github.com/davinakmalyasha/HRAgents/commit/9e11d434e0e25fd3145e159ffa0bf86244d0759f))
+
 ## [0.5.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.4.0...hr-agents-v0.5.0) (2026-10-25)
 
 
