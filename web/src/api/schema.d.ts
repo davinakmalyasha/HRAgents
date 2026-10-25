@@ -367,7 +367,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Ask HR over server-sent events */
+        /**
+         * Ask HR over server-sent events
+         * @description The routed workspace is sent before the answer, so the wait is explainable.
+         *
+         *     The routing decision is deterministic and computed first; if the caller
+         *     continues a conversation whose workspace this message would leave, the request
+         *     is refused with the same 409 the non-streaming route returns, before any
+         *     event is emitted, so the client's restart-and-retry path still works.
+         */
         get: operations["stream_hr_v1_chat_stream_get"];
         put?: never;
         post?: never;
