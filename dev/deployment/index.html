@@ -1838,7 +1838,9 @@ curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>
 matches nothing counts as <strong>unverified</strong> (a Coursera badge and a genuine
 certificate stop scoring alike), while an entry past <code>expires_on</code> answers
 expired. Editing entries invalidates the verification, exactly like a rate
-table. The dashboard form is not built yet; the API is the import path today.</p>
+table. The compliance queue has the same import path in the dashboard: create a
+registry, paste its rows (one per line, <code>name | status | id | expiry | notes</code>),
+then verify it with the source you checked.</p>
 <h3 id="push-notifications-optional">Push notifications (optional)<a class="headerlink" href="#push-notifications-optional" title="Permanent link">&para;</a></h3>
 <p>Notifications stay off until the operator issues a VAPID pair <strong>for this
 deployment</strong>. No key is shipped: a committed private key would let anyone
