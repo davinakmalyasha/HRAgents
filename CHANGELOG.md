@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.8.0...hr-agents-v0.9.0) (2026-10-26)
+
+
+### Features
+
+* **mcp:** package a read-only hragents-mcp server for external clients ([a49b4a8](https://github.com/davinakmalyasha/HRAgents/commit/a49b4a82c6822935a401b545108d598428c378ee))
+
 ## [0.8.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.7.0...hr-agents-v0.8.0) (2026-10-26)
 
 
