@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.9.0...hr-agents-v0.10.0) (2026-10-26)
+
+
+### Features
+
+* **mcp:** opt-in write tools for intake and requests behind the API key ([82d87e2](https://github.com/davinakmalyasha/HRAgents/commit/82d87e27f1a93c405a207f7e034e89d5ece541d2))
+* **ops:** manage MCP connections from the dashboard ([02ca535](https://github.com/davinakmalyasha/HRAgents/commit/02ca535fedaac9a3cbf4e1740b2d28257c9fd000))
+
+
+### Bug Fixes
+
+* **db:** do not apply a tenant policy to install-wide tables ([4baf9a0](https://github.com/davinakmalyasha/HRAgents/commit/4baf9a045a83af80ebf3c446f12cf87cd009b0c9))
+
 ## [0.9.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.8.0...hr-agents-v0.9.0) (2026-10-26)
 
 
