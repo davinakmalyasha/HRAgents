@@ -597,6 +597,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP server (read-only)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../api/" class="md-nav__link">
         
   
@@ -637,10 +664,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
             
   
   
@@ -658,8 +685,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -919,10 +946,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
             
   
   
@@ -940,8 +967,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_9">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1006,10 +1033,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
         
           
-          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
             
   
   
@@ -1027,8 +1054,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_10">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1123,10 +1150,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" checked>
         
           
-          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
             
   
   
@@ -1144,8 +1171,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_11">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_12">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2539,13 +2566,20 @@ behind human approval.</p>
 </ul>
 <h3 id="14-expose-hragents-mcp-server">1.4 Expose <code>hragents-mcp</code> server<a class="headerlink" href="#14-expose-hragents-mcp-server" title="Permanent link">&para;</a></h3>
 <ul>
-<li>[ ] Read tools: queue, application status, evaluation summary, pending approvals, leave balances</li>
+<li>[x] Read tools: queue, application status, evaluation summary, pending approvals, leave balances
+      (<code>hragents-mcp</code>, stdio, packaged console script; each tool is a GET against the API so
+      permissions, tenancy and the audit boundary are the API's).</li>
 <li>[ ] Write tools (approval-gated): create application from external ATS, request document, open
       onboarding plan — <strong>never</strong> payroll, erasure, or rejection execution</li>
-<li>[ ] Auth: API key scopes, per-tool permission map, audit on every call</li>
-<li>[ ] Packaged entry point (<code>hragents-mcp</code> console script) + docs page with Claude Desktop /
+<li>[~] Auth: the server holds one role-bound API key and every call is authorized by the API's
+      existing permission checks; there is no separate per-tool scope map, and reads are not
+      written to the audit chain (the product audits writes, not queries). The key is read
+      from the environment, never argv.</li>
+<li>[x] Packaged entry point (<code>hragents-mcp</code> console script) + docs page with Claude Desktop /
       other-client config examples</li>
-<li>[ ] Contract tests running against the server itself (MCP client ↔ server round-trip)</li>
+<li>[x] Contract tests running against the server itself: <code>tests/test_mcp_server.py</code> connects an
+      in-memory MCP client, asserts the five tools, calls one through a mocked API and checks
+      GET-only calls, key propagation and non-leakage.</li>
 </ul>
 <p><strong>Exit criteria:</strong> an agent can use an external MCP tool end-to-end; a destructive tool is
 unexecutable without human approval; the <code>hragents-mcp</code> server passes contract tests and is
