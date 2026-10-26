@@ -545,13 +545,20 @@ behind human approval.
       through an agent-facing API so an agent can request approval in-line
 
 ### 1.4 Expose `hragents-mcp` server
-- [ ] Read tools: queue, application status, evaluation summary, pending approvals, leave balances
+- [x] Read tools: queue, application status, evaluation summary, pending approvals, leave balances
+      (`hragents-mcp`, stdio, packaged console script; each tool is a GET against the API so
+      permissions, tenancy and the audit boundary are the API's).
 - [ ] Write tools (approval-gated): create application from external ATS, request document, open
       onboarding plan — **never** payroll, erasure, or rejection execution
-- [ ] Auth: API key scopes, per-tool permission map, audit on every call
-- [ ] Packaged entry point (`hragents-mcp` console script) + docs page with Claude Desktop /
+- [~] Auth: the server holds one role-bound API key and every call is authorized by the API's
+      existing permission checks; there is no separate per-tool scope map, and reads are not
+      written to the audit chain (the product audits writes, not queries). The key is read
+      from the environment, never argv.
+- [x] Packaged entry point (`hragents-mcp` console script) + docs page with Claude Desktop /
       other-client config examples
-- [ ] Contract tests running against the server itself (MCP client ↔ server round-trip)
+- [x] Contract tests running against the server itself: `tests/test_mcp_server.py` connects an
+      in-memory MCP client, asserts the five tools, calls one through a mocked API and checks
+      GET-only calls, key propagation and non-leakage.
 
 **Exit criteria:** an agent can use an external MCP tool end-to-end; a destructive tool is
 unexecutable without human approval; the `hragents-mcp` server passes contract tests and is

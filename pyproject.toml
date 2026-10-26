@@ -38,6 +38,7 @@ dependencies = [
     "pyyaml>=6.0",
     "openpyxl>=3.1.5",
     "pywebpush>=2.0",
+    "mcp>=2.0",
     "opentelemetry-api>=1.44",
     "opentelemetry-sdk>=1.44",
     "opentelemetry-exporter-otlp-proto-http>=1.44",
@@ -51,6 +52,9 @@ Repository = "https://github.com/davinakmalyasha/HRAgents"
 Issues = "https://github.com/davinakmalyasha/HRAgents/issues"
 Changelog = "https://github.com/davinakmalyasha/HRAgents/blob/main/CHANGELOG.md"
 Documentation = "https://github.com/davinakmalyasha/HRAgents/tree/main/docs"
+
+[project.scripts]
+hragents-mcp = "hr_agents.mcp_server:main"
 
 [dependency-groups]
 dev = [

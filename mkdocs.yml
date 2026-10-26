@@ -65,6 +65,7 @@ nav:
       - Benchmarks: architecture/benchmarks.md
   - Deployment & operations: deployment.md
   - Region & network recipes: regions.md
+  - MCP server (read-only): mcp-server.md
   - API reference: api.md
   - Decisions:
       - ADR index: adr/README.md

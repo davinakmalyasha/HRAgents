@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.14"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -1078,6 +1078,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "httpx" },
     { name = "lizard" },
+    { name = "mcp" },
     { name = "openpyxl" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
@@ -1128,6 +1129,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
     { name = "lizard", specifier = ">=1.17" },
+    { name = "mcp", specifier = ">=2.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "opentelemetry-api", specifier = ">=1.44" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.44" },
