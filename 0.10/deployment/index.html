@@ -1,0 +1,2599 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A virtual HR team for the HR department of one — deterministic scoring, human decisions, every outcome reconstructible.">
+      
+      
+      
+        <link rel="canonical" href="https://davinakmalyasha.github.io/HRAgents/0.10/deployment/">
+      
+      
+        <link rel="prev" href="../architecture/benchmarks/">
+      
+      
+        <link rel="next" href="../regions/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Deployment & operations - HRAgents</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#deployment-operations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="HRAgents" class="md-header__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            HRAgents
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Deployment & operations
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="HRAgents" class="md-nav__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    HRAgents
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/system-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/hitl-bounds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-loop bounds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/data-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/board-transitions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment & operations
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment & operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-one-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. One command
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. One command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-wired" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is wired
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editing-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing providers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#malware-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Malware scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#external-mcp-tools-optional-httpsse-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External MCP tools (optional, HTTP/SSE only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets-and-rotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets and rotation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-governance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data governance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#push-notifications-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Push notifications (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#starter-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Starter content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Demo data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binding-a-key-to-an-employee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binding a key to an employee
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-connecting-a-real-mail-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Connecting a real mail provider
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-health-logs-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Health, logs, metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Health, logs, metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alerting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alerting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-backups-and-proving-they-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Backups (and proving they work)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-upgrades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Upgrades
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-runbooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Runbooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-without-docker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Without Docker
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-fully-offline-local-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Fully offline (local models)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Fully offline (local models)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#point-every-capability-at-something-local" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Point every capability at something local
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-the-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get the models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-offline-mode-does-not-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the offline mode does not do
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../regions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region & network recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0001-llm-extracts-deterministic-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM extracts, code decides
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0002-hitl-bounds-in-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HITL bounds in code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0003-no-shell-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    No shell tools, ever
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0004-provider-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0005-sync-domain-async-edge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sync domain, async edge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adr/0006-tenancy-rls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy and RLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../paper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../research/literature-review/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Literature review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data governance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data governance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-governance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export, deletion and subprocessors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../legal/dpa-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DPA template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plan/master-build-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master build plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plan/remaining-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remaining work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plan/problem-statement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Problem statement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../plan/release-process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release process
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-one-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. One command
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. One command">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-is-wired" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What is wired
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#editing-providers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Editing providers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verified-credentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verified credentials
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#malware-scanning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Malware scanning
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#external-mcp-tools-optional-httpsse-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        External MCP tools (optional, HTTP/SSE only)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets-and-rotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets and rotation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#data-governance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data governance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#push-notifications-optional" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Push notifications (optional)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#starter-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Starter content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Demo data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#secrets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Secrets
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#binding-a-key-to-an-employee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Binding a key to an employee
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-connecting-a-real-mail-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Connecting a real mail provider
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-health-logs-metrics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Health, logs, metrics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Health, logs, metrics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#alerting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alerting
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-backups-and-proving-they-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Backups (and proving they work)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-upgrades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Upgrades
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-runbooks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Runbooks
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-without-docker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Without Docker
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-fully-offline-local-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Fully offline (local models)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="8. Fully offline (local models)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#point-every-capability-at-something-local" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Point every capability at something local
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get-the-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Get the models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-the-offline-mode-does-not-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What the offline mode does not do
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/davinakmalyasha/HRAgents/edit/main/docs/deployment.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="deployment-operations">Deployment &amp; operations<a class="headerlink" href="#deployment-operations" title="Permanent link">&para;</a></h1>
+<p>How to run HRAgents on your own machine or a small server, and what to do when
+something breaks. Everything here assumes the self-host path: Docker Compose,
+PostgreSQL (with pgvector), Redis, MinIO, and Mailpit for local mail. No cloud
+keys are required — the offline <code>test</code> model, hash embeddings, and manual
+transports are the defaults.</p>
+<h2 id="1-one-command">1. One command<a class="headerlink" href="#1-one-command" title="Permanent link">&para;</a></h2>
+<p>Generate the local configuration first — the operator's name, a role-bound admin
+key, the business timezone, and the offline model default:</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/setup.py
+</code></pre></div>
+<p>It writes <code>.env</code> (never committed) with one <code>hr_admin</code> principal. Compose loads
+that file through <code>env_file</code>; the stack's fixed wiring still wins where it
+matters. The key is printed once — paste it into the dashboard sign-in. Without
+<code>uv</code> on the host, copy <code>.env.example</code> to <code>.env</code> and set the same values by hand.</p>
+<p>Then:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
+</code></pre></div>
+<p>To run the published release instead of building it, select a tag and skip the
+build:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:0.1.0<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>pull
+<span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:0.1.0<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--no-build
+</code></pre></div>
+<p>Images are multi-arch (<code>linux/amd64</code> and <code>linux/arm64</code>). Each release publishes
+the exact version, its <code>major.minor</code>, <code>latest</code>, and a <code>sha-…</code> tag. The release
+workflow fails on CRITICAL vulnerabilities it can fix, and attaches the Trivy
+SARIF and an SPDX SBOM to the release; the SBOM and max-mode provenance are
+also attached to the image digest in the registry.</p>
+<p>What starts:</p>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>What it does</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>postgres</code></td>
+<td>database</td>
+<td>volume <code>pgdata</code>, health-checked, RLS enforced (see below)</td>
+</tr>
+<tr>
+<td><code>redis</code></td>
+<td>queue backend</td>
+<td>volume <code>redisdata</code></td>
+</tr>
+<tr>
+<td><code>minio</code></td>
+<td>object storage (reserved)</td>
+<td>volume <code>miniodata</code>, console on <code>:9001</code>; documents still live in Postgres</td>
+</tr>
+<tr>
+<td><code>mailpit</code></td>
+<td>local mail server</td>
+<td>SMTP <code>1025</code>, inbox UI <code>http://localhost:8025</code></td>
+</tr>
+<tr>
+<td><code>migrate</code></td>
+<td><code>alembic upgrade head</code></td>
+<td>runs to completion, then the API starts</td>
+</tr>
+<tr>
+<td><code>api</code></td>
+<td>FastAPI + dashboard at <code>/app</code></td>
+<td><code>http://localhost:8000/app</code>, health on <code>/healthz</code> and <code>/readyz</code></td>
+</tr>
+<tr>
+<td><code>worker</code></td>
+<td><code>scripts/run_worker.py</code></td>
+<td><strong>the pipeline</strong>: claims queued applications and evaluates them</td>
+</tr>
+<tr>
+<td><code>scheduler</code></td>
+<td><code>scripts/run_scheduler.py --purge</code> every 15 min</td>
+<td>the department clock</td>
+</tr>
+<tr>
+<td><code>messaging</code></td>
+<td><code>scripts/run_messaging.py</code> every 5 min</td>
+<td>carries the outbox, polls replies</td>
+</tr>
+</tbody>
+</table>
+<p>First start takes a few minutes (dashboard build). Watch progress with
+<code>docker compose logs -f api worker</code>.</p>
+<blockquote>
+<p><strong>The worker is not optional.</strong> The API accepts an application and publishes it;
+only the worker evaluates it. Without it, submissions sit in <code>queued</code> forever
+and everything looks like it worked. Check
+<code>curl -s localhost:8000/metrics | grep stuck_queued</code> — a non-zero value means
+nothing is draining the queue.</p>
+<p><strong>Row-level security.</strong> The Postgres image creates the database owner as a
+superuser, and a superuser bypasses every RLS policy. <code>docker/postgres/</code> runs
+once on first init to demote it (<code>NOSUPERUSER NOBYPASSRLS</code>). The policies on all
+35 tables are otherwise decorative in the shipped stack. If you are upgrading an
+existing volume, run <code>ALTER ROLE hragents NOSUPERUSER NOCREATEROLE NOBYPASSRLS;</code>
+by hand.</p>
+</blockquote>
+<h3 id="what-is-wired">What is wired<a class="headerlink" href="#what-is-wired" title="Permanent link">&para;</a></h3>
+<p><code>GET /v1/providers</code> (admin key) reports, for every capability, the provider in use, whether
+the environment locks it, and what that provider's own health check says. Configuration comes
+back masked — the last four characters of a secret, never the secret. The same list is on the
+operations page (<code>/app/ops</code>).</p>
+<h3 id="editing-providers">Editing providers<a class="headerlink" href="#editing-providers" title="Permanent link">&para;</a></h3>
+<p>The operations page (<code>/app/ops</code>) can change a capability's provider and its
+configuration once the operator supplies an encryption key. Without one the
+panel stays read-only — a credential will not be stored in the clear.</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/settings_key.py
+</code></pre></div>
+<p>Put the printed line in <code>.env</code> and restart. The key seals every config before
+it is written; responses show only the last four characters of a secret, and a
+blank secret on update keeps the stored value. A stored selection wins over
+<code>.env</code> unless the environment locks the capability
+(<code>HRAGENTS_PROVIDER_&lt;CAPABILITY&gt;_LOCK=true</code>); the compose stack locks the queue.
+Services built at startup — the model runtime, the queue — take a change after
+a restart, which the response says.</p>
+<p>To rotate the key, prepend the new key to the comma-separated list, restart,
+re-save the providers you changed (the UI keeps the secret when the field is
+blank), then remove the old key.</p>
+<h3 id="verified-credentials">Verified credentials<a class="headerlink" href="#verified-credentials" title="Permanent link">&para;</a></h3>
+<p>A certificate on a CV is a claim. The credential registry is where an operator
+records what the issuer actually confirmed, and scoring only trusts it once a
+named human has verified the registry with a source.</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/v1/credentials<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w">   </span>-d<span class="w"> </span><span class="s1">'{"name":"AWS certifications","issuer":"AWS"}'</span>
+<span class="c1"># add the rows you checked, then certify them</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>PUT<span class="w"> </span>localhost:8000/v1/credentials/<span class="nv">$ID</span>/entries<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w">   </span>-d<span class="w"> </span><span class="s1">'{"entries":[{"name":"AWS Solutions Architect","expires_on":"2027-01-01"}]}'</span>
+curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>localhost:8000/v1/credentials/<span class="nv">$ID</span>/verify<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w">   </span>-d<span class="w"> </span><span class="s1">'{"source_note":"issuer page, 2026-10-24"}'</span>
+</code></pre></div>
+<p>A registry is inert until verified. Once at least one is usable, a claim that
+matches nothing counts as <strong>unverified</strong> (a Coursera badge and a genuine
+certificate stop scoring alike), while an entry past <code>expires_on</code> answers
+expired. Editing entries invalidates the verification, exactly like a rate
+table. The compliance queue has the same import path in the dashboard: create a
+registry, paste its rows (one per line, <code>name | status | id | expiry | notes</code>),
+then verify it with the source you checked.</p>
+<h3 id="malware-scanning">Malware scanning<a class="headerlink" href="#malware-scanning" title="Permanent link">&para;</a></h3>
+<p>Uploads are stored unscanned by default, and the audit entry says so. Point the
+API at a ClamAV daemon to scan before storage:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_CLAMAV_HOST</span><span class="o">=</span>clamav<span class="w">      </span><span class="c1"># or localhost, a sidecar, a socket proxy</span>
+<span class="nv">HRAGENTS_CLAMAV_PORT</span><span class="o">=</span><span class="m">3310</span>
+<span class="nv">HRAGENTS_CLAMAV_TIMEOUT</span><span class="o">=</span><span class="m">5</span>
+</code></pre></div>
+<ul>
+<li><strong>clean</strong> → stored; the <code>document.uploaded</code> entry records <code>scan=clean</code>.</li>
+<li><strong>infected</strong> → refused with <code>422</code>; nothing is stored, and
+  <code>document.rejected_malware</code> records the signature — never the file or its name.</li>
+<li><strong>scanner unreachable</strong> → refused with <code>503</code>; the file is <em>not</em> stored. A
+  configured scanner that is down must not silently downgrade to unscanned.</li>
+</ul>
+<p>The scan speaks ClamAV's INSTREAM protocol over TCP, with no shell and a bounded
+timeout. The hook lives in <code>DocumentService.upload</code>, the one path that accepts
+arbitrary bytes; an employee-document row registered against an existing object
+does not bypass it because it carries no content.</p>
+<h3 id="external-mcp-tools-optional-httpsse-only">External MCP tools (optional, HTTP/SSE only)<a class="headerlink" href="#external-mcp-tools-optional-httpsse-only" title="Permanent link">&para;</a></h3>
+<p>An operator can attach an MCP server for tools that live outside HRAgents
+(an ATS or HRIS connector). Two limits are deliberate:</p>
+<ul>
+<li><strong>No stdio transport.</strong> A stdio server would mean spawning a process; the
+  product's rule is that agents never get a shell, so only HTTP/SSE endpoints
+  are accepted.</li>
+<li><strong>Destructive tools are not exposed.</strong> The registry's human-approval gate needs
+  a dry-run preview, and an MCP tool cannot produce one without making the call.
+  Read and write tools can be exposed; destructive actions stay in the product,
+  where a named human approves a preview.</li>
+</ul>
+<p>Configuration is one JSON value:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_MCP_SERVERS</span><span class="o">=</span><span class="s1">'[</span>
+<span class="s1">  {"name":"ats","url":"https://mcp.example.com/mcp","auth_env":"ATS_MCP_TOKEN",</span>
+<span class="s1">   "allowed_agents":["screening_coordinator"],</span>
+<span class="s1">   "tools":{"get_candidate":"read","add_note":"write"}}</span>
+<span class="s1">]'</span>
+</code></pre></div>
+<p>Only the tools named under <code>tools</code> are registered (<code>mcp.&lt;server&gt;.&lt;tool&gt;</code>); a
+tool the server adds later stays invisible until the operator names it.
+<code>allowed_agents</code> is the other half of least privilege — an empty list connects
+the server for discovery but exposes nothing. The bearer token is read from the
+variable named by <code>auth_env</code>, never from the URL, config or logs; putting
+credentials in the URL is refused.</p>
+<p>A server that is unreachable or unauthenticated degrades only itself: the app
+starts, the other tools work, and <code>GET /v1/ops/mcp</code> (admin) lists each server's
+connection state and exposed tools.</p>
+<p>The same list is editable from the dashboard's <strong>Operations → Connections</strong>
+panel (admin only). Saves are audited, reload the manager in-process, and
+unregister the previous tools so removing a connection is immediate. Two rules
+keep the two surfaces from disagreeing:</p>
+<ul>
+<li>an environment-configured name is read-only in the dashboard; change it in
+  <code>HRAGENTS_MCP_SERVERS</code> instead, and</li>
+<li>dashboard rows are install-wide, because MCP tools live in one process-wide
+  registry — they are not tenant-isolated.</li>
+</ul>
+<p>The panel's <strong>Test</strong> button connects, lists tools and disconnects without
+registering anything or writing a row.</p>
+<h3 id="secrets-and-rotation">Secrets and rotation<a class="headerlink" href="#secrets-and-rotation" title="Permanent link">&para;</a></h3>
+<p>Nothing in this repository ships a secret. Rotate after any suspicion, and in
+this order so a rotation cannot lock you out:</p>
+<p><strong>API keys and principals.</strong> Add the new key to <code>HRAGENTS_API_PRINCIPALS</code> (keep
+the old one), restart, move clients, then remove the old entry and restart. A
+removed key answers 401 on the next request and the dashboard drops it. The
+audit chain records the actor id, so rotating a key for the same person keeps the
+same name on the record. An unbound <code>HRAGENTS_API_KEYS</code> key is one shared
+identity; prefer principals.</p>
+<p><strong>Settings encryption key</strong> (provider credentials). Prepend a new key to the
+comma-separated <code>HRAGENTS_SETTINGS_ENCRYPTION_KEY</code>, restart, re-save the
+providers you changed (a blank secret keeps the stored value), then remove the
+old key. Rows stay readable while both keys are present.</p>
+<p><strong>VAPID (push).</strong> Generate a new pair, put it in <code>.env</code>, restart. Existing
+browser subscriptions were bound to the old application key and will not
+deliver; each person must turn the bell off and on (which unsubscribes,
+deletes the server row and re-subscribes with the new key).</p>
+<p><strong>Provider credentials.</strong> Prefer the dashboard (sealed at rest) — Save, then
+Test. If the capability is environment-locked, update the env value and
+restart. Revoke the old credential at the provider only after the Test button
+answers.</p>
+<p><strong>Database, MinIO, SMTP/IMAP.</strong> Change the password on the service, update
+<code>.env</code>/compose, restart, then confirm <code>/readyz</code>. Backups taken before the change
+remain restorable with the old credentials; they do not contain the new one.</p>
+<p><strong>After every rotation</strong>, revoke the old secret at its issuer. The audit chain
+stores actor ids and field names, never the secret value, so it does not need
+rewriting.</p>
+<h3 id="data-governance">Data governance<a class="headerlink" href="#data-governance" title="Permanent link">&para;</a></h3>
+<p>Full export, deletion, subprocessors and the DPA template are in <a href="../data-governance/">Data governance</a>.</p>
+<h3 id="push-notifications-optional">Push notifications (optional)<a class="headerlink" href="#push-notifications-optional" title="Permanent link">&para;</a></h3>
+<p>Notifications stay off until the operator issues a VAPID pair <strong>for this
+deployment</strong>. No key is shipped: a committed private key would let anyone
+impersonate the sender for every install.</p>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/vapid_keys.py
+</code></pre></div>
+<p>Copy the three printed lines into <code>.env</code> and restart. The private key stays on
+the server; <code>GET /v1/push/config</code> serves only the public half. With keys
+configured the topbar shows a bell: turning it on subscribes this browser and
+sends one test notification, so "on" is a demonstrated fact rather than a
+promise.</p>
+<p>New approvals are announced to the roles that may decide them. Payloads name
+the subject ("a leave request needs your decision") and never the employee or
+an amount: a lock screen is not an access-controlled surface. Delivery is
+best-effort and runs outside the approval path, so an unreachable push service
+cannot block the decision it was announcing. An endpoint the browser has
+dropped (404/410) is pruned, and a person whose key is removed or whose role
+changes stops receiving pings. Browsers require HTTPS for service workers;
+<code>localhost</code> is the exception.</p>
+<h3 id="starter-content">Starter content<a class="headerlink" href="#starter-content" title="Permanent link">&para;</a></h3>
+<p>A fresh install is empty by design. The dashboard's first-run card offers the
+same seed as the CLI:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>api<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/seed_starters.py
+</code></pre></div>
+<p>It creates an onboarding and an offboarding checklist and one <strong>empty</strong> shell per
+statutory table kind payroll needs. No values are seeded: a named human enters and
+verifies every number, and payroll refuses to compute until that happens.</p>
+<h3 id="demo-data">Demo data<a class="headerlink" href="#demo-data" title="Permanent link">&para;</a></h3>
+<p>To see the product with a story in it:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>api<span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/seed_demo.py
+</code></pre></div>
+<p>Five employees (one mid-probation), two contracts, an expiring KTP, a pending
+annual-leave approval, an open engineering role with two applications, an
+onboarding plan, a draft growth cycle and a payroll run for the current month.
+Everything is created through the real services, so the audit trail, the
+approval queue, the task list and the retention ledger are populated too.
+The marker employee number <code>DEMO-001</code> makes the seed idempotent on Postgres;
+with the in-memory backend each process starts empty, so every run reseeds —
+and a separately started dev server will not see a standalone seed, because
+the two processes share no store. Use the Compose stack (Postgres) for a demo
+you can browse.</p>
+<p>The statutory rate tables are seeded <strong>unverified</strong> on purpose. Payroll refuses
+to compute on a table nobody has checked against a source, and the demo should
+show that gate rather than fake a figure: verify the tables with real statutory
+sources before using any number.</p>
+<h3 id="secrets">Secrets<a class="headerlink" href="#secrets" title="Permanent link">&para;</a></h3>
+<p>The committed defaults are for a laptop, not for a server. Before exposing the
+instance, set real values in a <code>.env</code> file next to <code>docker-compose.yml</code>
+(Compose reads it automatically):</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_API_KEYS</span><span class="o">=[</span><span class="s2">"a-long-random-string"</span><span class="o">]</span><span class="w">        </span><span class="c1"># inbound API keys (empty = auth disabled)</span>
+<span class="c1"># HRAGENTS_API_PRINCIPALS=[{"key":"...","role":"hr_admin","actor_id":"owner"}]</span>
+<span class="nv">HRAGENTS_TIMEZONE</span><span class="o">=</span>Asia/Jakarta<span class="w">                    </span><span class="c1"># the zone business dates are read in</span>
+<span class="nv">POSTGRES_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;
+<span class="nv">MINIO_ROOT_PASSWORD</span><span class="o">=</span>&lt;strong<span class="w"> </span>password&gt;
+<span class="nv">HRAGENTS_MESSAGING_SANDBOX</span><span class="o">=</span><span class="nb">false</span><span class="w">                  </span><span class="c1"># only after you configure a real provider</span>
+</code></pre></div>
+<p><code>HRAGENTS_TIMEZONE</code> decides what "today" means for leave years, probation ends,
+due dates and the sweeps that act on them. It defaults to <code>Asia/Jakarta</code>, and an
+unknown zone stops startup rather than silently falling back — a server whose
+host clock is UTC would otherwise be a day off for the seven hours after Jakarta
+has rolled over.</p>
+<p>Never commit <code>.env</code>; <code>.dockerignore</code> keeps it out of the image.</p>
+<h3 id="binding-a-key-to-an-employee">Binding a key to an employee<a class="headerlink" href="#binding-a-key-to-an-employee" title="Permanent link">&para;</a></h3>
+<p><code>role</code> decides what a principal may do across the whole org. <code>employee_id</code>
+decides whose records they may act on individually, and the self-service routes
+need it: an employee requesting their own leave, or moving their own goal along,
+is refused without it. A key with no <code>employee_id</code> is not a weaker form of an
+employee key, it is ineligible for those routes.</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_API_PRINCIPALS</span><span class="o">=[</span>
+<span class="w">  </span><span class="o">{</span><span class="s2">"key"</span>:<span class="s2">"..."</span>,<span class="s2">"role"</span>:<span class="s2">"employee"</span>,<span class="s2">"actor_id"</span>:<span class="s2">"sari"</span>,<span class="s2">"employee_id"</span>:<span class="s2">"&lt;uuid&gt;"</span><span class="o">}</span>,
+<span class="w">  </span><span class="o">{</span><span class="s2">"key"</span>:<span class="s2">"..."</span>,<span class="s2">"role"</span>:<span class="s2">"manager"</span>,<span class="s2">"actor_id"</span>:<span class="s2">"budi"</span>,<span class="s2">"employee_id"</span>:<span class="s2">"&lt;uuid&gt;"</span><span class="o">}</span>
+<span class="o">]</span>
+</code></pre></div>
+<p>Take the UUID from the employee record. A manager additionally needs
+<code>employee_id</code> set to <em>their own</em> record, not their reports': the reporting line
+comes from each employee's <code>manager_id</code>, so the manager's own binding is what
+identifies them as the manager. <code>hr_admin</code> and <code>recruiter</code> hold <code>people:write</code>
+and need no binding to act on any record.</p>
+<p>Identity is bound by configuration rather than inferred from an email address,
+because an email is a nullable, changeable, shareable field, and a permission
+that depends on one is not a permission. An unbound principal is refused rather
+than assumed to own whatever it names.</p>
+<blockquote>
+<p><strong>What the two modes mean.</strong> With no keys configured, every request is accepted
+as a local development principal with full admin rights — appropriate for
+<code>localhost</code>, not for a server. With keys configured, the dashboard signs in:
+the first request it makes is <code>/v1/session</code>, and if the server refuses it the
+app shows a sign-in screen that takes the API key. The key is kept in
+<code>sessionStorage</code>, so closing the tab ends the session, and signing out clears
+it and the cache. The sign-in screen never decides anything itself: the role
+it displays is the one the server resolved, and every permission is still
+checked server-side.</p>
+<p>Still not a substitute for TLS. The key travels in an <code>X-API-Key</code> header and is
+readable by any script on the origin, so a self-host exposed to a network wants
+a reverse proxy that terminates TLS and restricts who can reach it. There are
+no passwords and therefore no password reset: the credential <em>is</em> the key, and
+rotating it means changing the configured principal.</p>
+</blockquote>
+<h2 id="2-connecting-a-real-mail-provider">2. Connecting a real mail provider<a class="headerlink" href="#2-connecting-a-real-mail-provider" title="Permanent link">&para;</a></h2>
+<p>Compose ships Mailpit so nothing leaves your machine while you evaluate. To
+send real email, point the provider layer at your mailbox and leave the sandbox
+alone:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_PROVIDER_EMAIL_SEND</span><span class="o">=</span>email.smtp
+<span class="nv">HRAGENTS_PROVIDER_EMAIL_SEND_CONFIG</span><span class="o">={</span><span class="s2">"host"</span>:<span class="s2">"smtp.example.com"</span>,<span class="s2">"port"</span>:587,<span class="s2">"username"</span>:<span class="s2">"hr@example.com"</span>,<span class="s2">"password"</span>:<span class="s2">"..."</span>,<span class="s2">"from_address"</span>:<span class="s2">"hr@example.com"</span><span class="o">}</span>
+<span class="nv">HRAGENTS_PROVIDER_EMAIL_RECEIVE</span><span class="o">=</span>email.imap_poll
+<span class="nv">HRAGENTS_PROVIDER_EMAIL_RECEIVE_CONFIG</span><span class="o">={</span><span class="s2">"host"</span>:<span class="s2">"imap.example.com"</span>,<span class="s2">"username"</span>:<span class="s2">"hr@example.com"</span>,<span class="s2">"password"</span>:<span class="s2">"..."</span>,<span class="s2">"mailbox"</span>:<span class="s2">"INBOX"</span><span class="o">}</span>
+</code></pre></div>
+<p>Then <code>docker compose up -d --force-recreate api messaging</code>. Until a message is
+queued behind a named human, nothing is sent — and the bridge records the
+provider, the message id, and any failure on the message itself.</p>
+<h2 id="3-health-logs-metrics">3. Health, logs, metrics<a class="headerlink" href="#3-health-logs-metrics" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/healthz<span class="w">                    </span><span class="c1"># liveness: the process is up</span>
+curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/readyz<span class="w">                     </span><span class="c1"># readiness, per dependency</span>
+curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/metrics<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>stuck_queued<span class="w"> </span><span class="c1"># is anything draining the queue?</span>
+docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>api<span class="w"> </span>worker<span class="w"> </span>scheduler<span class="w"> </span>messaging
+</code></pre></div>
+<p><code>/readyz</code> returns <code>503</code> with a per-dependency breakdown when something is
+unreachable, which is what an orchestrator should probe. It checks
+<code>database</code>, <code>messaging</code>, <code>audit</code>, <strong><code>queue</code></strong>, and <strong><code>skills</code></strong> — the last two
+because they decide whether the product <em>works</em> rather than whether it starts: no
+queue means submissions are accepted and never evaluated, and no skills library
+means every agent runs with no runbook.</p>
+<p><code>/metrics</code> is plain Prometheus text; <code>curl</code> is enough, no exporter stack. The
+series worth alerting on:</p>
+<table>
+<thead>
+<tr>
+<th>Series</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hragents_applications_stuck_queued</code></td>
+<td>accepted but never evaluated — <strong>the worker is down or wedged</strong></td>
+</tr>
+<tr>
+<td><code>hragents_scheduler_last_success_timestamp</code></td>
+<td>per job; a stale value means a job is failing inside the <code>while true</code> loop</td>
+</tr>
+<tr>
+<td><code>hragents_applications_by_status</code></td>
+<td>where the pipeline actually is</td>
+</tr>
+<tr>
+<td><code>hragents_http_request_duration_seconds_sum</code></td>
+<td>paired with <code>_count</code> for a mean</td>
+</tr>
+<tr>
+<td><code>hragents_queue_pending</code> / <code>_inflight</code> / <code>_dead</code></td>
+<td>evaluation queue depth per topic; <code>_dead</code> above zero is a message that exhausted its retries</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>scheduler</code> and <code>messaging</code> loops swallow failures (<code>|| echo ...</code>) because a
+crashing tick should not kill the container. They rewrite their JSON report on a
+shared volume every tick, and the metrics endpoint reads it — that is how a
+silently failing loop becomes visible without adding a log aggregator. The
+containers also have <code>HEALTHCHECK</code>s, so <code>docker compose ps</code> shows the truth.</p>
+<h3 id="alerting">Alerting<a class="headerlink" href="#alerting" title="Permanent link">&para;</a></h3>
+<p>The repository ships Prometheus rules for the canaries and the usual API
+signals: <a href="https://github.com/davinakmalyasha/HRAgents/blob/main/ops/alerts/hragents.rules.yml"><code>ops/alerts/hragents.rules.yml</code></a>.
+Scrape the API with a job named <code>hragents-api</code> and load the file as a rule
+file; nothing else is required.</p>
+<table>
+<thead>
+<tr>
+<th>Alert</th>
+<th>Severity</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HRAgentsStuckQueuedApplications</code></td>
+<td>critical</td>
+<td>submissions are accepted and nothing is evaluating them — start or restart the worker</td>
+</tr>
+<tr>
+<td><code>HRAgentsSchedulerJobStale</code></td>
+<td>critical</td>
+<td>a scheduled job missed three 15-minute ticks; retention, expiry and offer expiry all live there</td>
+</tr>
+<tr>
+<td><code>HRAgentsDeadLetteredMessages</code></td>
+<td>warning</td>
+<td>a message exhausted its retries; read its reason and requeue deliberately</td>
+</tr>
+<tr>
+<td><code>HRAgentsQueueBacklog</code></td>
+<td>warning</td>
+<td>more than 100 messages waiting for half an hour</td>
+</tr>
+<tr>
+<td><code>HRAgentsApiDown</code> / <code>HRAgentsHighErrorRate</code> / <code>HRAgentsSlowResponses</code></td>
+<td>critical / warning</td>
+<td>the ordinary API signals</td>
+</tr>
+</tbody>
+</table>
+<p>Nothing pages by itself: the rules are the operator's to load, and <code>/readyz</code>
+remains the external probe for orchestrators. The rules test
+(<code>tests/test_alerts_config.py</code>) fails if a rule references a series the API no
+longer renders, so a renamed metric cannot silently disable an alert.</p>
+<p>The dead letters themselves are readable at <code>GET /v1/ops/dead-letters</code>
+(<code>admin:manage</code>; metadata and payload keys, never the résumé text) and a
+requeue is <code>POST /v1/ops/dead-letters/{id}/requeue</code> with a mandatory reason,
+recorded on the audit chain. Requeueing resets the attempt budget because a
+person decided the cause is fixed; the automatic reaper does the opposite and
+counts the attempt, so a crash-looping message still runs out of retries. The
+<code>queue-reaper</code> scheduler job returns leases older than five minutes to pending,
+which covers a worker wedged on the handler itself. The dashboard mirrors the
+API at <code>/app/ops</code> (reachable from the command palette) with the same
+reason-gated requeue.</p>
+<h2 id="4-backups-and-proving-they-work">4. Backups (and proving they work)<a class="headerlink" href="#4-backups-and-proving-they-work" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>api<span class="w"> </span>python<span class="w"> </span>scripts/backup.py<span class="w"> </span>--output<span class="w"> </span>/app/data/backups<span class="w"> </span>--verify
+</code></pre></div>
+<p><code>--verify</code> restores the dump into a throwaway database and re-verifies the audit
+hash chain inside it. A backup you have not restored is a guess; this script
+prints <code>audit chain: intact</code> or fails with the first broken sequence. Restore a
+dump with:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>api<span class="w"> </span>python<span class="w"> </span>scripts/backup.py<span class="w"> </span>--restore<span class="w"> </span>/app/data/backups/hragents-&lt;stamp&gt;.sql.gz
+</code></pre></div>
+<h2 id="5-upgrades">5. Upgrades<a class="headerlink" href="#5-upgrades" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>pull
+docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build<span class="w"> </span>-d<span class="w">          </span><span class="c1"># runs migrations, restarts services</span>
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>api<span class="w"> </span>python<span class="w"> </span>scripts/verify_audit.py<span class="w">     </span><span class="c1"># chain still intact</span>
+</code></pre></div>
+<p>Migrations are additive and reversible (<code>alembic downgrade -1</code>). Take a backup
+first when a release contains a data migration.</p>
+<h2 id="6-runbooks">6. Runbooks<a class="headerlink" href="#6-runbooks" title="Permanent link">&para;</a></h2>
+<p><strong>Candidate messages stuck in "queued".</strong> Check the messaging logs. A failed
+send keeps the message queued and records <code>last_error</code> on it (visible in the
+communication panel). Fix the transport and the next run retries.</p>
+<p><strong>The scheduler job failed.</strong> <code>run_scheduler.py</code> prints one line per job and
+exits nonzero on failure. Run a single job on demand:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>api<span class="w"> </span>python<span class="w"> </span>scripts/run_scheduler.py<span class="w"> </span>--job<span class="w"> </span>retention<span class="w"> </span>--purge
+docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>api<span class="w"> </span>python<span class="w"> </span>scripts/run_scheduler.py<span class="w"> </span>--job<span class="w"> </span>reply-sla
+</code></pre></div>
+<p><strong>Audit chain verification fails.</strong> <code>python scripts/verify_audit.py</code> prints the
+first invalid sequence. That means a row in <code>audit_log</code> was altered out of
+band: restore from backup and investigate the database access path. Never edit
+<code>audit_log</code> by hand.</p>
+<p><strong>LLM provider is not configured.</strong> Agents fall back to the offline model, so
+the deterministic core (scoring, policy, approvals) keeps working. Configure
+<code>HRAGENTS_PROVIDER_LLM</code> to enable extraction.</p>
+<p><strong>Rate limit (429).</strong> The API throttles per principal at 300 requests/minute by
+default. Raise <code>HRAGENTS_API_RATE_LIMIT_PER_MINUTE</code> or add a role-bound key.</p>
+<h2 id="7-without-docker">7. Without Docker<a class="headerlink" href="#7-without-docker" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>uv<span class="w"> </span>sync
+uv<span class="w"> </span>run<span class="w"> </span>alembic<span class="w"> </span>upgrade<span class="w"> </span>head
+uv<span class="w"> </span>run<span class="w"> </span>uvicorn<span class="w"> </span>hr_agents.main:app<span class="w"> </span>--reload<span class="w">     </span><span class="c1"># API + dashboard on :8000</span>
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/run_scheduler.py<span class="w">          </span><span class="c1"># the clock, in another shell</span>
+uv<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>scripts/run_messaging.py<span class="w">          </span><span class="c1"># the messaging bridge</span>
+</code></pre></div>
+<p>In-memory mode (<code>HRAGENTS_STORE_BACKEND=memory</code>, the default) needs nothing at
+all: it is the zero-configuration developer experience and the right choice for
+a demo, not for real HR data.</p>
+<h2 id="8-fully-offline-local-models">8. Fully offline (local models)<a class="headerlink" href="#8-fully-offline-local-models" title="Permanent link">&para;</a></h2>
+<p>Everything below keeps candidate and employee data on the machine. The
+deterministic core — scoring, payroll arithmetic, policy routing, approvals —
+never calls a model in the first place, so what this section configures is
+extraction, drafting and chat.</p>
+<h3 id="point-every-capability-at-something-local">Point every capability at something local<a class="headerlink" href="#point-every-capability-at-something-local" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_PROVIDER_LLM</span><span class="o">=</span>llm.ollama
+<span class="nv">HRAGENTS_PROVIDER_LLM_CONFIG</span><span class="o">={</span><span class="s2">"model"</span>:<span class="s2">"qwen2.5:7b"</span><span class="o">}</span>
+<span class="nv">HRAGENTS_PROVIDER_EMBEDDINGS</span><span class="o">=</span>embeddings.ollama
+<span class="nv">HRAGENTS_PROVIDER_EMBEDDINGS_CONFIG</span><span class="o">={</span><span class="s2">"model"</span>:<span class="s2">"nomic-embed-text"</span><span class="o">}</span>
+<span class="nv">HRAGENTS_PROVIDER_STORAGE</span><span class="o">=</span>storage.local_disk
+<span class="nv">HRAGENTS_PROVIDER_STORAGE_CONFIG</span><span class="o">={</span><span class="s2">"root"</span>:<span class="s2">"data/documents"</span><span class="o">}</span>
+<span class="nv">HRAGENTS_PROVIDER_QUEUE</span><span class="o">=</span>queue.memory
+<span class="nv">HRAGENTS_PROVIDER_WHATSAPP</span><span class="o">=</span>whatsapp.manual_links
+<span class="nv">HRAGENTS_PROVIDER_CALENDAR</span><span class="o">=</span>calendar.manual_slots
+</code></pre></div>
+<p><code>whatsapp.manual_links</code> and <code>calendar.manual_slots</code> need no credentials at all:
+you send the message from your own WhatsApp and enter interview slots by hand,
+and the app composes the link and the ICS. For email, point <code>email.smtp</code> and
+<code>email.imap_poll</code> at the Mailpit container from §1 — it is a local mail server,
+so nothing leaves the host.</p>
+<h3 id="get-the-models">Get the models<a class="headerlink" href="#get-the-models" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>ollama<span class="w"> </span>pull<span class="w"> </span>qwen2.5:7b<span class="w">          </span><span class="c1"># extraction, drafting, chat</span>
+ollama<span class="w"> </span>pull<span class="w"> </span>nomic-embed-text<span class="w">    </span><span class="c1"># embeddings, 768 dimensions</span>
+</code></pre></div>
+<p><strong>Model floor.</strong> Extraction asks a model to return structured data from a CV and
+to keep two similar profiles straight. A 7–8B instruction-tuned model is the
+floor at which that is reliable; 14B and up is visibly better on ambiguous
+résumés and on the drafted summaries a person edits. Below the floor the failure
+mode is quiet: fields come back plausible-but-wrong, which is worse than a
+refusal, because nothing downstream can tell. If you have no model to run,
+<code>embeddings.hash</code> implements embeddings with no download at all — it is lexical
+overlap, not meaning, so it finds documents that share words and misses ones
+that share sense.</p>
+<h3 id="what-the-offline-mode-does-not-do">What the offline mode does not do<a class="headerlink" href="#what-the-offline-mode-does-not-do" title="Permanent link">&para;</a></h3>
+<ul>
+<li>GitHub and repository lookups, publication checks and credential registries
+  need the network. Offline, those signals are simply absent from an
+  evaluation, and the deterministic scorer treats absent evidence as absent
+  rather than guessing.</li>
+<li>The built-in <code>test</code> model runs the whole pipeline with canned responses so
+  tests and demos need neither a network nor a model. Its numbers are fake by
+  construction; never use it for a real candidate.</li>
+<li>Provider health badges report <em>configured</em>, not <em>reachable</em>: the health probe
+  is a Phase 7 item, so verify Ollama yourself with <code>ollama list</code> and one
+  extraction from the dashboard before trusting a batch.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../architecture/benchmarks/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Benchmarks">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Benchmarks
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../regions/" class="md-footer__link md-footer__link--next" aria-label="Next: Region &amp; network recipes">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Region & network recipes
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Apache-2.0 · built in Jakarta
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "content.code.copy", "content.action.edit", "search.suggest", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
