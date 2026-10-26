@@ -5938,6 +5938,105 @@
         "title": "Location",
         "type": "object"
       },
+      "McpProbeResult": {
+        "additionalProperties": false,
+        "description": "The answer to a Test click: reachable or not, and the tools it offers.",
+        "properties": {
+          "connected": {
+            "title": "Connected",
+            "type": "boolean"
+          },
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "tools": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "connected"
+        ],
+        "title": "McpProbeResult",
+        "type": "object"
+      },
+      "McpServerConfig": {
+        "additionalProperties": false,
+        "description": "One operator-approved MCP server and the tools it may expose.",
+        "properties": {
+          "allowed_agents": {
+            "description": "Agents permitted to call these tools. Empty registers the tools but lets no agent use them \u2014 discovery without exposure.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Agents",
+            "type": "array"
+          },
+          "auth_env": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name of the environment variable holding a bearer token. The token itself is never in configuration, logs or API responses.",
+            "title": "Auth Env"
+          },
+          "name": {
+            "description": "Short identifier used in tool names: mcp.<name>.<tool>.",
+            "maxLength": 40,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "timeout_seconds": {
+            "default": 10.0,
+            "exclusiveMinimum": 0.0,
+            "maximum": 120.0,
+            "title": "Timeout Seconds",
+            "type": "number"
+          },
+          "tools": {
+            "additionalProperties": {
+              "enum": [
+                "read",
+                "write",
+                "destructive"
+              ],
+              "type": "string"
+            },
+            "description": "Remote tool name \u2192 impact. Only these tools are registered; an unlisted tool stays invisible to every agent.",
+            "title": "Tools",
+            "type": "object"
+          },
+          "url": {
+            "description": "HTTP(S) streamable endpoint. Credentials never belong in the URL.",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url"
+        ],
+        "title": "McpServerConfig",
+        "type": "object"
+      },
       "McpServerStatus": {
         "additionalProperties": false,
         "description": "What the operator sees about one server: reachable or not, and which tools.",
@@ -5978,6 +6077,76 @@
           "connected"
         ],
         "title": "McpServerStatus",
+        "type": "object"
+      },
+      "McpServerView": {
+        "additionalProperties": false,
+        "description": "One connection, from the environment or the dashboard, with live status.",
+        "properties": {
+          "allowed_agents": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Agents",
+            "type": "array"
+          },
+          "auth_env": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Env"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/McpServerStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timeout_seconds": {
+            "title": "Timeout Seconds",
+            "type": "number"
+          },
+          "tools": {
+            "additionalProperties": {
+              "enum": [
+                "read",
+                "write",
+                "destructive"
+              ],
+              "type": "string"
+            },
+            "title": "Tools",
+            "type": "object"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "source",
+          "timeout_seconds"
+        ],
+        "title": "McpServerView",
         "type": "object"
       },
       "NotificationCreate": {
@@ -37295,6 +37464,520 @@
           }
         },
         "summary": "Mcp Status",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/mcp/servers": {
+      "get": {
+        "description": "Environmental and dashboard connections, merged, with live statuses.",
+        "operationId": "list_mcp_servers_v1_ops_mcp_servers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/McpServerView"
+                  },
+                  "title": "Response List Mcp Servers V1 Ops Mcp Servers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The request could not be understood."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Credentials are missing (`auth_required`) or refused (`auth_invalid`)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The record is not in a state that allows this."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request body exceeded the configured ceiling."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limited. `Retry-After` carries the interval in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A dependency the request needs is not running."
+          }
+        },
+        "summary": "List Mcp Servers",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/mcp/servers/{name}": {
+      "delete": {
+        "description": "Remove a dashboard connection. Environment connections cannot be deleted.",
+        "operationId": "delete_mcp_server_v1_ops_mcp_servers__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The request could not be understood."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Credentials are missing (`auth_required`) or refused (`auth_invalid`)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The record is not in a state that allows this."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request body exceeded the configured ceiling."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limited. `Retry-After` carries the interval in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A dependency the request needs is not running."
+          }
+        },
+        "summary": "Delete Mcp Server",
+        "tags": [
+          "ops"
+        ]
+      },
+      "put": {
+        "description": "Add or replace a dashboard connection. Environment names are locked.",
+        "operationId": "save_mcp_server_v1_ops_mcp_servers__name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpServerConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpServerView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The request could not be understood."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Credentials are missing (`auth_required`) or refused (`auth_invalid`)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The record is not in a state that allows this."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request body exceeded the configured ceiling."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limited. `Retry-After` carries the interval in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A dependency the request needs is not running."
+          }
+        },
+        "summary": "Save Mcp Server",
+        "tags": [
+          "ops"
+        ]
+      }
+    },
+    "/v1/ops/mcp/servers/{name}/test": {
+      "get": {
+        "description": "Connect, list tools and disconnect without registering anything.",
+        "operationId": "test_mcp_server_v1_ops_mcp_servers__name__test_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpProbeResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The request could not be understood."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Credentials are missing (`auth_required`) or refused (`auth_invalid`)."
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must."
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record."
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The record is not in a state that allows this."
+          },
+          "413": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Request body exceeded the configured ceiling."
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation."
+          },
+          "429": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limited. `Retry-After` carries the interval in seconds.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A dependency the request needs is not running."
+          }
+        },
+        "summary": "Test Mcp Server",
         "tags": [
           "ops"
         ]

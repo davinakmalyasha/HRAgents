@@ -2541,8 +2541,10 @@ behind human approval.</p>
       one exposes no tools while the others work, and <code>GET /v1/ops/mcp</code> names each state.</li>
 <li>[x] Redaction of server auth material: the token is read from the named env var, never stored
       in config, status, logs or API responses; a credential embedded in the URL is refused.</li>
-<li>[ ] Config UI surface in Settings → Connections with a Test button (the env-configured
-      foundation and <code>/v1/ops/mcp</code> ship; the form does not)</li>
+<li>[x] Config UI surface with a Test button: the Operations page's Connections panel adds,
+      edits, removes and probes dashboard connections; saves are audited and reload the manager
+      in-process, and environment names stay read-only. (The product's admin console is the
+      Operations page; there is no separate Settings area.)</li>
 </ul>
 <h3 id="12-server-catalog-disabled-by-default">1.2 Server catalog (disabled by default)<a class="headerlink" href="#12-server-catalog-disabled-by-default" title="Permanent link">&para;</a></h3>
 <ul>
