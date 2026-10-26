@@ -409,7 +409,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 
 ### 7.4 MCP layer
 - [x] MCP client manager: configs, health checks, namespaced tools, graceful degradation
-- [ ] MCP servers catalog (disabled by default): ATS (Greenhouse/Lever), HRIS (Talenta/Gadjah), Slack, calendars
+- [x] MCP servers catalog (disabled by default): ATS, HRIS, Slack, calendar templates in the
+      Connections panel; vendor-specific endpoints remain operator-supplied
 - [x] Approval hook for destructive MCP tools (dry-run preview; execute once on approval, audit id recorded)
 - [x] Expose `hragents-mcp` server (reads + opt-in intake/request writes) for external tools
 

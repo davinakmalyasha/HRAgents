@@ -56,6 +56,7 @@ const connections = vi.hoisted(() => ({
 
 vi.mock('@/features/ops/useConnections', () => ({
   useConnections: () => connections,
+  useMcpCatalog: () => ({ data: [], isLoading: false, isError: false, error: null }),
   useSaveConnection: () => ({ mutate: vi.fn(), isPending: false }),
   useRemoveConnection: () => ({ mutate: vi.fn(), isPending: false }),
   useTestConnection: () => ({ mutateAsync: vi.fn(), isPending: false }),

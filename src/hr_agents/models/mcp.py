@@ -103,3 +103,18 @@ class McpProbeResult(StrictModel):
     connected: bool
     detail: str = ""
     tools: list[str] = Field(default_factory=list)
+
+
+class McpServerCatalogEntry(StrictModel):
+    """A connector template: shape, data flow and enablement, never a connection."""
+
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]*$", max_length=40)
+    title: str = Field(min_length=1, max_length=200)
+    summary: str = Field(min_length=1, max_length=1000)
+    data_flow: str = Field(min_length=1, max_length=1000)
+    scopes: list[str] = Field(default_factory=list)
+    auth_env: str = Field(min_length=1, max_length=100)
+    auth_hint: str = Field(min_length=1, max_length=500)
+    tools: dict[str, McpImpact] = Field(default_factory=dict)
+    allowed_agents: list[str] = Field(default_factory=list)
+    enable_steps: list[str] = Field(default_factory=list)

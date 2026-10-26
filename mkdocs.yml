@@ -66,6 +66,7 @@ nav:
   - Deployment & operations: deployment.md
   - Region & network recipes: regions.md
   - MCP server: mcp-server.md
+  - MCP connector catalog: mcp-catalog.md
   - API reference: api.md
   - Decisions:
       - ADR index: adr/README.md

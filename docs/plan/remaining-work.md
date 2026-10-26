@@ -529,12 +529,14 @@ behind human approval.
       Operations page; there is no separate Settings area.)
 
 ### 1.2 Server catalog (disabled by default)
-- [ ] ATS connectors: Greenhouse, Lever (candidate/application sync, status reads)
-- [ ] HRIS connectors: Talenta, Gadjah (employee master data, leave balances)
-- [ ] Slack (notifications, approval pings — never decision-making)
-- [ ] Calendar servers (Google/Microsoft busy lookup) as an alternative to the direct adapters
-- [ ] Every catalog entry ships with: minimum scopes, a written data-flow note, and an "enable"
-      runbook (what the operator must configure)
+- [x] Catalog of four templates — ATS (Greenhouse/Lever-style), HRIS (Talenta/Gadjah-style),
+      Slack notifications, calendar busy lookup — surfaced read-only in the Connections panel;
+      choosing one prefills the form, and nothing is enabled until an operator saves a real
+      gateway endpoint. See `docs/mcp-catalog.md`.
+- [x] Every entry ships with minimum scopes, a written data-flow note and enable steps; a guard
+      test rejects unique-id, data-flow, destructive-tool and decision-word violations.
+- [ ] Vendor-specific live connectors (direct endpoints, auth flows and contract tests against
+      each vendor) — the templates deliberately describe capability, not invented vendor URLs
 
 ### 1.3 Approval hook for destructive MCP tools
 - [x] Classify tools as `read` / `write` / `destructive` in the registry (`ToolDefinition.impact`)

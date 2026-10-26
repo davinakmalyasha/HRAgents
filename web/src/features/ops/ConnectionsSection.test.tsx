@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   isLoading: false,
   isError: false,
   error: null as unknown,
+  catalog: [] as unknown[],
   test: vi.fn(),
   remove: vi.fn(),
   save: vi.fn(),
@@ -25,6 +26,12 @@ vi.mock('./useConnections', () => ({
     isLoading: state.isLoading,
     isError: state.isError,
     error: state.error,
+  }),
+  useMcpCatalog: () => ({
+    data: state.catalog,
+    isLoading: false,
+    isError: false,
+    error: null,
   }),
   useSaveConnection: () => ({ mutate: state.save, isPending: false }),
   useRemoveConnection: () => ({ mutate: state.remove, isPending: false }),
@@ -54,6 +61,7 @@ function view(overrides: Partial<McpServerView>): McpServerView {
 
 beforeEach(() => {
   state.data = []
+  state.catalog = []
   state.isLoading = false
   state.isError = false
   state.error = null
@@ -119,5 +127,35 @@ describe('the connections section', () => {
 
     expect(screen.getByText('ATS_MCP_TOKEN is not set')).toBeInTheDocument()
     expect(screen.getByText(i18n.t('connections.unreachable'))).toBeInTheDocument()
+  })
+})
+
+describe('the connector catalog', () => {
+  it('describes a template and fills the form without enabling anything', async () => {
+    state.catalog = [
+      {
+        id: 'ats',
+        title: 'ATS connector',
+        summary: 'Read candidates and write a note.',
+        data_flow: 'In: profiles. Out: one note.',
+        scopes: ['read candidates'],
+        auth_env: 'ATS_MCP_TOKEN',
+        auth_hint: 'A read token.',
+        tools: { get_candidate: 'read' },
+        allowed_agents: ['screening_coordinator'],
+        enable_steps: ['Run a gateway.'],
+      },
+    ]
+    render(<ConnectionsSection />)
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('connections.browseCatalog') }))
+    expect(await screen.findByText('ATS connector')).toBeInTheDocument()
+    expect(screen.getByText('In: profiles. Out: one note.')).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: i18n.t('connections.useTemplate') }))
+
+    expect(screen.getByDisplayValue('ats')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('ATS_MCP_TOKEN')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('get_candidate')).toBeInTheDocument()
   })
 })

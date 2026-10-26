@@ -13,7 +13,12 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
-import { ConnectionsRequestError, type McpServerConfig, type McpServerView } from './connectionsApi'
+import {
+  ConnectionsRequestError,
+  type ConnectionPreset,
+  type McpServerConfig,
+  type McpServerView,
+} from './connectionsApi'
 import { useSaveConnection } from './useConnections'
 
 const IMPACTS = ['read', 'write', 'destructive'] as const
@@ -30,23 +35,27 @@ type ToolRow = { remote: string; impact: Impact }
  */
 export function ConnectionFormDialog({
   server,
+  preset = null,
   open,
   onOpenChange,
 }: {
   server: McpServerView | null
+  preset?: ConnectionPreset | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
   const save = useSaveConnection()
   const editing = server !== null
-  const [name, setName] = useState(server?.name ?? '')
+  const [name, setName] = useState(server?.name ?? preset?.name ?? '')
   const [url, setUrl] = useState(server?.url ?? '')
-  const [authEnv, setAuthEnv] = useState(server?.auth_env ?? '')
+  const [authEnv, setAuthEnv] = useState(server?.auth_env ?? preset?.auth_env ?? '')
   const [timeoutSeconds, setTimeoutSeconds] = useState(String(server?.timeout_seconds ?? 10))
-  const [agents, setAgents] = useState((server?.allowed_agents ?? []).join(', '))
+  const [agents, setAgents] = useState(
+    (server?.allowed_agents ?? preset?.allowed_agents ?? []).join(', '),
+  )
   const [tools, setTools] = useState<ToolRow[]>(
-    Object.entries(server?.tools ?? {}).map(([remote, impact]) => ({
+    Object.entries(server?.tools ?? preset?.tools ?? {}).map(([remote, impact]) => ({
       remote,
       impact: impact as Impact,
     })),

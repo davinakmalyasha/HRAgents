@@ -82,6 +82,19 @@ def test_save_delete_and_reload() -> None:
         assert "ops.mcp_server_deleted" in actions
 
 
+def test_the_catalog_is_admin_only_and_says_how_to_enable() -> None:
+    with TestClient(create_app(settings())) as client:
+        assert client.get("/v1/ops/mcp/catalog", headers=EMPLOYEE).status_code == 403
+        body = client.get("/v1/ops/mcp/catalog", headers=ADMIN).json()
+
+    assert [entry["id"] for entry in body] == ["ats", "hris", "slack", "calendar"]
+    for entry in body:
+        assert entry["data_flow"]
+        assert entry["scopes"]
+        assert entry["enable_steps"]
+        assert "destructive" not in entry["tools"].values()
+
+
 def test_the_path_name_must_match_the_body() -> None:
     with TestClient(create_app(settings())) as client:
         response = client.put("/v1/ops/mcp/servers/other", json=body(), headers=ADMIN)

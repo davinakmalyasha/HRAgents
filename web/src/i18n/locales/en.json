@@ -1424,6 +1424,15 @@
     "nameRequired": "A name is required.",
     "noTools": "No tools exposed.",
     "offered": "Offered tools: {{tools}}",
-    "offeredNone": "Connected, but none of the configured tools are offered."
+    "offeredNone": "Connected, but none of the configured tools are offered.",
+    "catalogTitle": "Connector catalog",
+    "catalogHint": "Templates, not connections. Choosing one fills the form; nothing is enabled until you save a real endpoint and test it.",
+    "catalogEmpty": "The catalog is empty.",
+    "catalogUnavailable": "The catalog is not available right now.",
+    "browseCatalog": "Browse catalog",
+    "useTemplate": "Use template",
+    "dataFlow": "Data flow",
+    "scopes": "Minimum scopes",
+    "enableSteps": "How to enable"
   }
 }

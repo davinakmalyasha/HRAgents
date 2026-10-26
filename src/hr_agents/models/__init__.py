@@ -136,6 +136,7 @@ from hr_agents.models.leave import (
 )
 from hr_agents.models.mcp import (
     McpProbeResult,
+    McpServerCatalogEntry,
     McpServerConfig,
     McpServerDefinition,
     McpServerStatus,
@@ -321,6 +322,7 @@ __all__ = [
     "LlmUsageEntry",
     "Location",
     "McpProbeResult",
+    "McpServerCatalogEntry",
     "McpServerConfig",
     "McpServerDefinition",
     "McpServerStatus",

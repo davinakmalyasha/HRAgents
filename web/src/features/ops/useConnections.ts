@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  listCatalog,
   listConnections,
   removeConnection,
   saveConnection,
@@ -15,6 +16,15 @@ export function useConnections() {
     queryKey: KEY,
     queryFn: listConnections,
     staleTime: 30_000,
+    retry: false,
+  })
+}
+
+export function useMcpCatalog() {
+  return useQuery({
+    queryKey: ['ops', 'mcp', 'catalog'],
+    queryFn: listCatalog,
+    staleTime: 5 * 60_000,
     retry: false,
   })
 }

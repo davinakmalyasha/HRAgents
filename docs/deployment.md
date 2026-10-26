@@ -187,7 +187,9 @@ keep the two surfaces from disagreeing:
   registry — they are not tenant-isolated.
 
 The panel's **Test** button connects, lists tools and disconnects without
-registering anything or writing a row.
+registering anything or writing a row. **Browse catalog** offers templates for
+an ATS, HRIS, Slack and calendar gateway, each with its data flow and minimum
+scopes; see [MCP connector catalog](mcp-catalog.md).
 
 ### Secrets and rotation
 

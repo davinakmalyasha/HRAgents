@@ -24,6 +24,7 @@ from hr_agents.api.problem import domain_problem, not_found, unavailable
 from hr_agents.api.schemas import Page
 from hr_agents.models import (
     McpProbeResult,
+    McpServerCatalogEntry,
     McpServerConfig,
     McpServerStatus,
     UsageSummary,
@@ -33,6 +34,7 @@ from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Permission
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.audit_events import record_audit
+from hr_agents.services.mcp_catalog import catalog
 from hr_agents.services.mcp_config import McpConfigError
 from hr_agents.services.queue_ops import QueueOpsError
 from hr_agents.services.queue_ops import requeue_dead_letter as requeue_dead_letter_service
@@ -79,6 +81,12 @@ async def _reload_mcp(request: Request) -> None:
     reload = getattr(request.app.state, "mcp_reload", None)
     if reload is not None:
         await reload()
+
+
+@router.get("/mcp/catalog", response_model=list[McpServerCatalogEntry])
+def mcp_catalog() -> list[McpServerCatalogEntry]:
+    """Connector templates: capabilities, data flow and enablement, never endpoints."""
+    return catalog()
 
 
 @router.get("/mcp/servers", response_model=list[McpServerView])

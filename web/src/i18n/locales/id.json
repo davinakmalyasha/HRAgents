@@ -1424,6 +1424,15 @@
     "nameRequired": "Nama wajib diisi.",
     "noTools": "Tidak ada tool yang diekspos.",
     "offered": "Tool yang ditawarkan: {{tools}}",
-    "offeredNone": "Terhubung, tetapi tidak ada tool yang dikonfigurasi yang ditawarkan."
+    "offeredNone": "Terhubung, tetapi tidak ada tool yang dikonfigurasi yang ditawarkan.",
+    "catalogTitle": "Katalog konektor",
+    "catalogHint": "Templat, bukan koneksi. Memilih satu akan mengisi formulir; belum ada yang aktif sampai Anda menyimpan endpoint sungguhan dan mengujinya.",
+    "catalogEmpty": "Katalog kosong.",
+    "catalogUnavailable": "Katalog tidak tersedia saat ini.",
+    "browseCatalog": "Lihat katalog",
+    "useTemplate": "Pakai templat",
+    "dataFlow": "Aliran data",
+    "scopes": "Cakupan minimum",
+    "enableSteps": "Cara mengaktifkan"
   }
 }

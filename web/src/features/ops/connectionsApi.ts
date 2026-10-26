@@ -4,6 +4,14 @@ import type { components } from '@/api/schema'
 export type McpServerView = components['schemas']['McpServerView']
 export type McpServerConfig = components['schemas']['McpServerConfig']
 export type McpProbeResult = components['schemas']['McpProbeResult']
+export type McpServerCatalogEntry = components['schemas']['McpServerCatalogEntry']
+
+export type ConnectionPreset = {
+  name: string
+  auth_env: string
+  tools: Record<string, 'read' | 'write' | 'destructive'>
+  allowed_agents: string[]
+}
 
 /** A non-2xx answer from the connections endpoints, with the API's detail. */
 export class ConnectionsRequestError extends Error {
@@ -38,6 +46,12 @@ async function failure(response: Response): Promise<ConnectionsRequestError> {
 
 export async function listConnections(): Promise<McpServerView[]> {
   const { data, response } = await api.GET('/v1/ops/mcp/servers')
+  if (!response.ok) throw await failure(response)
+  return data ?? []
+}
+
+export async function listCatalog(): Promise<McpServerCatalogEntry[]> {
+  const { data, response } = await api.GET('/v1/ops/mcp/catalog')
   if (!response.ok) throw await failure(response)
   return data ?? []
 }

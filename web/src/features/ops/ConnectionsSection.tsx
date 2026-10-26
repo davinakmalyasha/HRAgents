@@ -5,9 +5,10 @@ import { EmptyState } from '@/components/feedback/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { CatalogDialog } from './CatalogDialog'
 import { ConnectionFormDialog } from './ConnectionFormDialog'
 import { ConnectionList } from './ConnectionList'
-import { ConnectionsRequestError } from './connectionsApi'
+import { ConnectionsRequestError, type ConnectionPreset } from './connectionsApi'
 import { useConnections } from './useConnections'
 
 /**
@@ -22,6 +23,8 @@ export function ConnectionsSection() {
   const { t } = useTranslation()
   const connections = useConnections()
   const [creating, setCreating] = useState(false)
+  const [catalogOpen, setCatalogOpen] = useState(false)
+  const [preset, setPreset] = useState<ConnectionPreset | null>(null)
 
   return (
     <section aria-labelledby="connections-heading" className="flex flex-col gap-2">
@@ -32,9 +35,14 @@ export function ConnectionsSection() {
           </h2>
           <p className="text-ink-muted mt-1 max-w-prose text-sm">{t('connections.hint')}</p>
         </div>
-        <Button type="button" size="sm" onClick={() => setCreating(true)}>
-          {t('connections.add')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button type="button" size="sm" variant="outline" onClick={() => setCatalogOpen(true)}>
+            {t('connections.browseCatalog')}
+          </Button>
+          <Button type="button" size="sm" onClick={() => setCreating(true)}>
+            {t('connections.add')}
+          </Button>
+        </div>
       </div>
 
       {connections.isLoading ? (
@@ -59,6 +67,28 @@ export function ConnectionsSection() {
           open
           onOpenChange={(open) => {
             if (!open) setCreating(false)
+          }}
+        />
+      ) : null}
+
+      {preset !== null ? (
+        <ConnectionFormDialog
+          server={null}
+          preset={preset}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPreset(null)
+          }}
+        />
+      ) : null}
+
+      {catalogOpen ? (
+        <CatalogDialog
+          open
+          onOpenChange={setCatalogOpen}
+          onUse={(chosen) => {
+            setCatalogOpen(false)
+            setPreset(chosen)
           }}
         />
       ) : null}
