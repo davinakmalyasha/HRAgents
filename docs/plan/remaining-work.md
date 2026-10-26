@@ -512,14 +512,19 @@ Remaining in this area:
 behind human approval.
 
 ### 1.1 MCP client manager
-- [ ] Config schema: server name, transport (stdio/SSE), command/URL, auth env var names, enabled
+- [x] Config schema: server name, HTTP/SSE URL, auth env var name, timeout, allowed agents and
+      per-tool impact (`McpServerConfig`, `HRAGENTS_MCP_SERVERS`). Stdio is deliberately
+      unsupported: a spawnable transport is a shell by another name.
       flag, tool allow/deny lists, timeout, retry policy
-- [ ] Namespaced tool registration (`mcp.<server>.<tool>`) into the existing `ToolRegistry`, so
-      least-privilege scoping and audit wrapping apply unchanged
-- [ ] Health checks + graceful degradation: unreachable server ⇒ tools report `unavailable`, the
-      agent falls back to built-in tools or escalates; never blocks the pipeline
-- [ ] Redaction of server auth material in logs and API responses (`mask_secrets` contract)
-- [ ] Config UI surface in Settings → Connections (Phase 6 dependency) with Test button
+- [x] Namespaced tool registration (`mcp.<server>.<tool>`) into the existing `ToolRegistry`, so
+      least-privilege scoping and audit wrapping apply unchanged. Only tools the operator lists
+      are registered; destructive ones are refused because they have no preview contract.
+- [x] Health checks + graceful degradation: connection is best-effort per server, an unreachable
+      one exposes no tools while the others work, and `GET /v1/ops/mcp` names each state.
+- [x] Redaction of server auth material: the token is read from the named env var, never stored
+      in config, status, logs or API responses; a credential embedded in the URL is refused.
+- [ ] Config UI surface in Settings → Connections with a Test button (the env-configured
+      foundation and `/v1/ops/mcp` ship; the form does not)
 
 ### 1.2 Server catalog (disabled by default)
 - [ ] ATS connectors: Greenhouse, Lever (candidate/application sync, status reads)

@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from hr_agents.models.mcp import McpServerConfig
 from hr_agents.rbac import RoleId
 
 Environment = Literal["local", "test", "staging", "production"]
@@ -76,6 +77,9 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """Sync-driver URL for store adapters (psycopg); see ADR 0005."""
         return self.database_url.replace("+asyncpg", "+psycopg")
+
+    # --- MCP servers (HTTP/SSE only; a stdio server would be a shell) ---
+    mcp_servers: list[McpServerConfig] = Field(default_factory=list)
 
     # --- Upload scanning (optional) ---
     # ClamAV daemon over TCP. Empty means uploads are stored unscanned and the

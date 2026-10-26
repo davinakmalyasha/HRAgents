@@ -21,7 +21,7 @@ from hr_agents.api.ops_schemas import (
 )
 from hr_agents.api.problem import domain_problem, not_found, unavailable
 from hr_agents.api.schemas import Page
-from hr_agents.models import UsageSummary, utc_now
+from hr_agents.models import McpServerStatus, UsageSummary, utc_now
 from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Permission
 from hr_agents.services.queue_ops import QueueOpsError
@@ -39,6 +39,13 @@ def get_queue(request: Request) -> QueueBackend | None:
 
 
 QueueDep = Annotated[QueueBackend | None, Depends(get_queue)]
+
+
+@router.get("/mcp", response_model=list[McpServerStatus])
+def mcp_status(request: Request) -> list[McpServerStatus]:
+    """Which external MCP servers are connected, and which tools they expose."""
+    manager = getattr(request.app.state, "mcp", None)
+    return manager.statuses() if manager is not None else []
 
 
 @router.get("/usage", response_model=UsageSummary)

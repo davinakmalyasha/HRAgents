@@ -142,6 +142,41 @@ timeout. The hook lives in `DocumentService.upload`, the one path that accepts
 arbitrary bytes; an employee-document row registered against an existing object
 does not bypass it because it carries no content.
 
+### External MCP tools (optional, HTTP/SSE only)
+
+An operator can attach an MCP server for tools that live outside HRAgents
+(an ATS or HRIS connector). Two limits are deliberate:
+
+- **No stdio transport.** A stdio server would mean spawning a process; the
+  product's rule is that agents never get a shell, so only HTTP/SSE endpoints
+  are accepted.
+- **Destructive tools are not exposed.** The registry's human-approval gate needs
+  a dry-run preview, and an MCP tool cannot produce one without making the call.
+  Read and write tools can be exposed; destructive actions stay in the product,
+  where a named human approves a preview.
+
+Configuration is one JSON value:
+
+```bash
+HRAGENTS_MCP_SERVERS='[
+  {"name":"ats","url":"https://mcp.example.com/mcp","auth_env":"ATS_MCP_TOKEN",
+   "allowed_agents":["screening_coordinator"],
+   "tools":{"get_candidate":"read","add_note":"write"}}
+]'
+```
+
+Only the tools named under `tools` are registered (`mcp.<server>.<tool>`); a
+tool the server adds later stays invisible until the operator names it.
+`allowed_agents` is the other half of least privilege — an empty list connects
+the server for discovery but exposes nothing. The bearer token is read from the
+variable named by `auth_env`, never from the URL, config or logs; putting
+credentials in the URL is refused.
+
+A server that is unreachable or unauthenticated degrades only itself: the app
+starts, the other tools work, and `GET /v1/ops/mcp` (admin) lists each server's
+connection state and exposed tools. The Settings → Connections form is not built
+yet; this is an environment-configured surface.
+
 ### Secrets and rotation
 
 Nothing in this repository ships a secret. Rotate after any suspicion, and in

@@ -134,6 +134,7 @@ from hr_agents.models.leave import (
     LeaveTypePolicy,
     RequestStatus,
 )
+from hr_agents.models.mcp import McpServerConfig, McpServerStatus
 from hr_agents.models.messaging import (
     CandidateCommunication,
     CandidateReply,
@@ -314,6 +315,8 @@ __all__ = [
     "LlmUsage",
     "LlmUsageEntry",
     "Location",
+    "McpServerConfig",
+    "McpServerStatus",
     "MessageDirection",
     "MessageStatus",
     "NotificationRecipient",

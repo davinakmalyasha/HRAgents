@@ -75,6 +75,7 @@ from hr_agents.services import ApplicationStore, AuditChain
 from hr_agents.services.chat import ChatService, ConversationStore
 from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
 from hr_agents.services.front_door import FrontDoor
+from hr_agents.services.mcp_client import McpManager
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.provider_settings import ProviderSettingsService, ProviderSettingsStore
 from hr_agents.services.push import PushService, PushStore, PyWebPushSender
@@ -167,6 +168,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     agents = await _build_agents(app)
     app.state.agents = agents
+    # External MCP tools are registered before chat, because the policy agent's
+    # registry view is built from this same object. A failing server degrades
+    # only itself.
+    mcp: McpManager | None = None
+    if agents is not None and settings.mcp_servers:
+        mcp = McpManager(settings.mcp_servers)
+        await mcp.connect()
+        added = mcp.register(agents.tools)
+        logger.info("mcp_tools_registered", count=len(added))
+    app.state.mcp = mcp
     await _build_chat(app, agents)
 
     try:
@@ -183,6 +194,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.dispatcher = UndispatchedDispatcher(str(exc))
 
     yield
+    if mcp is not None:
+        await mcp.close()
     engine = getattr(app.state, "db_engine", None)
     if engine is not None:
         engine.dispose()
