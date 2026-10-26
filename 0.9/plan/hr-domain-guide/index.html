@@ -1,0 +1,2140 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A virtual HR team for the HR department of one — deterministic scoring, human decisions, every outcome reconstructible.">
+      
+      
+      
+        <link rel="canonical" href="https://davinakmalyasha.github.io/HRAgents/0.9/plan/hr-domain-guide/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>HR Domain Guide - HRAgents</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hr-domain-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="HRAgents" class="md-header__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            HRAgents
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              HR Domain Guide
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="HRAgents" class="md-nav__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    HRAgents
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/system-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/hitl-bounds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-loop bounds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/board-transitions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment & operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../regions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region & network recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP server (read-only)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-llm-extracts-deterministic-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM extracts, code decides
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-hitl-bounds-in-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HITL bounds in code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-no-shell-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    No shell tools, ever
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0004-provider-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-sync-domain-async-edge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sync domain, async edge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-tenancy-rls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy and RLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../paper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../research/literature-review/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Literature review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data governance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data governance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../data-governance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export, deletion and subprocessors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/dpa-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DPA template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../master-build-plan/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master build plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../remaining-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remaining work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../problem-statement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Problem statement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release process
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-what-hr-is-for-a-small-company" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. What HR is (for a small company)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-the-employee-lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The employee lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-the-functions-one-by-one" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. The functions, one by one
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. The functions, one by one">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-recruitment-talent-acquisition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Recruitment (Talent Acquisition)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-onboarding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Onboarding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-employee-records" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Employee Records
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-time-attendance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Time &amp; Attendance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-leave-cuti-izin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Leave (cuti &amp; izin)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-payroll-the-most-dangerous-room" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 Payroll (the most dangerous room)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#37-performance-growth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.7 Performance (Growth)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#38-offboarding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.8 Offboarding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#39-employee-relations-compliance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.9 Employee Relations &amp; Compliance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-indonesian-specifics-you-must-know" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Indonesian specifics you must know
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Indonesian specifics you must know">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-contract-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Contract types
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-key-numbers-to-verify-at-implementation-never-ship-guessed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Key numbers to verify at implementation (never ship guessed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-data-protection-uu-pdp-272022" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Data protection (UU PDP 27/2022)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-glossary-id-en" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Glossary (ID ↔ EN)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-a-day-in-the-life-and-where-hragents-helps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. A day in the life (and where HRAgents helps)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-how-to-use-this-guide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. How to use this guide
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/davinakmalyasha/HRAgents/edit/main/docs/plan/hr-domain-guide.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="hr-domain-guide">HR Domain Guide<a class="headerlink" href="#hr-domain-guide" title="Permanent link">&para;</a></h1>
+<p><strong>Version:</strong> 0.1.0 · <strong>Purpose:</strong> a ground-up explanation of HR work for the HRAgents team —
+so every workspace, agent, and gate is grounded in what HR actually does, not what
+software people assume HR does.</p>
+<p><strong>Accuracy note:</strong> Indonesian labor specifics below are <em>structural overviews</em>. Rates,
+caps, and thresholds change (Cipta Kerja amendments, annual tax/BPJS updates). Exact
+current values are captured and verified from official sources (Kemnaker, BPJS, DJP)
+when each module is implemented — Phase 8 of the master plan. Nothing here is legal
+advice, and the product must never present it as such.</p>
+<hr />
+<h2 id="1-what-hr-is-for-a-small-company">1. What HR is (for a small company)<a class="headerlink" href="#1-what-hr-is-for-a-small-company" title="Permanent link">&para;</a></h2>
+<p>In enterprises, HR is five departments: Talent Acquisition, HR Operations, Compensation &amp;
+Benefits, Learning &amp; Development, and Employee Relations. In a 50–300 person Indonesian
+SME, it is <strong>one person</strong> doing simplified versions of all five, plus office admin.</p>
+<p>Their three simultaneous jobs:</p>
+<ol>
+<li><strong>Fill and keep the team</strong> — hire, onboard, retain.</li>
+<li><strong>Keep the company legal</strong> — contracts, BPJS, taxes, data protection, reporting.</li>
+<li><strong>Keep the peace</strong> — answer questions, resolve friction, run reviews, handle exits.</li>
+</ol>
+<p>Everything in HRAgents maps to relieving job 1 (volume work), assisting job 2
+(calculation, reminders, records), and supporting job 3 (drafting, tracking, Q&amp;A).</p>
+<hr />
+<h2 id="2-the-employee-lifecycle">2. The employee lifecycle<a class="headerlink" href="#2-the-employee-lifecycle" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>Hire ──────► Onboard ──────► Work ──────────────► Grow ──────► Leave
+Sourcing     Contracts       Records              Reviews      Resignation/termination
+Screening    Documents       Leave &amp; attendance   Promotions   Final pay (pesangon)
+Interviews   Setup           Payroll              PIPs         Asset return
+Offer        Orientation     Policy Q&amp;A           Training     Exit interview
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Workspace</th>
+<th>The human moment</th>
+<th>The agent work</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hire</td>
+<td>Hiring</td>
+<td>"I like this person"</td>
+<td>Read, score, coordinate, draft</td>
+</tr>
+<tr>
+<td>Onboard</td>
+<td>Onboarding</td>
+<td>"Welcome aboard"</td>
+<td>Chase docs, checklist, schedule</td>
+</tr>
+<tr>
+<td>Work</td>
+<td>People / Leave / Payroll</td>
+<td>"Here's your answer"</td>
+<td>Records, math, Q&amp;A, flags</td>
+</tr>
+<tr>
+<td>Grow</td>
+<td>Growth</td>
+<td>"Here's your feedback"</td>
+<td>Remind, collect, draft</td>
+</tr>
+<tr>
+<td>Leave</td>
+<td>Offboarding</td>
+<td>"Thank you, good luck"</td>
+<td>Checklist, schedule, tracker</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="3-the-functions-one-by-one">3. The functions, one by one<a class="headerlink" href="#3-the-functions-one-by-one" title="Permanent link">&para;</a></h2>
+<h3 id="31-recruitment-talent-acquisition">3.1 Recruitment (Talent Acquisition)<a class="headerlink" href="#31-recruitment-talent-acquisition" title="Permanent link">&para;</a></h3>
+<p><strong>The funnel:</strong> sourcing → application → screening → interview(s) → offer → hire.
+In practice: post on job portals (Jobstreet, Glints, Kalibrr, Dealls) and LinkedIn,
+watch applications arrive through portals + email + WhatsApp, screen, coordinate
+interviews across everyone's calendars, negotiate, prepare the offer.</p>
+<p><strong>The pain:</strong> screening volume (60+ CVs per role), coordination chaos, and silence —
+candidates get no updates, and rejection is usually "no reply ever."</p>
+<p><strong>Key artifacts:</strong> CVs, portfolio links (GitHub, Behance, etc.), interview notes,
+offer letter.</p>
+<p><strong>Agents:</strong> extract evidence, score deterministically, run async WhatsApp/email
+conversations, schedule, draft feedback. <strong>Humans:</strong> interviews, judgment, the
+hiring decision, the offer.</p>
+<h3 id="32-onboarding">3.2 Onboarding<a class="headerlink" href="#32-onboarding" title="Permanent link">&para;</a></h3>
+<p><strong>What happens:</strong> contract signing (see PKWT/PKWTT below), collecting identity and tax
+documents (KTP, NPWP, bank account, BPJS numbers), account/equipment setup,
+orientation, introductions, probation tracking.</p>
+<p><strong>The pain:</strong> chasing people for documents for weeks; forgotten checklist items; a new
+hire's first day with no laptop.</p>
+<p><strong>Agents:</strong> checklist engine, document reminders + extraction/validation, scheduling.
+<strong>Humans:</strong> welcome, contracts, anything signed.</p>
+<h3 id="33-employee-records">3.3 Employee Records<a class="headerlink" href="#33-employee-records" title="Permanent link">&para;</a></h3>
+<p><strong>What it is:</strong> the personnel file — identity data, contracts, education, emergency
+contacts, salary history, leave balances, performance records. In many SMEs this is a
+spreadsheet named <code>DATA KARYAWAN FINAL v3 (2).xlsx</code>.</p>
+<p><strong>The pain:</strong> it decays, duplicates, and goes stale; contract expiry sneaks up; nobody
+knows who has which document.</p>
+<p><strong>Agents:</strong> structured records, expiry alerts, search, retention/erasure automation
+(UU PDP). <strong>Humans:</strong> corrections, sensitive fields, decisions.</p>
+<h3 id="34-time-attendance">3.4 Time &amp; Attendance<a class="headerlink" href="#34-time-attendance" title="Permanent link">&para;</a></h3>
+<p><strong>What it is:</strong> working hours, attendance (manual fingerprint exports, apps, or trust),
+overtime (lembur), lateness, leave. Feeds payroll.</p>
+<p><strong>Key rules (structure):</strong> standard working time is 40 hours/week — 7h/day × 6 days or
+8h/day × 5 days (UU Ketenagakerjaan No. 13/2003; Cipta Kerja amended enforcement).
+Overtime is capped (indicatively 4h/day, 18h/week) and paid at premium rates (the first
+overtime hour at 1.5× hourly wage, subsequent hours at 2×, with different treatment on
+rest days and holidays). <strong>Verify current formula (PP 35/2021) at implementation.</strong></p>
+<p><strong>Agents:</strong> import attendance files, compute totals, flag anomalies ("4× baseline
+overtime"). <strong>Humans:</strong> approve corrections.</p>
+<h3 id="35-leave-cuti-izin">3.5 Leave (cuti &amp; izin)<a class="headerlink" href="#35-leave-cuti-izin" title="Permanent link">&para;</a></h3>
+<p><strong>Categories to support:</strong>
+- <strong>Cuti tahunan</strong> — annual leave: 12 working days after 12 months of service (minimum
+  per UU 13/2003), plus long-service leave under separate rules (indicatively 2 months
+  after 6–7 years, 3 months after 8+ years).
+- <strong>Cuti sakit</strong> — sick leave: paid sick leave is governed by rules requiring medical
+  certificates for longer periods; long-term illness has statutory protections.
+- <strong>Izin</strong> — permission for personal matters (marriage, bereavement, religious
+  obligations) — several are paid rights (e.g., marriage, immediate family bereavement).
+- <strong>Maternity/paternity</strong> — maternity leave was expanded under Cipta Kerja
+  (indicatively 3 months, extendable with medical certification); paternity leave
+  (indicatively 2 days, extendable by agreement).
+- <strong>Public holidays</strong> — national holidays plus joint leave (cuti bersama) set yearly.</p>
+<p><strong>The pain:</strong> balance math, accrual by hire date, overlapping requests, disputes about
+"how many days do I have left."</p>
+<p><strong>Agents:</strong> balances, policy Q&amp;A with citations, request routing. <strong>Humans:</strong> every
+approval (usually the manager; HR administers).</p>
+<h3 id="36-payroll-the-most-dangerous-room">3.6 Payroll (the most dangerous room)<a class="headerlink" href="#36-payroll-the-most-dangerous-room" title="Permanent link">&para;</a></h3>
+<p><strong>The pieces:</strong>
+- <strong>Gross salary</strong> = base + fixed allowances (transport, meal, housing…).
+- <strong>Additions:</strong> overtime, bonuses, THR.
+- <strong>Deductions:</strong> employee BPJS contributions, PPh 21 income tax, loans, absences.
+- <strong>Employer costs (not deducted):</strong> employer BPJS shares — these are company expenses
+  on top of salary.</p>
+<p><strong>BPJS — two agencies:</strong>
+- <strong>BPJS Kesehatan (health):</strong> employer ~4% + employee ~1% of monthly wage, with a
+  salary cap (civil servant/private caps updated periodically).
+- <strong>BPJS Ketenagakerjaan (employment):</strong> four programs — JHT (old-age savings,
+  employer ~3.7% + employee ~2%), JKK (work-accident, employer ~0.24–1.74% depending on
+  risk class), JKM (death, employer ~0.3%), JP (pension, employer ~2% + employee ~1%,
+  with a wage cap).
+  <strong>All percentages are indicative — verify current rates with BPJS at implementation.</strong></p>
+<p><strong>PPh 21 (income tax on employment):</strong> withheld monthly by the employer; the scheme was
+simplified in 2024 (monthly effective rates — TER) with annual reconciliation in the
+February–March filing window; formulas depend on PTKP status (marital/dependents).
+<strong>Verify with DJP rules at implementation.</strong></p>
+<p><strong>THR (Tunjangan Hari Raya):</strong> mandatory religious-holiday bonus. Employees with 12+
+months of service get 1 month's wage; 1–11 months get a prorated amount (months/12 ×
+1 month). Must be paid at least 7 days before the holiday (Permenaker 6/2016).
+Employer violators face sanctions.</p>
+<p><strong>Slip gaji:</strong> payslip — itemized statement of earnings and deductions.</p>
+<p><strong>The product rule:</strong> HRAgents <strong>prepares and verifies</strong> — assembles inputs, computes
+previews, flags anomalies, exports a review packet. <strong>It never executes payments and
+never generates bank instruction files.</strong></p>
+<h3 id="37-performance-growth">3.7 Performance (Growth)<a class="headerlink" href="#37-performance-growth" title="Permanent link">&para;</a></h3>
+<p><strong>What it is:</strong> review cycles (quarterly/annual), goals/OKRs, probation evaluations,
+and PIPs (Performance Improvement Plans) for underperformance — which legally matter
+(employers must document performance issues properly before termination).</p>
+<p><strong>Agents:</strong> cycle reminders, form collection, draft summaries (human-edited).
+<strong>Humans:</strong> every rating, every conversation.</p>
+<h3 id="38-offboarding">3.8 Offboarding<a class="headerlink" href="#38-offboarding" title="Permanent link">&para;</a></h3>
+<p><strong>Resignation path:</strong> notice (30 days under UU 13/2003), handover, asset return, exit
+interview, final pay, BPJS/deactivation admin, reference letter (paklaring).</p>
+<p><strong>Final pay can include:</strong> final month salary, unused leave encashment, <strong>pesangon</strong>
+(severance) and <strong>penghargaan masa kerja</strong> (service award) where applicable, plus
+regulatory compensation for PKWT completion. Severance rules are complex (depend on
+reason, tenure, and contract type) — the product prepares estimates and checklists;
+qualified humans and the company's advisors decide.</p>
+<h3 id="39-employee-relations-compliance">3.9 Employee Relations &amp; Compliance<a class="headerlink" href="#39-employee-relations-compliance" title="Permanent link">&para;</a></h3>
+<p>Day-to-day: answering questions (leave, BPJS, policies), mediating friction, warning
+letters (SP1/SP2/SP3 — progressive sanctions structure), and compliance reporting
+(WLKP — company employment report to Kemnaker; BPJS contributions timely;
+UU PDP — data protection). Agents: knowledge with citations, reminders, records.
+Humans: everything with legal weight.</p>
+<hr />
+<h2 id="4-indonesian-specifics-you-must-know">4. Indonesian specifics you must know<a class="headerlink" href="#4-indonesian-specifics-you-must-know" title="Permanent link">&para;</a></h2>
+<h3 id="41-contract-types">4.1 Contract types<a class="headerlink" href="#41-contract-types" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it is</th>
+<th>Key rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PKWTT</strong></td>
+<td>Permanent (a.k.a. kontrak tetap)</td>
+<td>Max 3-month probation allowed; full severance obligations</td>
+</tr>
+<tr>
+<td><strong>PKWT</strong></td>
+<td>Fixed term</td>
+<td>Must be written, for a specific duration/project; <strong>no probation</strong>; maximum total ~5 years including extensions; requires <strong>uang kompensasi</strong> (compensation) when it ends; specific rules for transfer/termination</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-key-numbers-to-verify-at-implementation-never-ship-guessed">4.2 Key numbers to verify at implementation (never ship guessed)<a class="headerlink" href="#42-key-numbers-to-verify-at-implementation-never-ship-guessed" title="Permanent link">&para;</a></h3>
+<ul>
+<li>BPJS rates and salary caps (annual updates).</li>
+<li>PPh 21 TER tables and PTKP amounts (DJP).</li>
+<li>Overtime premium formula (PP 35/2021).</li>
+<li>Minimum wage (UMR/UMP/UMK) — provincial/city yearly.</li>
+<li>Severance scale (PP 35/2021 tables).</li>
+<li>National holidays + cuti bersama (annual decree).</li>
+<li>THR timing (7 days before holiday).</li>
+</ul>
+<h3 id="43-data-protection-uu-pdp-272022">4.3 Data protection (UU PDP 27/2022)<a class="headerlink" href="#43-data-protection-uu-pdp-272022" title="Permanent link">&para;</a></h3>
+<p>Employee and candidate data are personal data. Consent/lawful basis, purpose
+limitation, retention, security, and data-subject rights (access, correction, erasure)
+all apply. HR is the data controller's operator; the software must make compliance
+easier, not harder. (Details: <code>skills/platform/compliance/knowledge/uu-pdp-summary.md</code>.)</p>
+<hr />
+<h2 id="5-glossary-id-en">5. Glossary (ID ↔ EN)<a class="headerlink" href="#5-glossary-id-en" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Indonesian</th>
+<th>English</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Karyawan</td>
+<td>Employee</td>
+<td></td>
+</tr>
+<tr>
+<td>Pelamar</td>
+<td>Applicant</td>
+<td></td>
+</tr>
+<tr>
+<td>Rekrutmen</td>
+<td>Recruitment</td>
+<td></td>
+</tr>
+<tr>
+<td>Lowongan</td>
+<td>Job vacancy</td>
+<td></td>
+</tr>
+<tr>
+<td>Wawancara</td>
+<td>Interview</td>
+<td></td>
+</tr>
+<tr>
+<td>Penawaran</td>
+<td>Offer</td>
+<td></td>
+</tr>
+<tr>
+<td>PKWT / PKWTT</td>
+<td>Fixed-term / Permanent contract</td>
+<td>See §4.1</td>
+</tr>
+<tr>
+<td>Probasi / masa percobaan</td>
+<td>Probation</td>
+<td>PKWTT only</td>
+</tr>
+<tr>
+<td>Onboarding</td>
+<td>Onboarding</td>
+<td>Often still English</td>
+</tr>
+<tr>
+<td>Offboarding</td>
+<td>Offboarding</td>
+<td></td>
+</tr>
+<tr>
+<td>Cuti tahunan</td>
+<td>Annual leave</td>
+<td></td>
+</tr>
+<tr>
+<td>Cuti sakit</td>
+<td>Sick leave</td>
+<td></td>
+</tr>
+<tr>
+<td>Izin</td>
+<td>Permission / leave for personal matters</td>
+<td></td>
+</tr>
+<tr>
+<td>Cuti melahirkan</td>
+<td>Maternity leave</td>
+<td></td>
+</tr>
+<tr>
+<td>Lembur</td>
+<td>Overtime</td>
+<td></td>
+</tr>
+<tr>
+<td>Absensi</td>
+<td>Attendance</td>
+<td></td>
+</tr>
+<tr>
+<td>Gaji pokok</td>
+<td>Base salary</td>
+<td></td>
+</tr>
+<tr>
+<td>Tunjangan</td>
+<td>Allowance</td>
+<td></td>
+</tr>
+<tr>
+<td>Potongan</td>
+<td>Deduction</td>
+<td></td>
+</tr>
+<tr>
+<td>Slip gaji</td>
+<td>Payslip</td>
+<td></td>
+</tr>
+<tr>
+<td>THR</td>
+<td>Religious holiday bonus</td>
+<td>Tunjangan Hari Raya</td>
+</tr>
+<tr>
+<td>Pesangon</td>
+<td>Severance</td>
+<td></td>
+</tr>
+<tr>
+<td>Penghargaan masa kerja</td>
+<td>Service award</td>
+<td>Part of final pay</td>
+</tr>
+<tr>
+<td>Uang kompensasi</td>
+<td>PKWT completion compensation</td>
+<td></td>
+</tr>
+<tr>
+<td>BPJS</td>
+<td>National social security</td>
+<td>Kesehatan + Ketenagakerjaan</td>
+</tr>
+<tr>
+<td>JHT</td>
+<td>Old-age savings</td>
+<td>Jaminan Hari Tua</td>
+</tr>
+<tr>
+<td>JKK / JKM / JP</td>
+<td>Work accident / death / pension</td>
+<td></td>
+</tr>
+<tr>
+<td>PPh 21</td>
+<td>Employee income tax</td>
+<td></td>
+</tr>
+<tr>
+<td>NPWP</td>
+<td>Tax ID</td>
+<td></td>
+</tr>
+<tr>
+<td>KTP</td>
+<td>National ID card</td>
+<td></td>
+</tr>
+<tr>
+<td>WLKP</td>
+<td>Company employment report</td>
+<td>Wajib Lapor Ketenagakerjaan</td>
+</tr>
+<tr>
+<td>SP1/SP2/SP3</td>
+<td>Warning letters 1/2/3</td>
+<td>Progressive discipline</td>
+</tr>
+<tr>
+<td>Paklaring</td>
+<td>Reference letter</td>
+<td></td>
+</tr>
+<tr>
+<td>Resign / pengunduran diri</td>
+<td>Resignation</td>
+<td></td>
+</tr>
+<tr>
+<td>PHK</td>
+<td>Termination of employment</td>
+<td>Pemutusan Hubungan Kerja</td>
+</tr>
+<tr>
+<td>Kontrak</td>
+<td>Contract</td>
+<td></td>
+</tr>
+<tr>
+<td>Peraturan perusahaan</td>
+<td>Company regulations</td>
+<td>Often required at scale</td>
+</tr>
+<tr>
+<td>UMP / UMK</td>
+<td>Provincial / city minimum wage</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-a-day-in-the-life-and-where-hragents-helps">6. A day in the life (and where HRAgents helps)<a class="headerlink" href="#6-a-day-in-the-life-and-where-hragents-helps" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Time</th>
+<th>Rina does</th>
+<th>Without HRAgents</th>
+<th>With HRAgents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>08:30</td>
+<td>Opens laptop, checks inboxes</td>
+<td>3 inboxes, dread</td>
+<td>Home shows exactly what needs her</td>
+</tr>
+<tr>
+<td>08:45</td>
+<td>Screens CVs</td>
+<td>60 CVs × 7-second scans</td>
+<td>Board already ranked with evidence</td>
+</tr>
+<tr>
+<td>09:30</td>
+<td>WhatsApps candidates</td>
+<td>Free-text chaos</td>
+<td>Agents already collected availability</td>
+</tr>
+<tr>
+<td>10:30</td>
+<td>Chases onboarding documents</td>
+<td>Sends reminders manually</td>
+<td>Agents reminded; status visible</td>
+</tr>
+<tr>
+<td>11:30</td>
+<td>"How many leave days do I have?" ×5</td>
+<td>Repeat from memory</td>
+<td>Ask HR answers with citations</td>
+</tr>
+<tr>
+<td>13:00</td>
+<td>Prepares payroll inputs</td>
+<td>Spreadsheet + panic</td>
+<td>Anomalies flagged; packet exported</td>
+</tr>
+<tr>
+<td>14:30</td>
+<td>Chases engineering lead feedback</td>
+<td>Waits; decisions stall</td>
+<td>Review queue makes the ask visible</td>
+</tr>
+<tr>
+<td>15:30</td>
+<td>Contracts expiring?</td>
+<td>Hopes the spreadsheet is right</td>
+<td>Watching list shows 30-day expiries</td>
+</tr>
+<tr>
+<td>16:30</td>
+<td>Rejections pending</td>
+<td>Silent, guilt, or generic copy-paste</td>
+<td>Sign-off queue → honest feedback in 2 clicks</td>
+</tr>
+<tr>
+<td>17:00</td>
+<td>"What did I forget?"</td>
+<td>Anxiety</td>
+<td>Audit log + cleared queues</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-how-to-use-this-guide">7. How to use this guide<a class="headerlink" href="#7-how-to-use-this-guide" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Building a workspace? Read its §3 subsection first; the board must match the real
+  artifact (a leave calendar behaves like leave, not like a todo list).</li>
+<li>Writing a skill? The vocabulary in §5 and the gates in §3 are the source of truth.</li>
+<li>Claiming compliance? Check §4.2 — if the number is not verified from the official
+  source, it does not ship.</li>
+<li>Selling to a company? The lifecycle in §2 and the pain column in §6 are the pitch.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Apache-2.0 · built in Jakarta
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "content.code.copy", "content.action.edit", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
