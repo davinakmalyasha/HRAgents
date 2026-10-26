@@ -1,0 +1,3439 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A virtual HR team for the HR department of one — deterministic scoring, human decisions, every outcome reconstructible.">
+      
+      
+      
+        <link rel="canonical" href="https://davinakmalyasha.github.io/HRAgents/0.11/plan/master-build-plan/">
+      
+      
+        <link rel="prev" href="../../legal/dpa-template/">
+      
+      
+        <link rel="next" href="../remaining-work/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Master build plan - HRAgents</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#hragents-master-build-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="HRAgents" class="md-header__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            HRAgents
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Master build plan
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="HRAgents" class="md-nav__button md-logo" aria-label="HRAgents" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    HRAgents
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/davinakmalyasha/HRAgents" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    davinakmalyasha/HRAgents
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/system-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    System architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/hitl-bounds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Human-in-the-loop bounds
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/providers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/data-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/board-transitions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Board transitions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment & operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../regions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Region & network recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp-server/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP server
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../mcp-catalog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP connector catalog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Decisions
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Decisions
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADR index
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0001-llm-extracts-deterministic-scores/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM extracts, code decides
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0002-hitl-bounds-in-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HITL bounds in code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0003-no-shell-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    No shell tools, ever
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0004-provider-layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    The provider layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0005-sync-domain-async-edge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sync domain, async edge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../adr/0006-tenancy-rls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy and RLS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../paper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../research/literature-review/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Literature review
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data governance
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Data governance
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../data-governance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export, deletion and subprocessors
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../legal/dpa-template/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DPA template
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_13" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_13" id="__nav_13_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Project
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_13_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Project
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master build plan
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master build plan
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-locked-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Locked decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#business-distribution-model-locked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Business &amp; distribution model (locked)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-0-research-evidence-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Research &amp; evidence DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-foundation-infrastructure-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Foundation &amp; infrastructure DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-contracts-data-model-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Contracts &amp; data model DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-deterministic-core-pipeline-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Deterministic core &amp; pipeline DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-platform-capabilities-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Platform capabilities IN PROGRESS
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4 — Platform capabilities IN PROGRESS">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-skills-system-markdown-capabilities-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Skills system (markdown → capabilities) DONE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-knowledge-rag-engine-done-cloud-adapters-deferred-to-phase-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Knowledge / RAG engine DONE (cloud adapters deferred to Phase 7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-tool-registry-tools-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Tool registry &amp; tools IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-agents-pydanticai-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Agents (PydanticAI) IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-pipeline-wiring-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Pipeline wiring IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-provider-layer-adaptive-integrations-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 Provider layer (adaptive integrations) IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-multi-department-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — Multi-department architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-6-web-app-pwa-web" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6 — Web app + PWA (web/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6 — Web app + PWA (web/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#60-stack-project-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.0 Stack &amp; project setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#601-design-system-locked-see-docsplanproduct-conceptmd-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.0.1 Design system (locked — see docs/plan/product-concept.md §7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#61-shell-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Shell &amp; auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-chat-front-door" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Chat front door
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-recruitment-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Recruitment workspace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-other-workspaces-wave-1-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Other workspaces (Wave-1 surfaces)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-pwa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 PWA
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-7-integrations-all-via-the-provider-layer-docsarchitectureprovidersmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7 — Integrations (all via the provider layer, docs/architecture/providers.md)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7 — Integrations (all via the provider layer, docs/architecture/providers.md)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-messaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Messaging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-google-workspace-microsoft-365" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Google Workspace / Microsoft 365
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-files-office-reality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Files &amp; office reality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#74-mcp-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.4 MCP layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-8-departments-each-skills-tools-agents-ui-tests-knowledge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8 — Departments (each = skills + tools + agents + UI + tests + knowledge)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8 — Departments (each = skills + tools + agents + UI + tests + knowledge)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#80-shared-engines-foundation-for-every-department-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.0 Shared engines (foundation for every department) DONE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#81-recruitment-deep-build-completes-phase-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Recruitment (deep build — completes Phase 4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-policy-knowledge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Policy &amp; Knowledge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-onboarding-done-wave-1-scope-checklist-documents-contract-prep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Onboarding DONE (Wave 1 scope: checklist + documents + contract prep)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#84-records-hris-lite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.4 Records (HRIS-lite)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#85-time-leave-done-wave-1-scope-policies-balances-requests-calendar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.5 Time &amp; Leave DONE (Wave 1 scope: policies, balances, requests, calendar)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#86-payroll-prepare-verify-only-never-executes-payments-done-wave-1-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.6 Payroll (prepare &amp; verify ONLY — never executes payments) DONE (Wave 1 core)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#87-performance-done-wave-1-scope-cycles-forms-summaries-light-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.7 Performance DONE (Wave 1 scope: cycles, forms, summaries, light goals)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#88-offboarding-done-wave-1-scope-checklists-assets-final-pay-coordination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.8 Offboarding DONE (Wave 1 scope: checklists, assets, final pay coordination)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#89-compliance-cross-cutting-done-wave-1-core-consent-retention-erasure-breach-audit-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.9 Compliance (cross-cutting) DONE (Wave 1 core: consent, retention, erasure, breach, audit verify)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-9-deployment-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9 — Deployment &amp; operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-10-paper-docs-publication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 10 — Paper, docs &amp; publication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-explicitly-not-in-scope-revisit-only-on-real-demand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Explicitly not in scope (revisit only on real demand)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-b-hard-prohibitions-never-ship" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix B — Hard prohibitions (never ship)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-c-known-defects-measured-not-hypothetical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix C — Known defects (measured, not hypothetical)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../remaining-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remaining work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../problem-statement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Problem statement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../release-process/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Release process
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0-locked-decisions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. Locked decisions
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#business-distribution-model-locked" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Business &amp; distribution model (locked)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-0-research-evidence-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 0 — Research &amp; evidence DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-1-foundation-infrastructure-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 1 — Foundation &amp; infrastructure DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-2-contracts-data-model-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 2 — Contracts &amp; data model DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-3-deterministic-core-pipeline-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 3 — Deterministic core &amp; pipeline DONE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-4-platform-capabilities-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 4 — Platform capabilities IN PROGRESS
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 4 — Platform capabilities IN PROGRESS">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-skills-system-markdown-capabilities-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Skills system (markdown → capabilities) DONE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-knowledge-rag-engine-done-cloud-adapters-deferred-to-phase-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Knowledge / RAG engine DONE (cloud adapters deferred to Phase 7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-tool-registry-tools-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Tool registry &amp; tools IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-agents-pydanticai-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Agents (PydanticAI) IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-pipeline-wiring-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Pipeline wiring IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#46-provider-layer-adaptive-integrations-in-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.6 Provider layer (adaptive integrations) IN PROGRESS
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-5-multi-department-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 5 — Multi-department architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-6-web-app-pwa-web" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 6 — Web app + PWA (web/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 6 — Web app + PWA (web/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#60-stack-project-setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.0 Stack &amp; project setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#601-design-system-locked-see-docsplanproduct-conceptmd-7" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.0.1 Design system (locked — see docs/plan/product-concept.md §7)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#61-shell-auth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Shell &amp; auth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-chat-front-door" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Chat front door
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-recruitment-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Recruitment workspace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-other-workspaces-wave-1-surfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Other workspaces (Wave-1 surfaces)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-pwa" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 PWA
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-7-integrations-all-via-the-provider-layer-docsarchitectureprovidersmd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 7 — Integrations (all via the provider layer, docs/architecture/providers.md)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 7 — Integrations (all via the provider layer, docs/architecture/providers.md)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-messaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Messaging
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-google-workspace-microsoft-365" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Google Workspace / Microsoft 365
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-files-office-reality" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Files &amp; office reality
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#74-mcp-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.4 MCP layer
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-8-departments-each-skills-tools-agents-ui-tests-knowledge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 8 — Departments (each = skills + tools + agents + UI + tests + knowledge)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Phase 8 — Departments (each = skills + tools + agents + UI + tests + knowledge)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#80-shared-engines-foundation-for-every-department-done" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.0 Shared engines (foundation for every department) DONE
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#81-recruitment-deep-build-completes-phase-4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.1 Recruitment (deep build — completes Phase 4)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#82-policy-knowledge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.2 Policy &amp; Knowledge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#83-onboarding-done-wave-1-scope-checklist-documents-contract-prep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.3 Onboarding DONE (Wave 1 scope: checklist + documents + contract prep)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#84-records-hris-lite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.4 Records (HRIS-lite)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#85-time-leave-done-wave-1-scope-policies-balances-requests-calendar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.5 Time &amp; Leave DONE (Wave 1 scope: policies, balances, requests, calendar)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#86-payroll-prepare-verify-only-never-executes-payments-done-wave-1-core" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.6 Payroll (prepare &amp; verify ONLY — never executes payments) DONE (Wave 1 core)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#87-performance-done-wave-1-scope-cycles-forms-summaries-light-goals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.7 Performance DONE (Wave 1 scope: cycles, forms, summaries, light goals)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#88-offboarding-done-wave-1-scope-checklists-assets-final-pay-coordination" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.8 Offboarding DONE (Wave 1 scope: checklists, assets, final pay coordination)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#89-compliance-cross-cutting-done-wave-1-core-consent-retention-erasure-breach-audit-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8.9 Compliance (cross-cutting) DONE (Wave 1 core: consent, retention, erasure, breach, audit verify)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-9-deployment-operations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 9 — Deployment &amp; operations
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#phase-10-paper-docs-publication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Phase 10 — Paper, docs &amp; publication
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-a-explicitly-not-in-scope-revisit-only-on-real-demand" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix A — Explicitly not in scope (revisit only on real demand)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-b-hard-prohibitions-never-ship" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix B — Hard prohibitions (never ship)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#appendix-c-known-defects-measured-not-hypothetical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Appendix C — Known defects (measured, not hypothetical)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/davinakmalyasha/HRAgents/edit/main/docs/plan/master-build-plan.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="hragents-master-build-plan">HRAgents — Master Build Plan<a class="headerlink" href="#hragents-master-build-plan" title="Permanent link">&para;</a></h1>
+<p><strong>Purpose:</strong> the single source of truth for everything to build. Nothing is out of scope — items are
+ordered by dependency, and checkboxes track reality so nothing is missed or forgotten.</p>
+<p><strong>Legend:</strong> <code>[ ]</code> not started · <code>[~]</code> in progress · <code>[x]</code> done · <code>[-]</code> explicitly deferred</p>
+<p><strong>Update rule:</strong> every work session ends by updating this file. An item is <code>[x]</code> only when its tests
+(and docs where relevant) exist and pass.</p>
+<hr />
+<h2 id="0-locked-decisions">0. Locked decisions<a class="headerlink" href="#0-locked-decisions" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Choice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Persona</td>
+<td>Solo HR (1–3 people) at an Indonesian SME doing everything</td>
+</tr>
+<tr>
+<td>Product</td>
+<td>A virtual HR team behind one HR person; recruitment is the deep build, other departments are packs</td>
+</tr>
+<tr>
+<td>Deployment</td>
+<td>Self-hostable open source <strong>and</strong> managed cloud SaaS — one codebase, tenant-aware from day one</td>
+</tr>
+<tr>
+<td>Stack</td>
+<td>Python 3.14 · FastAPI · Pydantic v2 · PydanticAI · PostgreSQL 16 + pgvector · Redis · MinIO · Docker</td>
+</tr>
+<tr>
+<td>Dashboard</td>
+<td>React 19 + Vite + TypeScript + Tailwind + shadcn/ui + TanStack Query + Zustand + dnd-kit + PWA (<code>web/</code>)</td>
+</tr>
+<tr>
+<td>Public site</td>
+<td>Next.js App Router — SEO pages, docs, demo, freelance showcase (<code>landing/</code>), deployed separately; not part of the self-hosted product</td>
+</tr>
+<tr>
+<td>Design language</td>
+<td>Monochrome cool gray, light default (dark mode = token swap); one accent <code>#2563EB</code> for interactive; status colors amber/red/green ≤5% of pixels with icon+label; Inter + JetBrains Mono; attention-first home ("Needs you today" / "Watching"); three rooms per workspace (Board / Queue / Chat)</td>
+</tr>
+<tr>
+<td>Backend language</td>
+<td>Python-only. Rust/Go hotspot extraction only if profiling ever demands it; core rewrite rejected (bottleneck is LLM inference, not CPU)</td>
+</tr>
+<tr>
+<td>Agent architecture</td>
+<td>Agents extract + communicate only; deterministic core decides; humans gate every rejection</td>
+</tr>
+<tr>
+<td>Audit</td>
+<td>Hash-chained append-only log; every decision reconstructible</td>
+</tr>
+<tr>
+<td>Tools</td>
+<td>Typed, least-privilege registry. <strong>No shell/<code>run_command</code> tools — ever</strong></td>
+</tr>
+<tr>
+<td>Providers</td>
+<td>Every external dependency is a capability with interchangeable providers (LLM, email, WhatsApp, calendar, storage, embeddings, vector store, queue). One file per provider; config via env/wizard/UI; UI wins, env can lock. See <code>docs/architecture/providers.md</code></td>
+</tr>
+<tr>
+<td>Queue</td>
+<td>Provider pattern: <code>redis</code> (default, included in compose) · <code>postgres</code> (minimal installs) · <code>memory</code> (tests). One conformance suite across backends</td>
+</tr>
+<tr>
+<td>Models</td>
+<td>Provider-agnostic: local (Ollama) / Anthropic / OpenAI / Gemini / OpenRouter / Groq / any OpenAI-compatible base URL / offline <code>test</code> model</td>
+</tr>
+<tr>
+<td>UI language</td>
+<td>English + Bahasa Indonesia from first release</td>
+</tr>
+<tr>
+<td>RAG policy</td>
+<td>Retrieval for recall and Q&amp;A only — never used to compute scores</td>
+</tr>
+<tr>
+<td>Fairness</td>
+<td>CI counterfactual name-swap invariance tests + per-job score-distribution monitoring</td>
+</tr>
+<tr>
+<td>Retention</td>
+<td>Default 24 months then auto-anonymize; configurable per tenant (longer requires consent)</td>
+</tr>
+<tr>
+<td>Thresholds</td>
+<td>Defaults: auto-schedule <code>S ≥ 0.85 ∧ σ ≤ 0.05</code> and every dimension evidenced; a verified rubric version may pin thresholds per family; rejection sign-off required for <code>S ≥ 0.70</code></td>
+</tr>
+<tr>
+<td>License</td>
+<td>Apache-2.0 — fully open for every company (not just big ones). Author offers paid freelance integration/setup services; contact in README</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="business-distribution-model-locked">Business &amp; distribution model (locked)<a class="headerlink" href="#business-distribution-model-locked" title="Permanent link">&para;</a></h2>
+<ul>
+<li>The software is free and open source (Apache-2.0). Any company — SME or enterprise — can
+  self-host it at software cost zero.</li>
+<li>Income model: freelance integration/setup services for companies that want it running without
+  doing the technical work themselves (install, configure, connect WhatsApp/Google, train staff).</li>
+<li>No SaaS billing, no paywalled features, no license gating. Managed hosting is a later option
+  only if real demand appears (Phase 9, deferred).</li>
+<li>Adoption priority therefore: 5-minute install, setup wizard, excellent docs, demo dataset
+  that proves value before any integration work.</li>
+<li>The author's name, product name, and freelance contact are surfaced in README and docs.</li>
+</ul>
+<hr />
+<h2 id="status-summary">Status summary<a class="headerlink" href="#status-summary" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0. Research &amp; evidence</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>1. Foundation &amp; infrastructure</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>2. Contracts &amp; data model</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>3. Deterministic core &amp; pipeline</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>4. Platform capabilities (skills, RAG, tools, providers, agents, evals)</td>
+<td><strong>In progress</strong> — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄</td>
+</tr>
+<tr>
+<td>5. Multi-department architecture (workspaces, front door, RBAC, tenancy)</td>
+<td><strong>Done</strong> — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅ (conversation-store Postgres adapter lands with Phase 6)</td>
+</tr>
+<tr>
+<td>6. Web app + PWA</td>
+<td><strong>In progress</strong> — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, scheduling ✅, job management ✅, candidate communications ✅, PWA shell ✅ + install prompt + push notifications ✅ (settings, XLSX remain)</td>
+</tr>
+<tr>
+<td>7. Integrations (messaging, Google, files, MCP)</td>
+<td><strong>In progress</strong> — MCP client + destructive-tool gate ✅, <code>hragents-mcp</code> server ✅; connector catalog (ATS/HRIS/Slack/calendar) pending</td>
+</tr>
+<tr>
+<td>8. Departments (onboarding, records, leave, payroll prep, performance, offboarding)</td>
+<td><strong>Done (Wave 1 engines)</strong> — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅</td>
+</tr>
+<tr>
+<td>9. Deployment &amp; compliance</td>
+<td><strong>In progress</strong> — Compose, migrations, previews, backups, secrets, retention/purge journal, scanning ✅; external pen test pending</td>
+</tr>
+<tr>
+<td>10. Paper, docs &amp; publication</td>
+<td><strong>In progress</strong> — paper ✅, versioned docs site ✅, landing ✅; publication + social preview pending</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Remaining work, MCP layer → paper &amp; release:</strong> <code>docs/plan/remaining-work.md</code> — detailed
+checklists, exit criteria, suggested order, and risk notes for everything still open.</p>
+</blockquote>
+<hr />
+<h2 id="phase-0-research-evidence-done">Phase 0 — Research &amp; evidence <code>DONE</code><a class="headerlink" href="#phase-0-research-evidence-done" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[x] Literature review with 13 verified sources (<code>docs/research/literature-review.md</code>)</li>
+<li>[x] BibTeX bibliography with verification notes (<code>docs/research/sources.bib</code>)</li>
+<li>[x] Evidence → design principle mapping (P1–P10)</li>
+<li>[ ] Indonesian labor-law knowledge base (UU Ketenagakerjaan, BPJS, THR, PPh 21, WLKP) — Phase 8</li>
+<li>[ ] Domestic hiring-funnel field notes / validation interviews — Phase 10</li>
+</ul>
+<h2 id="phase-1-foundation-infrastructure-done">Phase 1 — Foundation &amp; infrastructure <code>DONE</code><a class="headerlink" href="#phase-1-foundation-infrastructure-done" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[x] uv project, Python 3.14, dependency groups (dev/prod)</li>
+<li>[x] Docker Compose: Postgres 16 + pgvector, Redis 7, MinIO, Mailpit</li>
+<li>[x] Configuration via pydantic-settings, structured logging, OTel dependencies</li>
+<li>[x] CI workflow (ruff, format, mypy, pytest)</li>
+<li>[x] FastAPI app factory + <code>/healthz</code></li>
+<li>[x] <code>.gitignore</code>, <code>.env.example</code>, repo layout</li>
+<li>[x] CI hardening: <code>quality</code> · <code>migrations</code> (pgvector upgrade/drift/downgrade) · <code>windows</code> ·
+      <code>secrets</code> (gitleaks history scan); actions SHA-pinned; coverage floor 90%</li>
+<li>[x] CodeQL, Dependabot (uv + actions), release-please, release-artifacts workflow</li>
+<li>[x] Community health: <code>CONTRIBUTING</code>, <code>SECURITY</code>, <code>CODE_OF_CONDUCT</code>, issue forms, PR template,
+      <code>CODEOWNERS</code></li>
+<li>[x] pre-commit hooks (ruff, formatting, private-key detection) + <code>scripts/check.py</code></li>
+<li>[x] ADRs (<code>docs/adr/</code>), release process (<code>docs/plan/release-process.md</code>), <code>CITATION.cff</code>,
+      <code>AGENTS.md</code></li>
+</ul>
+<h2 id="phase-2-contracts-data-model-done">Phase 2 — Contracts &amp; data model <code>DONE</code><a class="headerlink" href="#phase-2-contracts-data-model-done" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[x] Pydantic v2 domain models: candidate, evaluation, job, policy, scheduling, audit, messaging, common</li>
+<li>[x] <code>aggregate_runs</code> (k=3, σ) and <code>ScoreVector.weighted_mean</code></li>
+<li>[x] SQLAlchemy tables + Alembic <code>0001_initial</code> (9 tables, indexes, cascades)</li>
+<li>[x] OpenAPI 3.0.3 spec (12 paths, 24 schemas)</li>
+<li>[x] Architecture docs: system, HITL bounds, data/storage rationale, benchmarks</li>
+<li>[x] Mermaid diagrams: pipeline, HITL sequence, lifecycle states, ER</li>
+</ul>
+<h2 id="phase-3-deterministic-core-pipeline-done">Phase 3 — Deterministic core &amp; pipeline <code>DONE</code><a class="headerlink" href="#phase-3-deterministic-core-pipeline-done" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[x] Vector scorer <code>S ∈ [0,1]^4</code> with alias normalization, tenure math, rationales, evidence refs</li>
+<li>[x] Policy engine: consent halt → anomaly → calendar → auto-schedule → soft-rejection → auto-reject</li>
+<li>[x] Priority ranker <code>P = α·S̄ + β·e^(−λΔt) + γ·A − δ·R</code></li>
+<li>[x] Hash-chained audit log with tamper detection</li>
+<li>[x] Document ingestion: hashing, PDF/text extraction, PII redaction (email, NIK, phone)</li>
+<li>[x] Application store with exactly-once idempotency + conflict semantics</li>
+<li>[x] API routers: submit, batch (≤500), status+timeline, queue; RFC 7807 errors; API-key auth</li>
+<li>[x] Test suite (83 tests, 97% coverage) + ingestion benchmark (36,509 req/min measured)</li>
+</ul>
+<hr />
+<h2 id="phase-4-platform-capabilities-in-progress">Phase 4 — Platform capabilities <code>IN PROGRESS</code><a class="headerlink" href="#phase-4-platform-capabilities-in-progress" title="Permanent link">&para;</a></h2>
+<h3 id="41-skills-system-markdown-capabilities-done">4.1 Skills system (markdown → capabilities) <code>DONE</code><a class="headerlink" href="#41-skills-system-markdown-capabilities-done" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <code>SkillManifest</code> model: id, name, description, version, department, agents allowlist, tags</li>
+<li>[x] Loader: discover <code>skills/**/SKILL.md</code>, parse YAML frontmatter, validate, hash</li>
+<li>[x] Capability builder: markdown → PydanticAI <code>Capability(defer_loading=True)</code></li>
+<li>[x] Knowledge doc model + loader (<code>knowledge/**/*.md</code>, namespace-scoped)</li>
+<li>[x] Skill registry: lookup by agent/department/namespace, deterministic library fingerprint, audit refs</li>
+<li>[x] Skills content (Wave 1):</li>
+<li>[x] <code>skills/recruiting/screening/SKILL.md</code> (candidate communication runbook)</li>
+<li>[x] <code>skills/recruiting/evaluation/SKILL.md</code> + <code>knowledge/backend-rubric.md</code> + <code>ai-engineer-rubric.md</code></li>
+<li>[x] <code>skills/recruiting/feedback/SKILL.md</code> + <code>knowledge/feedback-template.md</code></li>
+<li>[x] <code>skills/platform/compliance/SKILL.md</code> + <code>knowledge/uu-pdp-summary.md</code></li>
+<li>[x] <code>skills/platform/knowledge/SKILL.md</code> + company-profile template</li>
+<li>[x] Skills authoring guide (<code>skills/README.md</code>)</li>
+<li>[ ] Skills editor UI — Phase 6</li>
+<li>[x] Tests: 34 tests covering format validation, duplicates, department/domain layout, hashing, registry, capability building</li>
+</ul>
+<h3 id="42-knowledge-rag-engine-done-cloud-adapters-deferred-to-phase-7">4.2 Knowledge / RAG engine <code>DONE</code> (cloud adapters deferred to Phase 7)<a class="headerlink" href="#42-knowledge-rag-engine-done-cloud-adapters-deferred-to-phase-7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Heading-aware markdown chunker with source spans, merge/split rules, deterministic ids</li>
+<li>[x] Embedding providers: protocol + deterministic offline signed-hash provider (default; runs without keys)</li>
+<li>[ ] API-backed embedding provider (OpenAI/Voyage/Ollama) — Phase 7 via provider layer</li>
+<li>[ ] pgvector store adapter + index migration — Phase 7 via provider layer (same retriever interface)</li>
+<li>[x] Retriever: hybrid vector + keyword scoring, namespace scoping with permission errors, citations</li>
+<li>[x] <code>search_knowledge</code> tool wired to retriever with mandatory citations (built in 4.3)</li>
+<li>[~] Knowledge upload UI (upload docs → chunk → embed → index) — Phase 6; skills loader covers current ingestion</li>
+<li>[~] Retrieval evals: namespace-leak tests done; recall@k fixtures with real embeddings later</li>
+</ul>
+<h3 id="43-tool-registry-tools-in-progress">4.3 Tool registry &amp; tools <code>IN PROGRESS</code><a class="headerlink" href="#43-tool-registry-tools-in-progress" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Registry with per-agent scoping (least-privilege allowlists, no implicit access)</li>
+<li>[x] Tool call audit wrapper (actor=agent, tool name, argument hash — raw args never logged)</li>
+<li>[x] Tools:</li>
+<li>[x] <code>canonicalize_skill</code> (alias normalization, deterministic)</li>
+<li>[x] <code>search_knowledge</code> (namespace-scoped RAG, citations mandatory, limit caps)</li>
+<li>[x] <code>github_profile</code>, <code>repo_metrics</code> (fixture + real HTTP client behind one protocol)</li>
+<li>[x] <code>analyze_repo_ast</code>, <code>detect_frameworks</code> (radon + lizard, sandboxed to analysis root)</li>
+<li>[x] <code>lookup_publication</code> (Crossref-style index; live adapter later), <code>verify_credential</code> (registry snapshot)</li>
+<li>[x] <code>get_candidate_profile</code>, <code>capture_consent</code>, <code>record_availability</code>, <code>escalate_to_human</code></li>
+<li>[x] <code>get_evaluation_breakdown</code> — read-only tool allowlisted to <code>feedback_writer</code>/<code>screening_coordinator</code></li>
+<li>[x] Tool permission tests (denied calls audited, cross-agent isolation verified)</li>
+<li>[ ] Sandbox/dry-run default for external tools — Phase 7 external integrations</li>
+</ul>
+<h3 id="44-agents-pydanticai-in-progress">4.4 Agents (PydanticAI) <code>IN PROGRESS</code><a class="headerlink" href="#44-agents-pydanticai-in-progress" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Runtime: provider-driven model resolution (test/ollama/openai-compatible/anthropic/commandcode), limits, per-provider structured output (prompted JSON for open-model endpoints)</li>
+<li>[x] <code>AgentDeps</code> ports (tool registry, audit, scoped namespaces — injectable for tests)</li>
+<li>[x] <code>InjectionGuard</code>: deterministic detectors, invisible-char stripping, line redaction, full-text multi-line scanning</li>
+<li>[x] <code>ResumeDeconstructor</code> → <code>CandidateProfile</code> (guard-first, skill-composed instructions, skill audit refs)</li>
+<li>[x] <code>CodePortfolioEvaluator</code> → <code>PortfolioEvidence</code> (repos, complexity, frameworks, publications, credentials; summary recomputed deterministically; forks excluded)</li>
+<li>[x] <code>ScreeningCoordinator</code> → <code>ScreeningReply</code> (state machine enforcement, banned-phrase/protected-topic validation, escalation rules)</li>
+<li>[x] <code>PolicyAssistant</code> → <code>PolicyAnswer</code> (cite-or-escalate enforcement)</li>
+<li>[x] <code>FeedbackWriter</code> + deterministic grounding validator (thresholds, duplicates, protected attributes EN/ID)</li>
+<li>[~] Agent evals (Pydantic Evals) — <code>evals/resume_extraction.py</code> + <code>scripts/run_evals.py</code>:</li>
+<li>[x] Injection safety cases (prompt injection, invisible chars)</li>
+<li>[x] Structural/safety evaluators (schema round-trip, guard expectations, sanitization)</li>
+<li>[x] <strong>Live model run passing: 5/5 cases, 100% assertions on MiMo V2.5 via Command Code (ZDR on)</strong> — results in <code>docs/architecture/benchmarks.md</code> §4</li>
+<li>[x] 50-profile dataset: 18 engineering + 32 non-IT, EN/ID mixed (24/26),
+        PDF+MD+JSON variants. A structured catalog (<code>evals/profiles.py</code>) renders each
+        profile as Markdown for the agent, structured JSON for ATS-style imports, and a
+        real PDF through a deterministic writer — so the pypdf extraction path is
+        exercised against bytes the repository regenerates. Every variant must read back
+        with the candidate's name (<code>tests/test_evals_dataset.py</code>), and the full 69-case
+        suite passes the offline structural/safety run</li>
+<li>[x] Edge cases: name-swap fairness pairs in both languages, overlapping and gapped
+        employment dates, a fake certification and a certification mismatch, career
+        change, overqualified, oversize input, empty experience, and special characters;
+        a scanned (no text layer) PDF is covered by a blank-PDF extraction assertion</li>
+<li>[ ] Feedback faithfulness live-model suite</li>
+<li>[x] Policy regression suite: a table-driven boundary suite over <code>evaluate_policy</code>
+        (<code>tests/services/test_policy.py</code>) — every inclusive/exclusive edge of each threshold,
+        the precedence order (consent &gt; anomaly &gt; calendar &gt; score), and one custom-threshold
+        table proving the operator's bands and the snapshot move together</li>
+</ul>
+<h3 id="45-pipeline-wiring-in-progress">4.5 Pipeline wiring <code>IN PROGRESS</code><a class="headerlink" href="#45-pipeline-wiring-in-progress" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <code>ApplicationPipeline</code>: received → guard → extract (k runs) → score → aggregate → policy → route → persist, fully audited</li>
+<li>[x] <code>Worker</code> (claim/ack/nack/dead-letter) over any queue backend, bounded attempts</li>
+<li>[x] <strong>The worker actually runs</strong>: <code>scripts/run_worker.py</code> + a <code>worker</code> service in Compose; the
+      submission routers publish via <code>EvaluationDispatcher</code> and the worker claims and evaluates.
+      Without this the pipeline had no production entry point — <code>202 Accepted</code> into a queue nobody
+      drained. Regression-tested by <code>tests/api/test_worker_seam.py</code></li>
+<li>[x] <code>hr_agents/queue.py</code> — one resolver both sides share, walking the provider chain and refusing a
+      process-local queue unless it is named explicitly (it would strand work the API accepts)</li>
+<li>[x] <code>hr_agents/agentset.py</code> — the composition root that builds <strong>all five</strong> agents from the skills
+      library; previously only the policy assistant was constructed in production</li>
+<li>[x] <code>HRAGENTS_SKILLS_ROOT</code> + a loud startup failure when the skills library is missing (the image
+      shipped without it, so every agent silently ran with no runbooks)</li>
+<li>[x] Fairness harness: counterfactual name/city-swap invariance audit + summary (violation injection test proves detection)</li>
+<li>[x] Storage port (<code>InMemoryStorage</code> now; Postgres adapter later)</li>
+<li>[x] <strong>Recruitment API surface</strong> (<code>services/recruiting.py</code> + 6 routers, 19 endpoints): document upload with hashing/size gate, jobs CRUD + guarded lifecycle, evaluation read (<code>/v1/applications/{id}/evaluation</code>), append-only HITL overrides with audit receipts and role enforcement, feedback reports (stored agent report or deterministic EN/ID synthesis), scheduling proposals gated by the policy engine with an availability registry, and the gated candidate communication outbox (<code>candidate_communications</code> + migration <code>0007</code>; rejection composed deterministically from the feedback report, human-authored offers, named-human approver, manual dispatch evidence via <code>mark_sent</code> — nothing is ever auto-sent)</li>
+<li>[x] Application store: status sync from evaluation results and human overrides, candidate lookup</li>
+<li>[ ] Orchestrator as pydantic-graph state machine (current: explicit async pipeline; graph upgrade when retries/checkpoints demand)</li>
+<li>[x] HITL overrides persisted to Postgres (append-only <code>evaluation_overrides</code> table + <code>DbEvaluationService</code>)</li>
+<li>[x] Audit chain persistence to Postgres (migration <code>0005</code> + <code>DbAuditChain</code>; <code>scripts/verify_audit.py</code>;
+      one-shot runner <code>scripts/run_scheduler.py</code> includes an <code>audit-verify</code> job; compose cron wiring in Phase 9)</li>
+<li>[x] End-to-end integration test through the API: submit → worker → evaluation → queue (<code>tests/api/test_pipeline_seam.py</code>)</li>
+</ul>
+<h3 id="46-provider-layer-adaptive-integrations-in-progress">4.6 Provider layer (adaptive integrations) <code>IN PROGRESS</code><a class="headerlink" href="#46-provider-layer-adaptive-integrations-in-progress" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Spec written: <code>docs/architecture/providers.md</code></li>
+<li>[x] <code>providers/base.py</code> — <code>Capability</code>, <code>ProviderConfig</code> (SecretStr support), <code>ProviderSpec</code>, <code>ProviderHealth</code></li>
+<li>[x] <code>providers/registry.py</code> — registration, discovery, resolution, explicit fallback chains (zero-config providers resolve first)</li>
+<li>[x] Queue providers: <code>memory</code> + <code>redis</code> + <code>postgres</code> with one conformance suite</li>
+<li>[x] LLM providers: <code>test</code> + <code>ollama</code> + <code>openai_compatible</code> + <code>anthropic</code> + <code>commandcode</code> (ZDR default, MiMo default)</li>
+<li>[x] Email providers: <code>smtp</code> + <code>resend</code> (send) · <code>imap_poll</code> + <code>resend_webhook</code> (receive)</li>
+<li>[x] Messaging providers: <code>whatsapp.manual_links</code> (always-on degraded) + <code>whatsapp.meta_cloud</code></li>
+<li>[x] Calendar providers: <code>calendar.manual_slots</code> (+ ICS) + <code>calendar.google</code></li>
+<li>[x] Storage providers: <code>storage.local_disk</code> + <code>storage.s3</code></li>
+<li>[x] Embedding providers: <code>embeddings.hash</code> (offline default) + <code>ollama</code> + <code>openai</code></li>
+<li>[x] Vector providers: <code>vector.in_memory</code> + <code>vector.pgvector</code></li>
+<li>[x] Settings resolution: env layer (<code>HRAGENTS_PROVIDER_*</code>, <code>.env</code> loaded) with fail-fast validation</li>
+<li>[x] <code>health_check</code> declared on every provider + masked-secret contract (<code>mask_secrets</code>)</li>
+<li>[x] <strong>Complete matrix: 20 providers across 9 capabilities</strong> — every capability has a zero-config default</li>
+<li>[ ] Provider settings audit entries (field names only, values redacted) — Phase 5</li>
+<li>[~] Live adapter implementations: email is live (SMTP send + IMAP poll under <code>hr_agents.messaging</code>,
+      driven by <code>scripts/run_messaging.py</code>); whatsapp/calendar/storage remain config-only</li>
+</ul>
+<hr />
+<h2 id="phase-5-multi-department-architecture">Phase 5 — Multi-department architecture<a class="headerlink" href="#phase-5-multi-department-architecture" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[x] Workspace definitions (department packs registry) — <code>src/hr_agents/workspaces.py</code>: 9 packs with
+      agent/tool/knowledge scopes, read/write permissions, routing keywords, deterministic fingerprint</li>
+<li>[x] Front door router: deterministic dispatch when workspace explicit; LLM intent classification only for ambiguous messages; <strong>never executes consequential actions</strong> — keyword router + explicit hint (<code>services/front_door.py</code>); Ask HR answers via <code>PolicyAssistant</code> and ungrounded answers deterministically escalate (<code>services/chat.py</code>, <code>POST /v1/chat</code>, SSE <code>/v1/chat/stream</code>); ambiguous messages fall back to Ask HR (an LLM intent classifier remains a later refinement); multi-department messages surface ranked <code>alternates</code> as <code>handoff_options</code></li>
+<li>[x] RBAC: roles (hr_admin, recruiter, finance, manager, employee) × permissions — <code>src/hr_agents/rbac.py</code>,
+      router-level enforcement, stricter checks on overrides, payroll sign-off/export, and compliance execution;
+      role-bound API keys via <code>HRAGENTS_API_PRINCIPALS</code></li>
+<li>[x] Tenant model: <code>tenant_id</code> on all tables + Postgres RLS policies — migration <code>0006_tenancy</code> (31 tables,
+      <code>ENABLE</code>+<code>FORCE</code> RLS, <code>tenant_isolation</code> policies with <code>USING</code>/<code>WITH CHECK</code>, fail-closed to the default
+      tenant when unset), <code>db/rls.py</code> single source of the policy SQL, <code>sync_session_scope(tenant_id=…)</code> sets
+      the transaction-local GUC, RLS read/write fencing covered by <code>tests/db/test_rls.py</code> on Postgres
+      (ADR 0006)</li>
+<li>[x] Workspace context isolation (knowledge, tools, conversations) — chat scopes agent
+      knowledge namespaces per routed workspace; tool access is intersected with the pack's
+      declared scope via <code>ToolRegistry.scoped()</code> (<code>AgentDeps.for_workspace</code>), out-of-scope calls
+      are denied and audited, and a conversation is pinned to its workspace (cross-workspace
+      continuation returns 409); <code>tests/tools/test_catalog.py</code> pins packs to the canonical
+      <code>TOOL_NAMES</code> catalog and to real agent names</li>
+<li>[~] Chat conversation persistence — in-memory <code>ConversationStore</code> behind persistence primitives; Postgres adapter lands with the Phase 6 UI work</li>
+<li>[x] Cross-workspace request handoff ("handle onboarding for Budi") — <code>RouteDecision.alternates</code>
+      ranked deterministically (EN/ID), <code>ChatReply.handoff_options</code>, and <code>HandoffService</code>
+      (<code>services/workspace_requests.py</code>) queues a human-invoked <code>WorkspaceRequest</code> in the target
+      workspace (audited as <code>handoff.requested</code>, never agent-invoked); <code>POST/GET /v1/chat/handoffs</code>;
+      in-memory store behind primitives, Postgres adapter with Phase 6</li>
+<li>[x] Employee data model (HRIS-lite core: employees, contracts, documents, org units) — Phase 8.0/8.4</li>
+<li>[x] Retention &amp; erasure engine (UU PDP: per-entity retention policies, delete/anonymize jobs) — Phase 8.9</li>
+</ul>
+<h2 id="phase-6-web-app-pwa-web">Phase 6 — Web app + PWA (<code>web/</code>)<a class="headerlink" href="#phase-6-web-app-pwa-web" title="Permanent link">&para;</a></h2>
+<h3 id="60-stack-project-setup">6.0 Stack &amp; project setup<a class="headerlink" href="#60-stack-project-setup" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Vite + React 19 + TypeScript project in <code>web/</code> (Node 26 + npm, <code>web/.nvmrc</code>, lockfile committed)</li>
+<li>[x] Tailwind CSS + shadcn/ui component library (Tailwind v4 CSS-first tokens, <code>cn</code> merge package)</li>
+<li>[x] TanStack Query (server state) + Zustand (workspace/UI state)</li>
+<li>[x] API client generated from the live OpenAPI schema (<code>scripts/export_openapi.py</code> →
+      <code>docs/api/openapi.json</code> → <code>openapi-typescript</code>/<code>openapi-fetch</code>; the hand-maintained
+      YAML fragment that used to sit beside it is gone — it described 12 of 148 paths)</li>
+<li>[x] ESLint + Prettier + <code>tsc --noEmit</code> gate in CI (<code>web</code> job, drift-checked generated types)</li>
+<li>[x] Static build served by FastAPI (<code>/app</code>) in self-host image; SPA fallback routing (<code>_mount_web_app</code>)</li>
+</ul>
+<h3 id="601-design-system-locked-see-docsplanproduct-conceptmd-7">6.0.1 Design system (locked — see <code>docs/plan/product-concept.md</code> §7)<a class="headerlink" href="#601-design-system-locked-see-docsplanproduct-conceptmd-7" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Design tokens: neutral ramp (cool gray), accent <code>#2563EB</code>, status amber/red/green — single source
+      <code>web/src/styles/theme.css</code>; a guard test bans hex literals anywhere else in the web source</li>
+<li>[x] Dark mode via token swap (full ramp recorded in §7.1)</li>
+<li>[x] Typography: Inter (UI) + JetBrains Mono (scores/IDs); scale 12–30, weights 400/500/600 (self-hosted)</li>
+<li>[~] Component kit: shadcn/ui themed to tokens (button, input, table, dialog, tabs, badge, progress,
+      command, sonner, …) + <code>StatusBadge</code> (icon+label mandatory), <code>ScoreBar</code>, <code>EmptyState</code></li>
+<li>[x] Attention-first home: "Needs you today" (overdue approvals, overdue tasks, open handoffs) and
+      "Watching" (pending approvals, open tasks) wired to the real queues; every item deep-links to
+      its workspace queue (<code>?room=queue</code>), empty states celebrate zero work</li>
+<li>[~] Three-rooms workspace layout component (Board / Queue / Chat) — structure + placeholders;
+      a workspace data endpoint lands with the chat UI slice</li>
+<li>[x] Accessibility pass: focus rings, reduced motion, icon+label status primitives; skip link and
+      main landmark; text contrast verified at WCAG AA across all workspaces in light and dark
+      (muted ink darkened to <code>#667085</code>, status tone confined to the hidden glyph, inactive tabs
+      moved off <code>text-foreground/60</code>); regression-guarded by <code>theme.contrast.test.ts</code>; the
+      axe/screen-reader sweep stays in <code>polish-backlog.md</code></li>
+<li>[x] Mobile-first check at 390px viewport (all nine workspace boards, the payroll and
+      compliance queues, the command palette, dialogs and the chat transcript; a topbar
+      overflow the identity chip introduced was found and fixed, the dialog primitive now
+      caps at the visual viewport, and long chat tokens wrap)</li>
+</ul>
+<h3 id="61-shell-auth">6.1 Shell &amp; auth<a class="headerlink" href="#61-shell-auth" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[~] App shell: sidebar workspaces, topbar, responsive layout (icon rail on mobile; bottom bar later)</li>
+<li>[x] Auth screens: sign-in with the API key, session gate on /v1/session, sign-out, 401 handling that returns the person to where they were; password reset is N/A for key auth (documented)</li>
+<li>[ ] Mobile-first layouts (solo HR lives on their phone)</li>
+<li>[x] i18n from day one: English + Bahasa Indonesia (locale files, language switcher, key-parity test)</li>
+<li>[~] Settings → Connections: the provider list with health badges, env-lock padlocks and masked
+      configuration ships read-only (<code>GET /v1/providers</code>, rendered on the operations page); the config
+      forms and Test buttons still need the encrypted settings store to write into</li>
+</ul>
+<h3 id="62-chat-front-door">6.2 Chat front door<a class="headerlink" href="#62-chat-front-door" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Chat UI with workspace quick-switch (sidebar rail; every workspace's Chat room, Ask HR runs
+      the front door with routing and handoff suggestions)</li>
+<li>[~] SSE streaming from FastAPI — the client uses <code>POST /v1/chat</code> (status codes drive the
+      409 conversation-split); upgrade to event streaming once the backend emits progressive events</li>
+<li>[ ] Tool-call visibility (which agent is acting, what it read)</li>
+<li>[~] Workspace-scoped conversation history — client threads are per-workspace and server-pinned
+      (409 on cross-workspace continuation, visible restart); Postgres store with the UI phase</li>
+</ul>
+<h3 id="63-recruitment-workspace">6.3 Recruitment workspace<a class="headerlink" href="#63-recruitment-workspace" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
+      job filter and ranked cards; manual moves via dnd-kit drag (pointer + keyboard) validated
+      against the designed transition table — named human + reason, every gate enforced
+      server-side (<code>docs/architecture/board-transitions.md</code>)</li>
+<li>[x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
+      rationales, flags, and policy decision (<code>/w/hiring/applications/{id}</code>); every number is
+      inspectable — the weighted-contribution formula opens inline, and each dimension expands
+      to its evidence references (locator, excerpt, source, confidence) with an explicit
+      "no evidence recorded" state for older evaluations</li>
+<li>[x] Review queue for HITL (gated applications with their evaluation context, named-reviewer
+      sign-off with reason codes, audit receipt shown afterwards) — the override endpoint stays
+      the only writer of <code>rejected</code> (board closes route through it)</li>
+<li>[x] Scheduling view (proposals list: slots in the candidate timezone, auto vs. needs-approval,
+      reconciliation state, policy reasons and decision) with confirm/cancel/reschedule actions;
+      decisions go through <code>POST /v1/scheduling/proposals/{id}/decision</code> — a named human decides
+      the linked <code>scheduling</code> approval through the shared engine (attention queues included)</li>
+<li>[x] Batch import UI (CSV paste/drop + drag-drop CVs with progress, consent gate, conflict
+      report); XLSX parsing is a later addition, CSV covers the need today</li>
+<li>[x] Job management (<code>/w/hiring/jobs</code>): create/edit dialog with a named actor, guard-mirrored
+      status lifecycle (draft → open/paused/closed), dimension-weight editor validating
+      sum-to-1.0 inline</li>
+<li>[x] Offer records on the application detail: terms with append-only revisions, submit →
+      shared approval queue, approve/withdraw (named human; the linked approval is decided in
+      the same call), offer message through the communication outbox, acceptance/decline
+      recording with reasons; offer expiry runs on the scheduler (<code>offer-expiry</code> job)</li>
+<li>[~] Candidate communication panel (application detail): rejection/offer queueing behind
+      named-human approvers with the recorded-decision gate surfaced inline, full body review
+      before dispatch, manual <code>mark sent</code> evidence; transport bridge consumption and a
+      pre-queue preview endpoint remain (Phase 7)</li>
+</ul>
+<h3 id="64-other-workspaces-wave-1-surfaces">6.4 Other workspaces (Wave-1 surfaces)<a class="headerlink" href="#64-other-workspaces-wave-1-surfaces" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[~] Policy workspace: Q&amp;A with citations (no knowledge browser — that surface is still open)</li>
+<li>[x] Onboarding workspace: checklists, document collection status</li>
+<li>[x] Records workspace: employee directory (unit filterable), org chart with roll-up headcount,
+      document vault, expiry alerts, named-human document verification</li>
+<li>[x] Payroll workspace (prep &amp; verify): run lifecycle, verified-table provenance, per-line
+      anomaly flags with blocking gates, XLSX review packet export (review-only, never payment),
+      cancellation with its recorded reason, append-only run history</li>
+<li>[x] Audit viewer: searchable trail with exact-match filters and time window, live chain
+      verification naming the checker, export of the slice read</li>
+<li>[ ] Skills/knowledge editor (markdown editing with preview, versioning)</li>
+</ul>
+<h3 id="65-pwa">6.5 PWA<a class="headerlink" href="#65-pwa" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <code>vite-plugin-pwa</code>: manifest, service worker, offline shell (static shell only — HR data
+      always comes from the API, never the cache)</li>
+<li>[x] Install prompt (topbar; <code>beforeinstallprompt</code>/<code>appinstalled</code>). Push notifications remain
+      open (VAPID, subscription storage, event fan-out).</li>
+<li>[x] Lighthouse PWA + mobile performance pass: PWA 100, accessibility 100, best practices 96,
+      performance 88 on mobile throttling; route-level code splitting cut the entry chunk from
+      891 KB to 425 KB and TBT from 190 ms to 60 ms.</li>
+</ul>
+<h2 id="phase-7-integrations-all-via-the-provider-layer-docsarchitectureprovidersmd">Phase 7 — Integrations (all via the provider layer, <code>docs/architecture/providers.md</code>)<a class="headerlink" href="#phase-7-integrations-all-via-the-provider-layer-docsarchitectureprovidersmd" title="Permanent link">&para;</a></h2>
+<blockquote>
+<p>Detailed remaining checklist from this phase to release: <code>docs/plan/remaining-work.md</code>.</p>
+</blockquote>
+<h3 id="71-messaging">7.1 Messaging<a class="headerlink" href="#71-messaging" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[~] <code>email_send</code>: SMTP (default) live — <code>messaging/smtp.py</code> carries queued messages and
+      records provider/message-id evidence; Resend adapter still config-only</li>
+<li>[~] <code>email_receive</code>: IMAP poll (default, no public URL) live — <code>messaging/imap.py</code> polls unseen
+      mail, dedupes by provider message id, and attaches replies to the candidate; Resend webhook
+      still config-only</li>
+<li>[x] Transport bridge: <code>messaging/outbox.py</code> + <code>messaging/inbound.py</code>, driven by
+      <code>scripts/run_messaging.py</code> (sandbox-safe by default, <code>--send</code>/<code>--receive</code>/<code>--json</code>),
+      migration <code>0010_messaging_transport</code> (<code>candidate_replies</code> + dispatch columns, tenant RLS),
+      and the dashboard surface: recipient capture, dispatch attempts/errors, and captured
+      replies in the communication panel (<code>GET /v1/candidates/{id}/replies</code>)</li>
+<li>[x] WhatsApp recipient on queued messages (migration <code>0011_whatsapp_recipient</code>:
+      <code>candidate_communications.recipient_phone</code>)</li>
+<li>[x] <code>whatsapp</code> providers: Meta Cloud API + manual <code>wa.me</code> links fallback (default until connected) —
+      the manual-links transport is live (<code>messaging/whatsapp.py</code>: deterministic E.164 link
+      composition, <code>POST /v1/communications/{id}/dispatch-link</code>, phone captured at queue time);
+      the human opens the link, sends, and records dispatch. Meta Cloud stays config-only</li>
+<li>[ ] Telegram bridge (optional provider)</li>
+<li>[x] Response SLA timers (anti-ghosting): the <code>reply-sla</code> scheduler job flags a dispatched
+      message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
+      chase message)</li>
+<li>[ ] Webhook signature verification + replay protection</li>
+<li>[ ] Deployed behind Cloudflare Tunnel instructions for self-host webhooks</li>
+</ul>
+<h3 id="72-google-workspace-microsoft-365">7.2 Google Workspace / Microsoft 365<a class="headerlink" href="#72-google-workspace-microsoft-365" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] Gmail send + thread sync</li>
+<li>[ ] Google Calendar: free/busy, slot proposal, invites, reschedules</li>
+<li>[ ] Google Drive: document import (CVs, policies)</li>
+<li>[ ] Google Sheets: candidate/employee import-export</li>
+<li>[ ] Microsoft Graph (Outlook/Calendar/OneDrive) — same adapter interface</li>
+</ul>
+<h3 id="73-files-office-reality">7.3 Files &amp; office reality<a class="headerlink" href="#73-files-office-reality" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] XLSX/CSV import with column-mapping UI</li>
+<li>[ ] Export: XLSX reports, PDF feedback letters</li>
+<li>[ ] Office Connector: local folder sync agent for NAS/shared drives (only if demand)</li>
+</ul>
+<h3 id="74-mcp-layer">7.4 MCP layer<a class="headerlink" href="#74-mcp-layer" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] MCP client manager: configs, health checks, namespaced tools, graceful degradation</li>
+<li>[x] MCP servers catalog (disabled by default): ATS, HRIS, Slack, calendar templates in the
+      Connections panel; vendor-specific endpoints remain operator-supplied</li>
+<li>[x] Approval hook for destructive MCP tools (dry-run preview; execute once on approval, audit id recorded)</li>
+<li>[x] Expose <code>hragents-mcp</code> server (reads + opt-in intake/request writes) for external tools</li>
+</ul>
+<h2 id="phase-8-departments-each-skills-tools-agents-ui-tests-knowledge">Phase 8 — Departments (each = skills + tools + agents + UI + tests + knowledge)<a class="headerlink" href="#phase-8-departments-each-skills-tools-agents-ui-tests-knowledge" title="Permanent link">&para;</a></h2>
+<h3 id="80-shared-engines-foundation-for-every-department-done">8.0 Shared engines (foundation for every department) <code>DONE</code><a class="headerlink" href="#80-shared-engines-foundation-for-every-department-done" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <strong>Employee core</strong>: <code>Employee</code> lifecycle (onboarding → probation → active → notice → offboarded) with guarded transitions; org units; document vault with expiry tracking</li>
+<li>[x] <strong>Contract core</strong>: PKWT/PKWTT structural rules, probation restrictions, expiry/probation math, completion-compensation flag (structure only), termination records</li>
+<li>[x] <strong>Approval engine</strong>: generic HITL queue — create → assign by role → decide → SLA escalate → expire; agents can request, never decide; every transition audited</li>
+<li>[x] <strong>Task engine</strong>: create/assign/complete/cancel, overdue detection, agent-created tasks labeled; queue sorted overdue-first</li>
+<li>[x] <strong>Rate table engine</strong>: operator-owned statutory rates; structure without numbers; verification gate (<code>usable</code>); payroll can never silently use unverified values</li>
+<li>[x] <strong>Rate table API: enter entries and verify</strong> (<code>PUT /v1/rate-tables/{id}/entries</code>,
+      <code>POST /v1/rate-tables/{id}/verify</code> behind the previously dead <code>RATES_VERIFY</code> permission).
+      Payroll was unreachable through the API: a table could be created but never populated, so
+      <code>usable</code> was permanently false and every compute raised a blocking error</li>
+<li>[x] <code>require_usable</code> selects the table <strong>in force</strong> on the payroll date (newest <code>effective_from</code>
+      among unexpired) instead of the last one by list order</li>
+<li>[x] ~~Move the hourly divisor (173 h) and overtime multipliers (1.5×/2.0×) into verified rate
+      tables — they are statutory numbers hardcoded in <code>payroll.py</code>, against the project's own rule~~
+      Done in the payroll audit: every multiplier and the divisor come from verified tables with no
+      fallback, and a missing row blocks</li>
+<li>[x] ~~Replace <code>float</code> money with <code>Decimal</code> + <code>ROUND_HALF_UP</code> and add a totals-equal-lines
+      invariant~~ Done: <code>models/money.py</code> and <code>PayrollLine.check_invariants</code> (now also mirrored as
+      database CHECK constraints, migration <code>0023</code>)</li>
+<li>[x] ~~Progressive (marginal) PPh 21 TER brackets; today one bracket's rate is applied to the
+      whole gross~~ Done in the payroll audit, along with the top-bracket <code>0.0</code> return and TER
+      being applied to the whole gross</li>
+<li>[x] ~~Implement <code>THR</code> (a declared run kind with zero implementations) and the <code>MINIMUM_WAGE</code>
+      check~~ Done: THR, PTKP and the minimum-wage check all read verified tables; the open BPJS
+      treatment of THR is a deliberate blocking anomaly for a named human</li>
+<li>[x] ~~Honour <code>PayrollInput.absence_days</code>, which is collected, validated, and persisted — then
+      ignored~~ Done in the payroll audit: absence days reduce the paid base and the figure is
+      provenanced like the rest</li>
+<li>[x] Persistence: 7 tables + Alembic <code>0002_people</code> (16 tables total)</li>
+<li>[x] API surface: employees, contracts, approvals, tasks, rate tables (18 endpoints) — all audited, integration-tested</li>
+<li>[x] Tests: 111 new (engines + API integration) — suites pass offline, no LLM involved</li>
+</ul>
+<h3 id="81-recruitment-deep-build-completes-phase-4">8.1 Recruitment (deep build — completes Phase 4)<a class="headerlink" href="#81-recruitment-deep-build-completes-phase-4" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] (see Phase 4.1–4.6) + rejection communication flow (gated outbox, backend + UI) and full
+      offer records (terms revisions, shared-approval gate, offer message via the outbox,
+      acceptance/decline tracking, <code>offer-expiry</code> scheduler job)</li>
+</ul>
+<h3 id="82-policy-knowledge">8.2 Policy &amp; Knowledge<a class="headerlink" href="#82-policy-knowledge" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] <code>PolicyAssistant</code> agent with citation-mandatory answers (Phase 4.4)</li>
+<li>[ ] Knowledge base: company policies + Indonesian labor law (verified sources)</li>
+<li>[ ] Policy change workflow (edit → version → effective date)</li>
+</ul>
+<h3 id="83-onboarding-done-wave-1-scope-checklist-documents-contract-prep">8.3 Onboarding <code>DONE</code> (Wave 1 scope: checklist + documents + contract prep)<a class="headerlink" href="#83-onboarding-done-wave-1-scope-checklist-documents-contract-prep" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Template-driven checklist engine: steps (document/task/contract/account/orientation/confirmation), role+contract-type matching, deterministic template content hash for audit reconstruction</li>
+<li>[x] Plan instantiation: per-employee plan created from a template; underlying tasks auto-created via the Task engine</li>
+<li>[x] Progress + blockers: required-step progress, overdue steps, plan completion timestamp</li>
+<li>[x] Human completion enforced: agents cannot complete checklist steps; waiving requires a human + reason (audited)</li>
+<li>[x] Document collection: steps link to the employee document vault; kind mismatch rejected; <code>auto_complete_document_step</code> is the one agent-allowed completion tier — requires a VERIFIED document and no human sign-off</li>
+<li>[x] Starter template shipped (<code>default_engineering_template</code>) for engine bootstrap; operators create their own in the API/UI</li>
+<li>[x] API surface: 8 endpoints (templates CRUD-lite, plans, step complete/waive/link-document, document status)</li>
+<li>[x] Tests: 34 new (service + API integration); audit chain covers every transition</li>
+<li>[ ] Contract preparation templates (PKWT/PKWTT document generation) — later</li>
+<li>[ ] Accounts/equipment inventory tracking — later</li>
+<li>[ ] Onboarding workspace UI (Phase 6)</li>
+</ul>
+<h3 id="84-records-hris-lite">8.4 Records (HRIS-lite)<a class="headerlink" href="#84-records-hris-lite" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Employee CRUD (API), documents vault (API), contract lifecycle (API)</li>
+<li>[x] Expiry alerts (documents + contracts; task generation)</li>
+<li>[ ] Natural-language lookup ("who's on probation?") — agent tool</li>
+<li>[ ] Org chart + reporting lines (data + API exist; UI later)</li>
+</ul>
+<h3 id="85-time-leave-done-wave-1-scope-policies-balances-requests-calendar">8.5 Time &amp; Leave <code>DONE</code> (Wave 1 scope: policies, balances, requests, calendar)<a class="headerlink" href="#85-time-leave-done-wave-1-scope-policies-balances-requests-calendar" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Leave types (annual/sick/personal/maternity/paternity/bereavement/marriage/unpaid) with operator-configurable policies — <strong>no hardcoded statutory numbers</strong></li>
+<li>[x] Accrual methods: flat-monthly, lump-sum annual, per-event cap, none; min-service gating; carryover with caps</li>
+<li>[x] Working-day math: weekend exclusion + public holiday calendar (operator-set)</li>
+<li>[x] Balances: entitled / used / pending / carried-over / adjustments; manual adjustments audited with reason</li>
+<li>[x] Requests: validation chain (documents, caps, min service, balance, overlaps) → routed through the Approval engine → synced on decision; <code>requires_approval=false</code> policies auto-approve in the auto tier</li>
+<li>[x] Calendar view (who is on leave), pending queues, per-employee history</li>
+<li>[x] API: 12 endpoints (policies, holiday calendar, balances, adjust, requests, cancel, sync, calendar)</li>
+<li>[x] Cancellation carries its reason end to end: the router was accepting one and the service dropped it, so the record said only “cancelled”. <code>LeaveService.cancel</code> now refuses a blank reason and writes it into the audit payload and the approval withdrawal</li>
+<li>[x] Tests: 36 new (service + API integration), audit chain covers every transition</li>
+<li>[ ] <code>LeaveAssistant</code> agent (policy Q&amp;A, request drafting over chat) — agent phase</li>
+<li>[x] Leave workspace UI (Phase 6) - board (who is out, balances) + queue (pending-first list, cancel behind a mandatory reason). Approval deliberately not here: it belongs in the approvals inbox</li>
+</ul>
+<h3 id="86-payroll-prepare-verify-only-never-executes-payments-done-wave-1-core">8.6 Payroll (prepare &amp; verify ONLY — never executes payments) <code>DONE</code> (Wave 1 core)<a class="headerlink" href="#86-payroll-prepare-verify-only-never-executes-payments-done-wave-1-core" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Run lifecycle: draft → assembling → ready_for_review → pending_signoff → approved → exported (or rejected/cancelled); run kinds (monthly, THR, adjustment, final)</li>
+<li>[x] Computation consumes <strong>verified rate tables only</strong> — missing/unverified required tables raise blocking ERROR anomalies instead of guessing</li>
+<li>[x] Overtime (first-hour × subsequent multipliers from the overtime table), BPJS employee+employer shares with wage caps, PPh 21 from a TER-style bracket table (skipped with a warning when unverified)</li>
+<li>[x] Anomaly detection: negative net (ERROR, blocks sign-off), excessive overtime (WARNING), net deviation vs previous run (WARNING), missing rate tables (ERROR)</li>
+<li>[x] <strong>Human sign-off via the approval engine (Finance role)</strong> — agents cannot decide; run export blocked until approved</li>
+<li>[x] XLSX review packet (per-employee lines, totals, run info, explicit "no payments executed" notice); GET packet endpoint with notice header</li>
+<li>[x] API: 10 endpoints (runs, inputs, compute, submit, decision sync, export, packet.xlsx, cancel)</li>
+<li>[x] Tests: 23 new (service computations with exact expected values + API integration flows); audit chain covers every transition</li>
+<li>[ ] Attendance/overtime import (CSV/XLSX) from office machines — Phase 7 files work</li>
+<li>[ ] Payslip distribution coordination (human-approved) — Phase 7 messaging</li>
+<li>[x] Payroll workspace UI (Phase 6) - runs board, run detail with blocking vs advisory anomalies, lifecycle-gated compute/submit/cancel, review-packet link (XLSX is review only, never payment execution)</li>
+</ul>
+<h3 id="87-performance-done-wave-1-scope-cycles-forms-summaries-light-goals">8.7 Performance <code>DONE</code> (Wave 1 scope: cycles, forms, summaries, light goals)<a class="headerlink" href="#87-performance-done-wave-1-scope-cycles-forms-summaries-light-goals" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Review cycles: operator-set rating scale (no hardcoded 1–5), deterministic lifecycle (draft → active → reviewing → completed/cancelled), assignment required before activation, close blocked on pending forms + unfinalized summaries</li>
+<li>[x] Form collection: per-reviewer assignments with due dates, human-only submissions validated against the cycle scale, skip-with-reason for departed reviewers, reviewer workload query</li>
+<li>[x] Summary drafts (human-edited): agent drafts grounded in submitted ratings (<code>draft_summary</code> requires ≥1 submitted form), <strong>human-only finalization</strong>, finalized text terminal (no re-draft)</li>
+<li>[x] Reminder runner: creates system tasks for due forms + unfinalized summaries, deduplicated per assignment/summary so it can run daily</li>
+<li>[x] OKR/goal tracking light: title/metric/cycle link, append-only progress updates, human activate/complete/cancel (cancel needs a reason), overdue detection</li>
+<li>[x] API: 17 endpoints (cycles CRUD-lite + transitions, assignments submit/skip/list, summaries draft/finalize, goals lifecycle, reminders run)</li>
+<li>[x] Persistence: 4 tables (<code>review_cycles</code>, <code>review_assignments</code>, <code>review_summaries</code>, <code>goals</code>) in migration <code>0004_growth_offboarding</code></li>
+<li>[x] Tests: 29 service + 9 API integration</li>
+<li>[x] Growth workspace UI (Phase 6) - board (cycles in flight, the server's overdue list, open goals with progress) + queue (the caller's own review forms with a real rating form gated on the cycle's scale; a skipped form shows as skipped, not as outstanding work)</li>
+<li>[x] <code>GET /v1/growth/assignments/mine</code></li>
+<li>[x] Growth summary editor (Phase 6): draft grounded in submitted forms, human-only finalisation with the final text starting empty, and no second finalise once it is final</li>
+<li>[x] Compliance consent registry (Phase 6): refusals recorded as evidence, withdrawal human-only with a mandatory reason</li>
+<li>[x] Retention purge behind a typed confirmation (Phase 6): the dry run uses the same code path as the real run, and the report stays on screen afterwards</li>
+<li>[x] Audit trail viewer (Phase 6): <code>GET /v1/compliance/audit/entries</code> plus search, verbatim payloads and a JSON slice export</li>
+<li>[x] <code>ProblemDetail.detail</code> typed as the union it actually sends</li>
+<li>[x] <code>DomainError</code> base with a <code>DomainCode</code> and a status, inherited additively by every service error: the 11 routers that recognised a refusal by asking whether the message contained "named human" now call <code>domain_problem(exc)</code>, and the rule is decided once, at the gate (<code>str | list[dict] | None</code>), so the generated client no longer lies - resolves the authenticated principal as the reviewer, so the client never has to pass <code>reviewer_id</code> and no one is asked to type the string that decides whose reviews they see</li>
+<li>[x] Every record-lookup refusal (31 across twelve services) tagged <code>UNKNOWN_RECORD</code>/404 at its raise site, so no router decides a status by reading English -- <code>tests/api/test_domain_errors.py</code> guards all three prose shapes that used to exist</li>
+<li>[ ] <code>ReviewAssistant</code> agent (summary drafting, tone-adjusted) — agent phase</li>
+<li>[ ] Performance workspace UI (Phase 6)</li>
+</ul>
+<h3 id="88-offboarding-done-wave-1-scope-checklists-assets-final-pay-coordination">8.8 Offboarding <code>DONE</code> (Wave 1 scope: checklists, assets, final pay coordination)<a class="headerlink" href="#88-offboarding-done-wave-1-scope-checklists-assets-final-pay-coordination" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Templates: reason/role matching, operator-editable steps (task/document/asset/account/interview/handover/final-pay/confirmation), deterministic template content hash for audit reconstruction</li>
+<li>[x] Plan instantiation: per-employee exit checklist, tasks auto-created via the Task engine, employee moved to <code>notice_period</code> on plan start</li>
+<li>[x] Human completion enforced: agents cannot complete/waive steps (waive requires human + reason); plan completion is an explicit human action</li>
+<li>[x] Exit interview scheduling + knowledge handover notes attached to the plan</li>
+<li>[x] Asset tracking: assigned → returned / missing → written-off (human + reason); assigned/missing assets block clearance</li>
+<li>[x] Final pay coordination: opens a FINAL payroll run + Finance task; run still requires inputs, verified tables, anomaly clearance, and Finance sign-off — <strong>no payments executed</strong></li>
+<li>[x] Completion: all required steps + zero asset blockers, then <code>finalize_employee_exit</code> transitions the employee record (keeps its own guards)</li>
+<li>[x] API: 19 endpoints (templates CRUD-lite + default, plans + steps/waive/interview/handover/final-pay/complete/finalize, assets + return/missing/write-off/clearance)</li>
+<li>[x] Persistence: 3 tables (<code>offboarding_templates</code>, <code>offboarding_plans</code>, <code>offboarding_assets</code>) in migration <code>0004_growth_offboarding</code> (28 tables total)</li>
+<li>[x] Tests: 21 service + 9 API integration (+6 shared DB round-trip tests covering all new tables)</li>
+<li>[ ] Asset inventory at onboarding time (assign equipment on day one) — later</li>
+<li>[ ] <code>OffboardingCoordinator</code> agent (checklist chasing, exit interview summaries) — agent phase</li>
+<li>[x] Offboarding workspace UI (Phase 6) - departing board, per-plan checklist, asset return/missing, finalise gated on outstanding required steps AND asset clearance</li>
+</ul>
+<h3 id="89-compliance-cross-cutting-done-wave-1-core-consent-retention-erasure-breach-audit-verify">8.9 Compliance (cross-cutting) <code>DONE</code> (Wave 1 core: consent, retention, erasure, breach, audit verify)<a class="headerlink" href="#89-compliance-cross-cutting-done-wave-1-core-consent-retention-erasure-breach-audit-verify" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[x] Approval/task audit trails for every HR operation</li>
+<li>[x] Consent registry: purpose-scoped grants/refusals/revocations with expiry, lawful basis, capture evidence, and <code>active</code> checks (<code>has_active_consent</code>); agents may record evidence, only humans revoke</li>
+<li>[x] Retention engine: per-entity operator policies (months + delete/anonymize action, <strong>no hardcoded statutory window</strong>), record ledger with anchor dates + overrides, deterministic scan (due / held / uncovered), dry-run and scheduled purge (<code>by="system"</code>), per-record purge handlers for store mutation (consent, employee, document, candidate, application, and payroll — HR's decision: a tax record keeps its figures under the erasure pseudonym, so payroll blanks the free-text name at export and keeps amounts, ids and periods), and the ledger is fed by the services that create the records, full audit trail</li>
+<li>[x] Legal holds: human-only, reason required, never auto-purged by retention or erasure; reported per record</li>
+<li>[x] <strong>Compliance calendar</strong> (the market differentiator, both halves): derived deadlines the
+      system already knows — probation ends, contract expiries (upcoming-only; a lapsed contract
+      already has its task), document expiries including overdue — merged with operator-entered
+      dates that <strong>must name their source</strong> (<code>source_note</code>; no statutory date ships with the
+      product). Window API with the <code>Page</code> envelope and <code>overdue</code> computed against
+      <code>business_today</code>; month view on the compliance board with deep links into records and an
+      audited add/remove-with-reason flow; migration <code>0021</code> with tenant RLS</li>
+<li>[x] Erasure workflow (UU PDP / GDPR shape): request → human identity verification → Data Protection approval (shared engine; agents can request, never decide) → <strong>separate</strong> human execution; per-record dispositions (deleted / anonymized / retained under hold) and consent revocation</li>
+<li>[x] <strong>Honest erasure outcomes</strong>: <code>_apply_purge</code> returns <code>None</code> when no store handler is registered, so
+      the outcome is <code>skipped</code> (retention) or <code>not_executed</code> (erasure) instead of a false <code>deleted</code>.
+      Previously every erasure reported success and deleted zero bytes, in both the API response and
+      the audit chain. <code>consent</code> is the one entity with a real handler today; the rest are refused,
+      loudly</li>
+<li>[x] ~~Register purge handlers for candidate, application, employee, document, and payroll
+      records — and feed the retention ledger from the services that create them (today it is
+      operator-manual)~~ All five entities have handlers (<code>PeopleServices</code> registers
+      consent/employee/document/payroll, <code>register_recruitment_purge_handlers</code> covers
+      candidate/application) and the ledger is fed where records are born: at employee
+      creation, document filing and application submission — and for payroll, at export,
+      when a run stops being a draft (tracking a recomputable draft would enrol rows whose
+      figures later change). The operator endpoint remains for anything else</li>
+<li>[x] Breach workflow: operator-editable checklist templates (starter default, not legal advice), materialized steps with configurable offsets, notification log, forward-only status lifecycle (close requires all required steps + closure note), overdue-step reporting</li>
+<li>[x] Audit-chain verifier: end-to-end hash chain check with first-invalid-sequence reporting (<code>GET /v1/compliance/audit/verify</code>)</li>
+<li>[x] API: 27 endpoints (consents, retention policies/records/scan/purge/holds, erasures + decision sync/execute, breaches + template/steps/notifications/status/overdue, audit verify)</li>
+<li>[x] Persistence: 5 tables (<code>consent_records</code>, <code>retention_policies</code>, <code>retention_records</code>, <code>erasure_requests</code>, <code>breach_incidents</code>) + Alembic <code>0003_compliance</code> (21 tables total)</li>
+<li>[x] Tests: 48 new (service + API integration); agent/human actor boundaries, legal-hold precedence, and dry-run no-mutation covered explicitly</li>
+<li>[ ] Labor-law knowledge base with citations — Phase 8.2 (knowledge docs exist in <code>skills/</code>)</li>
+<li>[ ] WLKP/BPJS reporting reminders — Phase 8.2/8.6 follow-up</li>
+<li>[x] Scheduled job wiring (retention sweep, breach overdue, review reminders, expiries, offer expiry,
+      overdue tasks, audit verify, reply SLA) — all through <code>scripts/run_scheduler.py</code>, composed into
+      Compose as a 15-minute loop. Each tick writes a JSON report to a shared volume and every loop
+      container has a <code>HEALTHCHECK</code>, so a job failing inside <code>while true</code> is visible. Alert rules
+      ship in <code>ops/alerts/hragents.rules.yml</code> (stuck queue, scheduler stale/failing, dead
+      letters, backlog, API error/latency), guarded by a test against the metrics actually
+      rendered; the dead-letter dashboard (<code>/app/ops</code>, metadata-only with a reason-gated
+      requeue) and the worker stuck-job reaper (<code>queue-reaper</code> scheduler job) also
+      ship, and the API exposes the list and requeue behind <code>admin:manage</code></li>
+<li>[ ] <strong>Business dates are server-local.</strong> ≈20 bare <code>date.today()</code> calls and no <code>Settings.timezone</code>
+      anywhere, so on a UTC host "today" is yesterday for 17 hours a day in WIB — off-by-one leave
+      day counts, contract expiry windows, and payroll periods. Needs <code>HRAGENTS_TIMEZONE</code> threaded
+      through every business-date computation</li>
+<li>[ ] Pipeline consent checkpoint (halt candidate processing when <code>has_active_consent</code> is false) — Phase 8.1 integration</li>
+<li>[x] Approvals workspace UI (Phase 6) - the one place a decision is taken: board (overdue-first queue, escalation, the viewer's own role) + queue (approve/reject with the reason a rejection demands). Leave, payroll, offboarding, compliance-erasure and growth all defer here rather than growing their own approve button</li>
+<li>[x] <code>GET /v1/session</code> - who the server thinks you are: actor id, role, employee binding, and the approver roles this principal may decide, read from the same <code>APPROVER_ROLE_HOLDERS</code> table <code>ApprovalService</code> enforces with, so the client keeps no copy of it</li>
+<li>[x] Auth middleware distinguishes a missing credential from a refused one (<code>auth_required</code> vs <code>auth_invalid</code>) - it previously set the same message for both, which made the second code unreachable</li>
+<li>[x] Compliance workspace UI (Phase 6) - board (unverified rate tables, open breaches, overdue breach steps, audit-chain verifier) + queue (erasure requests, breach containment ladder, retention scan, rate-table verification). Erasure decisions stay in the approvals inbox - read-only: findings, retention/purge log, verified rate tables. No agent action, no edit</li>
+</ul>
+<h2 id="phase-9-deployment-operations">Phase 9 — Deployment &amp; operations<a class="headerlink" href="#phase-9-deployment-operations" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[x] <code>LICENSE</code> file (Apache-2.0)</li>
+<li>[x] Freelance services one-pager — README "Work with the author" section live (full landing page later, Phase 10)</li>
+<li>[x] Setup wizard + one-command self-host install (this <em>is</em> the adoption strategy) — <code>scripts/setup.py</code> writes <code>.env</code>; the empty dashboard shows the first-run checklist; <code>scripts/seed_starters.py</code> / <code>POST /v1/setup/starters</code> add checklists and empty rate-table shells</li>
+<li>[x] Self-host distribution: one-command compose, setup wizard, backup/restore docs</li>
+<li>[ ] Local-model mode (Ollama) — fully offline operation</li>
+<li>[-] Managed cloud SaaS + billing (deferred until proven demand)</li>
+<li>[ ] Dedicated-instance option (BYOC: their cloud account) — only if requested</li>
+<li>[ ] Region options: Jakarta/Singapore deployment recipes</li>
+<li>[ ] Security hardening: key management, secrets rotation, rate limits, pen-test checklist</li>
+<li>[ ] Observability: OTel traces, Prometheus metrics, Grafana dashboards, cost tracking</li>
+<li>[ ] Data governance: export, deletion procedures, DPA template</li>
+</ul>
+<h2 id="phase-10-paper-docs-publication">Phase 10 — Paper, docs &amp; publication<a class="headerlink" href="#phase-10-paper-docs-publication" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[ ] Paper: recruitment deep-dive + the "HR department of one" platform framing</li>
+<li>[ ] Measured results: load tests, eval scores, fairness-audit results, latency budgets</li>
+<li>[x] <code>landing/</code>: Next.js public site (static export) — home, HR automation Indonesia,
+      open-source ATS alternative, payroll preparation; <code>NEXT_PUBLIC_SITE_URL</code> sets
+      canonical/OpenGraph URLs and the build runs in CI</li>
+<li>[~] <code>landing/</code>: links to the rendered docs; an embedded changelog and demo video remain</li>
+<li>[x] <code>landing/</code>: "Work with me" page — freelance integration offer, GitHub contact</li>
+<li>[ ] README: demo dataset, screenshots, 5-minute quickstart</li>
+<li>[ ] README "Work with the author / freelance integration" section: name, product, contact, services offered</li>
+<li>[ ] Demo video / GIF walkthrough</li>
+<li>[ ] API docs site + operator runbooks</li>
+<li>[x] <code>CONTRIBUTING.md</code> + <code>CODE_OF_CONDUCT.md</code> (landed early — see Phase 1)</li>
+<li>[ ] Public release on GitHub (Apache-2.0), tagged version, release notes</li>
+</ul>
+<hr />
+<h2 id="appendix-a-explicitly-not-in-scope-revisit-only-on-real-demand">Appendix A — Explicitly not in scope (revisit only on real demand)<a class="headerlink" href="#appendix-a-explicitly-not-in-scope-revisit-only-on-real-demand" title="Permanent link">&para;</a></h2>
+<ul>
+<li>[-] Payment execution / bank file generation (payroll output is for review only)</li>
+<li>[-] Biometric/fingerprint attendance hardware drivers (CSV import covers it)</li>
+<li>[-] Native mobile apps (PWA instead)</li>
+<li>[-] Full accounting/ERP features</li>
+<li>[-] Self-hosted email server (SMTP to their existing provider)</li>
+<li>[-] Rust/Go core rewrite — rejected: bottleneck is LLM inference/network, not CPU language performance</li>
+<li>[-] Rust/Go AST microservice — deferred; extract only if profiling proves saturation at scale</li>
+<li>[-] Next.js for the dashboard — rejected: auth-walled SPA gains nothing from SSR and adds a Node runtime to every self-host deployment</li>
+</ul>
+<h2 id="appendix-b-hard-prohibitions-never-ship">Appendix B — Hard prohibitions (never ship)<a class="headerlink" href="#appendix-b-hard-prohibitions-never-ship" title="Permanent link">&para;</a></h2>
+<ul>
+<li>No shell/<code>run_command</code> tool exposed to any agent</li>
+<li>No training or fine-tuning on historical hiring outcomes</li>
+<li>No protected attributes in scoring inputs (enforced by schema + fairness harness)</li>
+<li>No auto-rejection when any anomaly flag is present</li>
+<li>No anonymous HITL overrides</li>
+<li>No hidden ranking — every score inspectable with evidence</li>
+</ul>
+<h2 id="appendix-c-known-defects-measured-not-hypothetical">Appendix C — Known defects (measured, not hypothetical)<a class="headerlink" href="#appendix-c-known-defects-measured-not-hypothetical" title="Permanent link">&para;</a></h2>
+<p>Found in the Stage 0 audit. Ordered by blast radius. Each is a real code path,
+not a style opinion.</p>
+<ol>
+<li>~~<strong>The named-human gate is a substring test on a self-declared string.</strong>~~ <strong>Fixed.</strong>
+   <code>hr_agents/identity.py</code> now owns one <code>classify_actor()</code>, one <code>require_named_human()</code>, and
+   <code>ActorRef</code> (which carries the actor <em>and</em> how it was established); the 19 private copies are
+   deleted and the ten ungated operations are gated. Authentication moved into middleware, so the
+   key is resolved once per request and 401/403 are distinguishable. <strong>No request body in the API
+   names the actor</strong>: 60 <code>by</code>/<code>created_by</code>-style fields are gone across all eight groups plus the
+   approval endpoints, 70 service parameters take an <code>ActorRef</code>, 69 endpoints pass the
+   authenticated principal, and the dashboard's "type your name" inputs are deleted rather than
+   left silently ignored. A blank actor can no longer be constructed at all. Sending one of those
+   fields now returns <strong>422 naming the field</strong> — refused, not ignored. <code>GET /v1/compliance/audit/verify</code>
+   was the last actor claim reachable outside a body and now takes the principal too.
+   <strong>Still open, and it is a different problem:</strong> authentication establishes <em>who</em>, not <em>what
+   they may do</em>. A <code>MANAGER</code> can still decide a <code>FINANCE</code>-assigned payroll sign-off, and 68 write
+   endpoints are still guarded by a READ permission (item 4). That is the B3 authorization work.</li>
+<li>~~<strong>Actor classification is implemented 11 times with 3 behaviours.</strong>~~ <strong>Fixed.</strong> All three
+   sites recording <code>agent:</code> as <code>ActorType.HUMAN</code> (<code>contracts</code>, <code>employees</code>, <code>rate_tables</code>) now route
+   through the shared classifier, as do the four that matched only the exact string <code>"system"</code>.
+   Regression-tested in <code>tests/test_named_human_gates.py</code>.</li>
+<li>~~<strong>The scoring dimensions are engineering-shaped.</strong>~~ <strong>Fixed.</strong> An 8-year ACCA accountant for a Finance
+   Supervisor role scored <code>S_tech = 0.5425</code> → <code>REJECT_AUTO</code> with no human in the loop. Measured on a
+   realistic profile before the fix: <code>technical_depth 0.606</code>, <code>stack_alignment 1.000</code> (a perfect match on
+   every stated requirement), <code>systems_literacy **0.000**</code>, <code>S_tech 0.5425</code> against a 0.70 floor.
+   <code>systems_literacy</code> was not <em>low</em>, it was <strong>zero</strong>: it intersected <code>Skill.category</code>, whose enum was
+   entirely software, so every accounting skill was <code>OTHER</code>; and its architecture keywords and title
+   tiers were software words, so "Accounting Supervisor" matched no tier. Two further signals were also
+   software-shaped: <code>projects</code> carried 0.15 of <code>technical_depth</code> for every occupation (a field no
+   accountant fills in), and breadth saturated at <em>twelve distinct technologies</em>.
+   <code>services/dimensions.py</code> now holds a <code>DimensionTemplate</code> per <code>JobFamily</code> (engineering, finance,
+   education, healthcare, legal, operations, sales, general) supplying each family's vocabulary, tier
+   ladder, breadth vocabulary and saturation. <code>JobSpecification.job_family</code> selects it and defaults to
+   <code>ENGINEERING</code>, so every pre-existing job is scored exactly as before — the calibration corpus and the
+   exact-arithmetic assertions in <code>test_scoring.py</code> are the guard that it stayed that way. The same
+   accountant now scores <code>S_tech = 0.737</code> and is routed to a person. A template varies <em>which evidence
+   counts</em>, not the axes: <code>ScoreVector</code> is still S ∈ [0,1]^4 because those names are persisted,
+   published in the OpenAPI document, rendered in the dashboard and translated in two locales.
+   <code>SkillCategory</code> gained non-software values so "does this candidate have finance skills" has an answer
+   other than no. Two side fixes fell out: title tiers are now matched on <strong>words</strong> rather than
+   substrings, so "Resource Manager" no longer scored as senior for containing the letters <code>sr</code>; and
+   the rationale text now names the family instead of always saying "systems categories".
+   The name-swap fairness harness still cannot catch this class of defect — swapping a name does not
+   change the distribution's shape. <code>tests/services/test_scoring_families.py</code> is the new guard, built on
+   realistic per-occupation evidence the calibration corpus does not contain.</li>
+<li><strong>68 write endpoints are guarded by a READ permission</strong>, and 6 of 17 permissions are
+   dead code (<code>PEOPLE_WRITE</code>, <code>PAYROLL_WRITE</code>, <code>COMPLIANCE_WRITE</code>, <code>RATES_VERIFY</code>,
+   <code>AUDIT_READ</code>, <code>ADMIN_MANAGE</code>). A <code>manager</code> can waive offboarding steps and finalize an
+   employee exit.</li>
+<li>~~<strong><code>money</code> is <code>float</code> with banker's rounding</strong>; <code>round(0.125, 2) == 0.12</code>. A rupiah can
+   be lost, and the XLSX totals row can disagree with the sum of its own lines.~~ <strong>Fixed, and
+   the audit underneath it was worse than the rounding.</strong> <code>models/money.py</code> makes money a
+   <code>Decimal</code> quantised to two places, <code>ROUND_HALF_UP</code>, serialising back to a JSON number so the
+   wire format is unchanged; <code>PayrollLine.check_invariants()</code> asserts gross, deductions, net and
+   employer cost against their components, and the XLSX exporter stopped re-summing employer cost
+   with <code>round()</code>. Fixing the arithmetic exposed six further payroll defects, all now fixed:
+   <strong>TER was not progressive</strong> (one bracket's rate applied to the whole gross -- Rp 17,880,000 per
+   employee per year on a Rp 20,000,000 monthly gross) and <strong>returned <code>0.0</code> above the top bracket</strong>,
+   silently exempting the highest earners; <strong><code>absence_days</code> was collected, validated, persisted and
+   exposed in OpenAPI but never read</strong>; <strong>overtime's 1.5x tier was one hour per month instead of per
+   day</strong> (UU 13/2003 Pasal 56(2)); <strong>rate tables were selected by taking the last of a list sorted by
+   name</strong>, so back-running a period used current rates and recorded them as provenance; <strong><code>RateEntry.key</code>
+   was never read</strong>, so a keyed BPJS JKK table charged its first row to everyone. The audit also found
+   <strong><code>PayrollRunKind.THR</code> had no arithmetic behind it at all</strong> -- a THR run produced an identical
+   monthly payslip labelled as a termination payout -- plus <strong>PTKP never applied</strong> and <strong><code>minimum_wage</code>
+   never read</strong>, both of which the enum had carried since the start. THR, PTKP and minimum wage are
+   now implemented against verified tables, and the hardcoded constants (<code>HOURLY_DIVISOR = 173</code>, the
+   1.5/2.0 overtime multipliers) are gone with no fallback: a missing rate-table row blocks. The one
+   deliberate gap left is BPJS treatment of THR, which is not derivable from the monthly tables and
+   raises a blocking <code>thr_bpjs_unmodelled</code> anomaly for a named human to settle.</li>
+<li>~~<strong>No <code>CHECK</code> constraint exists anywhere in 35 tables</strong> and 8 tables have no foreign
+   keys~~ <strong>Done, with named residuals.</strong> Migration <code>0023</code> pins 38 CHECK constraints that
+   mirror existing model validators (payroll money signs and the four payslip arithmetic
+   identities — rounded to the money quantum for SQLite's float-backed <code>Numeric</code> — leave
+   day/date rules, goal progress, cycle period and rating-scale order, finalized-summary
+   authorship, employee probation/offboarding dates, the four contract rules, approval
+   decider pairing, retention window/hold rules, evaluation score ranges, offer revision
+   indices), proved by <code>tests/db/test_check_constraints.py</code> with the model bypassed.
+   Migration <code>0022</code> adds thirteen named FKs (growth cycles, the three <code>approval_id</code>
+   columns, onboarding/offboarding parents, the offboarding final pay run, the
+   schedule-proposal self-reference) and exposed two latent payload-serialization crashes
+    that are fixed; <code>0024</code> follows with the growth employee references after
+    <code>GrowthService</code> gained the shaped-404 lookup they needed; <code>0025</code> closes
+    <code>leave_requests.document_id</code> against the employee's own vault (checked in
+    <code>LeaveService.request</code>); <code>0026</code> closes <code>evaluations.application_id</code>. One reference
+    deliberately stays loose and is named in remaining-work:
+    <code>scheduling_availability.interviewer_id</code> (no interviewer table — availability
+    belongs to a calendar identity the scheduling integration owns).</li>
+<li>~~<strong>43 of 45 list endpoints are unpaginated</strong>~~ <strong>Done, with deliberate Python-side
+   lists.</strong> All 49 list routes answer <code>Page[T]</code> (<code>items</code>/<code>total</code>/<code>limit</code>/<code>offset</code>; <code>limit</code> ≤ 200,
+   default 100 via <code>PaginationDep</code>) with deterministic ordering (id tiebreaks where keys can
+   tie), the web fetches every page through <code>fetchAllPages</code>, and OpenAPI + the generated TS
+   client were regenerated. Every list that grows with the business now runs its predicate,
+   ORDER BY, LIMIT/OFFSET and count in SQL: employees, leave requests, the leave calendar day
+   window, approvals, the document vault, audit entries, payroll runs, applications,
+   communications and replies, offers, scheduling proposals, tasks, contracts, review
+   cycles/assignments/summaries/goals, consents, retention records, erasures, breach
+   incidents and offboarding assets, plus the <code>_previous_run</code> and active-plan aggregations.
+   The bounded and computed lists stay in Python by design, named in remaining-work:
+   operator-managed configuration, employee-scoped records, merged/derived lists (compliance
+   calendar, overdue breach steps, ops queue, POST sweeps), and handoffs (no database adapter
+   yet).</li>
+<li><strong>No optimistic concurrency anywhere.</strong> <code>db/mapping.py</code> read-modify-writes with no
+   version predicate and no unit of work, so two concurrent <code>complete_step</code> calls
+   silently lose one. A mid-loop erasure failure leaves a half-erased state.</li>
+<li><strong>Feedback and screening validators substring-match</strong> <code>"age"</code>, so "message",
+   "average", "language", "coverage", and "manager" are false positives. Latent only
+   because the screening agent is not yet on the live path.</li>
+<li><strong>The knowledge corpus is 5 documents</strong> with no Indonesian leave, payroll, or
+    termination content, and the hash-embedding provider makes retrieval 100% lexical
+    with a 60% weight on the noisier half of the "hybrid" score. A leave question returns
+    an empty template.</li>
+<li><strong>The frontend has no refresh affordance and never invalidates the attention queries</strong>,
+    so a phone user cannot force fresh data and the home page can show a stale board.</li>
+<li><strong><code>toLocaleString(undefined)</code> in <code>web/src/lib/dates.ts</code></strong> means the language switcher
+    does not control date formatting, and the app shows <code>2026-02-01</code> next to <code>Feb 1, 2026</code>
+    on one screen.</li>
+<li><strong>An undeclared transitive dependency installs a global import hook.</strong> <code>beartype</code> (pulled
+    in by <code>pydantic-ai</code>, not declared here) patches <code>importlib</code>; on a developer Windows
+    machine it made <code>import hr_agents.models</code> take ~35 s and the suite 7-10× slower. A
+    hazard for contributors, a security-review question for a self-hosted product: pin it
+    explicitly or assert it away.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../../legal/dpa-template/" class="md-footer__link md-footer__link--prev" aria-label="Previous: DPA template">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                DPA template
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../remaining-work/" class="md-footer__link md-footer__link--next" aria-label="Next: Remaining work">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                Remaining work
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Apache-2.0 · built in Jakarta
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "content.code.copy", "content.action.edit", "search.suggest", "search.highlight"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
