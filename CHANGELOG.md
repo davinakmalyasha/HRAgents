@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.7.0...hr-agents-v0.8.0) (2026-10-26)
+
+
+### Features
+
+* **mcp:** attach external tools without granting a shell or inventing a preview ([f34cf48](https://github.com/davinakmalyasha/HRAgents/commit/f34cf48e2c0c7c6890470281cec8d75e53e2730c))
+
+
+### Documentation
+
+* regenerate the contract for the MCP status route ([1e6e896](https://github.com/davinakmalyasha/HRAgents/commit/1e6e896195eac9ad21226bbf903097f2bc50bd84))
+
 ## [0.7.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.6.0...hr-agents-v0.7.0) (2026-10-25)
 
 
