@@ -47,6 +47,20 @@ vi.mock('@/features/providers/useProviders', () => ({
   useProviders: () => providers,
 }))
 
+const connections = vi.hoisted(() => ({
+  data: [] as unknown[],
+  isLoading: false,
+  isError: false,
+  error: null as unknown,
+}))
+
+vi.mock('@/features/ops/useConnections', () => ({
+  useConnections: () => connections,
+  useSaveConnection: () => ({ mutate: vi.fn(), isPending: false }),
+  useRemoveConnection: () => ({ mutate: vi.fn(), isPending: false }),
+  useTestConnection: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}))
+
 vi.mock('@/features/ops/useOps', () => ({
   useDeadLetters: () => ({
     isLoading: state.isLoading,

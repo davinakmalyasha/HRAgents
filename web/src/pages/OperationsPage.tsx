@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime } from '@/lib/dates'
 
 import { OpsRequestError, type DeadLetterView } from '@/features/ops/opsApi'
+import { ConnectionsSection } from '@/features/ops/ConnectionsSection'
 import { useDeadLetters, useRequeueDeadLetter, useUsage } from '@/features/ops/useOps'
 import { ProviderList } from '@/features/providers/ProviderList'
 import { ProviderRequestError } from '@/features/providers/providersApi'
@@ -55,6 +56,8 @@ export function OperationsPage() {
           <ProviderList providers={providers.data ?? []} />
         )}
       </section>
+
+      <ConnectionsSection />
 
       <ModelUsage />
 

@@ -6,7 +6,8 @@ from uuid import UUID
 
 from pydantic import Field
 
-from hr_agents.models import StrictModel, UtcDateTime
+from hr_agents.models import McpServerStatus, StrictModel, UtcDateTime
+from hr_agents.models.mcp import McpImpact
 from hr_agents.providers.queue import QueueMessage
 
 
@@ -55,3 +56,16 @@ class DeadLetterRequeue(StrictModel):
 
 class DeadLetterRequeueResult(StrictModel):
     requeued: bool
+
+
+class McpServerView(StrictModel):
+    """One connection, from the environment or the dashboard, with live status."""
+
+    name: str
+    url: str
+    source: str
+    auth_env: str | None = None
+    timeout_seconds: float
+    allowed_agents: list[str] = Field(default_factory=list)
+    tools: dict[str, McpImpact] = Field(default_factory=dict)
+    status: McpServerStatus | None = None

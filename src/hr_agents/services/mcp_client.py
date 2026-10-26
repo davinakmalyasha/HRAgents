@@ -169,6 +169,7 @@ class McpManager:
         self._connections: dict[str, McpConnection] = {}
         self._available: dict[str, dict[str, str]] = {}
         self._statuses: dict[str, McpServerStatus] = {}
+        self.registered_names: list[str] = []
 
     async def connect(self) -> list[McpServerStatus]:
         """Open every server, best-effort. One failure never blocks the rest."""
@@ -274,6 +275,7 @@ class McpManager:
                     )
                 )
                 added.append(name)
+        self.registered_names = added
         return added
 
     def _handler(self, connection: McpConnection, remote: str) -> Callable[..., Any]:

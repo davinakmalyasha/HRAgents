@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import HTTPException, RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -75,7 +76,7 @@ from hr_agents.services import ApplicationStore, AuditChain
 from hr_agents.services.chat import ChatService, ConversationStore
 from hr_agents.services.dispatch import EvaluationDispatcher, UndispatchedDispatcher
 from hr_agents.services.front_door import FrontDoor
-from hr_agents.services.mcp_client import McpManager
+from hr_agents.services.mcp_config import McpConfigService, McpConfigStore, rebuild_mcp
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.provider_settings import ProviderSettingsService, ProviderSettingsStore
 from hr_agents.services.push import PushService, PushStore, PyWebPushSender
@@ -168,16 +169,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     agents = await _build_agents(app)
     app.state.agents = agents
+
     # External MCP tools are registered before chat, because the policy agent's
     # registry view is built from this same object. A failing server degrades
-    # only itself.
-    mcp: McpManager | None = None
-    if agents is not None and settings.mcp_servers:
-        mcp = McpManager(settings.mcp_servers)
-        await mcp.connect()
-        added = mcp.register(agents.tools)
-        logger.info("mcp_tools_registered", count=len(added))
-    app.state.mcp = mcp
+    # only itself. The reload callback rebuilds the manager in place; the
+    # dashboard's Connections form calls it after a save or delete.
+    async def reload_mcp() -> None:
+        configs = app.state.mcp_configs.merged()
+        app.state.mcp = await rebuild_mcp(agents, app.state.mcp, configs, environ=dict(os.environ))
+        if app.state.mcp is not None:
+            logger.info("mcp_tools_registered", count=len(app.state.mcp.registered_names))
+
+    async def probe_mcp(name: str) -> Any:
+        return await app.state.mcp_configs.probe(name)
+
+    app.state.mcp_reload = reload_mcp
+    app.state.mcp_probe = probe_mcp
+    app.state.mcp = None
+    if agents is not None:
+        await reload_mcp()
     await _build_chat(app, agents)
 
     try:
@@ -194,8 +204,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.dispatcher = UndispatchedDispatcher(str(exc))
 
     yield
-    if mcp is not None:
-        await mcp.close()
+    manager = app.state.mcp
+    close = getattr(manager, "close", None)
+    if close is not None:
+        await close()
     engine = getattr(app.state, "db_engine", None)
     if engine is not None:
         engine.dispose()
@@ -241,7 +253,7 @@ def _validation_problem_response(request: Request, exc: RequestValidationError) 
             "type": problem_uri(ProblemCode.VALIDATION_FAILED),
             "title": "request body failed validation",
             "status": status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "detail": exc.errors(),
+            "detail": jsonable_encoder(exc.errors()),
             "instance": request.url.path,
             "code": ProblemCode.VALIDATION_FAILED.value,
         },
@@ -365,6 +377,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         usage_store = DbLlmUsageStore(session_factory)
     app.state.llm_usage = LlmUsageService(usage_store)
+
+    # MCP connections: environment list plus dashboard rows. Install-wide by
+    # design -- the tool registry is process-wide, so a per-tenant row would
+    # promise an isolation the runtime does not provide.
+    mcp_store: McpConfigStore
+    if session_factory is None:
+        mcp_store = McpConfigStore()
+    else:
+        from hr_agents.db.mcp_servers import DbMcpConfigStore
+
+        mcp_store = DbMcpConfigStore(session_factory)
+    app.state.mcp_configs = McpConfigService(mcp_store, settings.mcp_servers)
+    app.state.mcp_reload = None
+    app.state.mcp_probe = None
 
     app.state.store = store
     app.state.audit = audit

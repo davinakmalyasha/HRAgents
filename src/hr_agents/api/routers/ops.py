@@ -11,19 +11,29 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
-from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
+from hr_agents.api.deps import ActorDep, PaginationDep, get_audit, require_permission
 from hr_agents.api.ops_schemas import (
     DeadLetterRequeue,
     DeadLetterRequeueResult,
     DeadLetterView,
+    McpServerView,
 )
 from hr_agents.api.problem import domain_problem, not_found, unavailable
 from hr_agents.api.schemas import Page
-from hr_agents.models import McpServerStatus, UsageSummary, utc_now
+from hr_agents.models import (
+    McpProbeResult,
+    McpServerConfig,
+    McpServerStatus,
+    UsageSummary,
+    utc_now,
+)
 from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Permission
+from hr_agents.services.audit import AuditChain
+from hr_agents.services.audit_events import record_audit
+from hr_agents.services.mcp_config import McpConfigError
 from hr_agents.services.queue_ops import QueueOpsError
 from hr_agents.services.queue_ops import requeue_dead_letter as requeue_dead_letter_service
 
@@ -39,6 +49,7 @@ def get_queue(request: Request) -> QueueBackend | None:
 
 
 QueueDep = Annotated[QueueBackend | None, Depends(get_queue)]
+AuditDep = Annotated[AuditChain, Depends(get_audit)]
 
 
 @router.get("/mcp", response_model=list[McpServerStatus])
@@ -46,6 +57,108 @@ def mcp_status(request: Request) -> list[McpServerStatus]:
     """Which external MCP servers are connected, and which tools they expose."""
     manager = getattr(request.app.state, "mcp", None)
     return manager.statuses() if manager is not None else []
+
+
+def _mcp_view(request: Request, config: McpServerConfig) -> McpServerView:
+    manager = getattr(request.app.state, "mcp", None)
+    statuses = {item.name: item for item in manager.statuses()} if manager is not None else {}
+    service = request.app.state.mcp_configs
+    return McpServerView(
+        name=config.name,
+        url=config.url,
+        source=service.source(config.name),
+        auth_env=config.auth_env,
+        timeout_seconds=config.timeout_seconds,
+        allowed_agents=config.allowed_agents,
+        tools=config.tools,
+        status=statuses.get(config.name),
+    )
+
+
+async def _reload_mcp(request: Request) -> None:
+    reload = getattr(request.app.state, "mcp_reload", None)
+    if reload is not None:
+        await reload()
+
+
+@router.get("/mcp/servers", response_model=list[McpServerView])
+def list_mcp_servers(request: Request) -> list[McpServerView]:
+    """Environmental and dashboard connections, merged, with live statuses."""
+    service = request.app.state.mcp_configs
+    return [_mcp_view(request, config) for config in service.merged()]
+
+
+@router.put("/mcp/servers/{name}", response_model=McpServerView)
+async def save_mcp_server(
+    name: str,
+    payload: McpServerConfig,
+    request: Request,
+    actor: ActorDep,
+    audit: AuditDep,
+) -> McpServerView:
+    """Add or replace a dashboard connection. Environment names are locked."""
+    if payload.name != name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="the body name must match the path",
+        )
+    service = request.app.state.mcp_configs
+    try:
+        service.save(payload, actor=actor)
+    except McpConfigError as exc:
+        raise domain_problem(exc) from exc
+    record_audit(
+        audit,
+        actor=actor,
+        action="ops.mcp_server_saved",
+        subject_type="mcp_server",
+        subject_id=name,
+        payload={
+            "url": payload.url,
+            "tools": sorted(payload.tools),
+            "allowed_agents": payload.allowed_agents,
+        },
+    )
+    await _reload_mcp(request)
+    return _mcp_view(request, payload)
+
+
+@router.delete("/mcp/servers/{name}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_mcp_server(
+    name: str,
+    request: Request,
+    actor: ActorDep,
+    audit: AuditDep,
+) -> Response:
+    """Remove a dashboard connection. Environment connections cannot be deleted."""
+    service = request.app.state.mcp_configs
+    try:
+        service.delete(name)
+    except McpConfigError as exc:
+        raise domain_problem(exc) from exc
+    except KeyError as exc:
+        raise not_found(f"unknown MCP server {name}") from exc
+    record_audit(
+        audit,
+        actor=actor,
+        action="ops.mcp_server_deleted",
+        subject_type="mcp_server",
+        subject_id=name,
+    )
+    await _reload_mcp(request)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/mcp/servers/{name}/test", response_model=McpProbeResult)
+async def test_mcp_server(name: str, request: Request) -> McpProbeResult:
+    """Connect, list tools and disconnect without registering anything."""
+    probe = getattr(request.app.state, "mcp_probe", None)
+    if probe is None:
+        raise unavailable("MCP testing is not available")
+    try:
+        return await probe(name)
+    except KeyError as exc:
+        raise not_found(f"unknown MCP server {name}") from exc
 
 
 @router.get("/usage", response_model=UsageSummary)

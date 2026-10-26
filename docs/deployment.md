@@ -174,8 +174,20 @@ credentials in the URL is refused.
 
 A server that is unreachable or unauthenticated degrades only itself: the app
 starts, the other tools work, and `GET /v1/ops/mcp` (admin) lists each server's
-connection state and exposed tools. The Settings → Connections form is not built
-yet; this is an environment-configured surface.
+connection state and exposed tools.
+
+The same list is editable from the dashboard's **Operations → Connections**
+panel (admin only). Saves are audited, reload the manager in-process, and
+unregister the previous tools so removing a connection is immediate. Two rules
+keep the two surfaces from disagreeing:
+
+- an environment-configured name is read-only in the dashboard; change it in
+  `HRAGENTS_MCP_SERVERS` instead, and
+- dashboard rows are install-wide, because MCP tools live in one process-wide
+  registry — they are not tenant-isolated.
+
+The panel's **Test** button connects, lists tools and disconnects without
+registering anything or writing a row.
 
 ### Secrets and rotation
 

@@ -165,6 +165,20 @@ class ToolRegistry:
             )
         self._tools[definition.name] = definition
 
+    def unregister(self, names: Iterable[str]) -> int:
+        """Remove tools by name; used when an MCP server is reconfigured.
+
+        Scoped views share the same underlying dict, so removing here removes
+        the tool from every agent view that was built from this registry.
+        """
+        if self._scope is not None:
+            raise ValueError("cannot unregister tools from a scoped view")
+        removed = 0
+        for name in names:
+            if self._tools.pop(name, None) is not None:
+                removed += 1
+        return removed
+
     def _visible(self, name: str) -> bool:
         if name not in self._tools:
             return False

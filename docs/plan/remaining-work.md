@@ -523,8 +523,10 @@ behind human approval.
       one exposes no tools while the others work, and `GET /v1/ops/mcp` names each state.
 - [x] Redaction of server auth material: the token is read from the named env var, never stored
       in config, status, logs or API responses; a credential embedded in the URL is refused.
-- [ ] Config UI surface in Settings → Connections with a Test button (the env-configured
-      foundation and `/v1/ops/mcp` ship; the form does not)
+- [x] Config UI surface with a Test button: the Operations page's Connections panel adds,
+      edits, removes and probes dashboard connections; saves are audited and reload the manager
+      in-process, and environment names stay read-only. (The product's admin console is the
+      Operations page; there is no separate Settings area.)
 
 ### 1.2 Server catalog (disabled by default)
 - [ ] ATS connectors: Greenhouse, Lever (candidate/application sync, status reads)

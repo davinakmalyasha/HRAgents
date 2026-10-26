@@ -480,3 +480,19 @@ class LlmUsageRecord(TenantScoped, Base):
     cache_read_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     requests: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class McpServerRecord(Base):
+    """A dashboard-managed MCP server configuration.
+
+    Install-wide rather than tenant-scoped: MCP tools are registered into one
+    process-wide registry, so a per-tenant row would promise an isolation the
+    runtime does not provide. Admin-only routes guard the table.
+    """
+
+    __tablename__ = "mcp_servers"
+
+    name: Mapped[str] = mapped_column(String(40), primary_key=True)
+    config: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    updated_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

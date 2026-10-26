@@ -16,7 +16,7 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from hr_agents.models.common import StrictModel
+from hr_agents.models.common import StrictModel, UtcDateTime
 
 McpImpact = Literal["read", "write", "destructive"]
 
@@ -80,3 +80,26 @@ class McpServerStatus(StrictModel):
     detail: str = ""
     tools: list[str] = Field(default_factory=list)
     tool_count: int = 0
+
+
+class McpServerDefinition(StrictModel):
+    """A dashboard-managed server configuration, with its last editor.
+
+    Stored globally: MCP connections and their tools are installed into one
+    process-wide registry, so they are an install capability rather than a
+    tenant's data. The environment's list remains the operator's floor;
+    dashboards may add servers but not shadow an environment name.
+    """
+
+    config: McpServerConfig
+    updated_by: str = Field(min_length=1, max_length=200)
+    updated_at: UtcDateTime
+
+
+class McpProbeResult(StrictModel):
+    """The answer to a Test click: reachable or not, and the tools it offers."""
+
+    name: str
+    connected: bool
+    detail: str = ""
+    tools: list[str] = Field(default_factory=list)
