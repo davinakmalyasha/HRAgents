@@ -2503,14 +2503,19 @@ Two things worth reading before touching any threshold:</p>
 behind human approval.</p>
 <h3 id="11-mcp-client-manager">1.1 MCP client manager<a class="headerlink" href="#11-mcp-client-manager" title="Permanent link">&para;</a></h3>
 <ul>
-<li>[ ] Config schema: server name, transport (stdio/SSE), command/URL, auth env var names, enabled
+<li>[x] Config schema: server name, HTTP/SSE URL, auth env var name, timeout, allowed agents and
+      per-tool impact (<code>McpServerConfig</code>, <code>HRAGENTS_MCP_SERVERS</code>). Stdio is deliberately
+      unsupported: a spawnable transport is a shell by another name.
       flag, tool allow/deny lists, timeout, retry policy</li>
-<li>[ ] Namespaced tool registration (<code>mcp.&lt;server&gt;.&lt;tool&gt;</code>) into the existing <code>ToolRegistry</code>, so
-      least-privilege scoping and audit wrapping apply unchanged</li>
-<li>[ ] Health checks + graceful degradation: unreachable server ⇒ tools report <code>unavailable</code>, the
-      agent falls back to built-in tools or escalates; never blocks the pipeline</li>
-<li>[ ] Redaction of server auth material in logs and API responses (<code>mask_secrets</code> contract)</li>
-<li>[ ] Config UI surface in Settings → Connections (Phase 6 dependency) with Test button</li>
+<li>[x] Namespaced tool registration (<code>mcp.&lt;server&gt;.&lt;tool&gt;</code>) into the existing <code>ToolRegistry</code>, so
+      least-privilege scoping and audit wrapping apply unchanged. Only tools the operator lists
+      are registered; destructive ones are refused because they have no preview contract.</li>
+<li>[x] Health checks + graceful degradation: connection is best-effort per server, an unreachable
+      one exposes no tools while the others work, and <code>GET /v1/ops/mcp</code> names each state.</li>
+<li>[x] Redaction of server auth material: the token is read from the named env var, never stored
+      in config, status, logs or API responses; a credential embedded in the URL is refused.</li>
+<li>[ ] Config UI surface in Settings → Connections with a Test button (the env-configured
+      foundation and <code>/v1/ops/mcp</code> ship; the form does not)</li>
 </ul>
 <h3 id="12-server-catalog-disabled-by-default">1.2 Server catalog (disabled by default)<a class="headerlink" href="#12-server-catalog-disabled-by-default" title="Permanent link">&para;</a></h3>
 <ul>
