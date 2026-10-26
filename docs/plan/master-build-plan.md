@@ -62,10 +62,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **In progress** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄 |
 | 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **Done** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅ (conversation-store Postgres adapter lands with Phase 6) |
 | 6. Web app + PWA | **In progress** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, scheduling ✅, job management ✅, candidate communications ✅, PWA shell ✅ + install prompt + push notifications ✅ (settings, XLSX remain) |
-| 7. Integrations (messaging, Google, files, MCP) | Not started |
+| 7. Integrations (messaging, Google, files, MCP) | **In progress** — MCP client + destructive-tool gate ✅, `hragents-mcp` server ✅; connector catalog (ATS/HRIS/Slack/calendar) pending |
 | 8. Departments (onboarding, records, leave, payroll prep, performance, offboarding) | **Done (Wave 1 engines)** — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅ |
-| 9. Deployment & compliance | Not started |
-| 10. Paper, docs & publication | Not started |
+| 9. Deployment & compliance | **In progress** — Compose, migrations, previews, backups, secrets, retention/purge journal, scanning ✅; external pen test pending |
+| 10. Paper, docs & publication | **In progress** — paper ✅, versioned docs site ✅, landing ✅; publication + social preview pending |
 
 > **Remaining work, MCP layer → paper & release:** `docs/plan/remaining-work.md` — detailed
 > checklists, exit criteria, suggested order, and risk notes for everything still open.
@@ -408,10 +408,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [ ] Office Connector: local folder sync agent for NAS/shared drives (only if demand)
 
 ### 7.4 MCP layer
-- [ ] MCP client manager: configs, health checks, namespaced tools, graceful degradation
+- [x] MCP client manager: configs, health checks, namespaced tools, graceful degradation
 - [ ] MCP servers catalog (disabled by default): ATS (Greenhouse/Lever), HRIS (Talenta/Gadjah), Slack, calendars
-- [ ] Approval hook for destructive MCP tools (e.g., ATS status change)
-- [ ] Expose `hragents-mcp` server (queue, evaluations, candidate status) for external tools
+- [x] Approval hook for destructive MCP tools (dry-run preview; execute once on approval, audit id recorded)
+- [x] Expose `hragents-mcp` server (reads + opt-in intake/request writes) for external tools
 
 ## Phase 8 — Departments (each = skills + tools + agents + UI + tests + knowledge)
 

@@ -548,8 +548,12 @@ behind human approval.
 - [x] Read tools: queue, application status, evaluation summary, pending approvals, leave balances
       (`hragents-mcp`, stdio, packaged console script; each tool is a GET against the API so
       permissions, tenancy and the audit boundary are the API's).
-- [ ] Write tools (approval-gated): create application from external ATS, request document, open
-      onboarding plan — **never** payroll, erasure, or rejection execution
+- [x] Write tools, opt-in (`HRAGENTS_MCP_WRITES=1`) and permission-gated by the API key:
+      `create_application` (intake; the caller supplies consent, never inferred),
+      `start_onboarding_plan`, `open_leave_request` (enters the human approval queue).
+      **Never** payroll, erasure, rejection, stage moves, approvals or overrides.
+- [ ] `request_document` write tool: there is no API route for "ask an employee for a document"
+      yet; it needs an approval-backed request, so it stays a follow-up rather than a bypass
 - [~] Auth: the server holds one role-bound API key and every call is authorized by the API's
       existing permission checks; there is no separate per-tool scope map, and reads are not
       written to the audit chain (the product audits writes, not queries). The key is read

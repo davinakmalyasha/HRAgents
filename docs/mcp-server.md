@@ -1,9 +1,14 @@
 # MCP server (`hragents-mcp`)
 
-A packaged, **read-only** MCP server for external clients — Claude Desktop,
-IDE agents, or anything that speaks MCP over stdio. It asks an HRAgents install
-what is waiting, what happened to one application, how it was evaluated, and
-what leave somebody has left. It never writes, approves, rejects or schedules.
+A packaged MCP server for external clients — Claude Desktop, IDE agents, or
+anything that speaks MCP over stdio. By default it is read-only: it asks an
+HRAgents install what is waiting, what happened to one application, how it was
+evaluated, and what leave somebody has left.
+
+Three write tools can be enabled (`HRAGENTS_MCP_WRITES=1`) for intake and
+requests. Even then it never approves, rejects, moves stages, overrides
+decisions, schedules payroll or erases records — those remain in the dashboard
+behind a named human.
 
 ## What it exposes
 
@@ -14,6 +19,18 @@ what leave somebody has left. It never writes, approves, rejects or schedules.
 | `evaluation_summary` | Deterministic evaluation: score vector, evidence, rubric family/digest, flags, recommendation |
 | `pending_approvals` | Approvals waiting for a human, optionally by approver role |
 | `leave_balances` | Leave balances for one employee (the API applies its own rules) |
+
+Write tools, off unless `HRAGENTS_MCP_WRITES=1`:
+
+| Tool | What it does | Permission |
+|---|---|---|
+| `create_application` | Ingests one application from an external ATS; the caller supplies the consent it captured — the server never infers consent | `recruiting:write` |
+| `start_onboarding_plan` | Opens a plan from a template | `people:write` |
+| `open_leave_request` | Files a leave request, which enters the human approval queue | `self_service` (or `people:write`) |
+
+The write tools are still just API calls: the key's role is the authorization,
+and audit records the actor behind the key. `open_leave_request` cannot decide
+the request it files; approving is a dashboard action.
 
 Each tool is a GET against the API. That is the authorization model: the server
 holds a role-bound API key, so the API's permissions, tenant scoping and audit
@@ -32,6 +49,7 @@ uv pip install hr-agents      # or run from a checkout with `uv run hragents-mcp
 ```bash
 export HRAGENTS_API_URL=http://localhost:8000   # default
 export HRAGENTS_API_KEY=...                     # required; role-bound
+export HRAGENTS_MCP_WRITES=1                    # optional; enables the write tools
 hragents-mcp
 ```
 
@@ -50,29 +68,34 @@ Add the server to `claude_desktop_config.json`:
       "command": "hragents-mcp",
       "env": {
         "HRAGENTS_API_URL": "http://localhost:8000",
-        "HRAGENTS_API_KEY": "paste-the-role-bound-key-here"
+        "HRAGENTS_API_KEY": "paste-the-role-bound-key-here",
+        "HRAGENTS_MCP_WRITES": "1"
       }
     }
   }
 }
 ```
 
-Restart the client. The five tools appear in its tool list. If the API is not
+Restart the client. The tools appear in its tool list. If the API is not
 running, tool calls answer a readable error instead of failing the server.
 
 ## What is deliberately missing
 
-- **No write tools.** Creating an application, requesting a document or opening
-  a leave request changes state and belongs behind the product's approval
-  engine and a named human; those tools are not exposed here.
+- **No decisions.** The server cannot approve, reject, override, move a stage or
+  schedule anything, even with an admin key. Those routes are in the dashboard.
+- **No payroll, erasure or rejection execution.** Payroll stays prepare/verify/
+  export; erasure stays a human-run compliance action; rejections require the
+  merit floor and a named sign-off.
 - **No raw documents.** Tools return structured metadata; résumé text and file
   bytes are not sent to an MCP client.
-- **No decisions.** The server cannot approve, reject, override or schedule
-  anything, even with an admin key. Those routes are in the dashboard.
+- **No document requests yet.** Asking an employee for a missing document has no
+  API route, so there is no tool for it; adding one needs an approval-backed
+  request, not a bypass.
 
 ## Contract tests
 
 `tests/test_mcp_server.py` connects an in-memory MCP client to the real server,
-asserts the tool set, calls a tool through a mocked API, checks that every call
-is a GET carrying the key, and checks that neither the key nor a refusal leaks
-into the response.
+asserts the read-only default and the opt-in tool set, runs a write through a
+mocked API, checks that an intake body carries the caller's consent unchanged,
+checks that no decision tool exists, and checks that neither the key nor a
+refusal leaks into the response.

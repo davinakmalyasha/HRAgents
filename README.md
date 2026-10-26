@@ -235,7 +235,7 @@ sources live here:
 - [System architecture](docs/architecture/system-architecture.md) — pipeline, HITL flows, Mermaid diagrams
 - [Paper](docs/paper.md) — design, measured behaviour and honest limitations
 - [Deployment & operations](docs/deployment.md) — self-host with Docker Compose, backups, runbooks
-- [MCP server](docs/mcp-server.md) — a read-only `hragents-mcp` for Claude Desktop and IDE agents
+- [MCP server](docs/mcp-server.md) — `hragents-mcp` for Claude Desktop and IDE agents, read-only by default
 - [HITL bounds](docs/architecture/hitl-bounds.md) — exact automation boundaries and anti-goals
 - [Benchmarks](docs/architecture/benchmarks.md) — measured performance
 

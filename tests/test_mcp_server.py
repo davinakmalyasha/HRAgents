@@ -1,4 +1,4 @@
-"""The packaged MCP server: read-only contract, permissions delegated, no key leak."""
+"""The packaged MCP server: permission-gated tools, no decisions, no key leak."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def api(handler: Any) -> httpx.AsyncClient:
     )
 
 
-async def test_the_server_exposes_only_read_tools() -> None:
+async def test_the_server_exposes_no_write_tools_by_default() -> None:
     from mcp.client.client import Client
 
     seen: list[httpx.Request] = []
@@ -65,6 +65,88 @@ async def test_a_tool_call_goes_through_the_api_with_the_key_and_is_a_get() -> N
     text = result.content[0].text  # type: ignore[union-attr]
     assert json.loads(text)["status"] == "applied"
     assert "secret-key" not in text
+
+
+async def test_writes_are_opt_in_and_never_include_decisions() -> None:
+    from mcp.client.client import Client
+
+    server = build_server(
+        api_key="secret-key", client=api(lambda request: httpx.Response(200)), allow_writes=True
+    )
+    async with Client(server) as client:
+        tools = await client.list_tools()
+
+    names = {tool.name for tool in tools.tools}
+    assert {
+        "create_application",
+        "start_onboarding_plan",
+        "open_leave_request",
+    } <= names
+    assert not {"approve", "reject", "decide", "move_stage", "override"} & names
+
+
+async def test_a_write_posts_json_and_returns_the_api_answer() -> None:
+    from mcp.client.client import Client
+
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        assert json.loads(request.content) == {
+            "employee_id": "emp-1",
+            "leave_type": "annual",
+            "start_date": "2026-11-02",
+            "end_date": "2026-11-03",
+            "reason": "family",
+        }
+        return httpx.Response(201, json={"id": "req-1", "status": "pending_manager"})
+
+    server = build_server(api_key="secret-key", client=api(handler), allow_writes=True)
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "open_leave_request",
+            {
+                "employee_id": "emp-1",
+                "leave_type": "annual",
+                "start_date": "2026-11-02",
+                "end_date": "2026-11-03",
+                "reason": "family",
+            },
+        )
+
+    request = seen[0]
+    assert request.method == "POST"
+    assert str(request.url).endswith("/v1/leave/requests")
+    assert request.headers["x-api-key"] == "secret-key"
+    payload = json.loads(result.content[0].text)  # type: ignore[union-attr]
+    assert payload["status"] == "pending_manager"
+
+
+async def test_intake_never_invents_consent() -> None:
+    from mcp.client.client import Client
+
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(202, json={"application_id": "app-9", "status": "queued"})
+
+    server = build_server(api_key="secret-key", client=api(handler), allow_writes=True)
+    consent = {"granted": True, "policy_version": "2.1"}
+    async with Client(server) as client:
+        await client.call_tool(
+            "create_application",
+            {
+                "job_id": "job-1",
+                "candidate": {"full_name": "Ana", "emails": ["ana@example.com"]},
+                "consent": consent,
+            },
+        )
+
+    body = json.loads(seen[0].content)
+    assert body["consent"] == consent
+    assert body["source_channel"] == "mcp"
+    assert "documents" not in body
 
 
 async def test_a_refusal_is_reported_with_its_status_not_the_key() -> None:

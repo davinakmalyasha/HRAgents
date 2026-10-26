@@ -31,6 +31,7 @@ def build_server(
     base_url: str | None = None,
     api_key: str | None = None,
     client: httpx.AsyncClient | None = None,
+    allow_writes: bool | None = None,
 ) -> Any:
     """Build the MCP server. ``client`` is injectable for contract tests."""
     key = api_key if api_key is not None else os.environ.get("HRAGENTS_API_KEY", "")
@@ -39,6 +40,11 @@ def build_server(
     url = (base_url or os.environ.get("HRAGENTS_API_URL", DEFAULT_URL)).rstrip("/")
     http = client or httpx.AsyncClient(base_url=f"{url}/", timeout=30.0)
     http.headers["X-API-Key"] = key
+    writes = (
+        allow_writes
+        if allow_writes is not None
+        else os.environ.get("HRAGENTS_MCP_WRITES", "").lower() in {"1", "true", "yes"}
+    )
 
     from mcp.server.mcpserver import MCPServer
 
@@ -52,9 +58,15 @@ def build_server(
         ),
     )
 
-    async def get(path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def call(
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         try:
-            response = await http.get(path, params=params)
+            response = await http.request(method, path, params=params, json=payload)
         except httpx.HTTPError as exc:
             return {"error": f"the API could not be reached ({type(exc).__name__})"}
         if response.is_success:
@@ -80,11 +92,11 @@ def build_server(
         )
     )
     async def queue(job_id: str, limit: int = 50) -> dict[str, Any]:
-        return await get("v1/queue", {"job_id": job_id, "limit": limit})
+        return await call("GET", "v1/queue", params={"job_id": job_id, "limit": limit})
 
     @server.tool(description="Status and timeline for one application.")
     async def application_status(application_id: str) -> dict[str, Any]:
-        return await get(f"v1/applications/{application_id}")
+        return await call("GET", f"v1/applications/{application_id}")
 
     @server.tool(
         description=(
@@ -93,7 +105,7 @@ def build_server(
         )
     )
     async def evaluation_summary(application_id: str) -> dict[str, Any]:
-        return await get(f"v1/evaluations/applications/{application_id}/evaluation")
+        return await call("GET", f"v1/evaluations/applications/{application_id}/evaluation")
 
     @server.tool(
         description=(
@@ -105,7 +117,7 @@ def build_server(
         params: dict[str, Any] = {"status": "pending", "limit": limit}
         if role:
             params["role"] = role
-        return await get("v1/approvals", params)
+        return await call("GET", "v1/approvals", params=params)
 
     @server.tool(
         description=(
@@ -117,7 +129,76 @@ def build_server(
         params: dict[str, Any] = {}
         if year is not None:
             params["year"] = year
-        return await get(f"v1/leave/balances/{employee_id}", params)
+        return await call("GET", f"v1/leave/balances/{employee_id}", params=params)
+
+    if writes:
+
+        @server.tool(
+            description=(
+                "Ingest one application from an external ATS (recruiting:write). "
+                "Consent is never inferred: the caller supplies the consent object "
+                "it captured. The pipeline evaluates asynchronously."
+            )
+        )
+        async def create_application(
+            job_id: str,
+            candidate: dict[str, Any],
+            consent: dict[str, Any],
+            source_channel: str = "mcp",
+            documents: list[dict[str, Any]] | None = None,
+            questionnaire: dict[str, Any] | None = None,
+            metadata: dict[str, Any] | None = None,
+        ) -> dict[str, Any]:
+            payload: dict[str, Any] = {
+                "job_id": job_id,
+                "source_channel": source_channel,
+                "consent": consent,
+                "candidate": candidate,
+            }
+            if documents:
+                payload["documents"] = documents
+            if questionnaire:
+                payload["questionnaire"] = questionnaire
+            if metadata:
+                payload["metadata"] = metadata
+            return await call("POST", "v1/applications", payload=payload)
+
+        @server.tool(
+            description=(
+                "Open an onboarding plan from a template (people:write). Steps are "
+                "linked to real documents; completing quits is still a human action."
+            )
+        )
+        async def start_onboarding_plan(
+            employee_id: str, template_id: str | None = None
+        ) -> dict[str, Any]:
+            payload: dict[str, Any] = {"employee_id": employee_id}
+            if template_id:
+                payload["template_id"] = template_id
+            return await call("POST", "v1/onboarding/plans", payload=payload)
+
+        @server.tool(
+            description=(
+                "File a leave request (self_service, or people:write). It becomes an "
+                "approval in the human queue; this tool cannot decide it."
+            )
+        )
+        async def open_leave_request(
+            employee_id: str,
+            leave_type: str,
+            start_date: str,
+            end_date: str,
+            reason: str | None = None,
+        ) -> dict[str, Any]:
+            payload: dict[str, Any] = {
+                "employee_id": employee_id,
+                "leave_type": leave_type,
+                "start_date": start_date,
+                "end_date": end_date,
+            }
+            if reason:
+                payload["reason"] = reason
+            return await call("POST", "v1/leave/requests", payload=payload)
 
     return server
 
