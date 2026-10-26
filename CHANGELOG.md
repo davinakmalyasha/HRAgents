@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.10.0...hr-agents-v0.11.0) (2026-10-26)
+
+
+### Features
+
+* **ops:** add a connector catalog of templates to Connections ([4c12189](https://github.com/davinakmalyasha/HRAgents/commit/4c121890be810970585a7d4724a4dfc7dbc76e60))
+
 ## [0.10.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.9.0...hr-agents-v0.10.0) (2026-10-26)
 
 
