@@ -46,6 +46,10 @@ def pg_factory() -> Iterator[sessionmaker[Session] | None]:
     Base.metadata.create_all(engine)
     with engine.begin() as connection:
         for table in sorted(Base.metadata.tables):
+            if "tenant_id" not in Base.metadata.tables[table].c:
+                # Install-wide tables (mcp_servers) have no tenant column and no
+                # policy; applying the tenant policy to them would fail.
+                continue
             for statement in enable_tenant_rls_sql(table):
                 connection.execute(text(statement))
     yield sessionmaker(engine, expire_on_commit=False, autoflush=False)
