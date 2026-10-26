@@ -604,7 +604,7 @@
   <span class="md-ellipsis">
     
   
-    MCP server (read-only)
+    MCP server
   
 
     
@@ -2566,7 +2566,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 </tr>
 <tr>
 <td>7. Integrations (messaging, Google, files, MCP)</td>
-<td>Not started</td>
+<td><strong>In progress</strong> — MCP client + destructive-tool gate ✅, <code>hragents-mcp</code> server ✅; connector catalog (ATS/HRIS/Slack/calendar) pending</td>
 </tr>
 <tr>
 <td>8. Departments (onboarding, records, leave, payroll prep, performance, offboarding)</td>
@@ -2574,11 +2574,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 </tr>
 <tr>
 <td>9. Deployment &amp; compliance</td>
-<td>Not started</td>
+<td><strong>In progress</strong> — Compose, migrations, previews, backups, secrets, retention/purge journal, scanning ✅; external pen test pending</td>
 </tr>
 <tr>
 <td>10. Paper, docs &amp; publication</td>
-<td>Not started</td>
+<td><strong>In progress</strong> — paper ✅, versioned docs site ✅, landing ✅; publication + social preview pending</td>
 </tr>
 </tbody>
 </table>
@@ -2936,10 +2936,10 @@ checklists, exit criteria, suggested order, and risk notes for everything still 
 </ul>
 <h3 id="74-mcp-layer">7.4 MCP layer<a class="headerlink" href="#74-mcp-layer" title="Permanent link">&para;</a></h3>
 <ul>
-<li>[ ] MCP client manager: configs, health checks, namespaced tools, graceful degradation</li>
+<li>[x] MCP client manager: configs, health checks, namespaced tools, graceful degradation</li>
 <li>[ ] MCP servers catalog (disabled by default): ATS (Greenhouse/Lever), HRIS (Talenta/Gadjah), Slack, calendars</li>
-<li>[ ] Approval hook for destructive MCP tools (e.g., ATS status change)</li>
-<li>[ ] Expose <code>hragents-mcp</code> server (queue, evaluations, candidate status) for external tools</li>
+<li>[x] Approval hook for destructive MCP tools (dry-run preview; execute once on approval, audit id recorded)</li>
+<li>[x] Expose <code>hragents-mcp</code> server (reads + opt-in intake/request writes) for external tools</li>
 </ul>
 <h2 id="phase-8-departments-each-skills-tools-agents-ui-tests-knowledge">Phase 8 — Departments (each = skills + tools + agents + UI + tests + knowledge)<a class="headerlink" href="#phase-8-departments-each-skills-tools-agents-ui-tests-knowledge" title="Permanent link">&para;</a></h2>
 <h3 id="80-shared-engines-foundation-for-every-department-done">8.0 Shared engines (foundation for every department) <code>DONE</code><a class="headerlink" href="#80-shared-engines-foundation-for-every-department-done" title="Permanent link">&para;</a></h3>

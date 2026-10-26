@@ -27,7 +27,7 @@
     
     
       
-        <title>MCP server (read-only) - HRAgents</title>
+        <title>MCP server - HRAgents</title>
       
     
     
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              MCP server (read-only)
+              MCP server
             
           </span>
         </div>
@@ -613,7 +613,7 @@
   <span class="md-ellipsis">
     
   
-    MCP server (read-only)
+    MCP server
   
 
     
@@ -631,7 +631,7 @@
   <span class="md-ellipsis">
     
   
-    MCP server (read-only)
+    MCP server
   
 
     
@@ -1508,10 +1508,14 @@
 
 
 <h1 id="mcp-server-hragents-mcp">MCP server (<code>hragents-mcp</code>)<a class="headerlink" href="#mcp-server-hragents-mcp" title="Permanent link">&para;</a></h1>
-<p>A packaged, <strong>read-only</strong> MCP server for external clients — Claude Desktop,
-IDE agents, or anything that speaks MCP over stdio. It asks an HRAgents install
-what is waiting, what happened to one application, how it was evaluated, and
-what leave somebody has left. It never writes, approves, rejects or schedules.</p>
+<p>A packaged MCP server for external clients — Claude Desktop, IDE agents, or
+anything that speaks MCP over stdio. By default it is read-only: it asks an
+HRAgents install what is waiting, what happened to one application, how it was
+evaluated, and what leave somebody has left.</p>
+<p>Three write tools can be enabled (<code>HRAGENTS_MCP_WRITES=1</code>) for intake and
+requests. Even then it never approves, rejects, moves stages, overrides
+decisions, schedules payroll or erases records — those remain in the dashboard
+behind a named human.</p>
 <h2 id="what-it-exposes">What it exposes<a class="headerlink" href="#what-it-exposes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1543,6 +1547,36 @@ what leave somebody has left. It never writes, approves, rejects or schedules.</
 </tr>
 </tbody>
 </table>
+<p>Write tools, off unless <code>HRAGENTS_MCP_WRITES=1</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>What it does</th>
+<th>Permission</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>create_application</code></td>
+<td>Ingests one application from an external ATS; the caller supplies the consent it captured — the server never infers consent</td>
+<td><code>recruiting:write</code></td>
+</tr>
+<tr>
+<td><code>start_onboarding_plan</code></td>
+<td>Opens a plan from a template</td>
+<td><code>people:write</code></td>
+</tr>
+<tr>
+<td><code>open_leave_request</code></td>
+<td>Files a leave request, which enters the human approval queue</td>
+<td><code>self_service</code> (or <code>people:write</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>The write tools are still just API calls: the key's role is the authorization,
+and audit records the actor behind the key. <code>open_leave_request</code> cannot decide
+the request it files; approving is a dashboard action.</p>
 <p>Each tool is a GET against the API. That is the authorization model: the server
 holds a role-bound API key, so the API's permissions, tenant scoping and audit
 chain apply exactly as they would to any other client. A key that may not read a
@@ -1554,6 +1588,7 @@ key whose role matches what the person using the client should see.</p>
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><span class="nb">export</span><span class="w"> </span><span class="nv">HRAGENTS_API_URL</span><span class="o">=</span>http://localhost:8000<span class="w">   </span><span class="c1"># default</span>
 <span class="nb">export</span><span class="w"> </span><span class="nv">HRAGENTS_API_KEY</span><span class="o">=</span>...<span class="w">                     </span><span class="c1"># required; role-bound</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">HRAGENTS_MCP_WRITES</span><span class="o">=</span><span class="m">1</span><span class="w">                    </span><span class="c1"># optional; enables the write tools</span>
 hragents-mcp
 </code></pre></div>
 <p>The transport is stdio, which is what desktop MCP clients launch. The API key is
@@ -1567,29 +1602,34 @@ the host could see it in a process list.</p>
 <span class="w">      </span><span class="nt">"command"</span><span class="p">:</span><span class="w"> </span><span class="s2">"hragents-mcp"</span><span class="p">,</span>
 <span class="w">      </span><span class="nt">"env"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 <span class="w">        </span><span class="nt">"HRAGENTS_API_URL"</span><span class="p">:</span><span class="w"> </span><span class="s2">"http://localhost:8000"</span><span class="p">,</span>
-<span class="w">        </span><span class="nt">"HRAGENTS_API_KEY"</span><span class="p">:</span><span class="w"> </span><span class="s2">"paste-the-role-bound-key-here"</span>
+<span class="w">        </span><span class="nt">"HRAGENTS_API_KEY"</span><span class="p">:</span><span class="w"> </span><span class="s2">"paste-the-role-bound-key-here"</span><span class="p">,</span>
+<span class="w">        </span><span class="nt">"HRAGENTS_MCP_WRITES"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span>
 <span class="w">      </span><span class="p">}</span>
 <span class="w">    </span><span class="p">}</span>
 <span class="w">  </span><span class="p">}</span>
 <span class="p">}</span>
 </code></pre></div>
-<p>Restart the client. The five tools appear in its tool list. If the API is not
+<p>Restart the client. The tools appear in its tool list. If the API is not
 running, tool calls answer a readable error instead of failing the server.</p>
 <h2 id="what-is-deliberately-missing">What is deliberately missing<a class="headerlink" href="#what-is-deliberately-missing" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>No write tools.</strong> Creating an application, requesting a document or opening
-  a leave request changes state and belongs behind the product's approval
-  engine and a named human; those tools are not exposed here.</li>
+<li><strong>No decisions.</strong> The server cannot approve, reject, override, move a stage or
+  schedule anything, even with an admin key. Those routes are in the dashboard.</li>
+<li><strong>No payroll, erasure or rejection execution.</strong> Payroll stays prepare/verify/
+  export; erasure stays a human-run compliance action; rejections require the
+  merit floor and a named sign-off.</li>
 <li><strong>No raw documents.</strong> Tools return structured metadata; résumé text and file
   bytes are not sent to an MCP client.</li>
-<li><strong>No decisions.</strong> The server cannot approve, reject, override or schedule
-  anything, even with an admin key. Those routes are in the dashboard.</li>
+<li><strong>No document requests yet.</strong> Asking an employee for a missing document has no
+  API route, so there is no tool for it; adding one needs an approval-backed
+  request, not a bypass.</li>
 </ul>
 <h2 id="contract-tests">Contract tests<a class="headerlink" href="#contract-tests" title="Permanent link">&para;</a></h2>
 <p><code>tests/test_mcp_server.py</code> connects an in-memory MCP client to the real server,
-asserts the tool set, calls a tool through a mocked API, checks that every call
-is a GET carrying the key, and checks that neither the key nor a refusal leaks
-into the response.</p>
+asserts the read-only default and the opt-in tool set, runs a write through a
+mocked API, checks that an intake body carries the caller's consent unchanged,
+checks that no decision tool exists, and checks that neither the key nor a
+refusal leaks into the response.</p>
 
 
 
