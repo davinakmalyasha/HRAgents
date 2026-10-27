@@ -529,6 +529,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../fairness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fairness & score monitoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2813,7 +2841,11 @@ CommandCode). Expand to the full dataset and record honest latency/cost.</p>
 <li>[x] Resume extraction: structural assertions across all 50 + edge cases (offline, no real LLM)</li>
 <li>[ ] Feedback faithfulness: grounding validator against stored evaluations (live model)</li>
 <li>[x] Policy regression: threshold routing table (pure, fast, runs offline)</li>
-<li>[ ] Fairness: distribution monitoring on the real scoring path (not just counterfactuals)</li>
+<li>[x] Fairness: per-job score-distribution monitoring over registered evaluations
+      (<code>GET /v1/ops/fairness</code>, Operations panel): counts, mean/range, five bins, routing mix,
+      flags and a bounded sample. The report states that protected attributes are never
+      collected, so it monitors drift and routing per job — not demographic parity. The live
+      name-swap comparison still needs a provider.</li>
 <li>[ ] Keep the honest latency section in <code>benchmarks.md</code> updated (p50/p95, per-model)</li>
 </ul>
 <p><strong>Exit criteria:</strong> one command runs the full suite offline and live; results table committed with
