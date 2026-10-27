@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.11.0...hr-agents-v0.12.0) (2026-10-27)
+
+
+### Features
+
+* **ops:** monitor per-job score distributions from the real scoring path ([6490195](https://github.com/davinakmalyasha/HRAgents/commit/6490195cee91a589ad614cd729fad4807b567c84))
+
 ## [0.11.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.10.0...hr-agents-v0.11.0) (2026-10-26)
 
 
