@@ -10,6 +10,7 @@ import { formatDateTime } from '@/lib/dates'
 
 import { OpsRequestError, type DeadLetterView } from '@/features/ops/opsApi'
 import { ConnectionsSection } from '@/features/ops/ConnectionsSection'
+import { DistributionSection } from '@/features/ops/DistributionSection'
 import { useDeadLetters, useRequeueDeadLetter, useUsage } from '@/features/ops/useOps'
 import { ProviderList } from '@/features/providers/ProviderList'
 import { ProviderRequestError } from '@/features/providers/providersApi'
@@ -58,6 +59,8 @@ export function OperationsPage() {
       </section>
 
       <ConnectionsSection />
+
+      <DistributionSection />
 
       <ModelUsage />
 

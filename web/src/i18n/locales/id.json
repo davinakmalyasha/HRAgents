@@ -1434,5 +1434,18 @@
     "dataFlow": "Aliran data",
     "scopes": "Cakupan minimum",
     "enableSteps": "Cara mengaktifkan"
+  },
+  "distribution": {
+    "title": "Distribusi skor",
+    "hint": "Distribusi skor per lowongan dari {{days}} hari terakhir evaluasi yang terdaftar. Atribut terlindungi tidak pernah dikumpulkan, jadi ini memantau pergeseran, rute, dan tanda — bukan paritas demografis.",
+    "empty": "Tidak ada evaluasi dalam jendela ini.",
+    "forbidden": "Hanya administrator HR yang dapat melihat distribusi skor.",
+    "unavailable": "Laporan distribusi tidak tersedia saat ini.",
+    "job": "Lowongan",
+    "evaluated": "Dievaluasi",
+    "mean": "Rata-rata",
+    "range": "Rentang",
+    "needsHuman": "Butuh manusia",
+    "flagged": "Ditandai"
   }
 }

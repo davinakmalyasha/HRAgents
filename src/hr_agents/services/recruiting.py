@@ -602,6 +602,13 @@ class EvaluationService:
         )
         return record
 
+    def list_all(self) -> list[EvaluationRecord]:
+        """Every registered evaluation, oldest first; monitoring reads the path."""
+        return sorted(
+            self._iter_records(),
+            key=lambda item: (item.registered_at, str(item.evaluation.id)),
+        )
+
     def get(self, evaluation_id: UUID) -> EvaluationRecord:
         record = self._load_record(evaluation_id)
         if record is None:

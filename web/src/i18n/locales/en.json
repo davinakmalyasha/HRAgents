@@ -1434,5 +1434,18 @@
     "dataFlow": "Data flow",
     "scopes": "Minimum scopes",
     "enableSteps": "How to enable"
+  },
+  "distribution": {
+    "title": "Score distribution",
+    "hint": "Per-job score distributions from the last {{days}} days of registered evaluations. Protected attributes are never collected, so this monitors drift, routing and flags — not demographic parity.",
+    "empty": "No evaluations in this window.",
+    "forbidden": "Only an HR administrator can see the score distribution.",
+    "unavailable": "The distribution report is not available right now.",
+    "job": "Job",
+    "evaluated": "Evaluated",
+    "mean": "Mean",
+    "range": "Range",
+    "needsHuman": "Needs a human",
+    "flagged": "Flagged"
   }
 }

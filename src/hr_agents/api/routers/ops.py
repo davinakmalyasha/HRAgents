@@ -27,6 +27,7 @@ from hr_agents.models import (
     McpServerCatalogEntry,
     McpServerConfig,
     McpServerStatus,
+    ScoreDistributionReport,
     UsageSummary,
     utc_now,
 )
@@ -34,6 +35,7 @@ from hr_agents.providers.queue import QueueBackend
 from hr_agents.rbac import Permission
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.audit_events import record_audit
+from hr_agents.services.distribution import ScoreDistributionService
 from hr_agents.services.mcp_catalog import catalog
 from hr_agents.services.mcp_config import McpConfigError
 from hr_agents.services.queue_ops import QueueOpsError
@@ -167,6 +169,22 @@ async def test_mcp_server(name: str, request: Request) -> McpProbeResult:
         return await probe(name)
     except KeyError as exc:
         raise not_found(f"unknown MCP server {name}") from exc
+
+
+@router.get("/fairness", response_model=ScoreDistributionReport)
+def fairness_report(
+    request: Request,
+    days: int = Query(default=90, ge=1, le=365, description="Window in days."),
+) -> ScoreDistributionReport:
+    """Per-job score distributions over evaluations the pipeline registered.
+
+    Deliberately not a demographic metric: protected attributes are neither
+    collected nor scored, so this monitors drift, routing and flags by job.
+    """
+    recruiting = getattr(request.app.state, "recruiting", None)
+    if recruiting is None:
+        raise unavailable("score distribution is not available")
+    return ScoreDistributionService(recruiting.evaluations).report(days=days)
 
 
 @router.get("/usage", response_model=UsageSummary)

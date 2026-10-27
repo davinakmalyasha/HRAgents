@@ -765,7 +765,11 @@ CommandCode). Expand to the full dataset and record honest latency/cost.
 - [x] Resume extraction: structural assertions across all 50 + edge cases (offline, no real LLM)
 - [ ] Feedback faithfulness: grounding validator against stored evaluations (live model)
 - [x] Policy regression: threshold routing table (pure, fast, runs offline)
-- [ ] Fairness: distribution monitoring on the real scoring path (not just counterfactuals)
+- [x] Fairness: per-job score-distribution monitoring over registered evaluations
+      (`GET /v1/ops/fairness`, Operations panel): counts, mean/range, five bins, routing mix,
+      flags and a bounded sample. The report states that protected attributes are never
+      collected, so it monitors drift and routing per job — not demographic parity. The live
+      name-swap comparison still needs a provider.
 - [ ] Keep the honest latency section in `benchmarks.md` updated (p50/p95, per-model)
 
 **Exit criteria:** one command runs the full suite offline and live; results table committed with

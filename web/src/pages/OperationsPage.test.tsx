@@ -71,6 +71,12 @@ vi.mock('@/features/ops/useOps', () => ({
   }),
   useRequeueDeadLetter: () => ({ mutate: state.requeue, isPending: false, isError: false }),
   useUsage: () => usage,
+  useFairness: () => ({
+    data: { evaluations: 0, jobs: [], note: 'note' },
+    isLoading: false,
+    isError: false,
+    error: null,
+  }),
 }))
 
 function letter(overrides: Partial<DeadLetterView> = {}): DeadLetterView {

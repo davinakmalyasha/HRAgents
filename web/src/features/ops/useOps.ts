@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { getUsage, listDeadLetters, requeueDeadLetter } from './opsApi'
+import { getFairness, getUsage, listDeadLetters, requeueDeadLetter } from './opsApi'
 
 export function useUsage(days = 30) {
   return useQuery({
@@ -26,5 +26,14 @@ export function useRequeueDeadLetter() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['ops', 'dead-letters'] })
     },
+  })
+}
+
+export function useFairness(days = 90) {
+  return useQuery({
+    queryKey: ['ops', 'fairness', days],
+    queryFn: () => getFairness(days),
+    staleTime: 60_000,
+    retry: false,
   })
 }

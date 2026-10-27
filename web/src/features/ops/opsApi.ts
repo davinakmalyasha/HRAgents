@@ -46,3 +46,15 @@ export async function requeueDeadLetter(messageId: string, reason: string): Prom
   })
   if (!response.ok) throw new OpsRequestError(response.status)
 }
+
+export type ScoreDistributionReport = components['schemas']['ScoreDistributionReport']
+
+/** Per-job score distributions from the real evaluation path. */
+export async function getFairness(days = 90): Promise<ScoreDistributionReport> {
+  const { data, response } = await api.GET('/v1/ops/fairness', {
+    params: { query: { days } },
+  })
+  if (!response.ok) throw new OpsRequestError(response.status)
+  if (data === undefined) throw new OpsRequestError(response.status)
+  return data
+}

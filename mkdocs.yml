@@ -63,6 +63,7 @@ nav:
       - Data storage: architecture/data-storage.md
       - Board transitions: architecture/board-transitions.md
       - Benchmarks: architecture/benchmarks.md
+      - Fairness & score monitoring: fairness.md
   - Deployment & operations: deployment.md
   - Region & network recipes: regions.md
   - MCP server: mcp-server.md

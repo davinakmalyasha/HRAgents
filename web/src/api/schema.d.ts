@@ -2496,6 +2496,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ops/fairness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fairness Report
+         * @description Per-job score distributions over evaluations the pipeline registered.
+         *
+         *     Deliberately not a demographic metric: protected attributes are neither
+         *     collected nor scored, so this monitors drift, routing and flags by job.
+         */
+        get: operations["fairness_report_v1_ops_fairness_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/ops/mcp": {
         parameters: {
             query?: never;
@@ -5326,6 +5349,31 @@ export interface components {
          * @enum {string}
          */
         JobFamily: "engineering" | "finance" | "education" | "healthcare" | "legal" | "operations" | "sales" | "general";
+        /** JobScoreDistribution */
+        JobScoreDistribution: {
+            /** Bins */
+            bins?: components["schemas"]["ScoreBin"][];
+            /** Evaluations */
+            evaluations: number;
+            /** Flagged */
+            flagged: number;
+            /** Job Id */
+            job_id?: string | null;
+            /** Job Title */
+            job_title: string;
+            /** Maximum */
+            maximum: number;
+            /** Mean */
+            mean: number;
+            /** Minimum */
+            minimum: number;
+            /** Recommendations */
+            recommendations?: {
+                [key: string]: number;
+            };
+            /** Requires Human */
+            requires_human: number;
+        };
         /**
          * JobStatus
          * @enum {string}
@@ -7568,11 +7616,47 @@ export interface components {
             supersedes_id?: string | null;
         };
         /**
+         * ScoreBin
+         * @description One half-open interval of the weighted total: ``[low, high)``.
+         */
+        ScoreBin: {
+            /** Count */
+            count: number;
+            /** High */
+            high: number;
+            /** Low */
+            low: number;
+        };
+        /**
          * ScoreDimension
          * @description The four axes of the evaluation tensor S ∈ [0, 1]^4.
          * @enum {string}
          */
         ScoreDimension: "technical_depth" | "stack_alignment" | "systems_literacy" | "verifiable_certifications";
+        /** ScoreDistributionReport */
+        ScoreDistributionReport: {
+            /** Evaluations */
+            evaluations: number;
+            /** Jobs */
+            jobs?: components["schemas"]["JobScoreDistribution"][];
+            /** Note */
+            note: string;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /**
+             * Until
+             * Format: date-time
+             */
+            until: string;
+        };
         /**
          * ScoreVector
          * @description Per-dimension scores, each bounded to [0, 1].
@@ -26176,6 +26260,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeadLetterRequeueResult"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    fairness_report_v1_ops_fairness_get: {
+        parameters: {
+            query?: {
+                /** @description Window in days. */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoreDistributionReport"];
                 };
             };
             /** @description The request could not be understood. */

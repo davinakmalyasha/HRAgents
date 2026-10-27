@@ -106,6 +106,11 @@ from hr_agents.models.evaluation import (
     TechnicalEvaluation,
     aggregate_runs,
 )
+from hr_agents.models.fairness import (
+    JobScoreDistribution,
+    ScoreBin,
+    ScoreDistributionReport,
+)
 from hr_agents.models.feedback import (
     FeedbackGrowthArea,
     FeedbackReport,
@@ -309,6 +314,7 @@ __all__ = [
     "HitlOverride",
     "InterviewerAvailability",
     "JobFamily",
+    "JobScoreDistribution",
     "JobSpecification",
     "JobStatus",
     "LanguageSkill",
@@ -390,7 +396,9 @@ __all__ = [
     "RubricVersion",
     "SchedulingChannel",
     "SchedulingPayload",
+    "ScoreBin",
     "ScoreDimension",
+    "ScoreDistributionReport",
     "ScoreVector",
     "ScoringRun",
     "ScreeningAction",
