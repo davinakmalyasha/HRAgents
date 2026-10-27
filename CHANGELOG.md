@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.13.0...hr-agents-v0.13.1) (2026-10-27)
+
+
+### Documentation
+
+* **plan:** refresh the remaining-work status snapshot ([1aea018](https://github.com/davinakmalyasha/HRAgents/commit/1aea01843dc2198a102e8cb80f1161f77340493b))
+
 ## [0.13.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.12.0...hr-agents-v0.13.0) (2026-10-27)
 
 
