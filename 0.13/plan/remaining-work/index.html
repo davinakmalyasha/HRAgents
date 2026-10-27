@@ -2053,7 +2053,7 @@
 
 
 <h1 id="remaining-work-core-integrity-then-mcp-layer-to-paper-release">Remaining Work — core integrity, then MCP layer to paper &amp; release<a class="headerlink" href="#remaining-work-core-integrity-then-mcp-layer-to-paper-release" title="Permanent link">&para;</a></h1>
-<p>Status snapshot: <strong>2026-09-30</strong>. Everything up to and including Phase 5 (multi-department
+<p>Status snapshot: <strong>2026-10-28</strong>. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
 cross-workspace handoff) is built and tested. Stage 0 of the core work landed: <strong>the evaluation
 worker now runs</strong>, all five agents are constructed in production, the rate-table API makes payroll
@@ -2062,7 +2062,7 @@ reachable, and <code>/readyz</code> + <code>/metrics</code> make a stopped pipel
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 <code>sigma</code> gate. Block B is complete: <strong>authentication happens once per request</strong>, <code>ActorRef</code> carries
 the actor together with its provenance, and <strong>no request body in the API names the actor at all</strong>.
-<strong>1287 tests (1283 passed, 4 skipped for Postgres) · ≥90% coverage · ruff + mypy clean</strong>.</p>
+<strong>1,928 collected test cases · ≥90% coverage · ruff + mypy clean</strong>.</p>
 <blockquote>
 <p><strong>What changed, and why it mattered.</strong> The API accepted an application and returned <code>202</code>, but
 nothing ever claimed the queue — the core loop was inert and looked like success. The container
