@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.12.0...hr-agents-v0.13.0) (2026-10-27)
+
+
+### Features
+
+* **mcp:** annotate tools and tell clients the mode they actually got ([d044982](https://github.com/davinakmalyasha/HRAgents/commit/d044982c948b56642fcb2333af66e11f94687b66))
+* **mcp:** let an operator expose only the tools a client needs ([aa3789b](https://github.com/davinakmalyasha/HRAgents/commit/aa3789bbb12aeeb7164c63b18e4664cde56e8d01))
+
 ## [0.12.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.11.0...hr-agents-v0.12.0) (2026-10-27)
 
 
