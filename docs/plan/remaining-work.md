@@ -566,6 +566,9 @@ behind human approval.
       key is read from the environment, never argv.
 - [x] Packaged entry point (`hragents-mcp` console script) + docs page with Claude Desktop /
       other-client config examples
+- [x] MCP annotations and mode-honest instructions: reads declare `readOnlyHint`, writes declare
+      `readOnlyHint=false` with `destructiveHint=false`, and the instructions change with
+      `HRAGENTS_MCP_WRITES` so a client is told whether the server it launched can write.
 - [x] Contract tests running against the server itself: `tests/test_mcp_server.py` connects an
       in-memory MCP client, asserts the five tools, calls one through a mocked API and checks
       GET-only calls, key propagation and non-leakage.

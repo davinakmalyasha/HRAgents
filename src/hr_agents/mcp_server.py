@@ -89,15 +89,32 @@ def build_server(
             raise McpServerError(f"{', '.join(blocked)} require(s) HRAGENTS_MCP_WRITES=1")
 
     from mcp.server.mcpserver import MCPServer
+    from mcp.types import ToolAnnotations
 
     server = MCPServer(
         "hragents",
         instructions=(
-            "Read-only access to an HRAgents install: queues, application status, "
-            "deterministic evaluations, pending approvals and leave balances. "
-            "Nothing here decides or writes; consequential actions belong to a "
-            "named human in the dashboard."
+            (
+                "Read and write access to an HRAgents install: queues, application "
+                "status, deterministic evaluations, pending approvals and leave "
+                "balances, plus intake, onboarding and leave requests. Nothing here "
+                "decides; approvals, rejections, stage moves and overrides belong to "
+                "a named human in the dashboard."
+            )
+            if writes
+            else (
+                "Read-only access to an HRAgents install: queues, application status, "
+                "deterministic evaluations, pending approvals and leave balances. "
+                "Nothing here decides or writes; consequential actions belong to a "
+                "named human in the dashboard."
+            )
         ),
+    )
+    read_annotations = ToolAnnotations(
+        read_only_hint=True, destructive_hint=False, open_world_hint=True
+    )
+    write_annotations = ToolAnnotations(
+        read_only_hint=False, destructive_hint=False, open_world_hint=True
     )
 
     async def call(
@@ -131,12 +148,16 @@ def build_server(
         description=(
             "Priority-ranked applications for one job. The API's recruiting:read "
             "permission is required."
-        )
+        ),
+        annotations=read_annotations,
     )
     async def queue(job_id: str, limit: int = 50) -> dict[str, Any]:
         return await call("GET", "v1/queue", params={"job_id": job_id, "limit": limit})
 
-    @server.tool(description="Status and timeline for one application.")
+    @server.tool(
+        description="Status and timeline for one application.",
+        annotations=read_annotations,
+    )
     async def application_status(application_id: str) -> dict[str, Any]:
         return await call("GET", f"v1/applications/{application_id}")
 
@@ -144,7 +165,8 @@ def build_server(
         description=(
             "The deterministic evaluation for an application: score vector, "
             "evidence, rubric family/digest, flags and the routing recommendation."
-        )
+        ),
+        annotations=read_annotations,
     )
     async def evaluation_summary(application_id: str) -> dict[str, Any]:
         return await call("GET", f"v1/evaluations/applications/{application_id}/evaluation")
@@ -153,7 +175,8 @@ def build_server(
         description=(
             "Approvals waiting for a human, optionally filtered to an approver "
             "role (manager, finance, hr_admin, …)."
-        )
+        ),
+        annotations=read_annotations,
     )
     async def pending_approvals(role: str | None = None, limit: int = 50) -> dict[str, Any]:
         params: dict[str, Any] = {"status": "pending", "limit": limit}
@@ -165,7 +188,8 @@ def build_server(
         description=(
             "Leave balances for one employee. The API applies its own self-service "
             "and role rules; a key without access receives a refusal, not data."
-        )
+        ),
+        annotations=read_annotations,
     )
     async def leave_balances(employee_id: str, year: int | None = None) -> dict[str, Any]:
         params: dict[str, Any] = {}
@@ -180,7 +204,8 @@ def build_server(
                 "Ingest one application from an external ATS (recruiting:write). "
                 "Consent is never inferred: the caller supplies the consent object "
                 "it captured. The pipeline evaluates asynchronously."
-            )
+            ),
+            annotations=write_annotations,
         )
         async def create_application(
             job_id: str,
@@ -209,7 +234,8 @@ def build_server(
             description=(
                 "Open an onboarding plan from a template (people:write). Steps are "
                 "linked to real documents; completing quits is still a human action."
-            )
+            ),
+            annotations=write_annotations,
         )
         async def start_onboarding_plan(
             employee_id: str, template_id: str | None = None
@@ -223,7 +249,8 @@ def build_server(
             description=(
                 "File a leave request (self_service, or people:write). It becomes an "
                 "approval in the human queue; this tool cannot decide it."
-            )
+            ),
+            annotations=write_annotations,
         )
         async def open_leave_request(
             employee_id: str,

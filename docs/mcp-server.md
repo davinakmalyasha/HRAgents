@@ -32,6 +32,12 @@ The write tools are still just API calls: the key's role is the authorization,
 and audit records the actor behind the key. `open_leave_request` cannot decide
 the request it files; approving is a dashboard action.
 
+Each tool carries MCP annotations: the five reads set `readOnlyHint`, so a
+client can treat them as safe to call without confirmation, and the write tools
+set `readOnlyHint=false` with `destructiveHint=false`. The instructions the
+server sends to the client switch from "read-only access" to "read and write
+access" when writes are enabled, so an agent is told what it actually holds.
+
 ## Exposing fewer tools
 
 `HRAGENTS_MCP_TOOLS` narrows the surface to a comma-separated allowlist, so one

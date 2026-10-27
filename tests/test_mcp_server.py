@@ -229,3 +229,50 @@ def test_a_write_tool_outside_write_mode_stops_startup() -> None:
             tools=["queue", "create_application"],
             allow_writes=False,
         )
+
+
+async def test_read_tools_declare_read_only_annotations() -> None:
+    from mcp.client.client import Client
+
+    server = build_server(api_key="secret-key", client=api(lambda request: httpx.Response(200)))
+    async with Client(server) as client:
+        tools = await client.list_tools()
+
+    for tool in tools.tools:
+        assert tool.annotations is not None
+        assert tool.annotations.read_only_hint is True
+        assert tool.annotations.destructive_hint is False
+
+
+async def test_write_tools_are_explicitly_not_read_only_and_not_destructive() -> None:
+    from mcp.client.client import Client
+
+    server = build_server(
+        api_key="secret-key",
+        client=api(lambda request: httpx.Response(200)),
+        allow_writes=True,
+    )
+    async with Client(server) as client:
+        tools = {tool.name: tool for tool in (await client.list_tools()).tools}
+
+    for name in ("create_application", "start_onboarding_plan", "open_leave_request"):
+        annotations = tools[name].annotations
+        assert annotations is not None
+        assert annotations.read_only_hint is False
+        assert annotations.destructive_hint is False
+    assert tools["queue"].annotations is not None
+    assert tools["queue"].annotations.read_only_hint is True
+
+
+def test_the_instructions_match_the_mode() -> None:
+    read_only = build_server(api_key="secret-key", client=api(lambda request: httpx.Response(200)))
+    writable = build_server(
+        api_key="secret-key",
+        client=api(lambda request: httpx.Response(200)),
+        allow_writes=True,
+    )
+
+    assert read_only.instructions.startswith("Read-only access")
+    assert writable.instructions.startswith("Read and write access")
+    assert "nothing here decides" in read_only.instructions.lower()
+    assert "nothing here decides" in writable.instructions.lower()
