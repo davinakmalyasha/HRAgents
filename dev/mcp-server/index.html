@@ -1654,6 +1654,11 @@ behind a named human.</p>
 <p>The write tools are still just API calls: the key's role is the authorization,
 and audit records the actor behind the key. <code>open_leave_request</code> cannot decide
 the request it files; approving is a dashboard action.</p>
+<p>Each tool carries MCP annotations: the five reads set <code>readOnlyHint</code>, so a
+client can treat them as safe to call without confirmation, and the write tools
+set <code>readOnlyHint=false</code> with <code>destructiveHint=false</code>. The instructions the
+server sends to the client switch from "read-only access" to "read and write
+access" when writes are enabled, so an agent is told what it actually holds.</p>
 <h2 id="exposing-fewer-tools">Exposing fewer tools<a class="headerlink" href="#exposing-fewer-tools" title="Permanent link">&para;</a></h2>
 <p><code>HRAGENTS_MCP_TOOLS</code> narrows the surface to a comma-separated allowlist, so one
 client can see the queue without also seeing leave balances:</p>
