@@ -185,3 +185,47 @@ async def test_an_unreachable_api_is_a_tool_error_not_a_crash() -> None:
 def test_the_key_is_required_and_never_read_from_the_url() -> None:
     with pytest.raises(McpServerError, match="HRAGENTS_API_KEY"):
         build_server(api_key="", client=api(lambda request: httpx.Response(200)))
+
+
+async def test_a_tool_allowlist_narrows_the_surface() -> None:
+    from mcp.client.client import Client
+
+    server = build_server(
+        api_key="secret-key",
+        client=api(lambda request: httpx.Response(200)),
+        tools=["queue", "leave_balances"],
+    )
+    async with Client(server) as client:
+        tools = await client.list_tools()
+
+    assert sorted(tool.name for tool in tools.tools) == ["leave_balances", "queue"]
+
+
+async def test_the_allowlist_can_come_from_the_environment(monkeypatch: Any) -> None:
+    from mcp.client.client import Client
+
+    monkeypatch.setenv("HRAGENTS_MCP_TOOLS", "application_status")
+    server = build_server(api_key="secret-key", client=api(lambda request: httpx.Response(200)))
+    async with Client(server) as client:
+        tools = await client.list_tools()
+
+    assert [tool.name for tool in tools.tools] == ["application_status"]
+
+
+def test_an_unknown_tool_name_stops_startup() -> None:
+    with pytest.raises(McpServerError, match="unknown MCP tool\(s\): escalate"):
+        build_server(
+            api_key="secret-key",
+            client=api(lambda request: httpx.Response(200)),
+            tools=["queue", "escalate"],
+        )
+
+
+def test_a_write_tool_outside_write_mode_stops_startup() -> None:
+    with pytest.raises(McpServerError, match="HRAGENTS_MCP_WRITES=1"):
+        build_server(
+            api_key="secret-key",
+            client=api(lambda request: httpx.Response(200)),
+            tools=["queue", "create_application"],
+            allow_writes=False,
+        )

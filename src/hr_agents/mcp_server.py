@@ -21,9 +21,33 @@ import httpx
 
 DEFAULT_URL = "http://localhost:8000"
 
+READ_TOOLS = (
+    "queue",
+    "application_status",
+    "evaluation_summary",
+    "pending_approvals",
+    "leave_balances",
+)
+WRITE_TOOLS = (
+    "create_application",
+    "start_onboarding_plan",
+    "open_leave_request",
+)
+
 
 class McpServerError(RuntimeError):
     """Configuration or transport problem that stops the server from starting."""
+
+
+def _requested_tools(tools: list[str] | None) -> list[str] | None:
+    """Read ``HRAGENTS_MCP_TOOLS``; ``None`` means every tool the mode allows."""
+    if tools is None:
+        raw = os.environ.get("HRAGENTS_MCP_TOOLS", "")
+        if not raw.strip():
+            return None
+        tools = raw.split(",")
+    requested = [name.strip() for name in tools if name.strip()]
+    return list(dict.fromkeys(requested))
 
 
 def build_server(
@@ -32,8 +56,15 @@ def build_server(
     api_key: str | None = None,
     client: httpx.AsyncClient | None = None,
     allow_writes: bool | None = None,
+    tools: list[str] | None = None,
 ) -> Any:
-    """Build the MCP server. ``client`` is injectable for contract tests."""
+    """Build the MCP server. ``client`` is injectable for contract tests.
+
+    ``tools`` (or ``HRAGENTS_MCP_TOOLS``) narrows the exposed surface so one
+    integration sees only what it needs. An unknown name, or a write tool
+    without ``HRAGENTS_MCP_WRITES``, stops startup instead of silently serving
+    a different tool set than the operator configured.
+    """
     key = api_key if api_key is not None else os.environ.get("HRAGENTS_API_KEY", "")
     if not key.strip():
         raise McpServerError("HRAGENTS_API_KEY is required; create a role-bound key in the install")
@@ -45,6 +76,17 @@ def build_server(
         if allow_writes is not None
         else os.environ.get("HRAGENTS_MCP_WRITES", "").lower() in {"1", "true", "yes"}
     )
+    requested = _requested_tools(tools)
+    if requested is not None:
+        unknown = sorted(set(requested) - set(READ_TOOLS) - set(WRITE_TOOLS))
+        if unknown:
+            raise McpServerError(
+                f"unknown MCP tool(s): {', '.join(unknown)}; "
+                f"available: {', '.join(READ_TOOLS + WRITE_TOOLS)}"
+            )
+        blocked = sorted(set(requested) & set(WRITE_TOOLS)) if not writes else []
+        if blocked:
+            raise McpServerError(f"{', '.join(blocked)} require(s) HRAGENTS_MCP_WRITES=1")
 
     from mcp.server.mcpserver import MCPServer
 
@@ -199,6 +241,11 @@ def build_server(
             if reason:
                 payload["reason"] = reason
             return await call("POST", "v1/leave/requests", payload=payload)
+
+    if requested is not None:
+        enabled = set(READ_TOOLS) | (set(WRITE_TOOLS) if writes else set())
+        for name in sorted(enabled - set(requested)):
+            server.remove_tool(name)
 
     return server
 

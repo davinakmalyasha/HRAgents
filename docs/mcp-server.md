@@ -32,6 +32,21 @@ The write tools are still just API calls: the key's role is the authorization,
 and audit records the actor behind the key. `open_leave_request` cannot decide
 the request it files; approving is a dashboard action.
 
+## Exposing fewer tools
+
+`HRAGENTS_MCP_TOOLS` narrows the surface to a comma-separated allowlist, so one
+client can see the queue without also seeing leave balances:
+
+```bash
+export HRAGENTS_MCP_TOOLS=queue,application_status
+hragents-mcp
+```
+
+Unset or empty means every tool the mode allows. Startup fails on an unknown
+name, and a write tool listed without `HRAGENTS_MCP_WRITES=1` is a configuration
+error rather than a silently missing tool. The allowlist does not add
+authorization — the API key's role still decides every call.
+
 Each tool is a GET against the API. That is the authorization model: the server
 holds a role-bound API key, so the API's permissions, tenant scoping and audit
 chain apply exactly as they would to any other client. A key that may not read a
@@ -50,6 +65,7 @@ uv pip install hr-agents      # or run from a checkout with `uv run hragents-mcp
 export HRAGENTS_API_URL=http://localhost:8000   # default
 export HRAGENTS_API_KEY=...                     # required; role-bound
 export HRAGENTS_MCP_WRITES=1                    # optional; enables the write tools
+export HRAGENTS_MCP_TOOLS=queue,leave_balances  # optional; expose only these tools
 hragents-mcp
 ```
 

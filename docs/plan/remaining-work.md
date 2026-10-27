@@ -558,10 +558,12 @@ behind human approval.
       **Never** payroll, erasure, rejection, stage moves, approvals or overrides.
 - [ ] `request_document` write tool: there is no API route for "ask an employee for a document"
       yet; it needs an approval-backed request, so it stays a follow-up rather than a bypass
-- [~] Auth: the server holds one role-bound API key and every call is authorized by the API's
-      existing permission checks; there is no separate per-tool scope map, and reads are not
-      written to the audit chain (the product audits writes, not queries). The key is read
-      from the environment, never argv.
+- [x] Auth: the server holds one role-bound API key and every call is authorized by the API's
+      existing permission checks. `HRAGENTS_MCP_TOOLS` narrows the exposed surface to a
+      comma-separated allowlist; an unknown name, or a write tool listed without
+      `HRAGENTS_MCP_WRITES=1`, refuses to start rather than silently serving a different set.
+      Reads are not written to the audit chain (the product audits writes, not queries). The
+      key is read from the environment, never argv.
 - [x] Packaged entry point (`hragents-mcp` console script) + docs page with Claude Desktop /
       other-client config examples
 - [x] Contract tests running against the server itself: `tests/test_mcp_server.py` connects an
