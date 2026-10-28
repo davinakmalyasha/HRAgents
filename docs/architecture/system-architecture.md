@@ -1,6 +1,6 @@
 # System Architecture
 
-**Version:** 0.15.0 · **Status:** built and measured; budgets below are targets with measured values where recorded
+**Version:** 0.15.2 · **Status:** built and measured; budgets below are targets with measured values where recorded
 
 ## 1. Overview
 

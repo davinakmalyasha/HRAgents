@@ -65,6 +65,6 @@ and everything looks fine.
 - [Deployment & operations](deployment.md) — backups, upgrades, runbooks,
   provider configuration, offline mode.
 - [Architecture](architecture/system-architecture.md) — the pipeline and the
-  nine workspaces.
+  nine departments.
 - [Human-in-the-loop bounds](architecture/hitl-bounds.md) — what runs
   automatically and what never will.

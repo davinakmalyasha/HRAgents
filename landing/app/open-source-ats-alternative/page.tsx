@@ -95,7 +95,9 @@ export default function AtsAlternative() {
                 <td>Not a job-board integration suite</td>
                 <td>
                   Inbound applications are an API, a CSV import and a document
-                  upload today. Connector servers are on the roadmap.
+                  upload today. An MCP layer and connector templates ship; a
+                  direct vendor connector is not built — you point it at your own
+                  gateway.
                 </td>
               </tr>
               <tr>

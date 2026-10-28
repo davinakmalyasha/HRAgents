@@ -27,7 +27,7 @@ reconstructible from a tamper-evident audit chain.
   expiry reminders, leave balances and approval queues, payroll runs with
   operator-verified statutory tables (never hardcoded rates), growth cycles,
   compliance deadlines and data-subject requests, offboarding and asset
-  clearance — in nine workspaces over one audit trail.
+  clearance — across nine departments over one audit trail.
 - **Keeps a real record.** Every state transition is an audit entry in a hash
   chain. Evaluations persist the exact rubric family and digest that produced
   them; payroll runs are immutable once reviewed and a re-run supersedes rather
@@ -82,7 +82,7 @@ The demo dataset, seeded through the real services:
 
 ## Status
 
-`v0.15.0` — the core loop, ten workspaces, the PWA, payroll preparation,
+`v0.15.2` — the core loop, ten workspaces, the PWA, payroll preparation,
 compliance, observability and a self-host compose stack are in place and published.
 Open work is tracked honestly in [Remaining work](plan/remaining-work.md).
 

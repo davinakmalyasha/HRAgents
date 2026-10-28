@@ -1,6 +1,6 @@
 # Provider Layer — Adaptive, Universal Integrations
 
-**Version:** 0.15.0 · **Status:** locked architecture
+**Version:** 0.15.2 · **Status:** locked architecture
 **Principle:** every external dependency is a *capability* with interchangeable *providers*, selected
 by configuration. Companies choose what they use; the system adapts without code changes.
 

@@ -13,7 +13,7 @@ technical work — see [Work with the author](#work-with-the-author).
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 
-**Status:** v0.15.0, published. The platform core, all five agents, the recruitment
+**Status:** v0.15.2, published. The platform core, all five agents, the recruitment
 API surface, all Wave-1 department engines, the hiring dashboard workspaces, auth
 screens, the MCP layer (read tools plus approval-backed write tools) and the
 document-request flow are built, tested and running behind a worker (1953 tests,
@@ -38,8 +38,8 @@ Prefer the published image over a local build? Every release is a multi-arch
 container on GHCR:
 
 ```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose up -d --no-build
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose up -d --no-build
 ```
 
 `scripts/setup.py` writes `.env` (gitignored), which compose loads; it prints the
@@ -176,7 +176,7 @@ earliest submission.
 **Automation gates** — auto-schedule iff `S_tech ≥ 0.85 ∧ σ ≤ 0.05`; mandatory human
 review for `S_tech ≥ 0.70` rejections.
 
-## The plan: one HR person, nine workspaces
+## The plan: one HR person, nine departments
 
 | Workspace | Wave | Agents do | Humans gate |
 |---|---|---|---|
@@ -189,6 +189,9 @@ review for `S_tech ≥ 0.70` rejections.
 | **Payroll** | 3 | Assemble, calculate, flag, export | **Everything - no payment is ever executed** |
 | **Growth** | 3 | Reminders, collection, draft summaries | Every review outcome |
 | **Offboarding** | 3 | Checklists, scheduling, tracking | Final pay, anything legal |
+
+Approvals is the tenth workspace: one queue over every department, so a decision
+does not hide inside the surface that raised it.
 
 Details: [product concept](docs/plan/product-concept.md) · [HR domain guide](docs/plan/hr-domain-guide.md).
 
@@ -226,7 +229,7 @@ reference — is at **<https://davinakmalyasha.github.io/HRAgents/>**. The same
 sources live here:
 
 - [Master build plan](docs/plan/master-build-plan.md) — the full checklist: phases, departments, progress
-- [Remaining work](docs/plan/remaining-work.md) — MCP layer → dashboard → evals → ops → paper & release
+- [Remaining work](docs/plan/remaining-work.md) — the honest backlog: live-model evals, vendor connectors, and deliberate deferrals
 - [Release process](docs/plan/release-process.md) — versioning, branching, how releases are cut
 - [Architecture decisions (ADRs)](docs/adr/README.md) — the reasoning behind the locked choices
 - [Problem statement](docs/plan/problem-statement.md) — the systemic problem this exists to solve
@@ -267,7 +270,9 @@ sources live here:
 - [~] Indonesian statutory knowledge: the compliance calendar and operator-verified rate tables
       ship; a curated statutory RAG corpus is still a content project
 - [~] Direct integration adapters (SMTP/IMAP, WhatsApp manual links, calendar manual slots,
-      storage) ship; the MCP layer and ATS/HRIS/Slack connectors are open
+      storage) ship, and so does the MCP layer (read tools, approval-backed writes, a
+      connector-template catalog); vendor-specific live connectors stay open — they
+      need real gateway endpoints, not invented ones
 - [x] Evaluation dataset (50 profiles + edge cases), offline suite, live-capable fairness
       comparison, and the [technical paper](docs/paper.md)
 - [x] Self-host setup script, demo dataset, docs site, and public releases (Apache-2.0)

@@ -16,8 +16,8 @@ repository-code: "https://github.com/davinakmalyasha/HRAgents"
 url: "https://github.com/davinakmalyasha/HRAgents"
 license: Apache-2.0
 license-url: "https://github.com/davinakmalyasha/HRAgents/blob/main/LICENSE"
-version: 0.1.0
-date-released: "2026-09-12"
+version: 0.15.2
+date-released: "2026-10-28"
 keywords:
   - human resources
   - recruitment

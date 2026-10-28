@@ -30,8 +30,8 @@ To run the published release instead of building it, select a tag and skip the
 build:
 
 ```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose up -d --no-build
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose up -d --no-build
 ```
 
 Images are multi-arch (`linux/amd64` and `linux/arm64`). Each release publishes
@@ -557,6 +557,6 @@ that share sense.
 - The built-in `test` model runs the whole pipeline with canned responses so
   tests and demos need neither a network nor a model. Its numbers are fake by
   construction; never use it for a real candidate.
-- Provider health badges report *configured*, not *reachable*: the health probe
-  is a Phase 7 item, so verify Ollama yourself with `ollama list` and one
-  extraction from the dashboard before trusting a batch.
+- Provider health badges report *configured* state, not reachability: the probe
+  validates configuration and marks unimplemented paths `degraded`, so verify any
+  endpoint yourself with one real call before trusting a batch.

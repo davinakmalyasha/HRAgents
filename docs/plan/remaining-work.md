@@ -1,4 +1,4 @@
-# Remaining Work — core integrity, then MCP layer to paper & release
+# Remaining Work — the honest backlog
 
 Status snapshot: **2026-10-28**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
@@ -886,13 +886,13 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       `deployment.md`
 - [x] `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates, security policy, ADRs, release
       process (landed early with the repo-infrastructure work — see `master-build-plan.md` Phase 1)
-- [x] Docs site (mkdocs-material + GitHub Pages): `docs.yml` builds and deploys on every docs
-      change; the site carries the architecture, deployment, API reference and ADRs. Versioned
-      docs (`mike`) remain, so old releases do not keep their own site yet.
+- [x] Docs site (mkdocs-material + GitHub Pages): `docs.yml` deploys on every docs
+      change and keeps a version for each release via `mike` (`latest`, `dev`, and
+      `0.2`–`0.15`), so an old release keeps the site that shipped with it.
 - [x] Container image on GHCR: the `image.yml` pipeline builds `linux/amd64` + `linux/arm64`,
       scans before pushing, and fails on a fixable CRITICAL. The pipeline was added after the 0.1.0
       release; 0.1.0 itself is superseded, while 0.2–0.15 were built, scanned, attested and
-      published (the current image is `0.15.0`/`latest`). A dispatch of the 0.1.0 tag validated the
+      published (the current image is `0.15.2`/`latest`). A dispatch of the 0.1.0 tag validated the
       scan-before-push ordering: it attached the reports, failed the CRITICAL gate, and skipped
       the push — the failure mode is a published finding, not a published image.
 - [x] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
@@ -904,7 +904,7 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       no API path. Demo assets (screenshots/GIF) already ship.
 - [x] Immutable releases for tags: the `release-tags` ruleset blocks deletion and
       moves of `hr-agents-v*` tags, so a published release cannot be re-pointed.
-- [x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in `release-process.md`); v0.1.0–v0.15.0 published
+- [x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in `release-process.md`); v0.1.0–v0.15.2 published
 - [x] **First release published.** PR #3 was re-opened to run the required CI checks (the bot
       pushed with `GITHUB_TOKEN`, whose events do not trigger workflows), passed all six, and was
       squash-merged; `release-please` then published `hr-agents-v0.1.0` with the changelog. The

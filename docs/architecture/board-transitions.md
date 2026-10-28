@@ -1,6 +1,6 @@
 # Board Stage Transitions — Manual Move Policy
 
-**Version:** 0.15.0 · **Status:** enforced contract (`services/stages.py`)
+**Version:** 0.15.2 · **Status:** enforced contract (`services/stages.py`)
 **Related:** [HITL bounds](hitl-bounds.md) §3 · [master plan](../plan/master-build-plan.md) §6.3
 
 The pipeline board is derived from deterministic application statuses; cards may be

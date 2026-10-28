@@ -59,16 +59,16 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 1. Foundation & infrastructure | Done |
 | 2. Contracts & data model | Done |
 | 3. Deterministic core & pipeline | Done |
-| 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **In progress** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals 🔄 |
-| 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **Done** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅ (conversation-store Postgres adapter lands with Phase 6) |
-| 6. Web app + PWA | **In progress** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, scheduling ✅, job management ✅, candidate communications ✅, PWA shell ✅ + install prompt + push notifications ✅ (settings, XLSX remain) |
-| 7. Integrations (messaging, Google, files, MCP) | **In progress** — MCP client + destructive-tool gate ✅, `hragents-mcp` server ✅; connector catalog (ATS/HRIS/Slack/calendar) pending |
+| 4. Platform capabilities (skills, RAG, tools, providers, agents, evals) | **Done** — skills ✅, RAG ✅, tools ✅, providers ✅, agents ✅ (5/5), pipeline ✅, recruitment API surface ✅, evals ✅ offline (the live fairness comparison needs a provider) |
+| 5. Multi-department architecture (workspaces, front door, RBAC, tenancy) | **Done** — workspaces ✅, RBAC ✅, front door + Ask HR chat ✅, tenancy + RLS ✅, workspace-scoped tools ✅, cross-workspace handoff ✅, durable conversation store ✅ |
+| 6. Web app + PWA | **Done** — scaffold ✅, Ask HR chat ✅, attention home ✅, hiring board + review ✅, batch import ✅, scheduling ✅, job management ✅, candidate communications ✅, PWA shell ✅ + install prompt + push notifications ✅, auth screens ✅, provider settings ✅, XLSX review packets ✅ |
+| 7. Integrations (messaging, Google, files, MCP) | **Done (safe half)** — MCP client + destructive-tool gate ✅, `hragents-mcp` server ✅, connector catalog + Connections UI ✅; vendor-specific live connectors need real gateways (tracked in remaining work) |
 | 8. Departments (onboarding, records, leave, payroll prep, performance, offboarding) | **Done (Wave 1 engines)** — onboarding ✅, records ✅, leave ✅, payroll prep ✅, compliance ✅, growth ✅, offboarding ✅ |
 | 9. Deployment & compliance | **In progress** — Compose, migrations, previews, backups, secrets, retention/purge journal, scanning ✅; external pen test pending |
-| 10. Paper, docs & publication | **In progress** — paper ✅, versioned docs site ✅, landing ✅; publication + social preview pending |
+| 10. Paper, docs & publication | **Complete** — paper ✅, versioned docs site ✅, landing ✅, 0.1.0–0.15.2 published ✅; GitHub social preview (a settings upload) pending |
 
-> **Remaining work, MCP layer → paper & release:** `docs/plan/remaining-work.md` — detailed
-> checklists, exit criteria, suggested order, and risk notes for everything still open.
+> **Remaining work:** `docs/plan/remaining-work.md` — detailed checklists, exit criteria,
+> suggested order, and risk notes for everything still open.
 
 ---
 
