@@ -2949,7 +2949,9 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       four-screen tour GIF and real screenshots of the running demo ship. The narrated demo video
       and the GitHub social preview remain.</li>
 <li>[x] README "Work with the author / freelance integration" finalized (services, contact, scope)</li>
-<li>[ ] Demo video / GIF walkthrough (2–3 minutes: ingest → review → override → schedule)</li>
+<li>[ ] Demo video / GIF walkthrough (2–3 minutes: ingest → review → override → schedule).
+      The shot-by-shot script with narration is <code>docs/demo-video-script.md</code>, written
+      against the seeded demo dataset — recording is one take, no staging.</li>
 <li>[x] API docs site (OpenAPI rendered by the docs site from the committed spec) + operator
       runbooks (backup, upgrade, provider failures, incident response with the breach workflow) in
       <code>deployment.md</code></li>
@@ -2968,8 +2970,11 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       the release, and buildx attaches the SBOM and max-mode provenance to the image digest. Every
       release from 0.2.0 onward carries all four.</li>
 <li>[ ] PyPI publishing — only if a library use case appears (currently deferred)</li>
-<li>[ ] GitHub social preview image + demo assets (screenshots/GIF)</li>
-<li>[ ] Immutable releases for tags, once the release flow has settled</li>
+<li>[ ] GitHub social preview image (Settings → General). <code>landing/public/og.png</code>
+      is 1200×630 and reusable as-is — the upload itself is a web-UI click with
+      no API path. Demo assets (screenshots/GIF) already ship.</li>
+<li>[x] Immutable releases for tags: the <code>release-tags</code> ruleset blocks deletion and
+      moves of <code>hr-agents-v*</code> tags, so a published release cannot be re-pointed.</li>
 <li>[x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in <code>release-process.md</code>); v0.1.0–v0.15.0 published</li>
 <li>[x] <strong>First release published.</strong> PR #3 was re-opened to run the required CI checks (the bot
       pushed with <code>GITHUB_TOKEN</code>, whose events do not trigger workflows), passed all six, and was
