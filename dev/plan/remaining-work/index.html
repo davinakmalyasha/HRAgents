@@ -571,6 +571,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../paper/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../deployment/" class="md-nav__link">
         
   
@@ -719,10 +746,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_9" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
         
           
-          <label class="md-nav__link" for="__nav_9" id="__nav_9_label" tabindex="">
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="">
             
   
   
@@ -740,8 +767,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_9">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -950,33 +977,6 @@
           </ul>
         </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../paper/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Paper
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -2960,8 +2960,8 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       docs (<code>mike</code>) remain, so old releases do not keep their own site yet.</li>
 <li>[x] Container image on GHCR: the <code>image.yml</code> pipeline builds <code>linux/amd64</code> + <code>linux/arm64</code>,
       scans before pushing, and fails on a fixable CRITICAL. The pipeline was added after the 0.1.0
-      release; 0.1.0 itself is superseded, while 0.2–0.6 were built, scanned, attested and
-      published (the current image is <code>0.6.0</code>/<code>latest</code>). A dispatch of the 0.1.0 tag validated the
+      release; 0.1.0 itself is superseded, while 0.2–0.15 were built, scanned, attested and
+      published (the current image is <code>0.15.0</code>/<code>latest</code>). A dispatch of the 0.1.0 tag validated the
       scan-before-push ordering: it attached the reports, failed the CRITICAL gate, and skipped
       the push — the failure mode is a published finding, not a published image.</li>
 <li>[x] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
@@ -2970,7 +2970,7 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 <li>[ ] PyPI publishing — only if a library use case appears (currently deferred)</li>
 <li>[ ] GitHub social preview image + demo assets (screenshots/GIF)</li>
 <li>[ ] Immutable releases for tags, once the release flow has settled</li>
-<li>[x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in <code>release-process.md</code>); v0.1.0–v0.6.0 published</li>
+<li>[x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in <code>release-process.md</code>); v0.1.0–v0.15.0 published</li>
 <li>[x] <strong>First release published.</strong> PR #3 was re-opened to run the required CI checks (the bot
       pushed with <code>GITHUB_TOKEN</code>, whose events do not trigger workflows), passed all six, and was
       squash-merged; <code>release-please</code> then published <code>hr-agents-v0.1.0</code> with the changelog. The
