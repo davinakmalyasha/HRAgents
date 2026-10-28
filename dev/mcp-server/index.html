@@ -1649,11 +1649,17 @@ behind a named human.</p>
 <td>Files a leave request, which enters the human approval queue</td>
 <td><code>self_service</code> (or <code>people:write</code>)</td>
 </tr>
+<tr>
+<td><code>request_document</code></td>
+<td>Asks an employee for a document; creates an approval, never a demand — nothing is asked until a human approves</td>
+<td><code>people:write</code></td>
+</tr>
 </tbody>
 </table>
 <p>The write tools are still just API calls: the key's role is the authorization,
 and audit records the actor behind the key. <code>open_leave_request</code> cannot decide
-the request it files; approving is a dashboard action.</p>
+the request it files, and <code>request_document</code> cannot demand anything;
+approving is a dashboard action.</p>
 <p>Each tool carries MCP annotations: the five reads set <code>readOnlyHint</code>, so a
 client can treat them as safe to call without confirmation, and the write tools
 set <code>readOnlyHint=false</code> with <code>destructiveHint=false</code>. The instructions the

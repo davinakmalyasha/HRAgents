@@ -2062,7 +2062,7 @@ reachable, and <code>/readyz</code> + <code>/metrics</code> make a stopped pipel
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 <code>sigma</code> gate. Block B is complete: <strong>authentication happens once per request</strong>, <code>ActorRef</code> carries
 the actor together with its provenance, and <strong>no request body in the API names the actor at all</strong>.
-<strong>1,938 collected test cases · ≥90% coverage · ruff + mypy clean</strong>.</p>
+<strong>1,953 collected test cases · ≥90% coverage · ruff + mypy clean</strong>.</p>
 <blockquote>
 <p><strong>What changed, and why it mattered.</strong> The API accepted an application and returned <code>202</code>, but
 nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -2638,10 +2638,11 @@ behind human approval.</p>
       permissions, tenancy and the audit boundary are the API's).</li>
 <li>[x] Write tools, opt-in (<code>HRAGENTS_MCP_WRITES=1</code>) and permission-gated by the API key:
       <code>create_application</code> (intake; the caller supplies consent, never inferred),
-      <code>start_onboarding_plan</code>, <code>open_leave_request</code> (enters the human approval queue).
+      <code>start_onboarding_plan</code>, <code>open_leave_request</code> (enters the human approval queue),
+      and <code>request_document</code> (asks an employee for a document; creates an approval,
+      never a demand — the task only exists after a named human approves and the
+      approval is synced).
       <strong>Never</strong> payroll, erasure, rejection, stage moves, approvals or overrides.</li>
-<li>[ ] <code>request_document</code> write tool: there is no API route for "ask an employee for a document"
-      yet; it needs an approval-backed request, so it stays a follow-up rather than a bypass</li>
 <li>[x] Auth: the server holds one role-bound API key and every call is authorized by the API's
       existing permission checks. <code>HRAGENTS_MCP_TOOLS</code> narrows the exposed surface to a
       comma-separated allowlist; an unknown name, or a write tool listed without
