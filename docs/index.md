@@ -82,7 +82,7 @@ The demo dataset, seeded through the real services:
 
 ## Status
 
-`v0.15.2` — the core loop, ten workspaces, the PWA, payroll preparation,
+Published — the core loop, ten workspaces, the PWA, payroll preparation,
 compliance, observability and a self-host compose stack are in place and published.
 Open work is tracked honestly in [Remaining work](plan/remaining-work.md).
 

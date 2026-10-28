@@ -28,8 +28,8 @@ bridge. Migrations run before the API serves.
 Prefer the published image over a local build?
 
 ```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose up -d --no-build
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose up -d --no-build
 ```
 
 ## 3. Sign in

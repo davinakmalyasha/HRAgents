@@ -13,11 +13,12 @@ technical work — see [Work with the author](#work-with-the-author).
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 
-**Status:** v0.15.2, published. The platform core, all five agents, the recruitment
-API surface, all Wave-1 department engines, the hiring dashboard workspaces, auth
-screens, the MCP layer (read tools plus approval-backed write tools) and the
-document-request flow are built, tested and running behind a worker (1953 tests,
-coverage enforced at 90% in CI). Open work is tracked honestly in
+**Status:** published under Apache-2.0; every merged batch is cut as a release.
+The platform core, all five agents, the recruitment API surface, all Wave-1
+department engines, the hiring dashboard workspaces, auth screens, the MCP layer
+(read tools plus approval-backed write tools) and the document-request flow are
+built, tested and running behind a worker (1953 tests, coverage enforced at 90%
+in CI). Open work is tracked honestly in
 [remaining work](docs/plan/remaining-work.md) — mostly items that need the outside
 world (vendor gateways, a live model, a narrated demo video).
 
@@ -35,11 +36,11 @@ docker compose up --build -d
 ```
 
 Prefer the published image over a local build? Every release is a multi-arch
-container on GHCR:
+container on GHCR (pin a tag in production;  is the newest release):
 
 ```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.2 docker compose up -d --no-build
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose up -d --no-build
 ```
 
 `scripts/setup.py` writes `.env` (gitignored), which compose loads; it prints the
