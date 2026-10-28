@@ -14047,7 +14047,7 @@
   "info": {
     "description": "Deterministic, auditable multi-agent candidate evaluation engine. LLM agents extract evidence; scoring is deterministic; humans gate every consequential negative decision.",
     "title": "HRAgents API",
-    "version": "0.15.2"
+    "version": "0.15.3"
   },
   "openapi": "3.1.0",
   "paths": {
