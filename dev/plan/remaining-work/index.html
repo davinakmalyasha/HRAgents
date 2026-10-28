@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#remaining-work-core-integrity-then-mcp-layer-to-paper-release" class="md-skip">
+        <a href="#remaining-work-the-honest-backlog" class="md-skip">
           Skip to content
         </a>
       
@@ -2052,7 +2052,7 @@
   
 
 
-<h1 id="remaining-work-core-integrity-then-mcp-layer-to-paper-release">Remaining Work — core integrity, then MCP layer to paper &amp; release<a class="headerlink" href="#remaining-work-core-integrity-then-mcp-layer-to-paper-release" title="Permanent link">&para;</a></h1>
+<h1 id="remaining-work-the-honest-backlog">Remaining Work — the honest backlog<a class="headerlink" href="#remaining-work-the-honest-backlog" title="Permanent link">&para;</a></h1>
 <p>Status snapshot: <strong>2026-10-28</strong>. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
 cross-workspace handoff) is built and tested. Stage 0 of the core work landed: <strong>the evaluation
@@ -2957,13 +2957,13 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       <code>deployment.md</code></li>
 <li>[x] <code>CONTRIBUTING.md</code>, <code>CODE_OF_CONDUCT.md</code>, issue templates, security policy, ADRs, release
       process (landed early with the repo-infrastructure work — see <code>master-build-plan.md</code> Phase 1)</li>
-<li>[x] Docs site (mkdocs-material + GitHub Pages): <code>docs.yml</code> builds and deploys on every docs
-      change; the site carries the architecture, deployment, API reference and ADRs. Versioned
-      docs (<code>mike</code>) remain, so old releases do not keep their own site yet.</li>
+<li>[x] Docs site (mkdocs-material + GitHub Pages): <code>docs.yml</code> deploys on every docs
+      change and keeps a version for each release via <code>mike</code> (<code>latest</code>, <code>dev</code>, and
+      <code>0.2</code>–<code>0.15</code>), so an old release keeps the site that shipped with it.</li>
 <li>[x] Container image on GHCR: the <code>image.yml</code> pipeline builds <code>linux/amd64</code> + <code>linux/arm64</code>,
       scans before pushing, and fails on a fixable CRITICAL. The pipeline was added after the 0.1.0
       release; 0.1.0 itself is superseded, while 0.2–0.15 were built, scanned, attested and
-      published (the current image is <code>0.15.0</code>/<code>latest</code>). A dispatch of the 0.1.0 tag validated the
+      published (the current image is <code>0.15.2</code>/<code>latest</code>). A dispatch of the 0.1.0 tag validated the
       scan-before-push ordering: it attached the reports, failed the CRITICAL gate, and skipped
       the push — the failure mode is a published finding, not a published image.</li>
 <li>[x] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
@@ -2975,7 +2975,7 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       no API path. Demo assets (screenshots/GIF) already ship.</li>
 <li>[x] Immutable releases for tags: the <code>release-tags</code> ruleset blocks deletion and
       moves of <code>hr-agents-v*</code> tags, so a published release cannot be re-pointed.</li>
-<li>[x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in <code>release-process.md</code>); v0.1.0–v0.15.0 published</li>
+<li>[x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in <code>release-process.md</code>); v0.1.0–v0.15.2 published</li>
 <li>[x] <strong>First release published.</strong> PR #3 was re-opened to run the required CI checks (the bot
       pushed with <code>GITHUB_TOKEN</code>, whose events do not trigger workflows), passed all six, and was
       squash-merged; <code>release-please</code> then published <code>hr-agents-v0.1.0</code> with the changelog. The
