@@ -47,7 +47,7 @@ export default function Home() {
         <div className="container">
           <h2>The whole employee lifecycle, not just the ATS</h2>
           <p className="section-lede">
-            Nine workspaces share one record. A decision made in hiring is the
+            Nine departments share one record. A decision made in hiring is the
             same employee the onboarding checklist, the leave balance and the
             offboarding clearance later refer to.
           </p>
