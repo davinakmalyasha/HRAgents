@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.14.0...hr-agents-v0.15.0) (2026-10-28)
+
+
+### Features
+
+* **mcp:** approval-backed document requests and the request_document tool ([9c34c48](https://github.com/davinakmalyasha/HRAgents/commit/9c34c4838aa29499088aa39c14ffe0959d44fcfa))
+
 ## [0.14.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.13.1...hr-agents-v0.14.0) (2026-10-28)
 
 
