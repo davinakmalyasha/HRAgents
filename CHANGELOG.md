@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.13.1...hr-agents-v0.14.0) (2026-10-28)
+
+
+### Features
+
+* **mcp:** bind catalog templates to configs and surface the gate to agents ([7dc993d](https://github.com/davinakmalyasha/HRAgents/commit/7dc993d6754227fccaa778eb161e519642b9c9b5))
+
 ## [0.13.1](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.13.0...hr-agents-v0.13.1) (2026-10-27)
 
 
