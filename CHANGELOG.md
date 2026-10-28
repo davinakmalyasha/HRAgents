@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.1](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.0...hr-agents-v0.15.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* **providers:** unimplemented email paths report degraded, not ok ([c44ee31](https://github.com/davinakmalyasha/HRAgents/commit/c44ee316e187d27d17346db4dffbb46c48d0bdb5))
+
+
+### Documentation
+
+* bring portfolio-facing words in line with the built product ([3c55d15](https://github.com/davinakmalyasha/HRAgents/commit/3c55d15d10944764d9700e4fda73f0fda7bde832))
+
 ## [0.15.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.14.0...hr-agents-v0.15.0) (2026-10-28)
 
 
