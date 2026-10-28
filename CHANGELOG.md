@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.2](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.1...hr-agents-v0.15.2) (2026-10-28)
+
+
+### Documentation
+
+* close the portfolio loop — video script, tag immutability, image check ([6f76cdc](https://github.com/davinakmalyasha/HRAgents/commit/6f76cdc17ff6204ea777f615416e77dbbd5720c9))
+
 ## [0.15.1](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.0...hr-agents-v0.15.1) (2026-10-28)
 
 
