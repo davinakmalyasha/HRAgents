@@ -2034,10 +2034,10 @@ matters. The key is printed once — paste it into the dashboard sign-in. Withou
 <p>Then:</p>
 <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
 </code></pre></div>
-<p>To run the published release instead of building it, select a tag and skip the
-build:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:0.15.0<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>pull
-<span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:0.15.0<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--no-build
+<p>To run the published release instead of building it, select a tag (or )
+and skip the build:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:latest<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>pull
+<span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:latest<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--no-build
 </code></pre></div>
 <p>Images are multi-arch (<code>linux/amd64</code> and <code>linux/arm64</code>). Each release publishes
 the exact version, its <code>major.minor</code>, <code>latest</code>, and a <code>sha-…</code> tag. The release
@@ -2543,9 +2543,9 @@ that share sense.</p>
 <li>The built-in <code>test</code> model runs the whole pipeline with canned responses so
   tests and demos need neither a network nor a model. Its numbers are fake by
   construction; never use it for a real candidate.</li>
-<li>Provider health badges report <em>configured</em>, not <em>reachable</em>: the health probe
-  is a Phase 7 item, so verify Ollama yourself with <code>ollama list</code> and one
-  extraction from the dashboard before trusting a batch.</li>
+<li>Provider health badges report <em>configured</em> state, not reachability: the probe
+  validates configuration and marks unimplemented paths <code>degraded</code>, so verify any
+  endpoint yourself with one real call before trusting a batch.</li>
 </ul>
 
 
