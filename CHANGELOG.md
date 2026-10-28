@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.15.3](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.2...hr-agents-v0.15.3) (2026-10-28)
+
+
+### Documentation
+
+* examples use latest, so the quickstart cannot go stale ([ec18650](https://github.com/davinakmalyasha/HRAgents/commit/ec186505dd188f6ab25e81763f23f37bfd62ad84))
+* finish the consistency pass — versions, phase status, connector claim ([6a17e63](https://github.com/davinakmalyasha/HRAgents/commit/6a17e63b64f423b3b5670fc3502b5dfcefcf96be))
+* pin the quickstart image and say departments, not workspaces ([85cc6e7](https://github.com/davinakmalyasha/HRAgents/commit/85cc6e7d58d2111c3262aa91e9f5468f81abefd2))
+
 ## [0.15.2](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.1...hr-agents-v0.15.2) (2026-10-28)
 
 
