@@ -2,130 +2,130 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/api/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/data-governance/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/deployment/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/fairness/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/mcp-catalog/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/mcp-server/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/paper/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/quickstart/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/regions/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/adr/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/adr/0001-llm-extracts-deterministic-scores/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/adr/0002-hitl-bounds-in-code/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/adr/0003-no-shell-tools/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/adr/0004-provider-layer/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/adr/0005-sync-domain-async-edge/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/adr/0006-tenancy-rls/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/architecture/benchmarks/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/architecture/board-transitions/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/architecture/data-storage/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/architecture/hitl-bounds/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/architecture/providers/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/architecture/system-architecture/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/legal/dpa-template/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/plan/hr-domain-guide/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/plan/master-build-plan/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/plan/polish-backlog/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/plan/problem-statement/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/plan/product-concept/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/plan/release-process/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/plan/remaining-work/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
     <url>
          <loc>https://davinakmalyasha.github.io/HRAgents/dev/research/literature-review/</loc>
-         <lastmod>2026-10-27</lastmod>
+         <lastmod>2026-10-28</lastmod>
     </url>
 </urlset>

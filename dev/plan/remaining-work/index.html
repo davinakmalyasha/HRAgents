@@ -2062,7 +2062,7 @@ reachable, and <code>/readyz</code> + <code>/metrics</code> make a stopped pipel
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 <code>sigma</code> gate. Block B is complete: <strong>authentication happens once per request</strong>, <code>ActorRef</code> carries
 the actor together with its provenance, and <strong>no request body in the API names the actor at all</strong>.
-<strong>1,928 collected test cases · ≥90% coverage · ruff + mypy clean</strong>.</p>
+<strong>1,938 collected test cases · ≥90% coverage · ruff + mypy clean</strong>.</p>
 <blockquote>
 <p><strong>What changed, and why it mattered.</strong> The API accepted an application and returned <code>202</code>, but
 nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -2620,8 +2620,16 @@ behind human approval.</p>
 <li>[x] On approval: execute once, record the approval id in the audit payload; on rejection/expiry:
       no side effect, agent informed</li>
 <li>[x] Tests: destructive tool cannot execute without a named human decision (negative tests first)</li>
-<li>[ ] Remaining: register the catalog's external tools with explicit impacts, and surface the gate
-      through an agent-facing API so an agent can request approval in-line</li>
+<li>[x] Remaining: the catalog's external tools register with explicit impacts, and the gate
+      is surfaced through an agent-facing API so an agent can request approval in-line.
+      <code>config_for</code> binds a template to the operator's gateway endpoint, carrying the
+      template's token variable, tool impacts and agent allowlist (narrowing allowed,
+      reclassification and destructive tools refused); a test proves a catalog-derived
+      config registers with its declared impacts. <code>ToolRegistry.request_approval</code> /
+      <code>execute_approved</code> mirror <code>execute</code>'s scope and allowlist checks and delegate to
+      the <code>DestructiveToolGate</code>, and the production agent set is built with the gate
+      wired to the shared approval engine. Destructive remote tools stay unregistered:
+      there is still no dry-run preview contract for a call the gateway would make.</li>
 </ul>
 <h3 id="14-expose-hragents-mcp-server">1.4 Expose <code>hragents-mcp</code> server<a class="headerlink" href="#14-expose-hragents-mcp-server" title="Permanent link">&para;</a></h3>
 <ul>
