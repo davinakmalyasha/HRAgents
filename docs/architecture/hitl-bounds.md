@@ -1,6 +1,6 @@
 # Automation Boundaries: HITL vs. Full Automation
 
-**Version:** 0.1.0 · **Status:** frozen contract
+**Version:** 0.15.0 · **Status:** frozen contract
 
 This document defines exactly where the system may act alone and where a named human must
 decide. The rules are enforced by the policy engine — not by convention, not by prompt text.

@@ -1,6 +1,6 @@
 # System Architecture
 
-**Version:** 0.1.0 · **Status:** contracts frozen, implementation in progress
+**Version:** 0.15.0 · **Status:** built and measured; budgets below are targets with measured values where recorded
 
 ## 1. Overview
 
@@ -26,24 +26,24 @@ flowchart LR
 
     subgraph Edge["Edge & Ingestion"]
         LB["Load balancer"]
-        APIAPP["FastAPI ingestion API<br/>(async, 10k req/min target)"]
+        APIAPP["FastAPI ingestion API<br/>(async, measured 36.5k req/min in-process)"]
         IDEM["Idempotency store<br/>(Postgres)"]
     end
 
     subgraph Storage["Object & Document"]
-        S3["MinIO / S3<br/>raw documents (encrypted)"]
+        S3["MinIO / S3<br/>(reserved; documents live in Postgres)"]
         PARSE["Document parser<br/>PDF/DOCX → text<br/>(PII redaction)"]
     end
 
     subgraph Queue["Work orchestration"]
         STREAM["Redis Streams<br/>consumer groups"]
         SORTED["Redis sorted set<br/>priority index"]
-        WORKERS["Worker pool<br/>(asyncio)"]
+        WORKERS["Evaluation worker<br/>(scripts/run_worker.py)"]
     end
 
     subgraph Agents["Agent layer (PydanticAI)"]
         RESUME["ResumeDeconstructor<br/>→ CandidateProfile"]
-        CODE["CodePortfolio<br/>GitHub + AST analysis"]
+        CODE["CodePortfolio<br/>GitHub + AST analysis<br/>(library; not in the pipeline)"]
         SCREEN["AsyncScreening<br/>availability + clarifications"]
         FB["FeedbackWriter"]
         GUARD["InjectionGuard<br/>(sanitize untrusted input)"]
@@ -227,7 +227,7 @@ erDiagram
 | Path | Target | Mechanism |
 |---|---|---|
 | Ingestion accept (`POST /v1/applications`) | p99 < 150 ms | Async write + enqueue only; no synchronous processing |
-| Sustained ingestion | 10,000 req/min | Horizontal API replicas; Redis Streams backpressure |
+| Sustained ingestion | 10,000 req/min budget; **36,509 req/min measured** in-process (p50 93 ms, p99 169 ms) | Horizontal API replicas; Redis Streams backpressure |
 | Priority queue read (`GET /v1/queue`) | p99 < 50 ms | Precomputed sorted set; cursor pagination |
 | Deterministic scoring | < 100 ms per candidate | Pure Python over JSON; k=3 runs |
 | Full extraction pipeline | < 10 min p95 | Async workers; bounded retries with dead-letter |
@@ -252,7 +252,9 @@ erDiagram
   attributes never reach scoring, and are minimized in model prompts.
 - **No protected attributes in scoring** — enforced by schema (scoring consumes only the four
   job-relevant dimensions) and verified by the fairness harness (counterfactual name-swap audits).
-- **RBAC** — override endpoints restricted to `engineering_lead`, `recruiter_lead`, `hr_partner`.
+- **RBAC** — override and decision endpoints restricted to the roles that hold them
+  (`hr_admin`, `recruiter`, `finance`, `manager`, `employee` principals; named-human
+  approver roles such as `engineering_lead` and `recruiter_lead` for sign-offs).
 - **Audit chain** — every policy decision, score, override, and outbound notification is appended
   with `prev_hash`/`entry_hash`.
 - **Retention** — per-entity operator policies (months + delete/anonymize) over the retention ledger;

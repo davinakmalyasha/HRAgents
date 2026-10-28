@@ -82,9 +82,9 @@ The demo dataset, seeded through the real services:
 
 ## Status
 
-`v0.1.0` — the core loop, nine workspaces, the PWA, payroll preparation,
-compliance, observability and a self-host compose stack are in place. Open work
-is tracked honestly in [Remaining work](plan/remaining-work.md).
+`v0.15.0` — the core loop, ten workspaces, the PWA, payroll preparation,
+compliance, observability and a self-host compose stack are in place and published.
+Open work is tracked honestly in [Remaining work](plan/remaining-work.md).
 
 Apache-2.0. Built and tested in Jakarta; Bahasa Indonesia and English in the
 dashboard.

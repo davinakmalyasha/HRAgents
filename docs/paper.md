@@ -1,6 +1,6 @@
 # HRAgents: an auditable HR agent platform for the department of one
 
-**Davin Akmal Yasha** · v0.2.0 · Apache-2.0
+**Davin Akmal Yasha** · v0.15.0 · Apache-2.0
 
 ## Abstract
 

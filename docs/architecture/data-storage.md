@@ -1,6 +1,6 @@
 # Data & Storage Architecture
 
-**Version:** 0.1.0 · **Decision:** PostgreSQL 16 + pgvector for all production workloads; SQLite only as an in-memory test engine.
+**Version:** 0.15.0 · **Decision:** PostgreSQL 16 + pgvector for all production workloads; SQLite only as an in-memory test engine.
 
 ## 1. The decision
 

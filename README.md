@@ -13,12 +13,13 @@ technical work — see [Work with the author](#work-with-the-author).
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 
-**Status:** active development. The platform core, all five agents, the recruitment
-API surface, and all Wave-1 department engines are operational and wired into a
-running worker (1287 tests, coverage enforced at 90% in CI). The hiring dashboard
-workspaces run end to end. Still open: the remaining dashboard workspaces,
-authentication screens, and the MCP layer. No public release yet - see the
-[remaining work plan](docs/plan/remaining-work.md).
+**Status:** v0.15.0, published. The platform core, all five agents, the recruitment
+API surface, all Wave-1 department engines, the hiring dashboard workspaces, auth
+screens, the MCP layer (read tools plus approval-backed write tools) and the
+document-request flow are built, tested and running behind a worker (1953 tests,
+coverage enforced at 90% in CI). Open work is tracked honestly in
+[remaining work](docs/plan/remaining-work.md) — mostly items that need the outside
+world (vendor gateways, a live model, a narrated demo video).
 
 ---
 
@@ -37,8 +38,8 @@ Prefer the published image over a local build? Every release is a multi-arch
 container on GHCR:
 
 ```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose up -d --no-build
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose up -d --no-build
 ```
 
 `scripts/setup.py` writes `.env` (gitignored), which compose loads; it prints the
@@ -152,13 +153,13 @@ full pipeline. Every step is auditable.
 
 Every step lands on a hash-chained audit log. Every score cites its evidence.
 
-> **Known limits, stated plainly.** The four scoring dimensions are calibrated for
-> engineering roles, so a non-technical candidate is systematically under-scored —
-> generalization to other job families is the top planned change. The knowledge
-> corpus behind "Ask HR" is a seed set, not an Indonesian HR library. And only the
-> `consent` entity has a working data-erasure handler today; erasing a candidate
-> record is reported as `not_executed` rather than falsely claiming success. See
-> [remaining work](docs/plan/remaining-work.md) for the full picture.
+> **Known limits, stated plainly.** The eight family rubrics (engineering, finance,
+> education, healthcare, legal, operations, sales, general) carry per-family evidence
+> vocabularies, but per-family calibration numbers are still thin — the pinned
+> regression vector is engineering. The knowledge corpus behind "Ask HR" is a seed
+> set, not an Indonesian HR library. Live-model fairness and cost-per-application
+> are unproven: CI exercises the harness with the deterministic offline model.
+> See [remaining work](docs/plan/remaining-work.md) for the full picture.
 
 ### Core formulas (locked)
 
@@ -179,7 +180,7 @@ review for `S_tech ≥ 0.70` rejections.
 
 | Workspace | Wave | Agents do | Humans gate |
 |---|---|---|---|
-| **Hiring** | 1 (building) | Extract, score, coordinate, draft | Every rejection, every offer |
+| **Hiring** | 1 (shipped) | Extract, score, coordinate, draft | Every rejection, every offer |
 | **Ask HR** (front door) | 1 | Intent routing, cited policy Q&A | Anything consequential |
 | **Compliance** | 1-2 | Consent registry, retention, erasure, breach workflow | Identity verification, every erasure, every purge |
 | **Onboarding** | 1-2 | Checklists, document chasing | Contracts, signatures |

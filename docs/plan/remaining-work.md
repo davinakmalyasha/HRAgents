@@ -889,8 +889,8 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
       docs (`mike`) remain, so old releases do not keep their own site yet.
 - [x] Container image on GHCR: the `image.yml` pipeline builds `linux/amd64` + `linux/arm64`,
       scans before pushing, and fails on a fixable CRITICAL. The pipeline was added after the 0.1.0
-      release; 0.1.0 itself is superseded, while 0.2–0.6 were built, scanned, attested and
-      published (the current image is `0.6.0`/`latest`). A dispatch of the 0.1.0 tag validated the
+      release; 0.1.0 itself is superseded, while 0.2–0.15 were built, scanned, attested and
+      published (the current image is `0.15.0`/`latest`). A dispatch of the 0.1.0 tag validated the
       scan-before-push ordering: it attached the reports, failed the CRITICAL gate, and skipped
       the push — the failure mode is a published finding, not a published image.
 - [x] SBOM + build provenance: the pipeline attaches an SPDX SBOM and the SARIF scan result to
@@ -899,7 +899,7 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 - [ ] PyPI publishing — only if a library use case appears (currently deferred)
 - [ ] GitHub social preview image + demo assets (screenshots/GIF)
 - [ ] Immutable releases for tags, once the release flow has settled
-- [x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in `release-process.md`); v0.1.0–v0.6.0 published
+- [x] Public release: GitHub tag, release notes, Apache-2.0 confirmed, reproducible build steps (documented in `release-process.md`); v0.1.0–v0.15.0 published
 - [x] **First release published.** PR #3 was re-opened to run the required CI checks (the bot
       pushed with `GITHUB_TOKEN`, whose events do not trigger workflows), passed all six, and was
       squash-merged; `release-please` then published `hr-agents-v0.1.0` with the changelog. The

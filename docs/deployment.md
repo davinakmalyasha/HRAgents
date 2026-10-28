@@ -30,8 +30,8 @@ To run the published release instead of building it, select a tag and skip the
 build:
 
 ```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.1.0 docker compose up -d --no-build
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose pull
+HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:0.15.0 docker compose up -d --no-build
 ```
 
 Images are multi-arch (`linux/amd64` and `linux/arm64`). Each release publishes
