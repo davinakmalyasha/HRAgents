@@ -13,6 +13,7 @@ from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol
+from uuid import UUID
 
 from hr_agents.identity import ActorRef
 from hr_agents.models import ApproverRole, AuditActor, AuditEntry, payload_digest
@@ -203,6 +204,123 @@ class ToolRegistry:
 
     def names_for(self, agent_name: str) -> list[str]:
         return [tool.name for tool in self.definitions_for(agent_name)]
+
+    def request_approval(
+        self,
+        *,
+        agent_name: str,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> Any:
+        """Ask a human to approve one destructive call, in-line from agent code.
+
+        This is the counterpart to :meth:`execute`, which refuses a destructive
+        tool before its handler runs. An agent that hits
+        :class:`ToolApprovalRequired` calls here instead of retrying the call:
+        the request carries a dry-run preview through the shared approval
+        engine, and the human decides it in the same queue as every other
+        approval. Scope and allowlist checks apply exactly as in :meth:`execute`,
+        so requesting approval for a tool the agent may not see is itself
+        refused.
+        """
+        from hr_agents.tools.gating import DestructiveToolError
+
+        normalized = agent_name.strip().lower()
+        if tool_name not in self._tools:
+            raise ToolNotFoundError(f"unknown tool: {tool_name!r}")
+        if self._scope is not None and tool_name not in self._scope:
+            self._record(
+                agent_name=normalized,
+                tool_name=tool_name,
+                arguments=arguments or {},
+                outcome="denied",
+                reason="workspace_scope",
+            )
+            raise ToolPermissionError(
+                f"tool {tool_name!r} is outside workspace scope {self._scope_id!r}"
+            )
+        definition = self._tools[tool_name]
+        if not definition.permits(normalized):
+            self._record(
+                agent_name=normalized,
+                tool_name=tool_name,
+                arguments=arguments or {},
+                outcome="denied",
+                reason="agent_scope",
+            )
+            raise ToolPermissionError(
+                f"agent {normalized!r} is not permitted to use tool {tool_name!r}"
+            )
+        if not definition.requires_approval():
+            raise DestructiveToolError(
+                f"tool {tool_name!r} is not destructive and needs no approval"
+            )
+        gate = self._approval_gate
+        if gate is None:
+            raise ToolApprovalRequired(
+                f"tool {tool_name!r} is destructive and has no approval gate configured"
+            )
+        return gate.request(definition, agent_name=normalized, arguments=dict(arguments or {}))
+
+    def execute_approved(
+        self,
+        *,
+        agent_name: str,
+        tool_name: str,
+        arguments: dict[str, Any] | None = None,
+        request_id: UUID | None = None,
+    ) -> Any:
+        """Run a destructive call the human already approved, at most once.
+
+        Same scope and allowlist checks as :meth:`execute`; the gate then
+        enforces same-arguments and at-most-once on the stored approval. Only
+        synchronous handlers are supported — an async destructive handler has
+        no preview contract the approval could have carried, so it cannot be
+        registered in the first place.
+        """
+        from hr_agents.tools.gating import DestructiveToolError
+
+        normalized = agent_name.strip().lower()
+        if tool_name not in self._tools:
+            raise ToolNotFoundError(f"unknown tool: {tool_name!r}")
+        if self._scope is not None and tool_name not in self._scope:
+            self._record(
+                agent_name=normalized,
+                tool_name=tool_name,
+                arguments=arguments or {},
+                outcome="denied",
+                reason="workspace_scope",
+            )
+            raise ToolPermissionError(
+                f"tool {tool_name!r} is outside workspace scope {self._scope_id!r}"
+            )
+        definition = self._tools[tool_name]
+        if not definition.permits(normalized):
+            self._record(
+                agent_name=normalized,
+                tool_name=tool_name,
+                arguments=arguments or {},
+                outcome="denied",
+                reason="agent_scope",
+            )
+            raise ToolPermissionError(
+                f"agent {normalized!r} is not permitted to use tool {tool_name!r}"
+            )
+        if not definition.requires_approval():
+            raise DestructiveToolError(
+                f"tool {tool_name!r} is not destructive and needs no approval"
+            )
+        gate = self._approval_gate
+        if gate is None:
+            raise ToolApprovalRequired(
+                f"tool {tool_name!r} is destructive and has no approval gate configured"
+            )
+        return gate.execute_approved(
+            definition,
+            agent_name=normalized,
+            arguments=dict(arguments or {}),
+            request_id=request_id,
+        )
 
     async def execute(
         self,

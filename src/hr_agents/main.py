@@ -101,10 +101,13 @@ async def _build_agents(app: FastAPI) -> AgentSet | None:
     if audit is None:
         return None
     try:
+        people = getattr(app.state, "people", None)
+        approvals = getattr(people, "approvals", None) if people is not None else None
         agent_set = await build_agent_set(
             audit=audit,
             runtime=AgentRuntime.from_env(),
             skills_root=get_settings().skills_root,
+            approvals=approvals,
         )
     except KnowledgeUnavailableError as exc:
         # Loud, because a missing skills root means every agent silently runs

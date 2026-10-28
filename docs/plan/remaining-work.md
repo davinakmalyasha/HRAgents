@@ -9,7 +9,7 @@ reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A l
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 `sigma` gate. Block B is complete: **authentication happens once per request**, `ActorRef` carries
 the actor together with its provenance, and **no request body in the API names the actor at all**.
-**1,928 collected test cases · ≥90% coverage · ruff + mypy clean**.
+**1,938 collected test cases · ≥90% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -545,8 +545,16 @@ behind human approval.
 - [x] On approval: execute once, record the approval id in the audit payload; on rejection/expiry:
       no side effect, agent informed
 - [x] Tests: destructive tool cannot execute without a named human decision (negative tests first)
-- [ ] Remaining: register the catalog's external tools with explicit impacts, and surface the gate
-      through an agent-facing API so an agent can request approval in-line
+- [x] Remaining: the catalog's external tools register with explicit impacts, and the gate
+      is surfaced through an agent-facing API so an agent can request approval in-line.
+      `config_for` binds a template to the operator's gateway endpoint, carrying the
+      template's token variable, tool impacts and agent allowlist (narrowing allowed,
+      reclassification and destructive tools refused); a test proves a catalog-derived
+      config registers with its declared impacts. `ToolRegistry.request_approval` /
+      `execute_approved` mirror `execute`'s scope and allowlist checks and delegate to
+      the `DestructiveToolGate`, and the production agent set is built with the gate
+      wired to the shared approval engine. Destructive remote tools stay unregistered:
+      there is still no dry-run preview contract for a call the gateway would make.
 
 ### 1.4 Expose `hragents-mcp` server
 - [x] Read tools: queue, application status, evaluation summary, pending approvals, leave balances

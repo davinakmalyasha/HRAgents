@@ -48,7 +48,20 @@ the operator's own MCP gateway.
 5. Let one agent make a read call on a real (or seeded) record and inspect the
    audit entry.
 
-The catalog lives in `src/hr_agents/services/mcp_catalog.py`. A guard test
-keeps every entry honest: unique ids, non-empty scopes, data-flow and enable
-steps, no destructive tools, and no decision words in tool names. Adding an
-entry is a code change so the review can check those properties.
+The catalog lives in `src/hr_agents/services/mcp_catalog.py`. `config_for`
+binds a template to an operator-supplied gateway endpoint, carrying the
+template's token variable, tool impacts and agent allowlist; narrowing the
+tools or agents is allowed, reclassifying an impact or adding a destructive
+tool is refused. A guard test keeps every entry honest: unique ids, non-empty
+scopes, data-flow and enable steps, no destructive tools, and no decision words
+in tool names. Adding an entry is a code change so the review can check those
+properties.
+
+Requesting approval in-line works through the shared tool registry, which now
+carries the destructive-tool gate in production: an agent that hits the refusal
+calls `request_approval` for a ticket (dry-run preview included) and, once a
+named human approves it in the approvals queue, `execute_approved` runs it
+once. Scope and allowlist checks apply to both calls exactly as they do to
+`execute`. Destructive remote tools stay unregistered — there is still no
+preview contract for a call the gateway would make — so the gate's executable
+set today is the local destructive tools (consent capture).

@@ -19,6 +19,7 @@ from hr_agents.tools import (
     ToolApprovalRequired,
     ToolDefinition,
     ToolImpact,
+    ToolPermissionError,
     ToolRegistry,
 )
 
@@ -368,3 +369,85 @@ async def test_capture_consent_cannot_execute_without_a_human_decision() -> None
     # gate blocks at the registry boundary, before an agent can even ask for one.
     assert [entry.action for entry in audit.entries] == ["tool.capture_consent"]
     assert audit.entries[0].actor.actor_id == "agent:screening_coordinator"
+
+
+# --- the agent-facing API: request in-line, run once approved ------------------
+
+
+def test_an_agent_requests_approval_in_line_and_runs_once_it_is_granted() -> None:
+    calls: list[dict[str, object]] = []
+    audit = AuditChain()
+    registry = make_registry(
+        make_destructive_tool(calls=calls), audit, DestructiveToolGate(make_engine())
+    )
+
+    ticket = registry.request_approval(
+        agent_name=AGENT, tool_name="mcp.hris.delete_employee", arguments={"employee_id": "emp-1"}
+    )
+    assert ticket.status is ApprovalStatus.PENDING
+    assert ticket.preview == {"result": {"would_delete": "emp-1", "dry_run": True}}
+    assert calls == []
+
+    engine = registry.approval_gate._approvals  # type: ignore[union-attr]
+    engine.decide(ticket.request_id, actor=hr_admin_principal("Sinta"), approve=True)
+    result = registry.execute_approved(
+        agent_name=AGENT, tool_name="mcp.hris.delete_employee", arguments={"employee_id": "emp-1"}
+    )
+    assert result == {"would_delete": "emp-1", "dry_run": False}
+    assert calls == [{"employee_id": "emp-1"}]
+
+
+def test_execute_approved_refuses_before_the_human_decides() -> None:
+    registry = make_registry(
+        make_destructive_tool(), AuditChain(), DestructiveToolGate(make_engine())
+    )
+
+    ticket = registry.request_approval(
+        agent_name=AGENT, tool_name="mcp.hris.delete_employee", arguments={"employee_id": "emp-1"}
+    )
+    assert ticket.status is ApprovalStatus.PENDING
+
+    with pytest.raises(DestructiveToolError, match="is pending"):
+        registry.execute_approved(
+            agent_name=AGENT,
+            tool_name="mcp.hris.delete_employee",
+            arguments={"employee_id": "emp-1"},
+        )
+
+
+def test_request_approval_enforces_scope_allowlist_impact_and_gate() -> None:
+    audit = AuditChain()
+    gate = DestructiveToolGate(make_engine())
+    registry = ToolRegistry(audit=audit)
+    registry.register(make_destructive_tool())
+    registry.register(
+        ToolDefinition(
+            name="read_only",
+            description="Reads",
+            allowed_agents=frozenset({AGENT}),
+            handler=lambda **_: {"ok": True},
+        )
+    )
+    gated = registry.with_approval_gate(gate)
+
+    with pytest.raises(ToolPermissionError, match="not permitted"):
+        gated.request_approval(
+            agent_name="policy_assistant",
+            tool_name="mcp.hris.delete_employee",
+            arguments={"employee_id": "emp-1"},
+        )
+    narrowed = gated.scoped({"read_only"}, scope_id="payroll")
+    with pytest.raises(ToolPermissionError, match="outside workspace scope"):
+        narrowed.request_approval(
+            agent_name=AGENT,
+            tool_name="mcp.hris.delete_employee",
+            arguments={"employee_id": "emp-1"},
+        )
+    with pytest.raises(DestructiveToolError, match="not destructive"):
+        gated.request_approval(agent_name=AGENT, tool_name="read_only", arguments={})
+    with pytest.raises(ToolApprovalRequired, match="no approval gate"):
+        registry.request_approval(
+            agent_name=AGENT,
+            tool_name="mcp.hris.delete_employee",
+            arguments={"employee_id": "emp-1"},
+        )

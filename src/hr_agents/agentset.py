@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hr_agents.agents.code_portfolio import CodePortfolioEvaluator
 from hr_agents.agents.feedback_writer import FeedbackWriter
@@ -27,6 +28,9 @@ from hr_agents.tools import (
     make_search_knowledge_tool,
 )
 from hr_agents.workspaces import default_registry
+
+if TYPE_CHECKING:  # pragma: no cover - import cycle only matters for typing
+    from hr_agents.services.approvals import ApprovalEngine
 
 
 class KnowledgeUnavailableError(RuntimeError):
@@ -87,8 +91,15 @@ async def build_agent_set(
     audit: AuditChain,
     runtime: AgentRuntime | None = None,
     skills_root: str | Path | None = None,
+    approvals: ApprovalEngine | None = None,
 ) -> AgentSet:
-    """Load the skill library, build the retriever, and instantiate all five agents."""
+    """Load the skill library, build the retriever, and instantiate all five agents.
+
+    ``approvals`` wires the destructive-tool gate into the shared registry: with
+    it, an agent can request approval for a destructive call in-line and run it
+    once a named human approves. Without it the registry still refuses
+    destructive calls, but there is no path to approve them.
+    """
     root = resolve_skills_root(skills_root)
     skills = SkillRegistry(load_library(root))
     retriever = await KnowledgeRetriever.build(skills.knowledge())
@@ -101,6 +112,10 @@ async def build_agent_set(
     tools = ToolRegistry(audit=audit)
     tools.register(make_search_knowledge_tool(retriever, namespaces=list(namespaces)))
     tools.register(make_canonicalize_skill_tool())
+    if approvals is not None:
+        from hr_agents.tools.gating import DestructiveToolGate
+
+        tools = tools.with_approval_gate(DestructiveToolGate(approvals))
 
     resolved = runtime or AgentRuntime.from_env()
 

@@ -138,6 +138,39 @@ async def test_a_destructive_tool_is_not_registered_without_a_preview() -> None:
     assert connection.calls == []
 
 
+async def test_a_catalog_derived_config_registers_with_the_template_impacts() -> None:
+    from hr_agents.services.mcp_catalog import config_for
+    from hr_agents.services.mcp_client import McpManager
+
+    config = config_for("slack", "https://mcp.example.com/slack")
+
+    class SlackConnection:
+        async def open(self) -> None:
+            return None
+
+        async def list_tools(self) -> list[tuple[str, str]]:
+            return [("post_message", "Post a message")]
+
+        async def call(self, name: str, arguments: dict[str, object]) -> object:
+            return {}
+
+        async def close(self) -> None:
+            return None
+
+    mcp = McpManager(
+        [config],
+        factory=lambda cfg, bearer: SlackConnection(),
+        environ={"SLACK_MCP_TOKEN": "test-token"},
+    )
+    await mcp.connect()
+    registry = ToolRegistry()
+    added = mcp.register(registry)
+
+    assert added == ["mcp.slack.post_message"]
+    assert registry.get("mcp.slack.post_message").impact.value == "write"
+    assert mcp.statuses()[0].tool_count == 1
+
+
 async def test_an_empty_agent_list_is_discovery_only() -> None:
     config = server(allowed_agents=[])
     mcp, _, registry = await connected(config)

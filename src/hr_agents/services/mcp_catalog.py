@@ -13,7 +13,7 @@ notification; it may not reject, approve, move a stage, run payroll or erase.
 
 from __future__ import annotations
 
-from hr_agents.models.mcp import McpServerCatalogEntry
+from hr_agents.models.mcp import McpServerCatalogEntry, McpServerConfig
 
 CATALOG: tuple[McpServerCatalogEntry, ...] = (
     McpServerCatalogEntry(
@@ -113,3 +113,55 @@ CATALOG: tuple[McpServerCatalogEntry, ...] = (
 
 def catalog() -> list[McpServerCatalogEntry]:
     return list(CATALOG)
+
+
+def get_entry(entry_id: str) -> McpServerCatalogEntry:
+    """One template by id, or ``KeyError`` for an unknown name."""
+    for entry in CATALOG:
+        if entry.id == entry_id:
+            return entry
+    raise KeyError(f"unknown connector template: {entry_id!r}")
+
+
+def config_for(
+    entry_id: str,
+    url: str,
+    *,
+    name: str | None = None,
+    allowed_agents: list[str] | None = None,
+    tools: dict[str, str] | None = None,
+) -> McpServerConfig:
+    """Build an operator connection from a catalog template.
+
+    The template supplies the token variable, the tool names with their
+    impacts, and the default agent allowlist; the operator supplies the
+    gateway endpoint (and optionally narrows the tools or agents). Impacts
+    always come from the template: a caller may drop a tool but may not
+    reclassify one, and a destructive impact is refused outright — a remote
+    destructive tool has no dry-run preview contract, so the registry would
+    refuse it anyway.
+    """
+    entry = get_entry(entry_id)
+    wanted = dict(entry.tools) if tools is None else dict(tools)
+    unknown = sorted(set(wanted) - set(entry.tools))
+    if unknown:
+        raise ValueError(f"template {entry_id!r} does not offer tool(s): {', '.join(unknown)}")
+    for tool, impact in wanted.items():
+        if impact != entry.tools[tool]:
+            raise ValueError(
+                f"tool {tool!r} is {entry.tools[tool]!r} in template {entry_id!r}, "
+                f"not {impact!r}; impacts come from the template"
+            )
+        if impact == "destructive":
+            raise ValueError(
+                f"tool {tool!r} is destructive and has no preview contract; it cannot be registered"
+            )
+    return McpServerConfig(
+        name=name or entry.id,
+        url=url,
+        auth_env=entry.auth_env,
+        allowed_agents=(
+            list(allowed_agents) if allowed_agents is not None else list(entry.allowed_agents)
+        ),
+        tools=wanted,  # type: ignore[arg-type]
+    )
