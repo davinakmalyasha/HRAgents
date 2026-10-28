@@ -255,7 +255,12 @@ async def test_write_tools_are_explicitly_not_read_only_and_not_destructive() ->
     async with Client(server) as client:
         tools = {tool.name: tool for tool in (await client.list_tools()).tools}
 
-    for name in ("create_application", "start_onboarding_plan", "open_leave_request"):
+    for name in (
+        "create_application",
+        "start_onboarding_plan",
+        "open_leave_request",
+        "request_document",
+    ):
         annotations = tools[name].annotations
         assert annotations is not None
         assert annotations.read_only_hint is False
@@ -276,3 +281,27 @@ def test_the_instructions_match_the_mode() -> None:
     assert writable.instructions.startswith("Read and write access")
     assert "nothing here decides" in read_only.instructions.lower()
     assert "nothing here decides" in writable.instructions.lower()
+
+
+async def test_request_document_asks_through_the_approval_queue() -> None:
+    from mcp.client.client import Client
+
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        assert json.loads(request.content) == {"kind": "ktp", "reason": "Payroll needs the ID."}
+        return httpx.Response(201, json={"id": "appr-1", "status": "pending"})
+
+    server = build_server(api_key="secret-key", client=api(handler), allow_writes=True)
+    async with Client(server) as client:
+        result = await client.call_tool(
+            "request_document",
+            {"employee_id": "emp-1", "kind": "ktp", "reason": "Payroll needs the ID."},
+        )
+
+    request = seen[0]
+    assert request.method == "POST"
+    assert str(request.url).endswith("/v1/employees/emp-1/document-requests")
+    payload = json.loads(result.content[0].text)  # type: ignore[union-attr]
+    assert payload["status"] == "pending"

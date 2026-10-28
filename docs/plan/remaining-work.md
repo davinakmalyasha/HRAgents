@@ -9,7 +9,7 @@ reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A l
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 `sigma` gate. Block B is complete: **authentication happens once per request**, `ActorRef` carries
 the actor together with its provenance, and **no request body in the API names the actor at all**.
-**1,938 collected test cases · ≥90% coverage · ruff + mypy clean**.
+**1,953 collected test cases · ≥90% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -562,10 +562,11 @@ behind human approval.
       permissions, tenancy and the audit boundary are the API's).
 - [x] Write tools, opt-in (`HRAGENTS_MCP_WRITES=1`) and permission-gated by the API key:
       `create_application` (intake; the caller supplies consent, never inferred),
-      `start_onboarding_plan`, `open_leave_request` (enters the human approval queue).
+      `start_onboarding_plan`, `open_leave_request` (enters the human approval queue),
+      and `request_document` (asks an employee for a document; creates an approval,
+      never a demand — the task only exists after a named human approves and the
+      approval is synced).
       **Never** payroll, erasure, rejection, stage moves, approvals or overrides.
-- [ ] `request_document` write tool: there is no API route for "ask an employee for a document"
-      yet; it needs an approval-backed request, so it stays a follow-up rather than a bypass
 - [x] Auth: the server holds one role-bound API key and every call is authorized by the API's
       existing permission checks. `HRAGENTS_MCP_TOOLS` narrows the exposed surface to a
       comma-separated allowlist; an unknown name, or a write tool listed without

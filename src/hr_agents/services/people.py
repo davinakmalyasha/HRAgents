@@ -19,6 +19,7 @@ from hr_agents.services.credentials import (
     CredentialRegistryService,
     CredentialRegistryStore,
 )
+from hr_agents.services.document_requests import DocumentRequestService
 from hr_agents.services.employees import EmployeeService
 from hr_agents.services.growth import GrowthService
 from hr_agents.services.leave import LeaveService
@@ -135,6 +136,7 @@ class PeopleServices:
     contracts: ContractService = field(init=False)
     approvals: ApprovalEngine = field(init=False)
     tasks: TaskEngine = field(init=False)
+    document_requests: DocumentRequestService = field(init=False)
     rate_tables: RateTableService = field(init=False)
     credentials: CredentialRegistryService = field(init=False)
     onboarding: OnboardingService = field(init=False)
@@ -202,6 +204,9 @@ class PeopleServices:
         self.tasks = tasks
         self.employees = EmployeeService(
             employee_store, audit=self.audit, approvals=approvals, retention=ledger
+        )
+        self.document_requests = DocumentRequestService(
+            employees=self.employees, tasks=tasks, approvals=approvals, audit=self.audit
         )
         self.contracts = ContractService(contract_store, audit=self.audit, tasks=tasks)
         self.rate_tables = RateTableService(rate_table_store, audit=self.audit)

@@ -27,10 +27,12 @@ Write tools, off unless `HRAGENTS_MCP_WRITES=1`:
 | `create_application` | Ingests one application from an external ATS; the caller supplies the consent it captured — the server never infers consent | `recruiting:write` |
 | `start_onboarding_plan` | Opens a plan from a template | `people:write` |
 | `open_leave_request` | Files a leave request, which enters the human approval queue | `self_service` (or `people:write`) |
+| `request_document` | Asks an employee for a document; creates an approval, never a demand — nothing is asked until a human approves | `people:write` |
 
 The write tools are still just API calls: the key's role is the authorization,
 and audit records the actor behind the key. `open_leave_request` cannot decide
-the request it files; approving is a dashboard action.
+the request it files, and `request_document` cannot demand anything;
+approving is a dashboard action.
 
 Each tool carries MCP annotations: the five reads set `readOnlyHint`, so a
 client can treat them as safe to call without confirmation, and the write tools

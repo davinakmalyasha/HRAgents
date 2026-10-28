@@ -32,6 +32,7 @@ WRITE_TOOLS = (
     "create_application",
     "start_onboarding_plan",
     "open_leave_request",
+    "request_document",
 )
 
 
@@ -97,7 +98,7 @@ def build_server(
             (
                 "Read and write access to an HRAgents install: queues, application "
                 "status, deterministic evaluations, pending approvals and leave "
-                "balances, plus intake, onboarding and leave requests. Nothing here "
+                "balances, plus intake, onboarding, leave and document requests. Nothing here "
                 "decides; approvals, rejections, stage moves and overrides belong to "
                 "a named human in the dashboard."
             )
@@ -268,6 +269,30 @@ def build_server(
             if reason:
                 payload["reason"] = reason
             return await call("POST", "v1/leave/requests", payload=payload)
+
+        @server.tool(
+            description=(
+                "Ask an employee for a document (people:write). Creates an approval, "
+                "never a demand: nothing is asked until a named human approves, and "
+                "the approved request becomes a task for the employee."
+            ),
+            annotations=write_annotations,
+        )
+        async def request_document(
+            employee_id: str,
+            kind: str,
+            reason: str,
+            due_on: str | None = None,
+        ) -> dict[str, Any]:
+            payload: dict[str, Any] = {
+                "kind": kind,
+                "reason": reason,
+            }
+            if due_on:
+                payload["due_on"] = due_on
+            return await call(
+                "POST", f"v1/employees/{employee_id}/document-requests", payload=payload
+            )
 
     if requested is not None:
         enabled = set(READ_TOOLS) | (set(WRITE_TOOLS) if writes else set())

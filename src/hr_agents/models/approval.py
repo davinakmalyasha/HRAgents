@@ -29,6 +29,7 @@ class ApprovalSubject(StrEnum):
     OFFER = "offer"
     SCHEDULING = "scheduling"
     DOCUMENT_VALIDATION = "document_validation"
+    DOCUMENT_REQUEST = "document_request"
     ONBOARDING_STEP = "onboarding_step"
     OFFBOARDING_STEP = "offboarding_step"
     EXPENSE = "expense"

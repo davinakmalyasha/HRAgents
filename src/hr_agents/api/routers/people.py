@@ -22,6 +22,7 @@ from hr_agents.api.people_schemas import (
     ContractCreate,
     ContractView,
     DocumentCreate,
+    DocumentRequestCreate,
     DocumentVerifyRequest,
     DocumentView,
     EmployeeCreate,
@@ -49,6 +50,7 @@ from hr_agents.rbac import Permission
 from hr_agents.services import (
     ApprovalError,
     ContractError,
+    DocumentRequestError,
     EmployeeError,
     RateTableError,
     TaskError,
@@ -181,6 +183,45 @@ def add_document(
     except EmployeeError as exc:
         raise not_found(str(exc)) from exc
     return DocumentView.from_model(document)
+
+
+@employees_router.post(
+    "/{employee_id}/document-requests",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ApprovalView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
+def request_document(
+    employee_id: UUID, payload: DocumentRequestCreate, people: PeopleDep, actor: ActorDep
+) -> ApprovalView:
+    """Ask an employee for a document, through the human approval queue.
+
+    This creates an approval, not a task: nothing is demanded of the employee
+    until a named human approves and the approval is synced.
+    """
+    try:
+        request = people.document_requests.request_document(
+            employee_id=employee_id, actor=actor, **payload.model_dump()
+        )
+    except EmployeeError as exc:
+        raise not_found(str(exc)) from exc
+    except DocumentRequestError as exc:
+        raise domain_problem(exc) from exc
+    return ApprovalView.from_model(request)
+
+
+@employees_router.post(
+    "/document-requests/{approval_id}/sync",
+    response_model=TaskView,
+    dependencies=[Depends(require_permission(Permission.PEOPLE_WRITE))],
+)
+def sync_document_request(approval_id: UUID, people: PeopleDep, actor: ActorDep) -> TaskView:
+    """Turn an approved document request into the employee's task, at most once."""
+    try:
+        task = people.document_requests.sync_from_approval(approval_id, actor=actor)
+    except DocumentRequestError as exc:
+        raise domain_problem(exc) from exc
+    return TaskView.from_model(task)
 
 
 @employees_router.get("/{employee_id}/documents", response_model=Page[DocumentView])

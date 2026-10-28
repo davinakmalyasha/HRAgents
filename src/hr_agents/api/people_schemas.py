@@ -127,6 +127,18 @@ class DocumentView(StrictModel):
         )
 
 
+class DocumentRequestCreate(StrictModel):
+    """Ask an employee for a document. The reason is mandatory and recorded.
+
+    The route creates an approval, not a task: the demand only becomes real
+    when a named human approves it and the approval is synced.
+    """
+
+    kind: DocumentKind
+    reason: str = Field(min_length=1, max_length=1000)
+    due_on: date | None = None
+
+
 class DocumentVerifyRequest(StrictModel):
     """Verification is a human judgement about a document, never an agent's."""
 

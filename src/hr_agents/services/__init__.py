@@ -23,6 +23,10 @@ from hr_agents.services.compliance import (
     default_breach_template,
 )
 from hr_agents.services.contracts import ContractError, ContractService
+from hr_agents.services.document_requests import (
+    DocumentRequestError,
+    DocumentRequestService,
+)
 from hr_agents.services.documents import (
     RedactionResult,
     extract_text,
@@ -147,6 +151,8 @@ __all__ = [
     "ContractError",
     "ContractService",
     "ContractStore",
+    "DocumentRequestError",
+    "DocumentRequestService",
     "DocumentService",
     "DocumentTooLargeError",
     "EmployeeError",

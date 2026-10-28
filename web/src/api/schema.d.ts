@@ -1120,6 +1120,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/employees/document-requests/{approval_id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Document Request
+         * @description Turn an approved document request into the employee's task, at most once.
+         */
+        post: operations["sync_document_request_v1_employees_document_requests__approval_id__sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/employees/{employee_id}": {
         parameters: {
             query?: never;
@@ -1148,6 +1168,29 @@ export interface paths {
         get: operations["employee_contracts_v1_employees__employee_id__contracts_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/employees/{employee_id}/document-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Document
+         * @description Ask an employee for a document, through the human approval queue.
+         *
+         *     This creates an approval, not a task: nothing is demanded of the employee
+         *     until a named human approves and the approval is synced.
+         */
+        post: operations["request_document_v1_employees__employee_id__document_requests_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3558,7 +3601,7 @@ export interface components {
          * @description What the approval is about (extensible per department).
          * @enum {string}
          */
-        ApprovalSubject: "leave_request" | "payroll_run" | "payroll_anomaly" | "contract" | "candidate_rejection" | "candidate_anomaly" | "offer" | "scheduling" | "document_validation" | "onboarding_step" | "offboarding_step" | "expense" | "data_change" | "erasure_request" | "other";
+        ApprovalSubject: "leave_request" | "payroll_run" | "payroll_anomaly" | "contract" | "candidate_rejection" | "candidate_anomaly" | "offer" | "scheduling" | "document_validation" | "document_request" | "onboarding_step" | "offboarding_step" | "expense" | "data_change" | "erasure_request" | "other";
         /** ApprovalView */
         ApprovalView: {
             assignee_role: components["schemas"]["ApproverRole"];
@@ -4754,6 +4797,20 @@ export interface components {
              * @default other
              */
             kind: string;
+        };
+        /**
+         * DocumentRequestCreate
+         * @description Ask an employee for a document. The reason is mandatory and recorded.
+         *
+         *     The route creates an approval, not a task: the demand only becomes real
+         *     when a named human approves it and the approval is synced.
+         */
+        DocumentRequestCreate: {
+            /** Due On */
+            due_on?: string | null;
+            kind: components["schemas"]["DocumentKind"];
+            /** Reason */
+            reason: string;
         };
         /** DocumentUploadResponse */
         DocumentUploadResponse: {
@@ -16274,6 +16331,110 @@ export interface operations {
             };
         };
     };
+    sync_document_request_v1_employees_document_requests__approval_id__sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     get_employee_v1_employees__employee_id__get: {
         parameters: {
             query?: never;
@@ -16401,6 +16562,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_ContractView_"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    request_document_v1_employees__employee_id__document_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                employee_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalView"];
                 };
             };
             /** @description The request could not be understood. */
