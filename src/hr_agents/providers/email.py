@@ -105,7 +105,10 @@ def _health_resend(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, ResendSenderConfig)
     if not config.api_key.get_secret_value():
         return ProviderHealth.misconfigured("api_key is required")
-    return ProviderHealth.ok("configuration valid (live adapter not implemented yet)")
+    return ProviderHealth.degraded(
+        "api key is set but the live send adapter is not implemented; "
+        "mail stays in the sandbox rather than sending"
+    )
 
 
 def _health_imap(config: ProviderConfig) -> ProviderHealth:
@@ -119,7 +122,10 @@ def _health_resend_webhook(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, ResendReceiverConfig)
     if not config.webhook_secret.get_secret_value():
         return ProviderHealth.misconfigured("webhook_secret is required")
-    return ProviderHealth.ok("configuration valid (webhook verification not implemented yet)")
+    return ProviderHealth.degraded(
+        "webhook secret is set but signature verification is not implemented; "
+        "inbound mail is accepted without verifying the sender"
+    )
 
 
 def email_specs() -> list[Any]:

@@ -49,6 +49,17 @@ class ProviderHealth(StrictModel):
         return cls(status=ProviderHealthStatus.OK, detail=detail)
 
     @classmethod
+    def degraded(cls, detail: str) -> ProviderHealth:
+        """Configured but not fully live: usable with stated limits.
+
+        A provider that is reachable in configuration yet cannot perform part of
+        its contract (an adapter not implemented, a verification step skipped)
+        must not report OK. Degraded keeps the badge amber with words, so an
+        operator sees the limit before relying on it.
+        """
+        return cls(status=ProviderHealthStatus.DEGRADED, detail=detail)
+
+    @classmethod
     def misconfigured(cls, detail: str) -> ProviderHealth:
         return cls(status=ProviderHealthStatus.MISCONFIGURED, detail=detail)
 

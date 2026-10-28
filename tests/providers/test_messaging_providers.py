@@ -59,7 +59,7 @@ def test_smtp_health_ok() -> None:
 
 def test_resend_send_health_requires_key() -> None:
     assert check("email.resend", {}).status is ProviderHealthStatus.MISCONFIGURED
-    assert check("email.resend", {"api_key": "re-123"}).status is ProviderHealthStatus.OK
+    assert check("email.resend", {"api_key": "re-123"}).status is ProviderHealthStatus.DEGRADED
 
 
 def test_imap_health_flags_missing_password() -> None:
@@ -76,7 +76,7 @@ def test_imap_health_flags_missing_password() -> None:
 def test_resend_webhook_requires_secret() -> None:
     assert check("email.resend_webhook", {}).status is ProviderHealthStatus.MISCONFIGURED
     ok = check("email.resend_webhook", {"webhook_secret": "whsec_1"})
-    assert ok.status is ProviderHealthStatus.OK
+    assert ok.status is ProviderHealthStatus.DEGRADED
 
 
 def test_meta_cloud_health_requires_token() -> None:
