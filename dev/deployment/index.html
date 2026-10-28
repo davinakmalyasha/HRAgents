@@ -2034,10 +2034,10 @@ matters. The key is printed once — paste it into the dashboard sign-in. Withou
 <p>Then:</p>
 <div class="highlight"><pre><span></span><code>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>--build
 </code></pre></div>
-<p>To run the published release instead of building it, select a tag and skip the
-build:</p>
-<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:0.15.2<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>pull
-<span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:0.15.2<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--no-build
+<p>To run the published release instead of building it, select a tag (or )
+and skip the build:</p>
+<div class="highlight"><pre><span></span><code><span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:latest<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>pull
+<span class="nv">HRAGENTS_IMAGE</span><span class="o">=</span>ghcr.io/davinakmalyasha/hragents:latest<span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--no-build
 </code></pre></div>
 <p>Images are multi-arch (<code>linux/amd64</code> and <code>linux/arm64</code>). Each release publishes
 the exact version, its <code>major.minor</code>, <code>latest</code>, and a <code>sha-…</code> tag. The release
