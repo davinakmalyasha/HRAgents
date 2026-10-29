@@ -1603,6 +1603,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#7-impact-slices-new-2026-10-30" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Impact slices (new — 2026-10-30)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#suggested-execution-order" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1993,6 +2004,17 @@
     <span class="md-ellipsis">
       
         6. Paper, docs &amp; release (Phase 10)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-impact-slices-new-2026-10-30" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Impact slices (new — 2026-10-30)
       
     </span>
   </a>
@@ -2987,6 +3009,27 @@ under 10 minutes, with zero cloud keys required (hash embeddings + manual provid
 </ul>
 <p><strong>Exit criteria:</strong> a stranger can evaluate the product from the README alone, reproduce the
 benchmarks, and self-host without contacting the author.</p>
+<hr />
+<h2 id="7-impact-slices-new-2026-10-30">7. Impact slices (new — 2026-10-30)<a class="headerlink" href="#7-impact-slices-new-2026-10-30" title="Permanent link">&para;</a></h2>
+<p>Refinements that move Rina's hours, not the architecture. Each ships as one
+backend + docs + tests slice; the dashboard import UI follows per slice.</p>
+<ul>
+<li>[x] <strong>Attendance import → payroll inputs.</strong> Fingerprint CSV
+      (<code>employee_number,date,clock_in,clock_out</code>) previews to per-employee
+      overtime/absence and commits fail-closed onto an editable run:
+      <code>POST /v1/payroll/runs/{id}/attendance:preview</code> and <code>:commit</code>
+      (<code>services/attendance.py</code>, <code>PayrollService.preview/apply_attendance</code>,
+      leave-aware absence, salaries untouched, both routes behind
+      <code>payroll:write</code>). Operator format documented in <code>deployment.md</code>.</li>
+<li>[ ] <strong>Statutory Q&amp;A pack for Ask HR.</strong> Curated, sourced ID-labor notes
+      (explanation only — numbers stay in verified rate tables) behind a
+      guard test that rejects rate-like literals.</li>
+<li>[ ] <strong>Email ingest → draft applications.</strong> IMAP poller drafts <code>consent_pending</code>
+      applications from attachments; a human confirms consent before evaluation.</li>
+<li>[ ] <strong>Recalibrate the dead <code>AUTO_SCHEDULE</code> band</strong> from
+      <code>evals/scoring_calibration.py</code>, or downgrade the promise to
+      fast-track-to-interview. Zero-evidence gate stays.</li>
+</ul>
 <hr />
 <h2 id="suggested-execution-order">Suggested execution order<a class="headerlink" href="#suggested-execution-order" title="Permanent link">&para;</a></h2>
 <p>The order changed on 2026-09-29. The previous list put MCP and the landing site

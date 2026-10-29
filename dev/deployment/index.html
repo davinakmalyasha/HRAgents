@@ -780,6 +780,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#payroll-inputs-from-attendance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payroll inputs from attendance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1832,6 +1843,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#payroll-inputs-from-attendance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Payroll inputs from attendance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#secrets" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2287,6 +2309,29 @@ you can browse.</p>
 to compute on a table nobody has checked against a source, and the demo should
 show that gate rather than fake a figure: verify the tables with real statutory
 sources before using any number.</p>
+<h3 id="payroll-inputs-from-attendance">Payroll inputs from attendance<a class="headerlink" href="#payroll-inputs-from-attendance" title="Permanent link">&para;</a></h3>
+<p>The monthly variables HR used to type by hand — overtime hours and absence days —
+can be filled from a fingerprint-machine export instead:</p>
+<div class="highlight"><pre><span></span><code>employee_number,date,clock_in,clock_out
+EMP-001,2026-06-01,08:00,18:00
+EMP-001,2026-06-02,08:00,17:00
+</code></pre></div>
+<p>Rules, all fail-closed: the header must match exactly; every row names a known
+employee number and a date inside the run's period with clock-out after
+clock-in; overtime is hours past 8 per day; absence is working days in the
+period minus days present, minus days on approved leave (which excuse an
+absence instead of counting as one). Preview first, then commit:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/v1/payroll/runs/&lt;id&gt;/attendance:preview<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w"> </span>-H<span class="w"> </span><span class="s1">'Content-Type: application/json'</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s2">"{\"csv_text\": \"</span><span class="k">$(</span>cat<span class="w"> </span>attendance.csv<span class="k">)</span><span class="s2">\"}"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>json.tool
+</code></pre></div>
+<p><code>preview</code> writes nothing and names every refused row. <code>commit</code> (same path with
+<code>:commit</code>) refuses the whole file on any error — no partial application — and
+only touches overtime/absence, never salaries. Both steps need the payroll
+write permission, and the commit is recorded on the run's audit trail with the
+file hash. Every run input must have at least one attendance row, and every
+attendance row must belong to the run: unknown or missing employees refuse
+rather than silently paying someone in full or dropping a row.</p>
 <h3 id="secrets">Secrets<a class="headerlink" href="#secrets" title="Permanent link">&para;</a></h3>
 <p>The committed defaults are for a laptop, not for a server. Before exposing the
 instance, set real values in a <code>.env</code> file next to <code>docker-compose.yml</code>
