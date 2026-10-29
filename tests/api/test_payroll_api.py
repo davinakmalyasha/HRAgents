@@ -415,3 +415,114 @@ def test_list_runs_rejects_invalid_pagination() -> None:
     assert too_small.status_code == 422
     assert too_big.status_code == 422
     assert negative.status_code == 422
+
+
+def _june_workdays(count: int) -> list[str]:
+    from datetime import date as va_date
+
+    days: list[str] = []
+    day = 1
+    while len(days) < count:
+        candidate = va_date(YEAR, 6, day)
+        if candidate.weekday() < 5:
+            days.append(candidate.isoformat())
+        day += 1
+    return days
+
+
+def _create_numbered_employee(client: TestClient, number: str) -> dict:
+    response = client.post(
+        "/v1/employees",
+        json={
+            "full_name": f"Sari {number}",
+            "hire_date": (TODAY - timedelta(days=400)).isoformat(),
+            "job_title": "Staff",
+            "employee_number": number,
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_attendance_preview_and_commit_fill_worked_time() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        employee = _create_numbered_employee(client, "EMP-101")
+        run = client.post(
+            "/v1/payroll/runs",
+            json={"period_year": YEAR, "period_month": 6},
+        ).json()
+        client.put(
+            f"/v1/payroll/runs/{run['id']}/inputs",
+            json={"inputs": [{"employee_id": employee["id"], "base_salary": 9_000_000}]},
+        )
+        first, second = _june_workdays(2)
+        csv_text = (
+            "employee_number,date,clock_in,clock_out\n"
+            f"EMP-101,{first},08:00,18:00\n"
+            f"EMP-101,{second},08:00,17:00\n"
+        )
+        preview = client.post(
+            f"/v1/payroll/runs/{run['id']}/attendance:preview",
+            json={"csv_text": csv_text},
+        )
+        assert preview.status_code == 200, preview.text
+        body = preview.json()
+        assert body["errors"] == []
+        assert body["rows"][0]["days_present"] == 2
+        assert body["rows"][0]["overtime_hours"] == 3.0
+
+        committed = client.post(
+            f"/v1/payroll/runs/{run['id']}/attendance:commit",
+            json={"csv_text": csv_text},
+        )
+        assert committed.status_code == 200, committed.text
+
+        fetched = client.get(f"/v1/payroll/runs/{run['id']}").json()
+        assert fetched["lines"] == []
+
+
+def test_attendance_commit_refuses_bad_rows_without_mutating() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        employee = _create_numbered_employee(client, "EMP-102")
+        run = client.post(
+            "/v1/payroll/runs",
+            json={"period_year": YEAR, "period_month": 6},
+        ).json()
+        client.put(
+            f"/v1/payroll/runs/{run['id']}/inputs",
+            json={"inputs": [{"employee_id": employee["id"], "base_salary": 9_000_000}]},
+        )
+        first = _june_workdays(1)[0]
+        refused = client.post(
+            f"/v1/payroll/runs/{run['id']}/attendance:commit",
+            json={
+                "csv_text": (
+                    f"employee_number,date,clock_in,clock_out\nGHOST-1,{first},08:00,17:00\n"
+                )
+            },
+        )
+        assert refused.status_code == 409
+
+        preview = client.post(
+            f"/v1/payroll/runs/{run['id']}/attendance:preview",
+            json={
+                "csv_text": (
+                    f"employee_number,date,clock_in,clock_out\nGHOST-1,{first},08:00,17:00\n"
+                )
+            },
+        )
+        assert preview.status_code == 200
+        assert preview.json()["errors"] != []
+
+
+def test_attendance_preview_unknown_run_is_404() -> None:
+    from uuid import uuid4
+
+    with make_client() as client:
+        response = client.post(
+            f"/v1/payroll/runs/{uuid4()}/attendance:preview",
+            json={"csv_text": "employee_number,date,clock_in,clock_out\n"},
+        )
+    assert response.status_code == 404

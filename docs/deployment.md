@@ -292,6 +292,37 @@ to compute on a table nobody has checked against a source, and the demo should
 show that gate rather than fake a figure: verify the tables with real statutory
 sources before using any number.
 
+### Payroll inputs from attendance
+
+The monthly variables HR used to type by hand — overtime hours and absence days —
+can be filled from a fingerprint-machine export instead:
+
+```csv
+employee_number,date,clock_in,clock_out
+EMP-001,2026-06-01,08:00,18:00
+EMP-001,2026-06-02,08:00,17:00
+```
+
+Rules, all fail-closed: the header must match exactly; every row names a known
+employee number and a date inside the run's period with clock-out after
+clock-in; overtime is hours past 8 per day; absence is working days in the
+period minus days present, minus days on approved leave (which excuse an
+absence instead of counting as one). Preview first, then commit:
+
+```bash
+curl -s localhost:8000/v1/payroll/runs/<id>/attendance:preview \
+  -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d "{\"csv_text\": \"$(cat attendance.csv)\"}" | python -m json.tool
+```
+
+`preview` writes nothing and names every refused row. `commit` (same path with
+`:commit`) refuses the whole file on any error — no partial application — and
+only touches overtime/absence, never salaries. Both steps need the payroll
+write permission, and the commit is recorded on the run's audit trail with the
+file hash. Every run input must have at least one attendance row, and every
+attendance row must belong to the run: unknown or missing employees refuse
+rather than silently paying someone in full or dropping a row.
+
 ### Secrets
 
 The committed defaults are for a laptop, not for a server. Before exposing the

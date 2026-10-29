@@ -919,6 +919,29 @@ benchmarks, and self-host without contacting the author.
 
 ---
 
+## 7. Impact slices (new — 2026-10-30)
+
+Refinements that move Rina's hours, not the architecture. Each ships as one
+backend + docs + tests slice; the dashboard import UI follows per slice.
+
+- [x] **Attendance import → payroll inputs.** Fingerprint CSV
+      (`employee_number,date,clock_in,clock_out`) previews to per-employee
+      overtime/absence and commits fail-closed onto an editable run:
+      `POST /v1/payroll/runs/{id}/attendance:preview` and `:commit`
+      (`services/attendance.py`, `PayrollService.preview/apply_attendance`,
+      leave-aware absence, salaries untouched, both routes behind
+      `payroll:write`). Operator format documented in `deployment.md`.
+- [ ] **Statutory Q&A pack for Ask HR.** Curated, sourced ID-labor notes
+      (explanation only — numbers stay in verified rate tables) behind a
+      guard test that rejects rate-like literals.
+- [ ] **Email ingest → draft applications.** IMAP poller drafts `consent_pending`
+      applications from attachments; a human confirms consent before evaluation.
+- [ ] **Recalibrate the dead `AUTO_SCHEDULE` band** from
+      `evals/scoring_calibration.py`, or downgrade the promise to
+      fast-track-to-interview. Zero-evidence gate stays.
+
+---
+
 ## Suggested execution order
 
 The order changed on 2026-09-29. The previous list put MCP and the landing site

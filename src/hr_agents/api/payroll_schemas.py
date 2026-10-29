@@ -50,6 +50,36 @@ class RunAction(StrictModel):
     reason: str | None = Field(default=None, max_length=1000)
 
 
+class AttendanceCommit(StrictModel):
+    csv_text: str = Field(min_length=1, max_length=500_000)
+
+
+class AttendanceErrorView(StrictModel):
+    row: int
+    employee_number: str | None = None
+    code: str
+    detail: str
+
+
+class AttendanceRowView(StrictModel):
+    employee_number: str
+    employee_id: UUID | None = None
+    days_present: int
+    overtime_hours: float
+    absence_days: float
+    on_leave_days: int = 0
+    flags: list[str] = Field(default_factory=list)
+
+
+class AttendancePreviewView(StrictModel):
+    period_year: int
+    period_month: int
+    working_days: int
+    file_hash: str
+    rows: list[AttendanceRowView]
+    errors: list[AttendanceErrorView]
+
+
 class AnomalyView(StrictModel):
     code: str
     severity: AnomalySeverity

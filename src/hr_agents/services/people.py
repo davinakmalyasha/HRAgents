@@ -245,6 +245,7 @@ class PeopleServices:
                 approvals=approvals,
                 audit=self.audit,
                 retention=ledger,
+                leave=leave,
             )
         else:
             from hr_agents.db.payroll import DbPayrollService
@@ -256,6 +257,7 @@ class PeopleServices:
                 approvals=approvals,
                 audit=self.audit,
                 retention=ledger,
+                leave=leave,
             )
         self.payroll = payroll
         self.compliance = ComplianceService(compliance_store, approvals=approvals, audit=self.audit)

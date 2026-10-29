@@ -46,6 +46,7 @@ from hr_agents.models import (
     RateTable,
     RateTableKind,
     RecordEntity,
+    RequestStatus,
     RetentionRecord,
     SubjectKind,
     Urgency,
@@ -54,10 +55,20 @@ from hr_agents.models import (
 )
 from hr_agents.models.money import ZERO, add, money, percent_of, sub
 from hr_agents.services.approvals import ApprovalEngine
+from hr_agents.services.attendance import (
+    AttendancePreview,
+    AttendanceRowError,
+    parse_attendance_csv,
+    summarize_attendance,
+)
+from hr_agents.services.attendance import (
+    file_hash as attendance_file_hash,
+)
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.audit_events import record_audit
 from hr_agents.services.compliance import PurgeHandler
 from hr_agents.services.employees import EmployeeService
+from hr_agents.services.leave import LeaveService
 from hr_agents.services.rate_tables import RateTableError, RateTableService
 from hr_agents.services.retention import RetentionLedger, subject_uuid
 
@@ -241,6 +252,25 @@ def _working_days_in_month(year: int, month: int) -> int:
     return days
 
 
+def _days_in_period(start: date, end: date, *, period_year: int, period_month: int) -> list[date]:
+    """Days of the inclusive range that fall inside the payroll period."""
+    from datetime import timedelta
+
+    last_day = calendar.monthrange(period_year, period_month)[1]
+    period_start = date(period_year, period_month, 1)
+    period_end = date(period_year, period_month, last_day)
+    first = max(start, period_start)
+    last = min(end, period_end)
+    if last < first:
+        return []
+    days: list[date] = []
+    current = first
+    while current <= last:
+        days.append(current)
+        current += timedelta(days=1)
+    return days
+
+
 class PayrollService:
     """Assemble inputs, compute lines, flag anomalies, and gate sign-off."""
 
@@ -252,12 +282,14 @@ class PayrollService:
         approvals: ApprovalEngine,
         audit: AuditChain | None = None,
         retention: RetentionLedger | None = None,
+        leave: LeaveService | None = None,
     ) -> None:
         self._employees = employees
         self._rate_tables = rate_tables
         self._approvals = approvals
         self._audit = audit or AuditChain()
         self._retention = retention or RetentionLedger()
+        self._leave = leave
         self._runs: dict[UUID, PayrollRun] = {}
 
     # --- persistence primitives -----------------------------------------
@@ -353,6 +385,133 @@ class PayrollService:
             action="payroll.inputs_set",
             actor=actor,
             payload={"employee_count": len(inputs)},
+        )
+        return updated
+
+    # --- attendance import ---------------------------------------------------
+
+    def preview_attendance(
+        self, csv_text: str, *, period_year: int, period_month: int
+    ) -> AttendancePreview:
+        """Turn fingerprint CSV text into per-employee aggregates without writing.
+
+        Unknown employee numbers and approved-leave days are resolved here so the
+        preview shows exactly what a commit would do. Row-level refusals stay in
+        ``errors``; only a commit fails closed on them.
+        """
+        days, errors = parse_attendance_csv(
+            csv_text, period_year=period_year, period_month=period_month
+        )
+        working_days = _working_days_in_month(period_year, period_month)
+        number_to_id: dict[str, UUID] = {}
+        for employee in self._employees.list_employees():
+            if employee.employee_number:
+                number_to_id.setdefault(employee.employee_number, employee.id)
+        known = [day for day in days if day.employee_number in number_to_id]
+        unknown = sorted(
+            {day.employee_number for day in days if day.employee_number not in number_to_id}
+        )
+        all_errors = list(errors) + [
+            AttendanceRowError(
+                row=0,
+                employee_number=number,
+                code="unknown_employee",
+                detail=f"no employee with number {number!r}",
+            )
+            for number in unknown
+        ]
+        leave_days: dict[str, set[date]] = {}
+        if self._leave is not None:
+            for number, employee_id in number_to_id.items():
+                approved = [
+                    request
+                    for request in self._leave.requests_for(employee_id)
+                    if request.status is RequestStatus.APPROVED
+                ]
+                covered = {
+                    item
+                    for request in approved
+                    for item in _days_in_period(
+                        request.start_date,
+                        request.end_date,
+                        period_year=period_year,
+                        period_month=period_month,
+                    )
+                }
+                if covered:
+                    leave_days[number] = covered
+        rows = summarize_attendance(known, working_days=working_days, leave_days=leave_days)
+        resolved = [
+            row.model_copy(update={"employee_id": number_to_id[row.employee_number]})
+            for row in rows
+        ]
+        return AttendancePreview(
+            period_year=period_year,
+            period_month=period_month,
+            working_days=working_days,
+            file_hash=attendance_file_hash(csv_text),
+            rows=resolved,
+            errors=all_errors,
+        )
+
+    def apply_attendance(self, run_id: UUID, csv_text: str, *, actor: ActorRef) -> PayrollRun:
+        """Fill overtime/absence on an editable run from fingerprint CSV text.
+
+        Fail-closed: any row error, any attendance employee missing from the run,
+        or any run input with no attendance row refuses with no inputs mutated.
+        Salaries and allowances are never touched — only the two worked-time fields.
+        """
+        run = self._require_editable(run_id)
+        if not run.inputs:
+            raise PayrollError("run has no inputs; call set_inputs first")
+        preview = self.preview_attendance(
+            csv_text, period_year=run.period_year, period_month=run.period_month
+        )
+        if preview.errors:
+            first = preview.errors[0]
+            raise PayrollError(
+                f"attendance has {len(preview.errors)} error(s); "
+                f"first at row {first.row}: {first.detail}"
+            )
+        by_id = {row.employee_id: row for row in preview.rows if row.employee_id is not None}
+        missing = [str(item.employee_id) for item in run.inputs if item.employee_id not in by_id]
+        input_ids = {item.employee_id for item in run.inputs}
+        extra = [
+            row.employee_number
+            for row in preview.rows
+            if row.employee_id is not None and row.employee_id not in input_ids
+        ]
+        if missing or extra:
+            raise PayrollError(
+                "attendance does not cover the run: "
+                f"missing inputs for {len(missing)} employee(s), "
+                f"{len(extra)} attendance row(s) outside the run"
+            )
+        updated_inputs = [
+            item.model_copy(
+                update={
+                    "overtime_hours": by_id[item.employee_id].overtime_hours,
+                    "absence_days": by_id[item.employee_id].absence_days,
+                }
+            )
+            for item in run.inputs
+        ]
+        updated = run.model_copy(
+            update={
+                "inputs": updated_inputs,
+                "status": PayrollRunStatus.ASSEMBLING,
+                "updated_at": utc_now(),
+            }
+        )
+        self._save_run(updated)
+        self._record(
+            updated,
+            action="payroll.attendance_applied",
+            actor=actor,
+            payload={
+                "employees": len(updated_inputs),
+                "file_hash": preview.file_hash,
+            },
         )
         return updated
 
