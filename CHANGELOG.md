@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.3...hr-agents-v0.16.0) (2026-10-29)
+
+
+### Features
+
+* **payroll:** fingerprint attendance import fills overtime and absence ([5906a2c](https://github.com/davinakmalyasha/HRAgents/commit/5906a2c2800352bb6a25e06bee0beff9002aff80))
+
 ## [0.15.3](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.2...hr-agents-v0.15.3) (2026-10-28)
 
 
