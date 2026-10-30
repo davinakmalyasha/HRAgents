@@ -394,6 +394,44 @@ class CandidateReplyRecord(TenantScoped, Base):
     )
 
 
+class EmailApplicationDraftRecord(TenantScoped, Base):
+    __tablename__ = "email_application_drafts"
+    __table_args__ = (
+        Index("ix_email_application_drafts_tenant", "tenant_id"),
+        Index("ix_email_application_drafts_status", "tenant_id", "status"),
+        UniqueConstraint(
+            "provider", "dedup_key", name="uq_email_application_drafts_provider_dedup"
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_message_id: Mapped[str | None] = mapped_column(String(500))
+    dedup_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    sender: Mapped[str] = mapped_column(String(320), nullable=False)
+    sender_name: Mapped[str] = mapped_column(String(320), nullable=False, default="")
+    subject: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    attachment_names: Mapped[list] = mapped_column(JSONVariant, nullable=False, default=list)
+    document_ids: Mapped[list] = mapped_column(JSONVariant, nullable=False, default=list)
+    refused_attachments: Mapped[list] = mapped_column(JSONVariant, nullable=False, default=list)
+    suggested_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="SET NULL")
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    application_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("applications.id", ondelete="SET NULL")
+    )
+    decided_by: Mapped[str | None] = mapped_column(String(200))
+    discard_reason: Mapped[str | None] = mapped_column(String(1000))
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class PushSubscriptionRecord(TenantScoped, Base):
     """One browser's Web Push endpoint. Referenced by nobody; owned by one actor."""
 

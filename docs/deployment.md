@@ -405,6 +405,29 @@ Then `docker compose up -d --force-recreate api messaging`. Until a message is
 queued behind a named human, nothing is sent — and the bridge records the
 provider, the message id, and any failure on the message itself.
 
+### Email applications: CVs that arrive in the hiring mailbox
+
+The same `--receive` poll that captures replies also drafts applications from
+mail the reply bridge cannot attribute, when it carries document attachments
+(PDF/DOC/Image files are skipped by name, oversized files refused). Each
+draft is consent-pending by construction: no candidate record, no queue
+entry, no evaluation.
+
+The human loop is two endpoints:
+
+```bash
+curl -s localhost:8000/v1/applications/email-drafts?status=pending \
+  -H "Authorization: Bearer $KEY" | python -m json.tool
+```
+
+Confirming takes a job and an explicit `consent_granted: true` — the caller
+supplies the consent, exactly like the intake API; it is never read out of
+the email body. A draft with no stored documents refuses (ask the candidate
+to resend); discarding needs a reason. The subject line suggests a job only
+on an exact title match against open reqs, and the human may override it.
+Re-polls of the same provider message are duplicates, never second drafts,
+keyed on the message id plus attachment hashes.
+
 ## 3. Health, logs, metrics
 
 ```bash

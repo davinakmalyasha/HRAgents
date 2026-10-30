@@ -87,6 +87,16 @@ class ReplyIngestor:
     # internals
 
     def _ingest_one(self, message: InboundEmail, report: IngestReport) -> None:
+        if not message.body.strip():
+            report.unmatched += 1
+            report.outcomes.append(
+                IngestOutcome(
+                    from_address=message.from_address,
+                    matched=False,
+                    detail="no text body; a reply is prose, not an attachment",
+                )
+            )
+            return
         candidate_id = self._attribute(message)
         if candidate_id is None:
             report.unmatched += 1

@@ -147,3 +147,78 @@ def test_connection_failure_raises_a_transport_error() -> None:
 
 def test_message_numbers_ignores_non_numeric_tokens() -> None:
     assert message_numbers([b"1 2 3", b"nonsense"]) == ["1", "2", "3"]
+
+
+RAW_APPLICATION = b"""From: Rani Dewi <rani@example.com>
+To: hiring@example.com
+Subject: Lamaran Backend Engineer
+Message-ID: <app-1@example.com>
+Date: Tue, 22 Sep 2026 09:15:00 +0700
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="BOUNDARY42"
+
+--BOUNDARY42
+Content-Type: text/plain; charset="utf-8"
+
+Please consider my application, CV attached.
+
+--BOUNDARY42
+Content-Type: application/pdf; name="cv-rani.pdf"
+Content-Disposition: attachment; filename="cv-rani.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQgZmFrZSBjdiBib2R5
+
+--BOUNDARY42
+Content-Type: image/png; name="signature.png"
+Content-Disposition: attachment; filename="signature.png"
+Content-Transfer-Encoding: base64
+
+aVBORw==
+
+--BOUNDARY42--
+"""
+
+RAW_BODYLESS_APPLICATION = b"""From: Rani Dewi <rani@example.com>
+To: hiring@example.com
+Subject: Lamaran Backend Engineer
+Message-ID: <app-2@example.com>
+Date: Tue, 22 Sep 2026 09:16:00 +0700
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="BOUNDARY43"
+
+--BOUNDARY43
+Content-Type: application/pdf; name="cv-rani.pdf"
+Content-Disposition: attachment; filename="cv-rani.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQgZmFrZSBjdiBib2R5
+
+--BOUNDARY43--
+"""
+
+
+def test_application_mail_yields_its_cv_and_skips_the_signature() -> None:
+    parsed = parse_message(RAW_APPLICATION)
+
+    assert parsed is not None
+    assert parsed.from_name == "Rani Dewi"
+    assert "consider my application" in parsed.body
+    assert [item.filename for item in parsed.attachments] == ["cv-rani.pdf"]
+    assert parsed.attachments[0].content_type == "application/pdf"
+    assert parsed.attachments[0].size_bytes > 0
+    assert parsed.skipped_attachments == ["signature.png: image/png is not a document"]
+
+
+def test_bodyless_mail_with_cv_still_parses() -> None:
+    parsed = parse_message(RAW_BODYLESS_APPLICATION)
+
+    assert parsed is not None
+    assert parsed.body == ""
+    assert [item.filename for item in parsed.attachments] == ["cv-rani.pdf"]
+
+
+def test_bodyless_mail_without_attachments_is_still_noise() -> None:
+    parsed = parse_message(b"From: x@y.com\nTo: hr@example.com\nSubject: hi\n\n")
+
+    assert parsed is None

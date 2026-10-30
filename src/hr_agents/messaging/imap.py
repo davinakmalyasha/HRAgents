@@ -17,13 +17,28 @@ from email.parser import BytesParser
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Any, Protocol, cast
 
-from hr_agents.messaging.base import InboundEmail, TransportError
+from hr_agents.messaging.base import InboundAttachment, InboundEmail, TransportError
 from hr_agents.models import utc_now
 from hr_agents.providers.email import ImapReceiverConfig
 
 IMAP_PROVIDER_ID = "email.imap_poll"
 
 SEEN_FLAG = "\\Seen"
+
+CV_CONTENT_TYPES = frozenset(
+    {
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/rtf",
+        "text/rtf",
+        "text/plain",
+    }
+)
+"""MIME types accepted as application documents; anything else is not a CV."""
+
+MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024
+"""Mirror of the document store's upload limit, so a stored file is acceptable."""
 
 
 ImapResult = tuple[str, Any]
@@ -88,23 +103,77 @@ def _received_at(message: EmailMessage) -> datetime:
     return utc_now()
 
 
+def _attachments(
+    message: EmailMessage,
+) -> tuple[list[InboundAttachment], list[str]]:
+    """Candidate document files; images and oversized files are refused by name."""
+    kept: list[InboundAttachment] = []
+    skipped: list[str] = []
+    for part in message.iter_attachments():
+        filename = (part.get_filename() or "").strip()
+        content_type = (part.get_content_type() or "").lower()
+        if not filename:
+            skipped.append(f"unnamed {content_type or 'part'}: no filename, skipped")
+            continue
+        if len(filename) > 320:
+            skipped.append(f"{filename[:60]}...: filename too long, skipped")
+            continue
+        if content_type not in CV_CONTENT_TYPES:
+            skipped.append(f"{filename}: {content_type or 'unknown type'} is not a document")
+            continue
+        try:
+            content = part.get_content()
+        except ValueError, LookupError:
+            skipped.append(f"{filename}: undecodable content, skipped")
+            continue
+        if not isinstance(content, bytes):
+            content = str(content).encode("utf-8", errors="replace")
+        if len(content) > MAX_ATTACHMENT_BYTES:
+            skipped.append(
+                f"{filename}: {len(content)} bytes exceeds the "
+                f"{MAX_ATTACHMENT_BYTES}-byte limit, skipped"
+            )
+            continue
+        if not content:
+            skipped.append(f"{filename}: empty file, skipped")
+            continue
+        kept.append(
+            InboundAttachment(
+                filename=filename,
+                content_type=content_type,
+                size_bytes=len(content),
+                content=content,
+            )
+        )
+    return kept, skipped
+
+
 def parse_message(raw: bytes, *, provider: str = IMAP_PROVIDER_ID) -> InboundEmail | None:
-    """Normalize a raw RFC 5322 message; unusable mail is skipped, never guessed."""
+    """Normalize a raw RFC 5322 message; unusable mail is skipped, never guessed.
+
+    A bodyless message with document attachments still parses (the draft flow
+    reads the files, not the prose); a bodyless message with nothing attached is
+    not mail, it is noise.
+    """
     message = cast(EmailMessage, BytesParser(policy=policy.default).parsebytes(raw))
-    sender = parseaddr(str(message.get("From", "")))[1]
+    sender_name, sender = parseaddr(str(message.get("From", "")))
     body = _text_body(message)
-    if not sender or body is None:
+    attachments, skipped = _attachments(message)
+    if not sender or (body is None and not attachments):
         return None
     references = str(message.get("References", "")).split()
     return InboundEmail(
         provider=provider,
         from_address=sender,
+        from_name=sender_name.strip()[:320],
         to_address=parseaddr(str(message.get("To", "")))[1],
         subject=str(message.get("Subject", ""))[:500],
-        body=body,
+        body=body or "",
         message_id=str(message.get("Message-ID", "")).strip() or None,
         in_reply_to=str(message.get("In-Reply-To", "")).strip() or None,
         references=references,
+        attachments=attachments,
+        skipped_attachments=skipped,
         received_at=_received_at(message),
     )
 

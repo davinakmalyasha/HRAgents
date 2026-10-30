@@ -35,6 +35,7 @@ from hr_agents.api.routers import (
     communications,
     compliance,
     documents,
+    email_drafts,
     evaluations,
     export,
     feedback,
@@ -63,7 +64,7 @@ from hr_agents.config import Settings, get_settings
 from hr_agents.db import create_sync_engine, create_sync_session_factory
 from hr_agents.db.application import DbApplicationStore
 from hr_agents.db.audit import DbAuditChain
-from hr_agents.db.messaging import candidate_directory, reply_store
+from hr_agents.db.messaging import candidate_directory, draft_store, reply_store
 from hr_agents.db.workspace import DbConversationStore, DbWorkspaceRequestStore
 from hr_agents.errors import DomainError
 from hr_agents.logging import configure_logging, get_logger
@@ -457,6 +458,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         sender=build_email_sender(settings=settings),
         receiver=build_email_receiver(settings=settings),
         replies=reply_store(session_factory),
+        drafts=draft_store(session_factory),
         directory=candidate_directory(session_factory),
         live=not settings.messaging_sandbox,
     )
@@ -477,6 +479,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_hardening(app, settings)
     app.include_router(workspaces.router, responses=ERROR_RESPONSES)
     app.include_router(chat_router.router, responses=ERROR_RESPONSES)
+    app.include_router(email_drafts.router, responses=ERROR_RESPONSES)
     app.include_router(applications.router, responses=ERROR_RESPONSES)
     app.include_router(queue.router, responses=ERROR_RESPONSES)
     app.include_router(documents.router, responses=ERROR_RESPONSES)

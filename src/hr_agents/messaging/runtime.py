@@ -22,6 +22,7 @@ from hr_agents.messaging.base import (
     TransportError,
 )
 from hr_agents.messaging.contacts import CandidateDirectory
+from hr_agents.messaging.drafts import EmailDraftStore
 from hr_agents.messaging.inbound import ReplyIngestor
 from hr_agents.messaging.outbox import OutboxDispatcher
 from hr_agents.messaging.store import ReplyStore
@@ -45,6 +46,7 @@ class MessagingServices:
     sender: EmailSender
     receiver: EmailReceiver | None
     replies: ReplyStore
+    drafts: EmailDraftStore
     directory: CandidateDirectory
     live: bool
 

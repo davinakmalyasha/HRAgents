@@ -470,6 +470,19 @@ def test_unknown_sender_is_never_stored(
     assert replies.list_all() == []
 
 
+def test_bodyless_mail_is_never_stored_as_a_reply(
+    evaluations: EvaluationService, communications: CommunicationService, audit: AuditChain
+) -> None:
+    register(evaluations)
+    replies = ReplyStore()
+    ingestor = ReplyIngestor(replies=replies, communications=communications, audit=audit)
+
+    report = ingestor.ingest([make_inbound(body="")])
+
+    assert (report.matched, report.unmatched) == (0, 1)
+    assert replies.list_all() == []
+
+
 def test_repolling_the_same_message_stores_it_once(
     evaluations: EvaluationService,
     communications: CommunicationService,

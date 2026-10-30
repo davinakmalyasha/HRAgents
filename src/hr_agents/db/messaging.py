@@ -17,6 +17,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from hr_agents.db import tables as t
 from hr_agents.db.session import sync_session_scope
 from hr_agents.messaging.contacts import CandidateDirectory, InMemoryCandidateDirectory
+from hr_agents.messaging.drafts import (
+    EmailApplicationDraft,
+    EmailDraftStatus,
+    EmailDraftStore,
+)
 from hr_agents.messaging.store import ReplyStore
 from hr_agents.models import CandidateReply, Channel
 
@@ -157,3 +162,110 @@ def reply_store(session_factory: sessionmaker[Session] | None) -> ReplyStore:
     if session_factory is None:
         return ReplyStore()
     return DbReplyStore(session_factory)
+
+
+class DbEmailDraftStore(EmailDraftStore):
+    """Email application drafts in ``email_application_drafts``."""
+
+    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+        super().__init__()
+        self._session_factory = session_factory
+
+    def _load(self, draft_id: UUID) -> EmailApplicationDraft | None:
+        with sync_session_scope(self._session_factory) as session:
+            row = session.get(t.EmailApplicationDraftRecord, draft_id)
+            return None if row is None else self._to_draft(row)
+
+    def _iter(self) -> Iterator[EmailApplicationDraft]:
+        with sync_session_scope(self._session_factory) as session:
+            rows = session.execute(select(t.EmailApplicationDraftRecord)).scalars().all()
+            return iter([self._to_draft(row) for row in rows])
+
+    def _persist(self, draft: EmailApplicationDraft) -> None:
+        with sync_session_scope(self._session_factory) as session:
+            row = session.get(t.EmailApplicationDraftRecord, draft.id)
+            if row is None:
+                row = t.EmailApplicationDraftRecord(id=draft.id, provider=draft.provider)
+                session.add(row)
+            row.provider_message_id = draft.provider_message_id
+            row.dedup_key = draft.dedup_key
+            row.sender = draft.sender
+            row.sender_name = draft.sender_name
+            row.subject = draft.subject
+            row.body = draft.body
+            row.attachment_names = list(draft.attachment_names)
+            row.document_ids = [str(item) for item in draft.document_ids]
+            row.refused_attachments = list(draft.refused_attachments)
+            row.suggested_job_id = draft.suggested_job_id
+            row.status = draft.status.value
+            row.application_id = draft.application_id
+            row.decided_by = draft.decided_by
+            row.discard_reason = draft.discard_reason
+            row.received_at = draft.received_at
+            row.updated_at = draft.updated_at
+            session.flush()
+        super()._persist(draft)
+
+    def find(self, *, provider: str, dedup_key: str) -> EmailApplicationDraft | None:
+        """Deduplication consults the database, so a fresh process stays idempotent."""
+        with sync_session_scope(self._session_factory) as session:
+            row = session.execute(
+                select(t.EmailApplicationDraftRecord).where(
+                    t.EmailApplicationDraftRecord.provider == provider,
+                    t.EmailApplicationDraftRecord.dedup_key == dedup_key,
+                )
+            ).scalar_one_or_none()
+            return None if row is None else self._to_draft(row)
+
+    def page(
+        self, *, status: EmailDraftStatus | None, limit: int, offset: int
+    ) -> tuple[list[EmailApplicationDraft], int]:
+        """One draft page with the filter, order and count inside one transaction."""
+        record = t.EmailApplicationDraftRecord
+        with sync_session_scope(self._session_factory) as session:
+            where = [] if status is None else [record.status == status.value]
+            total = session.execute(
+                select(func.count()).select_from(record).where(*where)
+            ).scalar_one()
+            rows = (
+                session.execute(
+                    select(record)
+                    .where(*where)
+                    .order_by(record.received_at, record.id)
+                    .limit(limit)
+                    .offset(offset)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_draft(row) for row in rows], total
+
+    @staticmethod
+    def _to_draft(row: t.EmailApplicationDraftRecord) -> EmailApplicationDraft:
+        return EmailApplicationDraft(
+            id=row.id,
+            provider=row.provider,
+            provider_message_id=row.provider_message_id,
+            dedup_key=row.dedup_key,
+            sender=row.sender,
+            sender_name=row.sender_name or "",
+            subject=row.subject or "",
+            body=row.body or "",
+            attachment_names=list(row.attachment_names or []),
+            document_ids=[UUID(item) for item in (row.document_ids or [])],
+            refused_attachments=list(row.refused_attachments or []),
+            suggested_job_id=row.suggested_job_id,
+            status=EmailDraftStatus(row.status),
+            application_id=row.application_id,
+            decided_by=row.decided_by,
+            discard_reason=row.discard_reason,
+            received_at=_aware(row.received_at),
+            updated_at=_aware(row.updated_at),
+        )
+
+
+def draft_store(session_factory: sessionmaker[Session] | None) -> EmailDraftStore:
+    """Database draft store when a session factory exists, else the in-memory one."""
+    if session_factory is None:
+        return EmailDraftStore()
+    return DbEmailDraftStore(session_factory)

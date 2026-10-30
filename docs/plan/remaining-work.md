@@ -938,8 +938,17 @@ backend + docs + tests slice; the dashboard import UI follows per slice.
       multipliers stay in verified rate tables and leave policies, enforced by
       `tests/skills/test_labor_law_pack.py`, which also proves a labor question
       retrieves the pack with citations.
-- [ ] **Email ingest → draft applications.** IMAP poller drafts `consent_pending`
-      applications from attachments; a human confirms consent before evaluation.
+- [x] **Email ingest → draft applications.** CVs arriving by email become
+      consent-pending drafts instead of manual forwarding: the `run_messaging`
+      `--receive` poll drafts unattributed mail with document attachments
+      (`messaging/application_ingest.py`, `EmailDraftStore` + Postgres adapter
+      + migration `0035`, exact-title job suggestion against open reqs,
+      dedupe on message id + attachment hashes). A named human confirms with
+      explicit `consent_granted: true` and a job
+      (`POST /v1/applications/email-drafts/{id}/confirm`, 202 via the normal
+      intake path) or discards with a reason; drafts with no stored documents
+      refuse. Replies stay owned by the reply bridge; bodyless mail is never
+      stored as a reply. Operator rules in `deployment.md` §2.
 - [ ] **Recalibrate the dead `AUTO_SCHEDULE` band** from
       `evals/scoring_calibration.py`, or downgrade the promise to
       fast-track-to-interview. Zero-evidence gate stays.

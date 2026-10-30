@@ -44,6 +44,15 @@ def _render(summary: dict[str, Any]) -> str:
                 f"inbound via {receive['provider']}: matched {receive['matched']}, "
                 f"unmatched {receive['unmatched']}, duplicates {receive['duplicates']}"
             )
+    applications = summary.get("applications")
+    if applications and applications.get("mode") == "live":
+        lines.append(
+            f"applications via {applications['provider']}: "
+            f"drafted {applications['drafted']}, "
+            f"duplicates {applications['duplicates']}, "
+            f"replies {applications['skipped_is_reply']}, "
+            f"no-attachment {applications['skipped_no_attachments']}"
+        )
     return "\n".join(lines) or "nothing to do"
 
 
@@ -97,6 +106,19 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             report = ingestor.ingest(polled)
             summary["receive"] = {"mode": "live", **report.model_dump()}
+            recruiting = app.state.recruiting  # type: ignore[attr-defined]
+            from hr_agents.messaging.application_ingest import ApplicationIngestor
+
+            app_ingestor = ApplicationIngestor(
+                drafts=messaging.drafts,
+                documents=recruiting.documents,
+                jobs=recruiting.jobs,
+                communications=communications,
+                directory=messaging.directory,
+                audit=app.state.audit,  # type: ignore[attr-defined]
+            )
+            applications = app_ingestor.ingest(polled)
+            summary["applications"] = {"mode": "live", **applications.model_dump()}
 
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True, default=str))
