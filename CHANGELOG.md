@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.17.0...hr-agents-v0.18.0) (2026-10-30)
+
+
+### Features
+
+* **hiring:** draft applications from CVs arriving by email ([61618ad](https://github.com/davinakmalyasha/HRAgents/commit/61618ad102c14ccf12490bacd3a51d8c60226a86))
+
 ## [0.17.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.16.0...hr-agents-v0.17.0) (2026-10-30)
 
 
