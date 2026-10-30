@@ -3028,8 +3028,19 @@ backend + docs + tests slice; the dashboard import UI follows per slice.</p>
       multipliers stay in verified rate tables and leave policies, enforced by
       <code>tests/skills/test_labor_law_pack.py</code>, which also proves a labor question
       retrieves the pack with citations.</li>
-<li>[ ] <strong>Email ingest → draft applications.</strong> IMAP poller drafts <code>consent_pending</code>
-      applications from attachments; a human confirms consent before evaluation.</li>
+<li>[x] <strong>Email ingest → draft applications.</strong> CVs arriving by email become
+      consent-pending drafts instead of manual forwarding: the <code>run_messaging</code>
+      <code>--receive</code> poll drafts unattributed mail with document attachments
+      (<code>messaging/application_ingest.py</code>, <code>EmailDraftStore</code> + Postgres adapter<ul>
+<li>migration <code>0035</code>, exact-title job suggestion against open reqs,
+  dedupe on message id + attachment hashes). A named human confirms with
+  explicit <code>consent_granted: true</code> and a job
+  (<code>POST /v1/applications/email-drafts/{id}/confirm</code>, 202 via the normal
+  intake path) or discards with a reason; drafts with no stored documents
+  refuse. Replies stay owned by the reply bridge; bodyless mail is never
+  stored as a reply. Operator rules in <code>deployment.md</code> §2.</li>
+</ul>
+</li>
 <li>[ ] <strong>Recalibrate the dead <code>AUTO_SCHEDULE</code> band</strong> from
       <code>evals/scoring_calibration.py</code>, or downgrade the promise to
       fast-track-to-interview. Zero-evidence gate stays.</li>

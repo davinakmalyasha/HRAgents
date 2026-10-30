@@ -826,6 +826,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="2. Connecting a real mail provider">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#email-applications-cvs-that-arrive-in-the-hiring-mailbox" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Email applications: CVs that arrive in the hiring mailbox
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1889,6 +1906,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="2. Connecting a real mail provider">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#email-applications-cvs-that-arrive-in-the-hiring-mailbox" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Email applications: CVs that arrive in the hiring mailbox
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2397,6 +2431,23 @@ alone:</p>
 <p>Then <code>docker compose up -d --force-recreate api messaging</code>. Until a message is
 queued behind a named human, nothing is sent — and the bridge records the
 provider, the message id, and any failure on the message itself.</p>
+<h3 id="email-applications-cvs-that-arrive-in-the-hiring-mailbox">Email applications: CVs that arrive in the hiring mailbox<a class="headerlink" href="#email-applications-cvs-that-arrive-in-the-hiring-mailbox" title="Permanent link">&para;</a></h3>
+<p>The same <code>--receive</code> poll that captures replies also drafts applications from
+mail the reply bridge cannot attribute, when it carries document attachments
+(PDF/DOC/Image files are skipped by name, oversized files refused). Each
+draft is consent-pending by construction: no candidate record, no queue
+entry, no evaluation.</p>
+<p>The human loop is two endpoints:</p>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/v1/applications/email-drafts?status<span class="o">=</span>pending<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$KEY</span><span class="s2">"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>json.tool
+</code></pre></div>
+<p>Confirming takes a job and an explicit <code>consent_granted: true</code> — the caller
+supplies the consent, exactly like the intake API; it is never read out of
+the email body. A draft with no stored documents refuses (ask the candidate
+to resend); discarding needs a reason. The subject line suggests a job only
+on an exact title match against open reqs, and the human may override it.
+Re-polls of the same provider message are duplicates, never second drafts,
+keyed on the message id plus attachment hashes.</p>
 <h2 id="3-health-logs-metrics">3. Health, logs, metrics<a class="headerlink" href="#3-health-logs-metrics" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/healthz<span class="w">                    </span><span class="c1"># liveness: the process is up</span>
 curl<span class="w"> </span>-s<span class="w"> </span>localhost:8000/readyz<span class="w">                     </span><span class="c1"># readiness, per dependency</span>
