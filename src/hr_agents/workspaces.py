@@ -144,7 +144,9 @@ DEFAULT_WORKSPACES: tuple[WorkspaceDefinition, ...] = (
         summary_id="Pertanyaan kebijakan dengan sitasi; pintu depan.",
         agents=frozenset({"policy_assistant"}),
         tools=_POLICY_TOOLS,
-        knowledge_namespaces=frozenset({"platform.knowledge", "platform.compliance"}),
+        knowledge_namespaces=frozenset(
+            {"platform.knowledge", "platform.compliance", "platform.labor-law"}
+        ),
         read_permissions=frozenset({Permission.CHAT_USE}),
         keywords=frozenset({"policy", "kebijakan", "aturan", "sop", "regulasi"}),
     ),

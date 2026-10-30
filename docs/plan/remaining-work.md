@@ -931,9 +931,13 @@ backend + docs + tests slice; the dashboard import UI follows per slice.
       (`services/attendance.py`, `PayrollService.preview/apply_attendance`,
       leave-aware absence, salaries untouched, both routes behind
       `payroll:write`). Operator format documented in `deployment.md`.
-- [ ] **Statutory Q&A pack for Ask HR.** Curated, sourced ID-labor notes
-      (explanation only — numbers stay in verified rate tables) behind a
-      guard test that rejects rate-like literals.
+- [x] **Statutory Q&A pack for Ask HR.** Twelve sourced ID-labor notes
+      (`skills/platform/labor-law/`, namespace `platform.labor-law` claimed by
+      the Ask HR workspace): structure and day/month counts from the cited law
+      with `source` + `verified_on` on every note; money, shares and
+      multipliers stay in verified rate tables and leave policies, enforced by
+      `tests/skills/test_labor_law_pack.py`, which also proves a labor question
+      retrieves the pack with citations.
 - [ ] **Email ingest → draft applications.** IMAP poller drafts `consent_pending`
       applications from attachments; a human confirms consent before evaluation.
 - [ ] **Recalibrate the dead `AUTO_SCHEDULE` band** from
@@ -954,7 +958,7 @@ the scoring model silently auto-rejected non-engineers. The new order is
 | 1 | **Core integrity** (§0): the trust boundary, the shared primitives, `Decimal` money, WIB dates | — | The project's promise is an auditable record of human decisions. Today the actor is a self-declared string. Nothing else raises the floor |
 | 2 | **Scoring generalization** — `DimensionTemplate` registry keyed by job family | 1 | The system auto-rejects accountants, sales, and admin hires. That is a correctness failure with real people on the other end, and the fairness harness structurally cannot catch it |
 | 3 | **Dashboard** (§2): approvals inbox, home fix, auth, XLSX, mobile pass, streaming | 1 (typed error codes) | Makes the product usable by a human on a phone. The approvals inbox is one screen that makes five workspaces actionable |
-| 4 | **Knowledge + compliance calendar** — the calendar now ships: derived deadlines (probation ends, contract expiries, document expiries including overdue) merged with operator-entered statutory dates that must name their source, month view on the compliance board, audited add/remove-with-reason (`0021`). Remaining under this workstream: the Indonesian statutory knowledge corpus | 1, 2 | The only genuinely differentiating feature for this market, and it needs no LLM |
+| 4 | **Knowledge + compliance calendar** — the calendar now ships: derived deadlines (probation ends, contract expiries, document expiries including overdue) merged with operator-entered statutory dates that must name their source, month view on the compliance board, audited add/remove-with-reason (`0021`). The Ask HR statutory pack ships too (`skills/platform/labor-law/`, 12 sourced notes, figures stay in rate tables). Remaining: deeper statutory coverage beyond the 12 notes | 1, 2 | The only genuinely differentiating feature for this market, and it needs no LLM |
 | 5 | Evals expansion (§4) — generated 50-profile set + extraction fairness pairs | 2 | Runs offline; feeds the paper and calibrates the templates |
 | 6 | Ops hardening (§5) — wizard, alerting; the demo dataset ships (`scripts/seed_demo.py`, through the real services, rate tables left unverified on purpose) | 1, 3 | Must be stable before any public release |
 | 7 | MCP layer, landing site, paper | 3, 4, 5 | Release last; the paper cites measured results |
