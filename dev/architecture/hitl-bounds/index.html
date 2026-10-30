@@ -1809,7 +1809,16 @@
 
 
 <h1 id="automation-boundaries-hitl-vs-full-automation">Automation Boundaries: HITL vs. Full Automation<a class="headerlink" href="#automation-boundaries-hitl-vs-full-automation" title="Permanent link">&para;</a></h1>
-<p><strong>Version:</strong> 0.15.2 · <strong>Status:</strong> frozen contract</p>
+<p><strong>Version:</strong> 0.19.0 · <strong>Status:</strong> frozen contract</p>
+<blockquote>
+<p><strong>Change record, 2026-10-30 (human-approved).</strong> The auto floor moved 0.85 →
+0.75 and the merit floor 0.70 → 0.60, recalibrated from the scoring corpus
+(strong 0.777–0.830, adequate 0.614–0.659, weak 0.023–0.083): the old 0.85
+was a dead band no plausible profile reached, so the automation the product
+describes never fired. Every other gate — σ ≤ 0.05, no flags, slots ≥ 2,
+consent, evidence, tenure-fit — is unchanged. Thresholds remain snapshot per
+decision and overridable per verified rubric version.</p>
+</blockquote>
 <p>This document defines exactly where the system may act alone and where a named human must
 decide. The rules are enforced by the policy engine — not by convention, not by prompt text.</p>
 <h2 id="1-core-principle">1. Core principle<a class="headerlink" href="#1-core-principle" title="Permanent link">&para;</a></h2>
@@ -1825,7 +1834,7 @@ processing with data-subject rights.</p>
 <h2 id="2-full-automation-bounds">2. Full automation bounds<a class="headerlink" href="#2-full-automation-bounds" title="Permanent link">&para;</a></h2>
 <p>The system may act without human involvement only when <strong>all</strong> conditions hold.</p>
 <h3 id="21-auto-scheduling">2.1 Auto-scheduling<a class="headerlink" href="#21-auto-scheduling" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>AUTO_SCHEDULE  ⟺  S_tech ≥ 0.85
+<div class="highlight"><pre><span></span><code>AUTO_SCHEDULE  ⟺  S_tech ≥ 0.75
                 ∧ σ ≤ 0.05
                 ∧ flags = ∅
                 ∧ mutual_slots ≥ min_interviewer_slots (default 2)
@@ -1839,7 +1848,7 @@ processing with data-subject rights.</p>
   anyone an opportunity. Even so, the candidate must confirm the slot, and any party can reschedule.</li>
 </ul>
 <h3 id="22-automatic-rejection-narrow">2.2 Automatic rejection (narrow)<a class="headerlink" href="#22-automatic-rejection-narrow" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>REJECT_AUTO  ⟺  S_tech &lt; 0.70 ∧ flags = ∅ ∧ consent.active = true
+<div class="highlight"><pre><span></span><code>REJECT_AUTO  ⟺  S_tech &lt; 0.60 ∧ flags = ∅ ∧ consent.active = true
                ∧ evidence.sufficient = true
 </code></pre></div>
 <ul>
@@ -1861,7 +1870,7 @@ processing with data-subject rights.</p>
 <p>Any single trigger routes the case to a named human queue. HITL cannot be bypassed by
 configuration in production; changing thresholds is itself an audited, human-approved act.</p>
 <h3 id="31-soft-rejection-safeguard-mandatory">3.1 Soft-rejection safeguard (mandatory)<a class="headerlink" href="#31-soft-rejection-safeguard-mandatory" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>0.70 ≤ S_tech &lt; 0.85  →  HITL_SOFT_REJECTION
+<div class="highlight"><pre><span></span><code>0.60 ≤ S_tech &lt; 0.75  →  HITL_SOFT_REJECTION
 </code></pre></div>
 <ul>
 <li>A rejection notification <strong>may not be sent</strong> until an Engineering Lead (or configured
@@ -1981,7 +1990,7 @@ queue_offer      ⟺  named human approver
 </tr>
 <tr>
 <td>5</td>
-<td><code>S_tech ≥ 0.85 ∧ σ ≤ 0.05 ∧ evidence.sufficient</code></td>
+<td><code>S_tech ≥ 0.75 ∧ σ ≤ 0.05 ∧ evidence.sufficient</code></td>
 <td><code>AUTO_SCHEDULE</code></td>
 <td>system</td>
 </tr>
@@ -1993,13 +2002,13 @@ queue_offer      ⟺  named human approver
 </tr>
 <tr>
 <td>7</td>
-<td><code>0.70 ≤ S_tech &lt; 0.85 ∧ evidence.sufficient</code></td>
+<td><code>0.60 ≤ S_tech &lt; 0.75 ∧ evidence.sufficient</code></td>
 <td><code>HITL_SOFT_REJECTION</code></td>
 <td>engineering lead sign-off required</td>
 </tr>
 <tr>
 <td>8</td>
-<td><code>S_tech &lt; 0.70 ∧ evidence.sufficient</code></td>
+<td><code>S_tech &lt; 0.60 ∧ evidence.sufficient</code></td>
 <td><code>REJECT_AUTO</code></td>
 <td>system (+ feedback + audit)</td>
 </tr>

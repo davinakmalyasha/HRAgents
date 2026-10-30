@@ -1784,7 +1784,7 @@ but below the advance bar. No rejection may be sent without a named human sign-o
     W-&gt;&gt;S: CandidateProfile + JobSpecification
     S-&gt;&gt;S: k=3 independent extraction+score runs
     S-&gt;&gt;P: mean_vector, s_tech, sigma, flags
-    P-&gt;&gt;P: apply thresholds (0.70 &lt;= s_tech &lt; 0.85)
+    P-&gt;&gt;P: apply thresholds (0.60 &lt;= s_tech &lt; 0.75)
     P-&gt;&gt;Q: enqueue HITL_SOFT_REJECTION (breakdown attached)
     P-&gt;&gt;A: append policy decision (hash-chained)
     Q-&gt;&gt;L: reviewer opens full score breakdown
@@ -1808,11 +1808,11 @@ but below the advance bar. No rejection may be sent without a named human sign-o
     extraction_failed --&gt; processing: retry
     extraction_failed --&gt; needs_manual_triage: retries exhausted
     processing --&gt; evaluated: deterministic score computed
-    evaluated --&gt; auto_schedule: S_tech ≥ 0.85 ∧ σ ≤ 0.05 ∧ no flags ∧ slots ≥ 2
-    evaluated --&gt; gated: flags ∨ 0.70 ≤ S_tech &lt; 0.85 ∨ slots &lt; 2
+    evaluated --&gt; auto_schedule: S_tech ≥ 0.75 ∧ σ ≤ 0.05 ∧ no flags ∧ slots ≥ 2
+    evaluated --&gt; gated: flags ∨ 0.60 ≤ S_tech &lt; 0.75 ∨ slots &lt; 2
     gated --&gt; scheduled: human approves advance
     gated --&gt; rejected: human signs off rejection
-    evaluated --&gt; rejected: S_tech &lt; 0.70 ∧ no flags
+    evaluated --&gt; rejected: S_tech &lt; 0.60 ∧ no flags
     auto_schedule --&gt; scheduled: candidate confirms slot
     scheduled --&gt; [*]
     rejected --&gt; [*]
