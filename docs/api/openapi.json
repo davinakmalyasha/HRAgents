@@ -9124,7 +9124,7 @@
             "type": "number"
           },
           "auto_schedule_min_score": {
-            "default": 0.85,
+            "default": 0.75,
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Auto Schedule Min Score",
@@ -9137,7 +9137,7 @@
             "type": "integer"
           },
           "soft_rejection_floor": {
-            "default": 0.7,
+            "default": 0.6,
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Soft Rejection Floor",

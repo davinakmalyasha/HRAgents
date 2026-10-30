@@ -102,11 +102,11 @@ calendar constraints and consent:
 | consent inactive | halt, human review |
 | anomaly flags | human review (`HITL_ANOMALY`) |
 | no mutual slots | human review (`HITL_CALENDAR`) |
-| `S ≥ 0.85 ∧ σ ≤ 0.05 ∧ evidence` | `AUTO_SCHEDULE` |
-| `S ≥ 0.85 ∧ σ ≤ 0.05 ∧ ¬evidence` | `HITL_MANUAL` |
+| `S ≥ 0.75 ∧ σ ≤ 0.05 ∧ evidence` | `AUTO_SCHEDULE` |
+| `S ≥ 0.75 ∧ σ ≤ 0.05 ∧ ¬evidence` | `HITL_MANUAL` |
 | `¬evidence` (any other score) | `HITL_MANUAL` |
-| `0.70 ≤ S < 0.85 ∧ evidence` | soft-rejection queue, sign-off required |
-| `S < 0.70 ∧ evidence` | documented rejection with feedback |
+| `0.60 ≤ S < 0.75 ∧ evidence` | soft-rejection queue, sign-off required |
+| `S < 0.60 ∧ evidence` | documented rejection with feedback |
 
 Calibration is label-free: the corpus asserts orderings (strong > adequate >
 weak, matched fit > tenured misfit) rather than invented ground truth, because a

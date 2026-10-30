@@ -1,6 +1,14 @@
 # Automation Boundaries: HITL vs. Full Automation
 
-**Version:** 0.15.2 · **Status:** frozen contract
+**Version:** 0.19.0 · **Status:** frozen contract
+
+> **Change record, 2026-10-30 (human-approved).** The auto floor moved 0.85 →
+> 0.75 and the merit floor 0.70 → 0.60, recalibrated from the scoring corpus
+> (strong 0.777–0.830, adequate 0.614–0.659, weak 0.023–0.083): the old 0.85
+> was a dead band no plausible profile reached, so the automation the product
+> describes never fired. Every other gate — σ ≤ 0.05, no flags, slots ≥ 2,
+> consent, evidence, tenure-fit — is unchanged. Thresholds remain snapshot per
+> decision and overridable per verified rubric version.
 
 This document defines exactly where the system may act alone and where a named human must
 decide. The rules are enforced by the policy engine — not by convention, not by prompt text.
@@ -23,7 +31,7 @@ The system may act without human involvement only when **all** conditions hold.
 ### 2.1 Auto-scheduling
 
 ```
-AUTO_SCHEDULE  ⟺  S_tech ≥ 0.85
+AUTO_SCHEDULE  ⟺  S_tech ≥ 0.75
                 ∧ σ ≤ 0.05
                 ∧ flags = ∅
                 ∧ mutual_slots ≥ min_interviewer_slots (default 2)
@@ -39,7 +47,7 @@ AUTO_SCHEDULE  ⟺  S_tech ≥ 0.85
 ### 2.2 Automatic rejection (narrow)
 
 ```
-REJECT_AUTO  ⟺  S_tech < 0.70 ∧ flags = ∅ ∧ consent.active = true
+REJECT_AUTO  ⟺  S_tech < 0.60 ∧ flags = ∅ ∧ consent.active = true
                ∧ evidence.sufficient = true
 ```
 
@@ -68,7 +76,7 @@ configuration in production; changing thresholds is itself an audited, human-app
 ### 3.1 Soft-rejection safeguard (mandatory)
 
 ```
-0.70 ≤ S_tech < 0.85  →  HITL_SOFT_REJECTION
+0.60 ≤ S_tech < 0.75  →  HITL_SOFT_REJECTION
 ```
 
 - A rejection notification **may not be sent** until an Engineering Lead (or configured
@@ -143,10 +151,10 @@ Evaluated top to bottom; first match wins.
 | 2 | `flags ≠ ∅` (any) | `HITL_ANOMALY` | human reviewer |
 | 3 | `mutual_slots < min_interviewer_slots` | `HITL_CALENDAR` | recruiter/lead |
 | 4 | auto band `∧ ¬evidence.sufficient` | `HITL_MANUAL` | human reviewer |
-| 5 | `S_tech ≥ 0.85 ∧ σ ≤ 0.05 ∧ evidence.sufficient` | `AUTO_SCHEDULE` | system |
+| 5 | `S_tech ≥ 0.75 ∧ σ ≤ 0.05 ∧ evidence.sufficient` | `AUTO_SCHEDULE` | system |
 | 6 | `¬evidence.sufficient` (any other score) | `HITL_MANUAL` | human reviewer |
-| 7 | `0.70 ≤ S_tech < 0.85 ∧ evidence.sufficient` | `HITL_SOFT_REJECTION` | engineering lead sign-off required |
-| 8 | `S_tech < 0.70 ∧ evidence.sufficient` | `REJECT_AUTO` | system (+ feedback + audit) |
+| 7 | `0.60 ≤ S_tech < 0.75 ∧ evidence.sufficient` | `HITL_SOFT_REJECTION` | engineering lead sign-off required |
+| 8 | `S_tech < 0.60 ∧ evidence.sufficient` | `REJECT_AUTO` | system (+ feedback + audit) |
 
 **Tenure is not role fit.** A candidate whose depth is carried by tenure while
 fewer than half of the job's must-have skills are evidenced is routed to a person

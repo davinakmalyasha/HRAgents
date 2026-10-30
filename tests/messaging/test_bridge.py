@@ -373,7 +373,7 @@ def test_rejection_approval_still_gates_dispatch(
 ) -> None:
     record = evaluations.register(
         application_id=uuid4(),
-        evaluation=make_evaluation(s_tech=0.80),
+        evaluation=make_evaluation(s_tech=0.65),
         candidate_name="Budi Santoso",
         job_title="Backend Engineer",
     )

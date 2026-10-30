@@ -133,7 +133,7 @@ function ProposalItem({
 /**
  * Interview proposals over the scheduling registry.
  *
- * A proposal follows the policy gate (`S_tech ≥ 0.85 ∧ σ ≤ 0.05`, mutual
+ * A proposal follows the policy gate (`S_tech ≥ 0.75 ∧ σ ≤ 0.05`, mutual
  * slots, no flags); confirm/cancel/reschedule go through the decision
  * endpoint — the single writer that also decides the linked approval in the
  * named human's name.

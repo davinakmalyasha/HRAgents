@@ -61,7 +61,7 @@ def test_low_mutual_slots_routes_to_calendar() -> None:
 
 
 def test_auto_schedule_when_high_score_and_low_variance() -> None:
-    result = evaluate_policy(s_tech=0.86, sigma=0.04, mutual_slots=3)
+    result = evaluate_policy(s_tech=0.76, sigma=0.04, mutual_slots=3)
     assert result.decision is PolicyDecision.AUTO_SCHEDULE
 
 
@@ -88,7 +88,7 @@ def test_missing_evidence_never_produces_an_automatic_rejection() -> None:
     assert below.decision is PolicyDecision.HITL_MANUAL
     assert "before any rejection" in below.reasons[0]
 
-    soft = evaluate_policy(s_tech=0.70, sigma=0.01, mutual_slots=3, evidence_sufficient=False)
+    soft = evaluate_policy(s_tech=0.60, sigma=0.01, mutual_slots=3, evidence_sufficient=False)
     assert soft.decision is PolicyDecision.HITL_MANUAL
 
 
@@ -118,7 +118,7 @@ def test_auto_band_with_evidence_still_schedules() -> None:
 
 
 def test_boundary_exact_thresholds_auto_schedules() -> None:
-    result = evaluate_policy(s_tech=0.85, sigma=0.05, mutual_slots=2)
+    result = evaluate_policy(s_tech=0.75, sigma=0.05, mutual_slots=2)
     assert result.decision is PolicyDecision.AUTO_SCHEDULE
 
 
@@ -128,11 +128,11 @@ def test_high_score_with_high_variance_gated() -> None:
 
 
 def test_soft_rejection_band() -> None:
-    result = evaluate_policy(s_tech=0.70, sigma=0.01, mutual_slots=3)
+    result = evaluate_policy(s_tech=0.60, sigma=0.01, mutual_slots=3)
     assert result.decision is PolicyDecision.HITL_SOFT_REJECTION
     assert "sign-off" in result.reasons[0]
 
-    upper = evaluate_policy(s_tech=0.84, sigma=0.01, mutual_slots=3)
+    upper = evaluate_policy(s_tech=0.74, sigma=0.01, mutual_slots=3)
     assert upper.decision is PolicyDecision.HITL_SOFT_REJECTION
 
 
@@ -154,8 +154,8 @@ def test_anomaly_beats_high_score() -> None:
 
 def test_thresholds_are_snapshotted() -> None:
     result = evaluate_policy(s_tech=0.5, sigma=0.0)
-    assert result.thresholds.auto_schedule_min_score == 0.85
-    assert result.thresholds.soft_rejection_floor == 0.70
+    assert result.thresholds.auto_schedule_min_score == 0.75
+    assert result.thresholds.soft_rejection_floor == 0.60
 
 
 # --- the threshold routing table -----------------------------------------------
@@ -163,8 +163,8 @@ def test_thresholds_are_snapshotted() -> None:
 # One row per decision boundary, including the exact edges: every comparison in
 # `evaluate_policy` is inclusive on one side and exclusive on the other, and a
 # boundary bug moves real candidates between "schedule an interview" and
-# "requires a human decision". Defaults under test: auto at s >= 0.85 with
-# sigma <= 0.05, soft-rejection band from 0.70, minimum two mutual slots.
+# "requires a human decision". Defaults under test: auto at s >= 0.75 with
+# sigma <= 0.05, soft-rejection band from 0.60, minimum two mutual slots.
 
 DEFAULT = PolicyThresholds()
 
@@ -180,31 +180,31 @@ def _custom() -> PolicyThresholds:
 
 BOUNDARIES = (
     pytest.param(
-        {"s_tech": 0.85, "sigma": 0.05},
+        {"s_tech": 0.75, "sigma": 0.05},
         PolicyDecision.AUTO_SCHEDULE,
         "auto-scheduling is within bounds",
         id="auto-at-both-thresholds-inclusive",
     ),
     pytest.param(
-        {"s_tech": 0.85, "sigma": 0.050_000_1},
+        {"s_tech": 0.75, "sigma": 0.050_000_1},
         PolicyDecision.HITL_SOFT_REJECTION,
         "soft-rejection band",
         id="variance-a-hair-above-maximum",
     ),
     pytest.param(
-        {"s_tech": 0.849_999_9, "sigma": 0.01},
+        {"s_tech": 0.749_999_9, "sigma": 0.01},
         PolicyDecision.HITL_SOFT_REJECTION,
         "soft-rejection band",
         id="score-a-hair-below-auto",
     ),
     pytest.param(
-        {"s_tech": 0.70, "sigma": 0.01},
+        {"s_tech": 0.60, "sigma": 0.01},
         PolicyDecision.HITL_SOFT_REJECTION,
         "soft-rejection band",
         id="score-at-merit-floor-inclusive",
     ),
     pytest.param(
-        {"s_tech": 0.699_999_9, "sigma": 0.01},
+        {"s_tech": 0.599_999_9, "sigma": 0.01},
         PolicyDecision.REJECT_AUTO,
         "below merit floor",
         id="score-a-hair-below-floor",

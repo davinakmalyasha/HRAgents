@@ -419,11 +419,13 @@ Remaining in this area:
 > strong `0.777`–`0.830`, adequate `0.614`–`0.659`, weak `0.023`–`0.083`.
 > Two things worth reading before touching any threshold:
 >
-> - **`AUTO_SCHEDULE` (`S_tech ≥ 0.85`) is a dead band.** The best matched profile
->   in the corpus reaches `0.830`. Nothing in the corpus, or in any plausible
->   profile, crosses it, so in practice every candidate is either routed to a
->   person or flagged. This is safe now that the floor prompts for sign-off, but
->   the automation the product describes does not fire.
+> - **`AUTO_SCHEDULE` was a dead band, recalibrated 2026-10-30.** The best
+>   matched profile in the corpus reached `0.830` against a `0.85` floor, so the
+>   automation the product describes never fired. The floor is now `0.75` (every
+>   strong profile clears it, no adequate profile reaches it) and the merit
+>   floor is `0.60` (every adequate profile clears it). `hitl-bounds.md` records
+>   the human-approved change; the fence is
+>   `test_the_auto_schedule_band_is_live`, not a characterization.
 > - **Tenure can outweigh fit.** For teaching, a tenured misfit (`0.732`) scores
 >   *above* an adequate match (`0.614`). The education template now puts `0.65` of its depth weight
 >   on tenure and zeroes `projects` and `publications`, which *increases* the risk rather than
@@ -489,7 +491,7 @@ Remaining in this area:
       a statutory rate. The engineering template is pinned twice: its rubric digest, and a
       serialized score vector (`test_the_engineering_scores_are_pinned_byte_for_byte`), so any
       drift is a visible, deliberate edit.
-- [x] **The auto-schedule gate is evidence-aware.** Clearing `S ≥ 0.85` with `σ ≤ 0.05` no longer
+- [x] **The auto-schedule gate is evidence-aware.** Clearing `S ≥ 0.75` with `σ ≤ 0.05` no longer
       schedules if any dimension carries no `EvidenceRef`: it routes to `HITL_MANUAL` with that
       reason. Zero non-calendar flags and the run-agreement σ remain conditions. The evaluation
       table shows each dimension's run agreement (σ) and the rubric family/digest, so the number is
@@ -949,9 +951,16 @@ backend + docs + tests slice; the dashboard import UI follows per slice.
       intake path) or discards with a reason; drafts with no stored documents
       refuse. Replies stay owned by the reply bridge; bodyless mail is never
       stored as a reply. Operator rules in `deployment.md` §2.
-- [ ] **Recalibrate the dead `AUTO_SCHEDULE` band** from
-      `evals/scoring_calibration.py`, or downgrade the promise to
-      fast-track-to-interview. Zero-evidence gate stays.
+- [x] **Recalibrate the dead `AUTO_SCHEDULE` band.** Recalibrated 2026-10-30
+      from the corpus bands: auto floor `0.85 → 0.75`, merit floor
+      `0.70 → 0.60` (`config.py`, `PolicyThresholds`, `hitl-bounds.md` with a
+      change record, paper/plan/README/diagram updated in the same push).
+      Fenced by `test_the_auto_schedule_band_is_live`: weakest strong clears
+      the band, strongest adequate never reaches it, weakest adequate never
+      falls under the merit floor, and only strong tiers auto-schedule.
+      Adequate profiles now land in soft-rejection (human decides) instead of
+      documented auto-rejection. Evidence, sigma, flag, tenure-fit and slot
+      gates unchanged.
 
 ---
 

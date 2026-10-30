@@ -122,7 +122,7 @@ sequenceDiagram
     W->>S: CandidateProfile + JobSpecification
     S->>S: k=3 independent extraction+score runs
     S->>P: mean_vector, s_tech, sigma, flags
-    P->>P: apply thresholds (0.70 <= s_tech < 0.85)
+    P->>P: apply thresholds (0.60 <= s_tech < 0.75)
     P->>Q: enqueue HITL_SOFT_REJECTION (breakdown attached)
     P->>A: append policy decision (hash-chained)
     Q->>L: reviewer opens full score breakdown
@@ -150,11 +150,11 @@ stateDiagram-v2
     extraction_failed --> processing: retry
     extraction_failed --> needs_manual_triage: retries exhausted
     processing --> evaluated: deterministic score computed
-    evaluated --> auto_schedule: S_tech ≥ 0.85 ∧ σ ≤ 0.05 ∧ no flags ∧ slots ≥ 2
-    evaluated --> gated: flags ∨ 0.70 ≤ S_tech < 0.85 ∨ slots < 2
+    evaluated --> auto_schedule: S_tech ≥ 0.75 ∧ σ ≤ 0.05 ∧ no flags ∧ slots ≥ 2
+    evaluated --> gated: flags ∨ 0.60 ≤ S_tech < 0.75 ∨ slots < 2
     gated --> scheduled: human approves advance
     gated --> rejected: human signs off rejection
-    evaluated --> rejected: S_tech < 0.70 ∧ no flags
+    evaluated --> rejected: S_tech < 0.60 ∧ no flags
     auto_schedule --> scheduled: candidate confirms slot
     scheduled --> [*]
     rejected --> [*]

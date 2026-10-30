@@ -139,7 +139,7 @@ def _record_rejection(evaluations: EvaluationService, record: EvaluationRecord) 
 def test_rejection_requires_a_recorded_decision(
     evaluations: EvaluationService, communications: CommunicationService
 ) -> None:
-    register(evaluations, s_tech=0.80)  # soft-rejection band, no override recorded
+    register(evaluations, s_tech=0.65)  # soft-rejection band, no override recorded
 
     with pytest.raises(RecruitingError, match="recorded rejection decision"):
         communications.queue_rejection(CANDIDATE_ID, actor=ActorRef.legacy("lead-1"))
@@ -148,7 +148,7 @@ def test_rejection_requires_a_recorded_decision(
 def test_rejection_after_override_queues_a_grounded_message(
     evaluations: EvaluationService, communications: CommunicationService, audit: AuditChain
 ) -> None:
-    record = register(evaluations, s_tech=0.80)
+    record = register(evaluations, s_tech=0.65)
     evaluations.record_override(
         record.evaluation.id,
         actor=signed_in("lead-1", RoleId.MANAGER),

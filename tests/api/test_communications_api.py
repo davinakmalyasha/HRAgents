@@ -177,7 +177,7 @@ def test_gated_rejection_needs_a_recorded_decision() -> None:
             application_id=application["application_id"],
             candidate_id=application["candidate_id"],
             job_id=job["id"],
-            s_tech=0.80,
+            s_tech=0.65,
         )
 
         blocked = client.post(
@@ -295,7 +295,7 @@ def test_rejection_preview_reports_the_gates_that_block_queueing() -> None:
             application_id=application["application_id"],
             candidate_id=candidate_id,
             job_id=job["id"],
-            s_tech=0.80,
+            s_tech=0.65,
         )
         gated = client.post(
             f"/v1/candidates/{candidate_id}/communications/rejection/preview",

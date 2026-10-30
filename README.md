@@ -147,7 +147,7 @@ full pipeline. Every step is auditable.
    `S ∈ [0,1]^4`: technical depth, stack alignment, systems literacy, verifiable
    certifications. Same input, same score, every time — fully inspectable.
 3. **Gate** — auto-scheduling only for high-confidence positive outcomes
-   (`S_tech ≥ 0.85`, `σ ≤ 0.05`). Every rejection above the merit floor needs a named
+   (`S_tech ≥ 0.75`, `σ ≤ 0.05`). Every rejection above the merit floor needs a named
    human signature. Anomalies always route to humans.
 4. **Communicate** — async candidate screening (WhatsApp / Telegram / email) collects
    availability and missing information, with response SLAs so no candidate is ghosted.
@@ -174,8 +174,8 @@ P(c) = α·S̄(c) + β·e^(−λ·Δt) + γ·A(c) − δ·R(c)
 `R` risk flags. Defaults: `α=0.55, β=0.25, γ=0.10, δ=0.10, λ=0.05/h`; ties broken by
 earliest submission.
 
-**Automation gates** — auto-schedule iff `S_tech ≥ 0.85 ∧ σ ≤ 0.05`; mandatory human
-review for `S_tech ≥ 0.70` rejections.
+**Automation gates** — auto-schedule iff `S_tech ≥ 0.75 ∧ σ ≤ 0.05`; mandatory human
+review for `S_tech ≥ 0.60` rejections.
 
 ## The plan: one HR person, nine departments
 

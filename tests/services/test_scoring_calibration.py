@@ -47,13 +47,13 @@ from hr_agents.services.scoring import (
     score_candidate,
 )
 
-FLOOR = 0.70
+FLOOR = 0.60
 """``soft_rejection_floor``. Hard-coded here on purpose.
 
 Importing the configured value would make these assertions follow whatever the
 settings say, which is exactly the drift being guarded against. If the threshold
 ever moves, this file should be revisited in the same commit -- see
-``test_the_auto_schedule_band_is_still_unreachable`` for how that is recorded.
+``test_the_auto_schedule_band_is_live`` for how that is recorded.
 """
 
 
@@ -211,30 +211,51 @@ def test_every_occupation_is_scored_on_the_same_scale() -> None:
     )
 
 
-def test_the_auto_schedule_band_is_still_unreachable() -> None:
-    """Characterisation: no plausible candidate in the corpus reaches 0.85.
+def test_the_auto_schedule_band_is_live() -> None:
+    """The best corpus profiles now clear the automation band, with margin.
 
-    Not an endorsement. It records that ``AUTO_SCHEDULE`` is currently a dead
-    band -- the best matched profile here reaches 0.830 against a threshold of
-    0.85, and reaching it needs verified certifications on top of a near-perfect
-    profile. Every candidate is therefore either routed to a person or flagged.
+    Recalibrated 2026-10-30 from the corpus bands (strong 0.777-0.830, adequate
+    0.614-0.659, weak 0.023-0.083): the auto floor moved 0.85 to 0.75 so the
+    well-matched profiles the product promises to fast-track actually schedule,
+    and the merit floor moved 0.70 to 0.60 so everyone meeting most requirements
+    gets a human instead of a documented rejection. Sigmas, evidence, flags,
+    tenure-fit and slot gates are unchanged — only the two score lines moved,
+    and `hitl-bounds.md` records the human-approved change.
 
-    That is not unsafe: the previous commit made the sub-floor band a prompt for
-    a human rather than an outcome. But it does mean the automation the product
-    describes does not fire in practice.
-
-    Moving 0.85 is not this commit's business -- ``hitl-bounds.md`` records the
-    thresholds as a human-approved act. When someone does move it, this assertion
-    should fail and the gap above should be deleted rather than re-baselined.
+    The margins are the fence, not the values: the weakest strong profile must
+    still clear the band, the strongest adequate profile must never reach it,
+    and the weakest adequate profile must never fall under the merit floor.
     """
-    best = max(
-        score_of(case.profile, case.job) for case in list(CASES.values()) + list(MISFITS.values())
-    )
+    strong_scores = [
+        score_of(CASES[f"{occupation}_strong"].profile, CASES[f"{occupation}_strong"].job)
+        for occupation in [o.key for o in OCCUPATIONS]
+    ]
+    adequate_scores = [
+        score_of(CASES[f"{occupation}_adequate"].profile, CASES[f"{occupation}_adequate"].job)
+        for occupation in [o.key for o in OCCUPATIONS]
+    ]
 
-    assert best < 0.85, (
-        f"a corpus candidate now reaches {best:.3f}; AUTO_SCHEDULE is reachable, so the "
-        "comment above is stale and the band should be documented as live"
+    assert min(strong_scores) >= 0.75, (
+        f"weakest strong profile scores {min(strong_scores):.3f}; the auto band is dead again"
     )
+    assert max(adequate_scores) < 0.75, (
+        f"an adequate profile reaches {max(adequate_scores):.3f}; it would auto-schedule"
+    )
+    assert min(adequate_scores) >= 0.60, (
+        f"weakest adequate profile scores {min(adequate_scores):.3f}; it would auto-reject"
+    )
+    for case in list(CASES.values()) + list(MISFITS.values()):
+        if decision_of(case.profile, case.job) is PolicyDecision.AUTO_SCHEDULE:
+            assert case.name.endswith("_strong"), (
+                f"{case.name} auto-schedules without being a strong match"
+            )
+
+    for occupation in [o.key for o in OCCUPATIONS]:
+        case = CASES[f"{occupation}_adequate"]
+        assert decision_of(case.profile, case.job) is not PolicyDecision.REJECT_AUTO, (
+            f"{occupation}: an adequate candidate scores "
+            f"{score_of(case.profile, case.job):.3f} and would auto-reject"
+        )
 
 
 def test_scoring_is_deterministic_for_every_case() -> None:

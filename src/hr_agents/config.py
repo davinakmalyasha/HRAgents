@@ -173,9 +173,9 @@ class Settings(BaseSettings):
     smtp_from: str = "hragents@example.com"
 
     # --- Policy thresholds (defaults are the locked contract) ---
-    auto_schedule_min_score: float = Field(default=0.85, ge=0.0, le=1.0)
+    auto_schedule_min_score: float = Field(default=0.75, ge=0.0, le=1.0)
     auto_schedule_max_variance: float = Field(default=0.05, ge=0.0, le=1.0)
-    soft_rejection_floor: float = Field(default=0.70, ge=0.0, le=1.0)
+    soft_rejection_floor: float = Field(default=0.60, ge=0.0, le=1.0)
     min_interviewer_slots: int = Field(default=2, ge=0)
 
     # --- Queue priority weights (P = a*S + b*e^(-l*dt) + g*A - d*R) ---

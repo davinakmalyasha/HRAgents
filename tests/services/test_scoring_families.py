@@ -52,10 +52,10 @@ from hr_agents.services.policy import evaluate_policy
 from hr_agents.services.scoring import dimensions_evidenced, score_candidate
 
 REFERENCE_DATE = date(2025, 1, 1)
-FLOOR = 0.70
+FLOOR = 0.60
 """``soft_rejection_floor``, pinned here on purpose.
 
-Importing the configured value would make this assertion follow the settings, which is
+Importing the configured value would make these assertions follow the settings, which is
 the drift it exists to catch.
 """
 

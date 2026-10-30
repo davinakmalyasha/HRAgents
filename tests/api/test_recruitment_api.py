@@ -493,7 +493,7 @@ def gated_application(client: TestClient) -> tuple[dict, dict]:
         application_id=application["application_id"],
         candidate_id=application["candidate_id"],
         job_id=job["id"],
-        s_tech=0.80,
+        s_tech=0.65,
         recommendation=Recommendation.HUMAN_REVIEW,
     )
     return job, application

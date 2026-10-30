@@ -57,7 +57,7 @@ function proposal(overrides: Partial<SchedulingProposal>): SchedulingProposal {
       auto_scheduled: true,
       policy: {
         decision: 'auto_schedule',
-        reasons: ['s_tech 0.900 ≥ 0.85 and σ 0.0200 ≤ 0.05; auto-scheduling is within bounds'],
+        reasons: ['s_tech 0.900 ≥ 0.75 and σ 0.0200 ≤ 0.05; auto-scheduling is within bounds'],
       },
     },
     ...overrides,

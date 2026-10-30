@@ -60,7 +60,7 @@ def make_evaluation(candidate_id: UUID, *, s_tech: float) -> TechnicalEvaluation
         systems_literacy=s_tech,
         verifiable_certifications=s_tech,
     )
-    recommendation = Recommendation.AUTO_SCHEDULE if s_tech >= 0.85 else Recommendation.HUMAN_REVIEW
+    recommendation = Recommendation.AUTO_SCHEDULE if s_tech >= 0.75 else Recommendation.HUMAN_REVIEW
     return TechnicalEvaluation(
         candidate_id=candidate_id,
         job_id=uuid4(),
@@ -90,7 +90,7 @@ def make_slots(count: int) -> list[TimeSlot]:
     ]
 
 
-def build(*, s_tech: float = 0.80, with_engine: bool = True) -> World:
+def build(*, s_tech: float = 0.65, with_engine: bool = True) -> World:
     audit = AuditChain()
     applications = ApplicationStore()
     evaluations = EvaluationService(audit=audit, applications=applications)

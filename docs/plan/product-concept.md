@@ -204,8 +204,8 @@ ranking (hard rule).
 ```
 ┌─ Review queue — 3 items ────────────────────────────────────────────────────┐
 │                                                                             │
-│  ⚠ REJECTION SIGN-OFF                    0.70 ≤ S < 0.85                    │
-│    Siti Rahma — Backend Engineer         S_tech 0.78 · σ 0.02 · no flags   │
+│  ⚠ REJECTION SIGN-OFF                    0.60 ≤ S < 0.75                    │
+│    Siti Rahma — Backend Engineer         S_tech 0.68 · σ 0.02 · no flags   │
 │    "Rejection requires your signature."  [ View breakdown ] [ Sign ▸ ]     │
 │                                                                             │
 │  ⚠ ANOMALY                                date overlap detected             │

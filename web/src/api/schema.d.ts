@@ -6868,7 +6868,7 @@ export interface components {
             auto_schedule_max_variance: number;
             /**
              * Auto Schedule Min Score
-             * @default 0.85
+             * @default 0.75
              */
             auto_schedule_min_score: number;
             /**
@@ -6878,7 +6878,7 @@ export interface components {
             min_interviewer_slots: number;
             /**
              * Soft Rejection Floor
-             * @default 0.7
+             * @default 0.6
              */
             soft_rejection_floor: number;
         };
