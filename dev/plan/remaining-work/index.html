@@ -3021,9 +3021,13 @@ backend + docs + tests slice; the dashboard import UI follows per slice.</p>
       (<code>services/attendance.py</code>, <code>PayrollService.preview/apply_attendance</code>,
       leave-aware absence, salaries untouched, both routes behind
       <code>payroll:write</code>). Operator format documented in <code>deployment.md</code>.</li>
-<li>[ ] <strong>Statutory Q&amp;A pack for Ask HR.</strong> Curated, sourced ID-labor notes
-      (explanation only — numbers stay in verified rate tables) behind a
-      guard test that rejects rate-like literals.</li>
+<li>[x] <strong>Statutory Q&amp;A pack for Ask HR.</strong> Twelve sourced ID-labor notes
+      (<code>skills/platform/labor-law/</code>, namespace <code>platform.labor-law</code> claimed by
+      the Ask HR workspace): structure and day/month counts from the cited law
+      with <code>source</code> + <code>verified_on</code> on every note; money, shares and
+      multipliers stay in verified rate tables and leave policies, enforced by
+      <code>tests/skills/test_labor_law_pack.py</code>, which also proves a labor question
+      retrieves the pack with citations.</li>
 <li>[ ] <strong>Email ingest → draft applications.</strong> IMAP poller drafts <code>consent_pending</code>
       applications from attachments; a human confirms consent before evaluation.</li>
 <li>[ ] <strong>Recalibrate the dead <code>AUTO_SCHEDULE</code> band</strong> from
@@ -3066,7 +3070,7 @@ the scoring model silently auto-rejected non-engineers. The new order is
 </tr>
 <tr>
 <td>4</td>
-<td><strong>Knowledge + compliance calendar</strong> — the calendar now ships: derived deadlines (probation ends, contract expiries, document expiries including overdue) merged with operator-entered statutory dates that must name their source, month view on the compliance board, audited add/remove-with-reason (<code>0021</code>). Remaining under this workstream: the Indonesian statutory knowledge corpus</td>
+<td><strong>Knowledge + compliance calendar</strong> — the calendar now ships: derived deadlines (probation ends, contract expiries, document expiries including overdue) merged with operator-entered statutory dates that must name their source, month view on the compliance board, audited add/remove-with-reason (<code>0021</code>). The Ask HR statutory pack ships too (<code>skills/platform/labor-law/</code>, 12 sourced notes, figures stay in rate tables). Remaining: deeper statutory coverage beyond the 12 notes</td>
 <td>1, 2</td>
 <td>The only genuinely differentiating feature for this market, and it needs no LLM</td>
 </tr>
