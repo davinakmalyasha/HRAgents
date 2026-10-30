@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.18.0...hr-agents-v0.19.0) (2026-10-30)
+
+
+### Features
+
+* **policy:** recalibrate the auto-schedule and merit-floor bands ([3806870](https://github.com/davinakmalyasha/HRAgents/commit/380687007befd626343dfd13b88851e7cbe99a64))
+
 ## [0.18.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.17.0...hr-agents-v0.18.0) (2026-10-30)
 
 
