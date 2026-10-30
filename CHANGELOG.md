@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.16.0...hr-agents-v0.17.0) (2026-10-30)
+
+
+### Features
+
+* **knowledge:** Indonesian labor-law pack for Ask HR answers ([134a234](https://github.com/davinakmalyasha/HRAgents/commit/134a23448cfa7ec44716ab39e2efe69594c62330))
+
 ## [0.16.0](https://github.com/davinakmalyasha/HRAgents/compare/hr-agents-v0.15.3...hr-agents-v0.16.0) (2026-10-29)
 
 
