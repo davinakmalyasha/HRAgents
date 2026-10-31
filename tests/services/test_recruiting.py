@@ -178,6 +178,23 @@ def test_document_upload_is_audited(services: RecruitingServices, audit: AuditCh
     assert actions == ["document.uploaded"]
 
 
+def test_a_mislabelled_upload_is_refused_and_audited(
+    services: RecruitingServices, audit: AuditChain
+) -> None:
+    with pytest.raises(RecruitingError, match="not a PDF"):
+        services.documents.upload(
+            filename="cv.pdf",
+            kind="cv",
+            content=b"plain text pretending to be a PDF",
+            actor=ActorRef.legacy("hr-admin"),
+        )
+
+    actions = [entry.action for entry in audit.entries]
+    assert actions == ["document.rejected_format"]
+    assert audit.entries[0].payload["kind"] == "cv"
+    assert "filename" not in audit.entries[0].payload
+
+
 # --- jobs -------------------------------------------------------------------------
 
 

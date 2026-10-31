@@ -74,6 +74,7 @@ from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
 from hr_agents.services.approvals import ApprovalError
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.compliance import ComplianceService, PurgeHandler
+from hr_agents.services.documents import DocumentFormatError, ensure_supported_document
 from hr_agents.services.ingestion import ApplicationStatus, ApplicationStore
 from hr_agents.services.offers import OfferService
 from hr_agents.services.policy import evaluate_policy
@@ -249,6 +250,20 @@ class DocumentService:
             raise DocumentTooLargeError(
                 f"document is {len(content)} bytes; limit is {MAX_DOCUMENT_BYTES}"
             )
+
+        try:
+            ensure_supported_document(filename, content)
+        except DocumentFormatError as exc:
+            # Like the malware refusal, the chain records the size and label but
+            # not the filename or bytes: a rejected payload is not evidence.
+            self._audit.append(
+                actor=self._actor(actor),
+                action="document.rejected_format",
+                subject_type="document",
+                subject_id="rejected",
+                payload={"kind": kind, "size_bytes": len(content)},
+            )
+            raise RecruitingError(str(exc)) from exc
 
         scan = self._scanner.scan(content, filename=filename)
         if scan.outcome is ScanOutcome.INFECTED:

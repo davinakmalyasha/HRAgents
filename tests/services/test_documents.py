@@ -1,3 +1,7 @@
+import zipfile
+from html import escape
+from io import BytesIO
+
 import pytest
 
 from hr_agents.services import documents as documents_module
@@ -44,6 +48,21 @@ def _build_minimal_pdf(text: str) -> bytes:
     return bytes(out)
 
 
+def _build_minimal_docx(*paragraphs: str) -> bytes:
+    body = "".join(
+        f"<w:p><w:r><w:t>{escape(paragraph)}</w:t></w:r></w:p>" for paragraph in paragraphs
+    )
+    document = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f"<w:body>{body}</w:body></w:document>"
+    )
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", document)
+    return buffer.getvalue()
+
+
 def test_sha256_deterministic() -> None:
     assert sha256_bytes(b"hragents") == sha256_bytes(b"hragents")
     assert sha256_bytes(b"a") != sha256_bytes(b"b")
@@ -65,6 +84,24 @@ def test_extract_text_pdf() -> None:
     pdf = _build_minimal_pdf("Hello HRAgents")
     extracted = extract_text(pdf, "cv.pdf")
     assert "Hello HRAgents" in extracted
+
+
+def test_extract_text_docx_reads_paragraphs_and_entities() -> None:
+    docx = _build_minimal_docx("Budi Santoso", "Backend & platform")
+
+    extracted = extract_text(docx, "cv.docx")
+
+    assert extracted == "Budi Santoso\nBackend & platform"
+
+
+def test_extract_text_docx_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(documents_module, "MAX_EXTRACTED_CHARS", 8)
+    docx = _build_minimal_docx("Budi Santoso")
+
+    extracted = documents_module.extract_document(docx, "cv.docx")
+
+    assert extracted.text == "Budi San"
+    assert extracted.truncated is True
 
 
 def test_redact_email() -> None:

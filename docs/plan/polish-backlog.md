@@ -105,10 +105,14 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       `docs/deployment.md` §"Secrets and rotation" (prepend the new settings key, reload, revoke
       at the issuer; every rotation is audited) and the provider-credential settings key rotates
       through `services/sealing.py`'s Fernet key list
-- [~] Upload scanning hook (ClamAV adapter) behind the storage provider — `services/scanning.py`
+- [x] Upload scanning hook (ClamAV adapter) behind the storage provider — `services/scanning.py`
       records clean, refuses infected, and refuses a configured-but-unreachable scanner rather
-      than storing unscanned. Still open: MIME sniffing; `kind` remains a client-supplied form
-      field and an arbitrary binary is decoded as UTF-8
+      than storing unscanned. **Format validation** (`services/documents.py`) sniffs the bytes
+      before scanning: PDF by `%PDF-`, DOCX only when the archive really contains
+      `word/document.xml`, otherwise UTF-8 text; a suffix that disagrees with the bytes is
+      refused, legacy `.doc`/`.xls`/`.ppt` are refused with guidance, and arbitrary binaries
+      never reach a text parser. DOCX is now actually extracted from
+      `word/document.xml` (bounded), matching the architecture's claim.
 - [ ] Pen-test checklist executed against a staging instance; findings triaged here
 - [x] **RLS actually applies in the shipped stack**: `docker/postgres/10-non-superuser.sql` demotes
       the image-created superuser on first init (ADR 0006 knew it was bypassed and deferred it).

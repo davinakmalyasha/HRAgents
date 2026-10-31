@@ -142,6 +142,23 @@ timeout. The hook lives in `DocumentService.upload`, the one path that accepts
 arbitrary bytes; an employee-document row registered against an existing object
 does not bypass it because it carries no content.
 
+### Accepted document formats
+
+Before malware scanning, the upload's bytes are checked against what the
+extractor can actually read:
+
+- **PDF** — starts with `%PDF-`.
+- **DOCX** — a ZIP that contains `word/document.xml`; paragraphs are extracted
+  from that entry, bounded (20 MiB of XML, 200k characters).
+- **UTF-8 text** — decodable, no NUL bytes, at least 95% printable (covers
+  `.txt`, `.md`, `.csv`, `.json`).
+
+The filename suffix must agree with the bytes: `cv.pdf` that is plain text is
+refused with `422` rather than parsed as a PDF. Legacy `.doc`, `.xls` and `.ppt`
+are refused with guidance to save as PDF or DOCX, and an arbitrary binary is
+never decoded as text. A refusal is audited as `document.rejected_format` with
+the size and business `kind` only — not the filename or content.
+
 ### External MCP tools (optional, HTTP/SSE only)
 
 An operator can attach an MCP server for tools that live outside HRAgents

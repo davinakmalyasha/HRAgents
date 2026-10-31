@@ -142,6 +142,29 @@ def test_upload_rejects_unknown_kind() -> None:
     assert response.status_code == 422
 
 
+def test_upload_refuses_content_that_does_not_match_the_filename() -> None:
+    with make_client() as client:
+        response = client.post(
+            "/v1/documents",
+            files={"file": ("cv.pdf", b"plain text, not a PDF", "application/pdf")},
+            data={"kind": "cv"},
+        )
+
+    assert response.status_code == 422
+    assert "not a PDF" in response.json()["detail"]
+
+
+def test_upload_accepts_a_real_pdf_magic_header() -> None:
+    with make_client() as client:
+        response = client.post(
+            "/v1/documents",
+            files={"file": ("cv.pdf", b"%PDF-1.7\n%%EOF", "application/pdf")},
+            data={"kind": "cv"},
+        )
+
+    assert response.status_code == 201, response.text
+
+
 # --- jobs ------------------------------------------------------------------------
 
 

@@ -24,7 +24,7 @@ class FixedScanner:
 
 
 def upload(service: DocumentService):  # type: ignore[no-untyped-def]
-    return service.upload(filename="cv.pdf", kind="cv", content=b"a candidate's cv", actor=HUMAN)
+    return service.upload(filename="cv.txt", kind="cv", content=b"a candidate's cv", actor=HUMAN)
 
 
 def test_no_scanner_stores_the_file_and_records_that_it_was_unscanned() -> None:
@@ -42,7 +42,7 @@ def test_clean_bytes_are_stored_with_the_scan_outcome_on_the_chain() -> None:
 
     document = upload(service)
 
-    assert service.get(document.id).filename == "cv.pdf"
+    assert service.get(document.id).filename == "cv.txt"
     assert service._audit.entries[-1].payload["scan"] == "clean"
 
 
