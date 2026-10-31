@@ -460,6 +460,37 @@ Then `docker compose up -d --force-recreate api messaging`. Until a message is
 queued behind a named human, nothing is sent — and the bridge records the
 provider, the message id, and any failure on the message itself.
 
+### WhatsApp Cloud sending
+
+The manual `wa.me` mode needs nothing. With a Meta Cloud app, queued
+`channel=whatsapp` messages can be carried by the bridge instead:
+
+```bash
+HRAGENTS_PROVIDER_WHATSAPP=whatsapp.meta_cloud
+HRAGENTS_PROVIDER_WHATSAPP_CONFIG={"phone_number_id":"1234567890","access_token":"EAAB...","webhook_verify_token":"..."}
+```
+
+`scripts/run_messaging.py` (the Compose `messaging` loop) then dispatches the
+WhatsApp queue with the Cloud API: only messages a named human queued, one
+message per row, a lease before the transport so overlapping runs cannot send
+twice, backoff after a failure, and the Graph message id recorded as evidence.
+Bodies are truncated at the API's 4 096-character text limit, and a Graph error
+is stored as the message's `last_error` rather than raised into the loop.
+`--whatsapp` runs this queue alone; the default pass runs email and WhatsApp.
+
+Inbound WhatsApp still needs a public webhook and is not wired yet; replies
+continue to arrive by email or are recorded by a human.
+
+### Telegram sending
+
+`telegram.bot` uses the Bot API with a bot token
+(`HRAGENTS_PROVIDER_TELEGRAM=telegram.bot`). The capability has no offline
+fallback on purpose — a channel that cannot send is not a channel — so the
+health badge stays `misconfigured` until a token is entered. Channel dispatch
+for Telegram awaits a stored chat-id field on the communication record; the
+sender and provider are live and tested, and no queued Telegram message is
+silently dropped.
+
 ### Real-time inbound: the Resend webhook
 
 IMAP polling needs no public URL but only runs on the messaging loop. Resend

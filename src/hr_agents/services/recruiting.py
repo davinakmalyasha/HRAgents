@@ -1205,6 +1205,55 @@ class CommunicationService:
         )
         return updated
 
+    def record_whatsapp_dispatch(
+        self,
+        communication_id: UUID,
+        *,
+        provider: str,
+        recipient_phone: str,
+        message_id: str | None = None,
+        sent_at: datetime | None = None,
+    ) -> CandidateCommunication:
+        """Record a WhatsApp transport dispatch, whose address is a phone number.
+
+        Kept separate from the email path because ``recipient`` is an ``EmailStr``
+        and a phone number is not one: reusing it would have meant either a lying
+        address or a loosened type on every email record.
+        """
+        item = self._require_queued(communication_id)
+        updated = item.model_copy(
+            update={
+                "status": CommunicationStatus.SENT,
+                "sent_by": f"transport:{provider}"[:200],
+                "sent_at": sent_at or utc_now(),
+                "provider": provider,
+                "provider_message_id": message_id,
+                "recipient_phone": recipient_phone[:32],
+                "send_attempts": item.send_attempts + 1,
+                "last_error": None,
+                "last_attempt_at": sent_at or utc_now(),
+                "claimed_by": None,
+                "claimed_until": None,
+            }
+        )
+        self._persist(updated)
+        self._audit.append(
+            actor=ActorRef.system(f"transport:{provider}").audit_actor(),
+            action="communication.dispatched",
+            subject_type="candidate_communication",
+            subject_id=str(updated.id),
+            payload={
+                "candidate_id": str(updated.candidate_id),
+                "kind": updated.kind.value,
+                "channel": updated.channel.value,
+                "provider": provider,
+                "approved_by": item.approved_by,
+                "recipient_phone": recipient_phone,
+                "message_id": message_id,
+            },
+        )
+        return updated
+
     def record_dispatch_failure(
         self,
         communication_id: UUID,

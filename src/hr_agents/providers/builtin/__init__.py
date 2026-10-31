@@ -7,6 +7,7 @@ from hr_agents.providers.calendar import calendar_specs
 from hr_agents.providers.email import email_specs
 from hr_agents.providers.embeddings import embedding_specs
 from hr_agents.providers.storage import storage_specs
+from hr_agents.providers.telegram import telegram_specs
 from hr_agents.providers.vector import vector_specs
 from hr_agents.providers.whatsapp import whatsapp_specs
 
@@ -18,6 +19,7 @@ def all_specs() -> list[ProviderSpec]:
         *LLM_SPECS,
         *email_specs(),
         *whatsapp_specs(),
+        *telegram_specs(),
         *calendar_specs(),
         *storage_specs(),
         *embedding_specs(),

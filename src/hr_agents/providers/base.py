@@ -24,6 +24,7 @@ class Capability(StrEnum):
     EMAIL_SEND = "email_send"
     EMAIL_RECEIVE = "email_receive"
     WHATSAPP = "whatsapp"
+    TELEGRAM = "telegram"
     CALENDAR = "calendar"
     STORAGE = "storage"
     VECTOR_STORE = "vector_store"

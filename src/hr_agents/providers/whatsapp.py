@@ -27,6 +27,9 @@ class MetaCloudConfig(ProviderConfig):
     access_token: SecretStr
     webhook_verify_token: SecretStr
     api_version: str = "v21.0"
+    # Overridable so a test (or a gateway/proxy deployment) can point at a local
+    # endpoint without changing the code path.
+    base_url: str = "https://graph.facebook.com"
 
 
 class ManualLinksConfig(ProviderConfig):
@@ -35,13 +38,11 @@ class ManualLinksConfig(ProviderConfig):
     default_country_code: str = Field(default="62", pattern=r"^\d{1,4}$")
 
 
-def _build_meta_cloud(config: ProviderConfig) -> dict[str, Any]:
+def _build_meta_cloud(config: ProviderConfig) -> Any:
+    from hr_agents.messaging.whatsapp_cloud import build_meta_cloud_sender
+
     assert isinstance(config, MetaCloudConfig)
-    return {
-        "transport": "meta_cloud",
-        "phone_number_id": config.phone_number_id,
-        "api_version": config.api_version,
-    }
+    return build_meta_cloud_sender(config)
 
 
 def _build_manual_links(config: ProviderConfig) -> Any:
@@ -56,7 +57,8 @@ def _health_meta_cloud(config: ProviderConfig) -> ProviderHealth:
     if not config.access_token.get_secret_value():
         return ProviderHealth.misconfigured("access_token is required")
     return ProviderHealth.ok(
-        "configuration valid; webhook must be reachable (Cloudflare Tunnel for self-host)"
+        "send is live through the Graph API; inbound needs a public webhook "
+        "(Cloudflare Tunnel for self-host)"
     )
 
 
@@ -71,8 +73,8 @@ def whatsapp_specs() -> list[ProviderSpec]:
             capability=Capability.WHATSAPP,
             display_name="WhatsApp Business (Meta Cloud API)",
             description=(
-                "Official send/receive. Inbound requires a public HTTPS webhook; "
-                "self-host deployments use a Cloudflare Tunnel."
+                "Official send/receive. Sending is live through the Graph API; "
+                "inbound requires a public HTTPS webhook (Cloudflare Tunnel for self-host)."
             ),
             docs_url="https://developers.facebook.com/docs/whatsapp/cloud-api",
             config_model=MetaCloudConfig,

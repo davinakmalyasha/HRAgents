@@ -17,6 +17,7 @@ from typing import Any
 from hr_agents.main import create_app
 from hr_agents.messaging import MessagingServices, TransportError
 from hr_agents.messaging.outbox import DEFAULT_DISPATCH_LIMIT
+from hr_agents.models import Channel
 
 
 def _render(summary: dict[str, Any]) -> str:
@@ -55,13 +56,31 @@ def _render(summary: dict[str, Any]) -> str:
             f"replies {applications['skipped_is_reply']}, "
             f"no-attachment {applications['skipped_no_attachments']}"
         )
+    whatsapp = summary.get("whatsapp")
+    if whatsapp:
+        if whatsapp.get("mode") == "sandbox":
+            lines.append(f"whatsapp sandbox: {whatsapp['queued']} message(s) queued, none sent")
+        elif whatsapp.get("mode") == "unavailable":
+            lines.append("whatsapp: no sending provider configured")
+        else:
+            lines.append(
+                f"whatsapp via {whatsapp['provider']}: sent {whatsapp['sent']}, "
+                f"failed {whatsapp['failed']}, skipped {whatsapp['skipped']}, "
+                f"deferred {whatsapp.get('deferred', 0)}, "
+                f"unrecorded {whatsapp.get('unrecorded', 0)}"
+            )
     return "\n".join(lines) or "nothing to do"
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--send", action="store_true", help="dispatch queued messages")
+    parser.add_argument("--send", action="store_true", help="dispatch queued email messages")
     parser.add_argument("--receive", action="store_true", help="poll the inbox for replies")
+    parser.add_argument(
+        "--whatsapp",
+        action="store_true",
+        help="dispatch queued WhatsApp messages through the Cloud API",
+    )
     parser.add_argument(
         "--limit",
         type=int,
@@ -71,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print the run summary as JSON")
     args = parser.parse_args(argv)
 
-    both = not (args.send or args.receive)
+    both = not (args.send or args.receive or args.whatsapp)
     app = create_app()
     messaging: MessagingServices = app.state.messaging  # type: ignore[attr-defined]
     communications = app.state.recruiting.communications  # type: ignore[attr-defined]
@@ -94,6 +113,25 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             failed = failed or not report.ok
             summary["send"] = {"mode": "live", **report.model_dump()}
+
+    if args.whatsapp or both:
+        sender = messaging.whatsapp
+        if sender is None:
+            summary["whatsapp"] = {
+                "mode": "unavailable",
+                "detail": "no sending WhatsApp provider is configured",
+            }
+        elif not messaging.live:
+            queued = communications.list_queued(channel=Channel.WHATSAPP)
+            summary["whatsapp"] = {"mode": "sandbox", "queued": len(queued)}
+        else:
+            from hr_agents.messaging.whatsapp_cloud import WhatsAppCloudDispatcher
+
+            report = WhatsAppCloudDispatcher(
+                communications=communications, sender=sender
+            ).dispatch_pending(limit=args.limit)
+            failed = failed or not report.ok
+            summary["whatsapp"] = {"mode": "live", **report.model_dump()}
 
     if args.receive or both:
         receiver = messaging.receiver

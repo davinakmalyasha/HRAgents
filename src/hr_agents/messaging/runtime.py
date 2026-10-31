@@ -11,9 +11,10 @@ documented degradation matrix.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from hr_agents.config import Settings, get_settings
+from hr_agents.logging import get_logger
 from hr_agents.messaging.base import (
     EmailReceiver,
     EmailSender,
@@ -26,6 +27,7 @@ from hr_agents.messaging.drafts import EmailDraftStore
 from hr_agents.messaging.inbound import ReplyIngestor
 from hr_agents.messaging.outbox import OutboxDispatcher
 from hr_agents.messaging.store import ReplyStore
+from hr_agents.messaging.whatsapp_cloud import WhatsAppSender
 from hr_agents.providers.base import Capability
 from hr_agents.providers.email import SmtpSenderConfig
 from hr_agents.providers.registry import ProviderRegistry
@@ -33,6 +35,8 @@ from hr_agents.providers.registry import default_registry as default_provider_re
 from hr_agents.providers.settings import ResolvedProvider, resolve_provider_settings
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.recruiting import CommunicationService
+
+logger = get_logger(__name__)
 
 
 class MessagingConfigError(RuntimeError):
@@ -49,6 +53,7 @@ class MessagingServices:
     drafts: EmailDraftStore
     directory: CandidateDirectory
     live: bool
+    whatsapp: WhatsAppSender | None = None
 
     @property
     def provider_id(self) -> str:
@@ -93,6 +98,30 @@ class DisabledEmailSender:
             "messaging sandbox is enabled; set HRAGENTS_MESSAGING_SANDBOX=false "
             "and configure a provider to dispatch"
         )
+
+
+def build_whatsapp_sender(
+    *,
+    registry: ProviderRegistry | None = None,
+) -> WhatsAppSender | None:
+    """Resolve the active ``whatsapp`` transport, or ``None`` when it cannot send.
+
+    The manual-links provider is not a sender: it composes a link for a human.
+    ``None`` is the honest answer for it, and the dispatcher then reports
+    nothing to send rather than pretending a transport exists.
+    """
+    selected = _resolved(Capability.WHATSAPP)
+    if selected is None or selected.provider_id != "whatsapp.meta_cloud":
+        return None
+    spec = (registry or default_provider_registry()).get(selected.provider_id)
+    if spec.build is None:
+        return None
+    try:
+        config = spec.make_config(selected.config)
+        return cast(WhatsAppSender, spec.build(config))
+    except Exception:  # a stored config a downgrade made invalid
+        logger.warning("whatsapp.sender_unavailable", exc_info=True)
+        return None
 
 
 def _smtp_defaults(settings: Settings) -> dict[str, Any]:
