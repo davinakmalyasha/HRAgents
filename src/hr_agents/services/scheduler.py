@@ -10,7 +10,7 @@ acted on, because breach response is a human decision.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
@@ -19,6 +19,8 @@ import httpx
 from hr_agents.identity import ActorRef
 from hr_agents.logging import get_logger
 from hr_agents.models import (
+    ApprovalStatus,
+    ApprovalSubject,
     ApproverRole,
     StrictModel,
     TaskItem,
@@ -50,6 +52,7 @@ JOB_TASKS_OVERDUE = "tasks-overdue"
 JOB_AUDIT_VERIFY = "audit-verify"
 JOB_REPLY_SLA = "reply-sla"
 JOB_QUEUE_REAPER = "queue-reaper"
+JOB_APPROVAL_RECONCILE = "approval-reconcile"
 
 JOB_NAMES: tuple[str, ...] = (
     JOB_APPROVALS,
@@ -63,11 +66,18 @@ JOB_NAMES: tuple[str, ...] = (
     JOB_AUDIT_VERIFY,
     JOB_REPLY_SLA,
     JOB_QUEUE_REAPER,
+    JOB_APPROVAL_RECONCILE,
 )
 
 DOCUMENT_EXPIRY_WINDOW_DAYS = 60
 
 REPLY_SLA_HOURS = 72
+
+APPROVAL_RECONCILE_WINDOW_DAYS = 7
+"""How far back the repair pass looks. A decision older than this whose subject is
+still pending is an operator problem, not a crash to replay."""
+
+APPROVAL_RECONCILE_LIMIT = 500
 """Anti-ghosting window: a dispatched message with no reply gets a follow-up task."""
 
 
@@ -248,6 +258,60 @@ class Scheduler:
         expired = self._people.approvals.expire_stale(now=moment)
         return len(escalated) + len(expired), f"escalated {len(escalated)}, expired {len(expired)}"
 
+    def _run_approval_reconcile(self, moment: datetime, _purge: bool) -> tuple[int, str]:
+        """Apply decisions an approval already holds to a subject still waiting.
+
+        Deciding an approval and updating its subject are two stores, not one
+        transaction. A crash between them leaves a leave request, payroll run or
+        erasure pending while the inbox says approved — an operator sees two
+        screens disagree. This pass replays the *recorded* decision onto the
+        subject; it never makes one, and a decision older than the window is left
+        for a human because the world may have moved.
+        """
+        since = moment - timedelta(days=APPROVAL_RECONCILE_WINDOW_DAYS)
+        decided = [
+            approval
+            for approval in self._people.approvals.list_all()
+            if approval.status
+            in {
+                ApprovalStatus.APPROVED,
+                ApprovalStatus.REJECTED,
+                ApprovalStatus.WITHDRAWN,
+                ApprovalStatus.EXPIRED,
+            }
+            and approval.decided_at is not None
+            and approval.decided_at >= since
+        ][:APPROVAL_RECONCILE_LIMIT]
+        actor = ActorRef.system("approval-reconcile")
+        applied = 0
+        skipped = 0
+        for approval in decided:
+            apply = self._decision_applier(approval.subject)
+            if apply is None:
+                continue
+            try:
+                apply(approval.id, actor=actor)
+            except Exception:
+                # Already applied is the common case; an unknown subject is the
+                # other. Neither is an error worth failing the sweep for.
+                skipped += 1
+                continue
+            applied += 1
+        return applied, (
+            f"reconciled {applied} subject(s) from {len(decided)} decided approval(s), "
+            f"{skipped} already settled or not applicable"
+        )
+
+    def _decision_applier(self, subject: ApprovalSubject) -> Callable[..., object] | None:
+        """The sync method for the subjects whose engine exposes one."""
+        if subject is ApprovalSubject.LEAVE_REQUEST:
+            return self._people.leave.apply_decision
+        if subject in {ApprovalSubject.PAYROLL_RUN, ApprovalSubject.PAYROLL_ANOMALY}:
+            return self._people.payroll.apply_decision
+        if subject is ApprovalSubject.ERASURE_REQUEST:
+            return self._people.compliance.apply_decision
+        return None
+
     def _run_retention(self, moment: datetime, purge: bool) -> tuple[int, str]:
         report = self._people.compliance.execute_purge(
             actor=ActorRef.system("retention-sweep"), as_of=moment, dry_run=not purge
@@ -348,6 +412,7 @@ _HANDLERS = {
     JOB_AUDIT_VERIFY: Scheduler._run_audit_verify,
     JOB_REPLY_SLA: Scheduler._run_reply_sla,
     JOB_QUEUE_REAPER: Scheduler._run_queue_reaper,
+    JOB_APPROVAL_RECONCILE: Scheduler._run_approval_reconcile,
 }
 
 

@@ -874,7 +874,10 @@ latency, costs, and failure modes documented.
       anti-ghosting check (a dispatched message with no reply after 72h becomes a recruiter
       follow-up task) — all through `scripts/run_scheduler.py` (one CLI over the app containers,
       `--job` selectable, `--json` output, nonzero exit on job failure), and composed into
-      `docker-compose.yml` as a 15-minute loop. A failed run can also post one Slack-compatible
+      `docker-compose.yml` as a 15-minute loop. **`approval-reconcile`** closes the half-state
+      left when a decision lands in the approvals store but its subject (leave request,
+      payroll run, erasure) does not: it replays the *recorded* decision onto a subject still
+      waiting, for decisions from the last seven days, and never makes one. A failed run can also post one Slack-compatible
       message to `HRAGENTS_SCHEDULER_ALERT_WEBHOOK` (job names and errors, never records; the
       URL is never logged); a transport failure is logged and cannot change the exit code.
       The target must be HTTPS — loopback HTTP stays available for a local sink, and

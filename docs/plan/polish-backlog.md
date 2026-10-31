@@ -134,6 +134,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       is a volume
 - [x] Audit chain verification scheduled: the `audit-verify` scheduler job runs from the compose
       `scheduler` service; an automated after-restore check is available via `backup.py --verify`
+- [~] Half-state repair: `approval-reconcile` replays a decision the approvals store already
+      holds onto a leave request, payroll run or erasure still waiting (last seven days),
+      which is the window a crash between two stores leaves behind. It never makes a
+      decision. Open: one transaction across every store per service method (the erasure
+      journal makes that sweep recoverable, not atomic)
 
 ## Beauty / UX
 

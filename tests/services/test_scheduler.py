@@ -10,10 +10,12 @@ from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID, uuid4
 
 import pytest
+from tests.actors import hr_admin, manager
 
-from hr_agents.identity import ActorRef
+from hr_agents.identity import ActorProvenance, ActorRef, ActorType
 from hr_agents.messaging.store import ReplyStore
 from hr_agents.models import (
+    AccrualMethod,
     ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
@@ -22,10 +24,14 @@ from hr_agents.models import (
     ContractType,
     DimensionScore,
     DocumentKind,
+    Employee,
+    LeaveType,
+    LeaveTypePolicy,
     OfferTerms,
     PurgeAction,
     Recommendation,
     RecordEntity,
+    RequestStatus,
     ReviewCycleKind,
     ScoreDimension,
     ScoreVector,
@@ -36,6 +42,7 @@ from hr_agents.models import (
     business_today,
 )
 from hr_agents.providers.queue import MemoryQueueBackend, QueueBackend
+from hr_agents.rbac import RoleId
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionInput
 from hr_agents.services.people import PeopleServices
 from hr_agents.services.recruiting import RecruitingServices
@@ -54,6 +61,17 @@ FAR = NOW + timedelta(days=30)
 @pytest.fixture
 def replies() -> ReplyStore:
     return ReplyStore()
+
+
+def owner(employee: Employee) -> ActorRef:
+    """The principal bound to the employee, as the self-service routes require."""
+    return ActorRef(
+        actor_id="sari",
+        actor_type=ActorType.HUMAN,
+        provenance=ActorProvenance.AUTHENTICATED,
+        role=RoleId.EMPLOYEE.value,
+        employee_id=employee.id,
+    )
 
 
 def make_scheduler(
@@ -76,6 +94,102 @@ def make_scheduler(
         queue_reaper_grace_seconds=0,
     )
     return scheduler, people, recruiting, applications
+
+
+def test_approval_reconcile_applies_a_decision_the_subject_missed() -> None:
+    """A crash between the approval and the leave sync leaves two screens disagreeing.
+
+    The job replays the decision the approval *already* records; it does not make
+    one. Once it runs, the request matches the inbox.
+    """
+    scheduler, people, _recruiting, _applications = make_scheduler()
+    employee = people.employees.create(
+        full_name="Sari Dewi",
+        actor=hr_admin(),
+        hire_date=TODAY - timedelta(days=400),
+        job_title="Finance Staff",
+    )
+    people.leave.set_policy(
+        LeaveTypePolicy(
+            leave_type=LeaveType.ANNUAL,
+            name="Cuti Tahunan",
+            accrual_method=AccrualMethod.LUMP_SUM_ANNUAL,
+            days_per_year=12.0,
+            min_service_months=0,
+            approver_role=ApproverRole.MANAGER,
+        ),
+        actor=hr_admin(),
+    )
+    request = people.leave.request(
+        employee_id=employee.id,
+        leave_type=LeaveType.ANNUAL,
+        start_date=TODAY + timedelta(days=30),
+        end_date=TODAY + timedelta(days=31),
+        actor=owner(employee),
+    )
+    assert request.approval_id is not None
+    people.approvals.decide(request.approval_id, actor=manager(), approve=True)
+    assert people.leave.get_request(request.id).status is RequestStatus.PENDING
+
+    report = scheduler.run(["approval-reconcile"], now=NOW)
+
+    assert report.jobs[0].ok is True
+    assert report.jobs[0].changed == 1
+    assert people.leave.get_request(request.id).status is RequestStatus.APPROVED
+
+
+def test_approval_reconcile_leaves_an_old_decision_alone() -> None:
+    """Older than the window: the world may have moved, so a human looks."""
+    scheduler, people, _recruiting, _applications = make_scheduler()
+    employee = people.employees.create(
+        full_name="Sari Dewi",
+        actor=hr_admin(),
+        hire_date=TODAY - timedelta(days=400),
+        job_title="Finance Staff",
+    )
+    people.leave.set_policy(
+        LeaveTypePolicy(
+            leave_type=LeaveType.ANNUAL,
+            name="Cuti Tahunan",
+            accrual_method=AccrualMethod.LUMP_SUM_ANNUAL,
+            days_per_year=12.0,
+            min_service_months=0,
+            approver_role=ApproverRole.MANAGER,
+        ),
+        actor=hr_admin(),
+    )
+    request = people.leave.request(
+        employee_id=employee.id,
+        leave_type=LeaveType.ANNUAL,
+        start_date=TODAY + timedelta(days=30),
+        end_date=TODAY + timedelta(days=31),
+        actor=owner(employee),
+    )
+    assert request.approval_id is not None
+    people.approvals.decide(request.approval_id, actor=manager(), approve=True)
+
+    report = scheduler.run(["approval-reconcile"], now=NOW + timedelta(days=30))
+
+    assert report.jobs[0].changed == 0
+    assert people.leave.get_request(request.id).status is RequestStatus.PENDING
+
+
+def test_approval_reconcile_ignores_subjects_without_a_sync_path() -> None:
+    scheduler, people, _recruiting, _applications = make_scheduler()
+    approval = people.approvals.create(
+        subject=ApprovalSubject.DATA_CHANGE,
+        subject_id=str(uuid4()),
+        title="Change a payroll field",
+        summary="Not a subject with a sync method.",
+        assignee_role=ApproverRole.HR_ADMIN,
+        actor=hr_admin(),
+    )
+    people.approvals.decide(approval.id, actor=hr_admin(), approve=True, reason="ok")
+
+    report = scheduler.run(["approval-reconcile"], now=NOW)
+
+    assert report.jobs[0].ok is True
+    assert report.jobs[0].changed == 0
 
 
 def make_evaluation(candidate_id: UUID) -> TechnicalEvaluation:
