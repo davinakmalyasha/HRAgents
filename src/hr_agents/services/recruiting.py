@@ -1628,6 +1628,7 @@ class SchedulingService:
     ) -> None:
         self._evaluations = evaluations
         self._availability: dict[UUID, list[TimeSlot]] = {}
+        self._calendars: dict[UUID, str] = {}
         self._proposals: dict[UUID, SchedulingProposalRecord] = {}
         self._audit = audit or AuditChain()
         self._applications = applications
@@ -1642,6 +1643,14 @@ class SchedulingService:
         self, interviewer_id: UUID, slots: list[TimeSlot], *, actor: ActorRef
     ) -> None:
         self._availability[interviewer_id] = list(slots)
+
+    def _load_calendar_id(self, interviewer_id: UUID) -> str | None:
+        return self._calendars.get(interviewer_id)
+
+    def _persist_calendar_id(
+        self, interviewer_id: UUID, calendar_id: str, *, actor: ActorRef
+    ) -> None:
+        self._calendars[interviewer_id] = calendar_id
 
     def _load_proposal(self, proposal_id: UUID) -> SchedulingProposalRecord | None:
         return self._proposals.get(proposal_id)
@@ -1669,6 +1678,29 @@ class SchedulingService:
 
     def get_availability(self, interviewer_id: UUID) -> list[TimeSlot]:
         return self._load_availability(interviewer_id)
+
+    def get_calendar_id(self, interviewer_id: UUID) -> str | None:
+        return self._load_calendar_id(interviewer_id)
+
+    def set_calendar_id(self, interviewer_id: UUID, *, calendar_id: str, actor: ActorRef) -> str:
+        """Record which calendar belongs to this interviewer; the sync job reads it."""
+        actor.require_human_or_system("mapping an interviewer to a calendar", RecruitingError)
+        cleaned = calendar_id.strip()
+        if not cleaned:
+            raise RecruitingError("a calendar id is required")
+        self._persist_calendar_id(interviewer_id, cleaned, actor=actor)
+        self._audit.append(
+            actor=DocumentService._actor(actor),
+            action="scheduling.calendar_mapped",
+            subject_type="interviewer",
+            subject_id=str(interviewer_id),
+            payload={"calendar_id": cleaned},
+        )
+        return cleaned
+
+    def list_calendar_mappings(self) -> list[tuple[UUID, str]]:
+        """Interviewers with a calendar mapped, for the sync job."""
+        return sorted(self._calendars.items(), key=lambda item: str(item[0]))
 
     def propose(
         self,

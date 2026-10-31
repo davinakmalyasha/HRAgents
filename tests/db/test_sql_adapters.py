@@ -598,6 +598,19 @@ def test_scheduling_adapter_availability_and_proposal(factory: sessionmaker[Sess
         slot.start_utc for slot in slots
     ]
 
+    # The calendar directory is a column on the same row: mapping an interviewer
+    # must survive a fresh adapter and must not disturb the slots a human entered.
+    assert scheduling.get_calendar_id(interviewer) is None
+    scheduling.set_calendar_id(
+        interviewer, calendar_id="panel@example.com", actor=ActorRef.legacy("hr-admin")
+    )
+    fresh_scheduling = DbSchedulingService(evaluations=evaluations, session_factory=factory)
+    assert fresh_scheduling.get_calendar_id(interviewer) == "panel@example.com"
+    assert fresh_scheduling.list_calendar_mappings() == [(interviewer, "panel@example.com")]
+    assert [slot.start_utc for slot in fresh_scheduling.get_availability(interviewer)] == [
+        slot.start_utc for slot in slots
+    ]
+
     proposal = scheduling.propose(
         candidate_id=record.candidate_id, job_id=job.id, interviewer_ids=[interviewer]
     )

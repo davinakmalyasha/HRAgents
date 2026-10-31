@@ -441,6 +441,33 @@ def test_scheduling_requires_evaluation() -> None:
     assert "no evaluation" in response.json()["title"]
 
 
+def test_a_calendar_mapping_is_stored_and_read_back() -> None:
+    with make_client() as client:
+        interviewer = str(uuid4())
+
+        missing = client.get(f"/v1/scheduling/availability/{interviewer}/calendar")
+        stored = client.put(
+            f"/v1/scheduling/availability/{interviewer}/calendar",
+            json={"calendar_id": "panel@example.com"},
+        )
+        fetched = client.get(f"/v1/scheduling/availability/{interviewer}/calendar")
+        blank = client.put(
+            f"/v1/scheduling/availability/{interviewer}/calendar",
+            json={"calendar_id": ""},
+        )
+
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "unknown_record"
+    assert stored.status_code == 200, stored.text
+    assert stored.json() == {
+        "interviewer_id": interviewer,
+        "calendar_id": "panel@example.com",
+    }
+    assert fetched.status_code == 200
+    assert fetched.json() == stored.json()
+    assert blank.status_code == 422
+
+
 def test_scheduling_flags_force_human_review() -> None:
     with make_client() as client:
         job = create_job(client)

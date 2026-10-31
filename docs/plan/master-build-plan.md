@@ -420,10 +420,14 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       calendar, RFC 2822 composition with threading headers, `users.messages.send`; pinned
       over respx and selectable as `HRAGENTS_PROVIDER_EMAIL_SEND=email.gmail`). Remaining:
       thread sync / inbound history (the IMAP poller already receives replies)
-- [~] Google Calendar: **free/busy is live** (`integrations/google_calendar.py`: refresh-token
-      OAuth, cached access token, `freeBusy` lookup returning UTC `TimeSlot`s; pinned over
-      respx, operator probe `scripts/check_calendar.py`). Remaining: mapping an interviewer
-      to a calendar id (the directory), slot proposal from free windows, invites, reschedules
+- [~] Google Calendar: **free/busy is live and feeds the interviewer directory**
+      (`integrations/google_calendar.py`: refresh-token OAuth, cached access token,
+      `freeBusy` lookup returning UTC `TimeSlot`s, optional per-call `calendar_id`; pinned
+      over respx, operator probe `scripts/check_calendar.py`). An interviewer maps to a
+      calendar through `PUT /v1/scheduling/availability/{id}/calendar` (migration `0042`),
+      and the `calendar-sync` job subtracts the provider's busy blocks from the operator's
+      work window (`services/scheduling_calendar.py:free_slots`) to refresh availability.
+      Remaining: invites, reschedules, and writing interviews back to the calendar
 - [ ] Google Drive: document import (CVs, policies) — **credential-blocked for live work**:
       it needs its own OAuth scopes (`drive.readonly`, and `drive.file` for uploads) plus a
       folder picker contract, none of which this deployment has. The adapter shape is the
@@ -438,8 +442,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       no Graph endpoint is invented here
 
 ### 7.3 Files & office reality
-- [ ] XLSX/CSV import with column-mapping UI
-- [ ] Export: XLSX reports, PDF feedback letters
+- [x] XLSX/CSV import with column-mapping UI (attendance: workbook or pasted CSV, explicit
+      column map, per-row refusal; `AttendanceImportDialog`)
+- [~] Export: XLSX reports done (payroll review packet, `GET /v1/payroll/runs/{id}/packet.xlsx`);
+      PDF feedback letters still open
 - [ ] Office Connector: local folder sync agent for NAS/shared drives (only if demand)
 
 ### 7.4 MCP layer
@@ -807,9 +813,12 @@ not a style opinion.
    transaction now covers the approval pair**: the decision and its subject-sync outbox
    row (`pending_approval_syncs`, migration `0039`) commit together, and the reconcile
    job consumes the row idempotently, so a crash cannot lose the subject update. A stale
-   decision rolls the outbox row back with it. **Still open:** the same treatment for the
-   other linked pairs (offers, scheduling, erasure) and one unit of work spanning
-   arbitrary services — recoverability exists for those, distributed atomicity does not.
+   decision rolls the outbox row back with it. Offers and scheduling replay through the
+   same job — a rejected offer is withdrawn, a single-slot proposal confirmed, a rejected
+   proposal cancelled, and a multi-slot approval is recorded `needs_human` rather than
+   inventing a time. **Still open:** the same treatment for erasure, and one unit of work
+   spanning arbitrary services — recoverability exists for those, distributed atomicity
+   does not.
 9. ~~**Feedback and screening validators substring-match** `"age"`, so "message",
    "average", "language", "coverage", and "manager" are false positives. Latent only
    because the screening agent is not yet on the live path.~~ **Fixed.**

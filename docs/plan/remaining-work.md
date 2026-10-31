@@ -1,6 +1,6 @@
 # Remaining Work — the honest backlog
 
-Status snapshot: **2026-10-28**. Everything up to and including Phase 5 (multi-department
+Status snapshot: **2026-10-31**. Everything up to and including Phase 5 (multi-department
 architecture: workspaces, RBAC, front door + Ask HR chat, tenancy + RLS, workspace-scoped tools,
 cross-workspace handoff) is built and tested. Stage 0 of the core work landed: **the evaluation
 worker now runs**, all five agents are constructed in production, the rate-table API makes payroll
@@ -9,7 +9,7 @@ reachable, and `/readyz` + `/metrics` make a stopped pipeline visible. Block A l
 ungated consequential operations are gated, and a single extraction can no longer satisfy the
 `sigma` gate. Block B is complete: **authentication happens once per request**, `ActorRef` carries
 the actor together with its provenance, and **no request body in the API names the actor at all**.
-**1,953 collected test cases · ≥90% coverage · ruff + mypy clean**.
+**2,143 collected test cases · 92.3% coverage · ruff + mypy clean**.
 
 > **What changed, and why it mattered.** The API accepted an application and returned `202`, but
 > nothing ever claimed the queue — the core loop was inert and looked like success. The container
@@ -199,10 +199,14 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       the subject was already settled, a store failure is retried up to five attempts,
       and a row that keeps failing is closed as `gave_up` with its last error rather
       than blocking the queue. A stale decision rolls the outbox row back with it, so
-      work is never queued for a decision that did not land. What remains of the
-      original item: the other multi-store pairs (erasure still journals per handler,
-      offers and scheduling still write their subject after the approval) and a single
-      unit of work spanning arbitrary services. The erasure half is not a silent
+      work is never queued for a decision that did not land. Offers and scheduling
+      now replay too: an approved offer is approved, a rejected one withdrawn, a
+      single-slot scheduling proposal confirmed, and a rejected proposal cancelled.
+      A scheduling approval that offered several slots is deliberately not
+      auto-confirmed -- it is recorded `needs_human` because no single time was
+      agreed, and the proposal's own decision applies it. What remains of the
+      original item: the erasure journal (per handler, reconciliation above), and a
+      single unit of work spanning arbitrary services. The erasure half is not a silent
       half-state: a purge handler that raises is isolated
       (the sweep continues past it), the record is left unpurged so the next sweep retries it,
       the failure is reported in the purge report and on the compliance screen, and the audit
@@ -387,8 +391,9 @@ Remaining in this area:
        `scheduling_availability.interviewer_id` — there is no interviewer table to point
        at. Availability belongs to a *calendar identity* (an email or provider id) that
        the scheduling integration owns, not necessarily to an employee, so validating
-       it against `employees` would refuse legitimate external interviewers. The FK
-       waits for whatever interviewer directory the calendar integration ships.
+       it against `employees` would refuse legitimate external interviewers. The
+       directory now records that identity as the row's `calendar_id` (migration
+       `0042`), but it still has no table of its own to reference.
 - [x] **A confirmed interview holds its interviewer's time.** `SchedulingService.propose`
        excluded nothing, so two candidates could be offered the same slot and both
        confirmed — a double-booked interviewer and two candidates arriving at once.

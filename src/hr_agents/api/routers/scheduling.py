@@ -11,6 +11,8 @@ from hr_agents.api.deps import ActorDep, PaginationDep, require_permission
 from hr_agents.api.problem import conflict, domain_problem, not_found
 from hr_agents.api.recruitment_schemas import (
     AvailabilitySet,
+    CalendarMappingRequest,
+    CalendarMappingView,
     ProposalDecisionRequest,
     ProposalDecisionResponse,
     SchedulingProposalRequest,
@@ -48,6 +50,38 @@ def set_availability(
 ) -> Page[TimeSlot]:
     slots = scheduling.set_availability(payload.interviewer_id, slots=payload.slots, actor=actor)
     return Page.slice(slots, limit=paging.limit, offset=paging.offset)
+
+
+@router.put(
+    "/availability/{interviewer_id}/calendar",
+    response_model=CalendarMappingView,
+    summary="Ops: map an interviewer to the calendar the sync job reads",
+)
+def set_calendar_mapping(
+    interviewer_id: UUID,
+    payload: CalendarMappingRequest,
+    scheduling: SchedulingDep,
+    actor: ActorDep,
+) -> CalendarMappingView:
+    try:
+        calendar_id = scheduling.set_calendar_id(
+            interviewer_id, calendar_id=payload.calendar_id, actor=actor
+        )
+    except RecruitingError as exc:
+        raise domain_problem(exc) from exc
+    return CalendarMappingView(interviewer_id=interviewer_id, calendar_id=calendar_id)
+
+
+@router.get(
+    "/availability/{interviewer_id}/calendar",
+    response_model=CalendarMappingView,
+    summary="Ops: read the calendar mapped to an interviewer",
+)
+def get_calendar_mapping(interviewer_id: UUID, scheduling: SchedulingDep) -> CalendarMappingView:
+    calendar_id = scheduling.get_calendar_id(interviewer_id)
+    if calendar_id is None:
+        raise not_found(f"interviewer {interviewer_id} has no calendar mapped")
+    return CalendarMappingView(interviewer_id=interviewer_id, calendar_id=calendar_id)
 
 
 @router.post(

@@ -67,10 +67,19 @@ class GoogleCalendarBusy:
     def provider_id(self) -> str:
         return GOOGLE_CALENDAR_PROVIDER_ID
 
-    def busy(self, *, start: datetime, end: datetime) -> list[TimeSlot]:
-        """Intervals already booked in this calendar between ``start`` and ``end``."""
+    def busy(
+        self, *, start: datetime, end: datetime, calendar_id: str | None = None
+    ) -> list[TimeSlot]:
+        """Intervals already booked in this calendar between ``start`` and ``end``.
+
+        ``calendar_id`` overrides the configured one so one adapter can serve an
+        interviewer directory; each call still names exactly one calendar.
+        """
         if end <= start:
             raise GoogleCalendarError("free/busy end must be after start")
+        target = (calendar_id or self._config.calendar_id).strip()
+        if not target:
+            raise GoogleCalendarError("a calendar id is required")
         # Validate before touching the network: a naive bound is a caller bug, and
         # a 401 from a token request would hide it behind a credential error.
         time_min = _rfc3339(start)
@@ -87,7 +96,7 @@ class GoogleCalendarBusy:
                 json={
                     "timeMin": time_min,
                     "timeMax": time_max,
-                    "items": [{"id": self._config.calendar_id}],
+                    "items": [{"id": target}],
                 },
             )
         except httpx.HTTPError as exc:
@@ -101,11 +110,9 @@ class GoogleCalendarBusy:
         except ValueError as exc:
             raise GoogleCalendarError("free/busy response was not JSON") from exc
         calendars = payload.get("calendars")
-        entry = calendars.get(self._config.calendar_id) if isinstance(calendars, dict) else None
+        entry = calendars.get(target) if isinstance(calendars, dict) else None
         if not isinstance(entry, dict):
-            raise GoogleCalendarError(
-                f"free/busy response has no entry for {self._config.calendar_id!r}"
-            )
+            raise GoogleCalendarError(f"free/busy response has no entry for {target!r}")
         errors = entry.get("errors")
         if isinstance(errors, list) and errors:
             reason = str(errors[0].get("reason") or errors[0]) if errors else "unknown"

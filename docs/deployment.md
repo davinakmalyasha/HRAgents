@@ -537,10 +537,26 @@ uv run python scripts/check_calendar.py --days 7   # prints the booked windows
 ```
 
 The probe is deliberately a script rather than a page load: a calendar query
-per dashboard view would be slow and rate-limited. Automatic availability sync
-waits for an interviewer directory that maps a person to a calendar id; the
-adapter is what that directory will call, and the scheduler's availability
-registry still takes slots a human (or that future sync) supplies.
+per dashboard view would be slow and rate-limited. The interviewer directory is
+the `calendar_id` column on `scheduling_availability` (migration `0042`), set
+through the scheduling API:
+
+```bash
+curl -X PUT "https://<your-host>/v1/scheduling/availability/<interviewer-uuid>/calendar" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"calendar_id":"panel@example.com"}'
+```
+
+The `calendar-sync` scheduler job then asks free/busy for each mapped calendar
+and writes the free intervals into the availability registry. The work window
+is policy, not inference: `HRAGENTS_CALENDAR_WORK_START_HOUR` (default `9`),
+`HRAGENTS_CALENDAR_WORK_END_HOUR` (default `17`) and
+`HRAGENTS_CALENDAR_SYNC_DAYS` (default `14`) bound it, in the business
+timezone, weekends excluded. Unmapped interviewers keep whatever slots a human
+entered, and a calendar that fails is counted and left as it was rather than
+wiping that interviewer's availability. Invites and reschedules are still
+manual.
 
 ### Real-time inbound: the Resend webhook
 

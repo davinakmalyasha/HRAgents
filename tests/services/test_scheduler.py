@@ -8,6 +8,7 @@ then per-engine tests pin the counts, the reports, and the rerun safety.
 
 from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from tests.actors import finance, hr_admin, manager
@@ -27,7 +28,9 @@ from hr_agents.models import (
     Employee,
     LeaveType,
     LeaveTypePolicy,
+    OfferStatus,
     OfferTerms,
+    ProposalStatus,
     PurgeAction,
     Recommendation,
     RecordEntity,
@@ -38,6 +41,7 @@ from hr_agents.models import (
     ScoringRun,
     SubjectKind,
     TechnicalEvaluation,
+    TimeSlot,
     Urgency,
     business_today,
 )
@@ -45,7 +49,7 @@ from hr_agents.providers.queue import MemoryQueueBackend, QueueBackend
 from hr_agents.rbac import RoleId
 from hr_agents.services import ApplicationStore, AuditChain, SubmissionInput
 from hr_agents.services.people import PeopleServices
-from hr_agents.services.recruiting import RecruitingServices
+from hr_agents.services.recruiting import RecruitingError, RecruitingServices
 from hr_agents.services.scheduler import (
     JOB_NAMES,
     Scheduler,
@@ -78,6 +82,7 @@ def make_scheduler(
     audit: AuditChain | None = None,
     replies: ReplyStore | None = None,
     queue: QueueBackend | None = None,
+    calendar: object | None = None,
 ) -> tuple[Scheduler, PeopleServices, RecruitingServices, ApplicationStore]:
     people = PeopleServices() if audit is None else PeopleServices(audit=audit)
     applications = ApplicationStore()
@@ -92,6 +97,7 @@ def make_scheduler(
         # configured backend, which turns a test run into an environment probe.
         queue=queue if queue is not None else MemoryQueueBackend(),
         queue_reaper_grace_seconds=0,
+        calendar=calendar,
     )
     return scheduler, people, recruiting, applications
 
@@ -260,12 +266,204 @@ def test_approval_reconcile_ignores_subjects_without_a_sync_path() -> None:
     assert people.approvals.pending_syncs == []
 
 
-def make_evaluation(candidate_id: UUID) -> TechnicalEvaluation:
+def test_an_offer_approval_is_replayed_onto_the_offer() -> None:
+    """The offer stayed pending after its approval was decided; the outbox closes it."""
+    scheduler, people, recruiting, applications = make_scheduler()
+    record, _ = applications.submit(
+        SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
+    )
+    recruiting.evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(record.candidate_id),
+        candidate_name="Sari Dewi",
+        job_title="Backend Engineer",
+    )
+    offer = recruiting.offers.create(
+        record.id,
+        OfferTerms(
+            position_title="Backend Engineer",
+            start_date=TODAY + timedelta(days=30),
+            salary_amount=10_000_000,
+        ),
+        actor=hr_admin(),
+    )
+    offer = recruiting.offers.submit(offer.id, actor=hr_admin())
+    approval = people.approvals.find_by_subject(ApprovalSubject.OFFER, str(offer.id))
+    assert approval is not None
+
+    people.approvals.decide(approval.id, actor=hr_admin(), approve=True, reason="terms agreed")
+    assert recruiting.offers.get(offer.id).status is OfferStatus.PENDING_APPROVAL
+
+    report = scheduler.run(["approval-reconcile"], now=NOW)
+
+    assert report.jobs[0].changed == 1
+    assert recruiting.offers.get(offer.id).status is OfferStatus.APPROVED
+    assert people.approvals.pending_syncs == []
+
+
+def test_a_single_slot_scheduling_approval_is_confirmed() -> None:
+    scheduler, people, recruiting, applications = make_scheduler()
+    record, _ = applications.submit(
+        SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
+    )
+    recruiting.evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(record.candidate_id, s_tech=0.65),
+        candidate_name="Sari Dewi",
+        job_title="Backend Engineer",
+    )
+    interviewer = uuid4()
+    start = NOW + timedelta(days=3)
+    recruiting.scheduling.set_availability(
+        interviewer,
+        slots=[TimeSlot(start_utc=start, end_utc=start + timedelta(hours=1))],
+        actor=hr_admin(),
+    )
+    proposal = recruiting.scheduling.propose(
+        candidate_id=record.candidate_id, job_id=record.job_id, interviewer_ids=[interviewer]
+    )
+    approval = people.approvals.find_by_subject(ApprovalSubject.SCHEDULING, str(proposal.id))
+    assert approval is not None
+    people.approvals.decide(approval.id, actor=hr_admin(), approve=True, reason="panel is free")
+
+    scheduler.run(["approval-reconcile"], now=NOW)
+
+    assert recruiting.scheduling.get(proposal.id).status is ProposalStatus.CONFIRMED
+
+
+def test_a_multi_slot_approval_waits_for_a_human_to_choose() -> None:
+    """The approval cannot invent which of several offered times was agreed."""
+    scheduler, people, recruiting, applications = make_scheduler()
+    record, _ = applications.submit(
+        SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
+    )
+    recruiting.evaluations.register(
+        application_id=record.id,
+        evaluation=make_evaluation(record.candidate_id, s_tech=0.65),
+        candidate_name="Sari Dewi",
+        job_title="Backend Engineer",
+    )
+    interviewer = uuid4()
+    start = NOW + timedelta(days=4)
+    recruiting.scheduling.set_availability(
+        interviewer,
+        slots=[
+            TimeSlot(start_utc=start, end_utc=start + timedelta(hours=1)),
+            TimeSlot(start_utc=start + timedelta(hours=2), end_utc=start + timedelta(hours=3)),
+        ],
+        actor=hr_admin(),
+    )
+    proposal = recruiting.scheduling.propose(
+        candidate_id=record.candidate_id, job_id=record.job_id, interviewer_ids=[interviewer]
+    )
+    approval = people.approvals.find_by_subject(ApprovalSubject.SCHEDULING, str(proposal.id))
+    assert approval is not None
+    people.approvals.decide(approval.id, actor=hr_admin(), approve=True, reason="panel is free")
+
+    scheduler.run(["approval-reconcile"], now=NOW)
+
+    assert recruiting.scheduling.get(proposal.id).status is ProposalStatus.PENDING_APPROVAL
+    assert people.approvals.pending_syncs == []
+    assert people.approvals.all_syncs()[0].outcome == "needs_human"
+
+
+class FakeCalendar:
+    """A free/busy adapter that answers from a fixed list and records its calls."""
+
+    def __init__(self, busy: list[TimeSlot], *, fail_on: set[str] | None = None) -> None:
+        self.busy_slots = busy
+        self.fail_on = fail_on or set()
+        self.calls: list[tuple[datetime, datetime, str]] = []
+
+    def busy(
+        self, *, start: datetime, end: datetime, calendar_id: str | None = None
+    ) -> list[TimeSlot]:
+        assert calendar_id is not None
+        self.calls.append((start, end, calendar_id))
+        if calendar_id in self.fail_on:
+            raise RuntimeError("the calendar did not answer")
+        return list(self.busy_slots)
+
+
+def jakarta(day: date, hour: int) -> datetime:
+    return datetime.combine(day, time(hour), tzinfo=ZoneInfo("Asia/Jakarta")).astimezone(UTC)
+
+
+def next_weekday(weekday: int) -> date:
+    """The next ``weekday`` strictly after today, inside the 14-day window."""
+    ahead = (weekday - TODAY.weekday()) % 7 or 7
+    return TODAY + timedelta(days=ahead)
+
+
+def test_calendar_sync_refreshes_a_mapped_interviewer_from_free_busy() -> None:
+    interviewer = uuid4()
+    monday = next_weekday(0)
+    busy = TimeSlot(start_utc=jakarta(monday, 10), end_utc=jakarta(monday, 11))
+    calendar = FakeCalendar([busy])
+    scheduler, _people, recruiting, _applications = make_scheduler(calendar=calendar)
+    recruiting.scheduling.set_calendar_id(
+        interviewer, calendar_id="panel@example.com", actor=hr_admin()
+    )
+
+    report = scheduler.run(["calendar-sync"], now=NOW)
+
+    assert report.jobs[0].changed == 1
+    assert "refreshed 1 interviewer calendar(s), 0 failed of 1 mapped" in report.jobs[0].detail
+    assert calendar.calls == [(NOW, NOW + timedelta(days=14), "panel@example.com")]
+    slots = recruiting.scheduling.get_availability(interviewer)
+    assert TimeSlot(start_utc=jakarta(monday, 9), end_utc=jakarta(monday, 10)) in slots
+    assert TimeSlot(start_utc=jakarta(monday, 11), end_utc=jakarta(monday, 17)) in slots
+    assert not any(
+        slot.start_utc < busy.end_utc and busy.start_utc < slot.end_utc for slot in slots
+    )
+
+
+def test_calendar_sync_does_nothing_without_a_mapping() -> None:
+    calendar = FakeCalendar([])
+    scheduler, _people, _recruiting, _applications = make_scheduler(calendar=calendar)
+
+    report = scheduler.run(["calendar-sync"], now=NOW)
+
+    assert report.jobs[0].changed == 0
+    assert "no interviewer has a calendar mapped" in report.jobs[0].detail
+    assert calendar.calls == []
+
+
+def test_a_failing_calendar_leaves_other_interviewers_refreshed() -> None:
+    broken, working = uuid4(), uuid4()
+    calendar = FakeCalendar([], fail_on={"broken@example.com"})
+    scheduler, _people, recruiting, _applications = make_scheduler(calendar=calendar)
+    recruiting.scheduling.set_calendar_id(
+        broken, calendar_id="broken@example.com", actor=hr_admin()
+    )
+    recruiting.scheduling.set_calendar_id(
+        working, calendar_id="working@example.com", actor=hr_admin()
+    )
+
+    report = scheduler.run(["calendar-sync"], now=NOW)
+
+    assert report.jobs[0].changed == 1
+    assert "1 failed of 2 mapped" in report.jobs[0].detail
+    assert len(recruiting.scheduling.get_availability(working)) > 0
+    assert recruiting.scheduling.get_availability(broken) == []
+
+
+def test_mapping_a_calendar_requires_a_value() -> None:
+    _scheduler, _people, recruiting, _applications = make_scheduler()
+    interviewer = uuid4()
+
+    with pytest.raises(RecruitingError, match="calendar id is required"):
+        recruiting.scheduling.set_calendar_id(interviewer, calendar_id="  ", actor=hr_admin())
+
+    assert recruiting.scheduling.list_calendar_mappings() == []
+
+
+def make_evaluation(candidate_id: UUID, *, s_tech: float = 0.90) -> TechnicalEvaluation:
     vector = ScoreVector(
-        technical_depth=0.90,
-        stack_alignment=0.90,
-        systems_literacy=0.90,
-        verifiable_certifications=0.90,
+        technical_depth=s_tech,
+        stack_alignment=s_tech,
+        systems_literacy=s_tech,
+        verifiable_certifications=s_tech,
     )
     return TechnicalEvaluation(
         candidate_id=candidate_id,
@@ -275,14 +473,16 @@ def make_evaluation(candidate_id: UUID) -> TechnicalEvaluation:
             ScoringRun(run_index=1, extraction_id=uuid4(), vector=vector),
         ],
         mean_vector=vector,
-        s_tech=0.90,
+        s_tech=s_tech,
         sigma=0.0,
         breakdown=[
-            DimensionScore(dimension=dimension, score=0.9, weight=0.25, rationale="evidence")
+            DimensionScore(dimension=dimension, score=s_tech, weight=0.25, rationale="evidence")
             for dimension in ScoreDimension
         ],
         flags=[],
-        recommendation=Recommendation.AUTO_SCHEDULE,
+        recommendation=(
+            Recommendation.AUTO_SCHEDULE if s_tech >= 0.75 else Recommendation.HUMAN_REVIEW
+        ),
     )
 
 

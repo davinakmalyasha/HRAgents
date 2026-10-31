@@ -11,7 +11,7 @@ from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from hr_agents.models.mcp import McpServerConfig
@@ -139,6 +139,18 @@ class Settings(BaseSettings):
     # crosses a network you do not control; Prometheus sends
     # `authorization: {credentials: <token>}`.
     metrics_token: SecretStr | None = None
+    # --- Calendar sync (calendar-sync scheduler job) ---
+    # The operating window the free/busy answer is subtracted from, in the
+    # business timezone. Weekends are excluded by the sync itself.
+    calendar_work_start_hour: int = Field(default=9, ge=0, le=23)
+    calendar_work_end_hour: int = Field(default=17, ge=1, le=24)
+    calendar_sync_days: int = Field(default=14, ge=1, le=60)
+
+    @model_validator(mode="after")
+    def _calendar_window(self) -> Settings:
+        if self.calendar_work_start_hour >= self.calendar_work_end_hour:
+            raise ValueError("calendar_work_start_hour must be before calendar_work_end_hour")
+        return self
 
     # --- Object storage ---
     s3_endpoint_url: str | None = "http://localhost:9000"

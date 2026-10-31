@@ -405,6 +405,45 @@ class DbSchedulingService(SchedulingService):
                 row.updated_by = actor.actor_id
             session.flush()
 
+    def _load_calendar_id(self, interviewer_id: UUID) -> str | None:
+        with sync_session_scope(self._session_factory) as session:
+            row = session.get(t.SchedulingAvailabilityRecord, interviewer_id)
+            return None if row is None else row.calendar_id
+
+    def _persist_calendar_id(
+        self, interviewer_id: UUID, calendar_id: str, *, actor: ActorRef
+    ) -> None:
+        with sync_session_scope(self._session_factory) as session:
+            row = session.get(t.SchedulingAvailabilityRecord, interviewer_id)
+            if row is None:
+                session.add(
+                    t.SchedulingAvailabilityRecord(
+                        interviewer_id=interviewer_id,
+                        slots=[],
+                        calendar_id=calendar_id,
+                        updated_by=actor.actor_id,
+                    )
+                )
+            else:
+                row.calendar_id = calendar_id
+                row.updated_by = actor.actor_id
+            session.flush()
+
+    def list_calendar_mappings(self) -> list[tuple[UUID, str]]:
+        with sync_session_scope(self._session_factory) as session:
+            rows = (
+                session.execute(
+                    select(t.SchedulingAvailabilityRecord).where(
+                        t.SchedulingAvailabilityRecord.calendar_id.is_not(None)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            return [
+                (row.interviewer_id, row.calendar_id) for row in rows if row.calendar_id is not None
+            ]
+
     def _load_proposal(self, proposal_id: UUID) -> SchedulingProposalRecord | None:
         with sync_session_scope(self._session_factory) as session:
             row = session.get(t.ScheduleProposal, proposal_id)

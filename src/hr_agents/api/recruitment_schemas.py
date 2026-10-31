@@ -302,6 +302,17 @@ class AvailabilitySet(StrictModel):
     slots: list[TimeSlot] = Field(default_factory=list)
 
 
+class CalendarMappingRequest(StrictModel):
+    """Point an interviewer at the calendar the sync job should read."""
+
+    calendar_id: str = Field(min_length=1, max_length=200)
+
+
+class CalendarMappingView(StrictModel):
+    interviewer_id: UUID
+    calendar_id: str
+
+
 class SchedulingProposalRequest(StrictModel):
     candidate_id: UUID
     job_id: UUID

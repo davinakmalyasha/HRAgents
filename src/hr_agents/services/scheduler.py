@@ -10,16 +10,18 @@ acted on, because breach response is a human decision.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
+from uuid import UUID
 
 import httpx
 
 from hr_agents.errors import DomainError
-from hr_agents.identity import ActorRef
+from hr_agents.identity import ActorRef, deciding_actor
 from hr_agents.logging import get_logger
 from hr_agents.models import (
+    ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
     StrictModel,
@@ -53,6 +55,7 @@ JOB_AUDIT_VERIFY = "audit-verify"
 JOB_REPLY_SLA = "reply-sla"
 JOB_QUEUE_REAPER = "queue-reaper"
 JOB_APPROVAL_RECONCILE = "approval-reconcile"
+JOB_CALENDAR_SYNC = "calendar-sync"
 
 JOB_NAMES: tuple[str, ...] = (
     JOB_APPROVALS,
@@ -67,6 +70,7 @@ JOB_NAMES: tuple[str, ...] = (
     JOB_REPLY_SLA,
     JOB_QUEUE_REAPER,
     JOB_APPROVAL_RECONCILE,
+    JOB_CALENDAR_SYNC,
 )
 
 DOCUMENT_EXPIRY_WINDOW_DAYS = 60
@@ -89,6 +93,15 @@ class ScheduledJobResult(StrictModel):
     changed: int = 0
     detail: str = ""
     error: str | None = None
+
+
+class ApprovalSyncDeferred(RuntimeError):
+    """The subject needs a human choice the approval did not carry.
+
+    A scheduling approval approves a proposal that may have offered several
+    slots; no single time was agreed, so confirming one here would invent it.
+    The decision is applied when the proposal itself says which slot was chosen.
+    """
 
 
 class SchedulerReport(StrictModel):
@@ -212,6 +225,7 @@ class Scheduler:
         replies: ReplyStore | None = None,
         queue: QueueBackend | None = None,
         queue_reaper_grace_seconds: float = EXPIRED_LEASE_GRACE_SECONDS,
+        calendar: object | None = None,
     ) -> None:
         self._people = people
         self._recruiting = recruiting
@@ -220,6 +234,8 @@ class Scheduler:
         # the async client is created on the loop that will use it.
         self._queue = queue
         self._queue_reaper_grace_seconds = queue_reaper_grace_seconds
+        # Injectable free/busy adapter; production resolves it from the provider.
+        self._calendar = calendar
 
     def run(
         self,
@@ -253,6 +269,55 @@ class Scheduler:
 
     # job implementations (thin wrappers over the engines)
 
+    def _run_calendar_sync(self, moment: datetime, _purge: bool) -> tuple[int, str]:
+        """Refresh mapped interviewers' availability from their calendars."""
+        from hr_agents.config import get_settings
+        from hr_agents.models import business_timezone
+        from hr_agents.services.scheduling_calendar import free_slots
+
+        adapter = self._calendar or _resolve_calendar_adapter()
+        if adapter is None:
+            return 0, "no calendar provider configured; availability stays manual"
+        mappings = self._recruiting.scheduling.list_calendar_mappings()
+        if not mappings:
+            return 0, "no interviewer has a calendar mapped"
+        settings = get_settings()
+        timezone = business_timezone()
+        start = moment.astimezone(timezone).date()
+        end = moment + timedelta(days=settings.calendar_sync_days)
+        refreshed = 0
+        failed = 0
+        for interviewer_id, calendar_id in mappings:
+            try:
+                busy = adapter.busy(  # type: ignore[attr-defined]
+                    start=moment, end=end, calendar_id=calendar_id
+                )
+            except Exception:
+                logger.warning(
+                    "scheduler.calendar_sync_failed",
+                    interviewer_id=str(interviewer_id),
+                    exc_info=True,
+                )
+                failed += 1
+                continue
+            slots = free_slots(
+                busy,
+                start_date=start,
+                days=settings.calendar_sync_days,
+                work_start_hour=settings.calendar_work_start_hour,
+                work_end_hour=settings.calendar_work_end_hour,
+                timezone=business_timezone().key,
+                now=moment,
+            )
+            self._recruiting.scheduling.set_availability(
+                interviewer_id, slots=slots, actor=ActorRef.system("calendar-sync")
+            )
+            refreshed += 1
+        return refreshed, (
+            f"refreshed {refreshed} interviewer calendar(s), {failed} failed "
+            f"of {len(mappings)} mapped"
+        )
+
     def _run_approvals(self, moment: datetime, _purge: bool) -> tuple[int, str]:
         escalated = self._people.approvals.escalate_overdue(now=moment)
         expired = self._people.approvals.expire_stale(now=moment)
@@ -283,6 +348,11 @@ class Scheduler:
                     apply(item.approval_id, actor=actor)
                     outcome = "applied"
                     applied += 1
+                except ApprovalSyncDeferred:
+                    # The decision itself is recorded; what is missing is a choice
+                    # only a person can make (which proposed slot was agreed).
+                    outcome = "needs_human"
+                    settled += 1
                 except DomainError:
                     # The subject refused because it is already in the target
                     # state (a replayed decision, or a human settled it first).
@@ -326,7 +396,57 @@ class Scheduler:
             return self._people.payroll.apply_decision
         if subject is ApprovalSubject.ERASURE_REQUEST:
             return self._people.compliance.apply_decision
+        if subject is ApprovalSubject.OFFER:
+            return self._apply_offer_sync
+        if subject is ApprovalSubject.SCHEDULING:
+            return self._apply_scheduling_sync
         return None
+
+    def _apply_offer_sync(self, approval_id: UUID, *, actor: ActorRef) -> object:
+        """Replay an offer approval's outcome onto the offer record.
+
+        The approval decision is the gate; an offer still `pending_approval`
+        after it is the half-state this closes. A rejection withdraws the offer
+        with the decision's reason rather than approving it, and a status with no
+        offer transition is a domain refusal the reconciler treats as settled.
+        """
+        approval = self._people.approvals.find(approval_id)
+        if approval is None or approval.decided_by is None:
+            raise DomainError(f"approval {approval_id} has no named decider to replay")
+        human = deciding_actor(approval.decided_by)
+        offer_id = UUID(approval.subject_id)
+        if approval.status is ApprovalStatus.APPROVED:
+            return self._recruiting.offers.decide(offer_id, decision="approve", actor=human)
+        if approval.status is ApprovalStatus.REJECTED:
+            reason = (approval.decision_reason or "").strip() or (
+                "the linked offer approval was rejected"
+            )
+            return self._recruiting.offers.decide(
+                offer_id, decision="withdraw", actor=human, reason=reason
+            )
+        raise DomainError(f"approval is {approval.status.value}; no offer transition")
+
+    def _apply_scheduling_sync(self, approval_id: UUID, *, actor: ActorRef) -> object:
+        """Apply a scheduling decision only when the agreed time is unambiguous."""
+        approval = self._people.approvals.find(approval_id)
+        if approval is None or approval.decided_by is None:
+            raise DomainError(f"approval {approval_id} has no named decider to replay")
+        human = deciding_actor(approval.decided_by)
+        proposal = self._recruiting.scheduling.get(UUID(approval.subject_id))
+        if approval.status is ApprovalStatus.APPROVED:
+            if len(proposal.payload.slots) != 1:
+                raise ApprovalSyncDeferred(
+                    "the proposal offered several slots; a human must choose which was agreed"
+                )
+            return self._recruiting.scheduling.decide(proposal.id, decision="confirm", actor=human)
+        if approval.status is ApprovalStatus.REJECTED:
+            reason = (approval.decision_reason or "").strip() or (
+                "the linked scheduling approval was rejected"
+            )
+            return self._recruiting.scheduling.decide(
+                proposal.id, decision="cancel", actor=human, reason=reason
+            )
+        raise DomainError(f"approval is {approval.status.value}; no scheduling transition")
 
     def _run_retention(self, moment: datetime, purge: bool) -> tuple[int, str]:
         report = self._people.compliance.execute_purge(
@@ -429,7 +549,27 @@ _HANDLERS = {
     JOB_REPLY_SLA: Scheduler._run_reply_sla,
     JOB_QUEUE_REAPER: Scheduler._run_queue_reaper,
     JOB_APPROVAL_RECONCILE: Scheduler._run_approval_reconcile,
+    JOB_CALENDAR_SYNC: Scheduler._run_calendar_sync,
 }
+
+
+def _resolve_calendar_adapter() -> object | None:
+    """Build the configured free/busy adapter, or ``None`` when calendar is manual."""
+    from hr_agents.providers.base import Capability
+    from hr_agents.providers.registry import default_registry
+    from hr_agents.providers.settings import resolve_provider_settings
+
+    resolved = resolve_provider_settings().get(Capability.CALENDAR)
+    if resolved is None or resolved.provider_id != "calendar.google":
+        return None
+    spec = default_registry().get(resolved.provider_id)
+    if spec.build is None:
+        return None
+    try:
+        return spec.build(spec.make_config(resolved.config))
+    except Exception:
+        logger.warning("scheduler.calendar_unavailable", exc_info=True)
+        return None
 
 
 def alert_payload(report: SchedulerReport) -> dict[str, object]:
