@@ -586,6 +586,8 @@ class DbCommunicationService(CommunicationService):
             row.send_attempts = item.send_attempts
             row.last_error = item.last_error
             row.last_attempt_at = item.last_attempt_at
+            row.claimed_by = item.claimed_by
+            row.claimed_until = item.claimed_until
             row.created_at = item.created_at
             session.flush()
 
@@ -613,6 +615,8 @@ class DbCommunicationService(CommunicationService):
             send_attempts=row.send_attempts,
             last_error=row.last_error,
             last_attempt_at=None if row.last_attempt_at is None else _aware(row.last_attempt_at),
+            claimed_by=row.claimed_by,
+            claimed_until=None if row.claimed_until is None else _aware(row.claimed_until),
             created_at=_aware(row.created_at),
             version=row.version,
         )

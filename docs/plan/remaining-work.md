@@ -986,9 +986,12 @@ backend + docs + tests slice; the dashboard import UI follows per slice.
       copy. A failed send now records `last_attempt_at` (migration `0036`) and cools off
       for 15 min, 30, 60 … capped at 24 h, so a bounced mailbox is not hammered on
       every scheduler tick; the run reports it as `deferred`, the message stays queued,
-      and a fixed address recovers without a human reset. Remaining: a claim/lease on
-      the row before the send, so two concurrent dispatch processes cannot both call
-      the transport, and an alert when one message keeps failing.
+      and a fixed address recovers without a human reset. **Two overlapping dispatch
+      processes can no longer double-send**: the row carries a short lease
+      (`claimed_by`/`claimed_until`, migration `0037`) claimed with the existing version
+      predicate, so the second process loses the race and skips; an expired lease is
+      claimable again after a crash, which makes delivery at-least-once and is stated
+      where the columns are defined. Remaining: an alert when one message keeps failing.
 - [x] **Recalibrate the dead `AUTO_SCHEDULE` band.** Recalibrated 2026-10-30
       from the corpus bands: auto floor `0.85 → 0.75`, merit floor
       `0.70 → 0.60` (`config.py`, `PolicyThresholds`, `hitl-bounds.md` with a

@@ -697,6 +697,15 @@ def test_communication_adapter_persists_transport_evidence(
     item = communications.queue_rejection(
         record.candidate_id, actor=ActorRef.legacy("hr-admin"), to_email="sari@example.com"
     )
+    claimed = communications.claim_for_dispatch(item.id, claimed_by="dispatcher-a")
+    assert claimed is not None and claimed.claimed_by == "dispatcher-a"
+    # A fresh adapter instance sees the lease: the claim is a row, not a dict entry.
+    assert (
+        DbCommunicationService(evaluations=evaluations, session_factory=factory).claim_for_dispatch(
+            item.id, claimed_by="dispatcher-b"
+        )
+        is None
+    )
     communications.record_dispatch_failure(item.id, provider="email.smtp", error="mailbox down")
     communications.record_dispatch(
         item.id,
@@ -715,6 +724,8 @@ def test_communication_adapter_persists_transport_evidence(
     assert loaded.last_error is None
     assert loaded.last_attempt_at is not None
     assert loaded.last_attempt_at.tzinfo is not None
+    assert loaded.claimed_by is None
+    assert loaded.claimed_until is None
     threaded = fresh.find_by_provider_message_id("<outbound-9@example.com>")
     assert threaded is not None and threaded.id == item.id
 

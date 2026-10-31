@@ -119,7 +119,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [~] `send_attempts` and `last_attempt_at` drive an exponential backoff (15 min, 30, 60 …
       capped at 24 h) so a bounced address is no longer retried on every scheduler tick;
       the message stays queued throughout and the outcome is reported as `deferred`, not
-      failed. Still open: no cap that requires a human, and no alert on repeated failures
+      failed. A dispatch lease (`claimed_by`/`claimed_until`, migration `0037`) stops two
+      overlapping runs from sending the same message; an expired lease after a crash is
+      claimable again (at-least-once). Still open: no alert on repeated failures, and no
+      circuit breaker per provider
 - [x] `/readyz` endpoint (DB + messaging + audit + **queue** + **skills** checks, 503 when degraded),
       distinct from `/healthz`; security headers, body-size ceiling, and per-principal rate limits in
       `api/hardening.py`

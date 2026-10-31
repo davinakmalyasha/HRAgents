@@ -8,7 +8,7 @@ and mail that matches no candidate is never attributed.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -391,6 +391,94 @@ def test_retry_delay_doubles_and_is_capped() -> None:
     assert retry_delay(2) == timedelta(minutes=30)
     assert retry_delay(3) == timedelta(hours=1)
     assert retry_delay(50) == timedelta(hours=24)
+
+
+def test_a_send_lease_is_exclusive_and_expires(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+    moment = datetime(2026, 10, 31, 1, 0, tzinfo=UTC)
+
+    first = communications.claim_for_dispatch(queued.id, claimed_by="dispatcher-a", now=moment)
+    second = communications.claim_for_dispatch(queued.id, claimed_by="dispatcher-b", now=moment)
+
+    assert first is not None
+    assert first.claimed_by == "dispatcher-a"
+    assert second is None
+
+    reclaimed = communications.claim_for_dispatch(
+        queued.id, claimed_by="dispatcher-b", now=moment + timedelta(minutes=11)
+    )
+    assert reclaimed is not None
+    assert reclaimed.claimed_by == "dispatcher-b"
+
+
+def test_a_sent_message_cannot_be_claimed_again(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+    communications.mark_sent(queued.id, actor=signed_in("lead-1", RoleId.MANAGER))
+
+    assert communications.claim_for_dispatch(queued.id, claimed_by="dispatcher-a") is None
+
+
+def test_recording_the_outcome_clears_the_lease(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+    claimed = communications.claim_for_dispatch(queued.id, claimed_by="dispatcher-a")
+    assert claimed is not None
+
+    communications.record_dispatch(
+        queued.id,
+        provider="email.smtp",
+        recipient=CANDIDATE_EMAIL,
+        message_id="<one@example.com>",
+    )
+
+    assert communications.get(queued.id).claimed_until is None
+    assert communications.get(queued.id).claimed_by is None
+
+
+def test_a_lease_held_by_another_dispatcher_is_skipped_not_sent(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+    assert communications.claim_for_dispatch(queued.id, claimed_by="run-messaging") is not None
+    sender = FakeSender()
+
+    report = OutboxDispatcher(communications=communications, sender=sender).dispatch_pending()
+
+    assert (report.sent, report.skipped) == (0, 1)
+    assert sender.sent == []
+    assert "another dispatcher" in report.outcomes[0].detail
+
+
+def test_a_successful_dispatch_leaves_no_lease(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+
+    OutboxDispatcher(communications=communications, sender=FakeSender()).dispatch_pending()
+
+    refreshed = communications.get(queued.id)
+    assert refreshed.claimed_by is None
+    assert refreshed.claimed_until is None
 
 
 def test_only_queued_email_messages_are_considered(

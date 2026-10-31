@@ -9,9 +9,11 @@ leaves the message queued so the next run — or a human — can retry.
 
 from __future__ import annotations
 
+import os
+import socket
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import Field
 
@@ -122,6 +124,10 @@ class OutboxDispatcher:
         self._communications = communications
         self._sender = sender
         self._directory = directory
+        # Named on the claim so an operator can see which process was sending
+        # when one died mid-attempt. Unique per instance, not just per host: two
+        # dispatchers in one process must not look like the same holder.
+        self._dispatcher_id = f"{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
 
     @property
     def provider_id(self) -> str:
@@ -195,6 +201,22 @@ class OutboxDispatcher:
                     communication_id=communication_id,
                     ok=False,
                     detail="no candidate email address on file",
+                )
+            )
+            return
+        claimed = self._communications.claim_for_dispatch(
+            communication_id, claimed_by=self._dispatcher_id, now=now
+        )
+        if claimed is None:
+            # Another dispatcher won the lease, or the row moved between the
+            # listing and this call. Sending anyway is the double email this
+            # lease exists to prevent.
+            report.skipped += 1
+            report.outcomes.append(
+                DispatchOutcome(
+                    communication_id=communication_id,
+                    ok=False,
+                    detail="another dispatcher holds this message",
                 )
             )
             return

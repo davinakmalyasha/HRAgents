@@ -26,13 +26,13 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID, uuid4
 
 from pydantic import EmailStr, Field
 
-from hr_agents.errors import DomainCode, DomainError
+from hr_agents.errors import DomainCode, DomainError, StaleRecordError
 from hr_agents.identity import ActorRef
 from hr_agents.models import (
     TERMINAL_PROPOSAL_STATUSES,
@@ -90,6 +90,10 @@ if TYPE_CHECKING:
 
 DOCUMENT_KINDS = frozenset({"cv", "portfolio", "questionnaire", "linkedin_export", "other"})
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024  # 10 MiB
+
+DEFAULT_DISPATCH_LEASE_SECONDS = 600
+"""How long a claimed message is protected from a second dispatcher. Longer than
+a healthy SMTP handshake, short enough that a crashed run does not strand the row."""
 
 OVERRIDE_REVIEWER_ROLES: frozenset[ApproverRole] = frozenset(
     {
@@ -1177,6 +1181,8 @@ class CommunicationService:
                 "send_attempts": item.send_attempts + 1,
                 "last_error": None,
                 "last_attempt_at": sent_at or utc_now(),
+                "claimed_by": None,
+                "claimed_until": None,
             }
         )
         self._persist(updated)
@@ -1213,6 +1219,8 @@ class CommunicationService:
                 "send_attempts": item.send_attempts + 1,
                 "last_error": error[:500],
                 "last_attempt_at": utc_now(),
+                "claimed_by": None,
+                "claimed_until": None,
             }
         )
         self._persist(updated)
@@ -1422,6 +1430,41 @@ class CommunicationService:
                 f"communication is {item.status.value}; only a queued message can be dispatched"
             )
         return item
+
+    def claim_for_dispatch(
+        self,
+        communication_id: UUID,
+        *,
+        claimed_by: str,
+        now: datetime | None = None,
+        lease_seconds: int = DEFAULT_DISPATCH_LEASE_SECONDS,
+    ) -> CandidateCommunication | None:
+        """Take the send lease; ``None`` when another dispatcher holds it.
+
+        The refusal is the optimistic-concurrency guard, not a status change: two
+        processes that read the same row both build a claimed copy, the first
+        save wins, and the second gets ``StaleRecordError`` — which is exactly the
+        message that must not be sent twice. A lease that expired (the holder
+        died mid-send) is claimable again, so a crashed run does not strand the
+        row; the cost is at-least-once delivery, which is stated in the migration.
+        """
+        item = self._load(communication_id)
+        if item is None or item.status is not CommunicationStatus.QUEUED:
+            return None
+        moment = now or utc_now()
+        if item.claimed_until is not None and item.claimed_until > moment:
+            return None
+        claimed = item.model_copy(
+            update={
+                "claimed_by": claimed_by[:200],
+                "claimed_until": moment + timedelta(seconds=lease_seconds),
+            }
+        )
+        try:
+            self._persist(claimed)
+        except StaleRecordError:
+            return None
+        return claimed
 
 
 # --- scheduling -----------------------------------------------------------------
