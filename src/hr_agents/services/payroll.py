@@ -18,6 +18,7 @@ Computation rules:
 from __future__ import annotations
 
 import calendar
+import hashlib
 import io
 from collections.abc import Iterator
 from datetime import date
@@ -57,9 +58,12 @@ from hr_agents.models.money import ZERO, add, money, percent_of, sub
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.attendance import (
     STANDARD_HOURS_PER_DAY,
+    AttendanceDay,
     AttendancePreview,
     AttendanceRowError,
+    ColumnMapping,
     parse_attendance_csv,
+    parse_attendance_xlsx,
     summarize_attendance,
 )
 from hr_agents.services.attendance import (
@@ -398,6 +402,7 @@ class PayrollService:
         period_year: int,
         period_month: int,
         standard_hours_per_day: float = STANDARD_HOURS_PER_DAY,
+        mapping: ColumnMapping | None = None,
     ) -> AttendancePreview:
         """Turn fingerprint CSV text into per-employee aggregates without writing.
 
@@ -410,7 +415,57 @@ class PayrollService:
             period_year=period_year,
             period_month=period_month,
             standard_hours_per_day=standard_hours_per_day,
+            mapping=mapping,
         )
+        return self._preview_days(
+            days,
+            errors,
+            period_year=period_year,
+            period_month=period_month,
+            standard_hours_per_day=standard_hours_per_day,
+            file_hash=attendance_file_hash(csv_text),
+        )
+
+    def preview_attendance_xlsx(
+        self,
+        content: bytes,
+        *,
+        period_year: int,
+        period_month: int,
+        sheet: str | None = None,
+        header_row: int = 1,
+        mapping: ColumnMapping | None = None,
+        standard_hours_per_day: float = STANDARD_HOURS_PER_DAY,
+    ) -> AttendancePreview:
+        """The same preview from an XLSX export; the file, not the text, is hashed."""
+        days, errors = parse_attendance_xlsx(
+            content,
+            period_year=period_year,
+            period_month=period_month,
+            standard_hours_per_day=standard_hours_per_day,
+            mapping=mapping,
+            sheet=sheet,
+            header_row=header_row,
+        )
+        return self._preview_days(
+            days,
+            errors,
+            period_year=period_year,
+            period_month=period_month,
+            standard_hours_per_day=standard_hours_per_day,
+            file_hash=hashlib.sha256(content).hexdigest(),
+        )
+
+    def _preview_days(
+        self,
+        days: list[AttendanceDay],
+        errors: list[AttendanceRowError],
+        *,
+        period_year: int,
+        period_month: int,
+        standard_hours_per_day: float,
+        file_hash: str,
+    ) -> AttendancePreview:
         working_days = self._working_days(period_year, period_month)
         number_to_id: dict[str, UUID] = {}
         for employee in self._employees.list_employees():
@@ -462,7 +517,7 @@ class PayrollService:
             period_year=period_year,
             period_month=period_month,
             working_days=working_days,
-            file_hash=attendance_file_hash(csv_text),
+            file_hash=file_hash,
             rows=resolved,
             errors=all_errors,
             standard_hours_per_day=standard_hours_per_day,
@@ -495,6 +550,35 @@ class PayrollService:
         preview = self.preview_attendance(
             csv_text, period_year=run.period_year, period_month=run.period_month
         )
+        return self._apply_preview(run, preview, actor=actor)
+
+    def apply_attendance_xlsx(
+        self,
+        run_id: UUID,
+        content: bytes,
+        *,
+        actor: ActorRef,
+        sheet: str | None = None,
+        header_row: int = 1,
+        mapping: ColumnMapping | None = None,
+    ) -> PayrollRun:
+        """The CSV commit path for a workbook; same gates, same fail-closed rule."""
+        run = self._require_editable(run_id)
+        if not run.inputs:
+            raise PayrollError("run has no inputs; call set_inputs first")
+        preview = self.preview_attendance_xlsx(
+            content,
+            period_year=run.period_year,
+            period_month=run.period_month,
+            sheet=sheet,
+            header_row=header_row,
+            mapping=mapping,
+        )
+        return self._apply_preview(run, preview, actor=actor)
+
+    def _apply_preview(
+        self, run: PayrollRun, preview: AttendancePreview, *, actor: ActorRef
+    ) -> PayrollRun:
         if preview.errors:
             first = preview.errors[0]
             raise PayrollError(

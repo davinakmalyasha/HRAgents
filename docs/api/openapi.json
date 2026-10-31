@@ -983,17 +983,74 @@
       },
       "AttendanceCommit": {
         "additionalProperties": false,
+        "description": "One attendance source: pasted/small CSV text, or an uploaded workbook.\n\nExactly one of ``csv_text`` and ``file_base64`` must be present. The\nworkbook path carries a mapping because machine exports name their columns\nwhatever the installer chose; the base64 is validated here so a corrupt\nupload is a 422 rather than a 500 inside the parser.",
         "properties": {
           "csv_text": {
-            "maxLength": 500000,
-            "minLength": 1,
-            "title": "Csv Text",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 500000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Csv Text"
+          },
+          "file_base64": {
+            "anyOf": [
+              {
+                "maxLength": 14000000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Base64"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "header_row": {
+            "default": 1,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Header Row",
+            "type": "integer"
+          },
+          "mapping": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ColumnMapping"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sheet": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet"
           }
         },
-        "required": [
-          "csv_text"
-        ],
         "title": "AttendanceCommit",
         "type": "object"
       },
@@ -2165,6 +2222,42 @@
           "at"
         ],
         "title": "ChatTurnView",
+        "type": "object"
+      },
+      "ColumnMapping": {
+        "additionalProperties": false,
+        "description": "Which spreadsheet column carries each required field.\n\nFingerprint exports are named by whoever installed the machine, so the\ncanonical header cannot be assumed. The mapping is matched case-insensitively\nafter trimming, and a name that is not in the sheet is a header error \u2014 never\na silent zero.",
+        "properties": {
+          "clock_in": {
+            "default": "clock_in",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Clock In",
+            "type": "string"
+          },
+          "clock_out": {
+            "default": "clock_out",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Clock Out",
+            "type": "string"
+          },
+          "date": {
+            "default": "date",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Date",
+            "type": "string"
+          },
+          "employee_number": {
+            "default": "employee_number",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Employee Number",
+            "type": "string"
+          }
+        },
+        "title": "ColumnMapping",
         "type": "object"
       },
       "CommunicationKind": {
@@ -40830,7 +40923,7 @@
             "description": "A dependency the request needs is not running."
           }
         },
-        "summary": "Fill overtime/absence on an editable run from fingerprint CSV",
+        "summary": "Fill overtime/absence on an editable run from fingerprint CSV/XLSX",
         "tags": [
           "payroll"
         ]
@@ -40970,7 +41063,7 @@
             "description": "A dependency the request needs is not running."
           }
         },
-        "summary": "Preview fingerprint CSV aggregation without writing",
+        "summary": "Preview fingerprint CSV/XLSX aggregation without writing",
         "tags": [
           "payroll"
         ]

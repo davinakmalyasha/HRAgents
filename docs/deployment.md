@@ -333,6 +333,32 @@ file hash. Every run input must have at least one attendance row, and every
 attendance row must belong to the run: unknown or missing employees refuse
 rather than silently paying someone in full or dropping a row.
 
+### XLSX exports
+
+The same two endpoints accept a workbook instead of CSV text: send
+`file_base64` (the file, base64-encoded) instead of `csv_text`, with optional
+`sheet`, `header_row` and `mapping`:
+
+```bash
+curl -s localhost:8000/v1/payroll/runs/<id>/attendance:preview \
+  -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+  -d "{\"file_base64\": \"$(base64 -w0 attendance.xlsx)\",
+       \"filename\": \"attendance.xlsx\",
+       \"header_row\": 1,
+       \"mapping\": {\"employee_number\": \"NIK\", \"date\": \"Tanggal\",
+                    \"clock_in\": \"Masuk\", \"clock_out\": \"Keluar\"}}" \
+  | python -m json.tool
+```
+
+Real spreadsheet cells are read as values: a date cell is a date, a time cell
+`08:00` or the equivalent Excel fraction `0.333…` is 08:00. Dates are accepted
+as `YYYY-MM-DD` or `YYYY/MM/DD`; anything else is refused by row rather than
+guessed. `header_row` is 1-based and covers exports with a title row above the
+header. `mapping` names the four columns in the sheet; without it the canonical
+names (`employee_number,date,clock_in,clock_out`) are expected. The same
+period, duplicate, clock-order and 5 000-row rules apply to both formats, and
+the file hash recorded on the audit trail is the workbook's, not a re-encoding.
+
 ### Secrets
 
 The committed defaults are for a laptop, not for a server. Before exposing the

@@ -1,10 +1,12 @@
-"""Attendance import: fingerprint CSV into payroll inputs, fail-closed."""
+"""Attendance import: fingerprint CSV/XLSX into payroll inputs, fail-closed."""
 
 import calendar
 from dataclasses import replace
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+from io import BytesIO
 
 import pytest
+from openpyxl import Workbook
 
 from hr_agents.identity import ActorProvenance, ActorRef, ActorType
 from hr_agents.models import (
@@ -30,7 +32,12 @@ from hr_agents.services import (
     RateTableService,
     RateTableStore,
 )
-from hr_agents.services.attendance import parse_attendance_csv, summarize_attendance
+from hr_agents.services.attendance import (
+    ColumnMapping,
+    parse_attendance_csv,
+    parse_attendance_xlsx,
+    summarize_attendance,
+)
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.payroll import _working_days_in_month
 
@@ -199,6 +206,111 @@ def test_parse_outside_period_refused() -> None:
         period_month=MONTH,
     )
     assert [error.code for error in errors] == ["outside_period"]
+
+
+def workbook_bytes(rows: list[list[object]], *, title: str | None = None) -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    if title is not None:
+        sheet.append([title])
+    for row in rows:
+        sheet.append(row)
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def test_xlsx_reads_real_date_and_time_cells() -> None:
+    day = workdays(YEAR, MONTH, 1)[0]
+    content = workbook_bytes(
+        [
+            ["employee_number", "date", "clock_in", "clock_out"],
+            ["EMP-1", datetime(day.year, day.month, day.day), time(8, 0), time(18, 30)],
+        ]
+    )
+
+    days, errors = parse_attendance_xlsx(content, period_year=YEAR, period_month=MONTH)
+
+    assert errors == []
+    (record,) = days
+    assert record.day == day
+    assert record.clock_in == time(8, 0)
+    assert record.clock_out == time(18, 30)
+    assert record.overtime_hours == 2.5
+
+
+def test_xlsx_accepts_an_excel_time_fraction() -> None:
+    day = workdays(YEAR, MONTH, 1)[0]
+    content = workbook_bytes(
+        [
+            ["employee_number", "date", "clock_in", "clock_out"],
+            ["EMP-1", day.isoformat(), 8 / 24, 17 / 24],
+        ]
+    )
+
+    days, errors = parse_attendance_xlsx(content, period_year=YEAR, period_month=MONTH)
+
+    assert errors == []
+    assert days[0].clock_in == time(8, 0)
+    assert days[0].clock_out == time(17, 0)
+
+
+def test_xlsx_honours_a_column_mapping_and_a_title_row() -> None:
+    day = workdays(YEAR, MONTH, 1)[0]
+    content = workbook_bytes(
+        [
+            ["NIK", "Tanggal", "Masuk", "Keluar"],
+            ["EMP-1", day.isoformat(), "08:00", "17:00"],
+        ],
+        title="Fingerprint export — June",
+    )
+    mapping = ColumnMapping(
+        employee_number="NIK", date="Tanggal", clock_in="Masuk", clock_out="Keluar"
+    )
+
+    days, errors = parse_attendance_xlsx(
+        content,
+        period_year=YEAR,
+        period_month=MONTH,
+        header_row=2,
+        mapping=mapping,
+    )
+
+    assert errors == []
+    assert days[0].employee_number == "EMP-1"
+    assert days[0].worked_hours == 9.0
+
+
+def test_xlsx_names_a_missing_mapped_column() -> None:
+    content = workbook_bytes([["NIK", "Tanggal", "Masuk", "Keluar"], ["EMP-1", "2026-06-01"]])
+
+    _, errors = parse_attendance_xlsx(
+        content,
+        period_year=YEAR,
+        period_month=MONTH,
+        mapping=ColumnMapping(
+            employee_number="NIK", date="Tanggal", clock_in="In", clock_out="Out"
+        ),
+    )
+
+    assert [error.code for error in errors] == ["bad_header"]
+    assert "In" in errors[0].detail
+
+
+def test_xlsx_an_unreadable_file_is_a_named_refusal() -> None:
+    _, errors = parse_attendance_xlsx(b"not a workbook", period_year=YEAR, period_month=MONTH)
+
+    assert [error.code for error in errors] == ["bad_file"]
+
+
+def test_xlsx_a_missing_sheet_names_the_available_ones() -> None:
+    content = workbook_bytes([["employee_number", "date", "clock_in", "clock_out"]])
+
+    _, errors = parse_attendance_xlsx(content, period_year=YEAR, period_month=MONTH, sheet="Juni")
+
+    assert [error.code for error in errors] == ["bad_sheet"]
+    assert "Sheet" in errors[0].detail
 
 
 def test_summarize_absence_math() -> None:

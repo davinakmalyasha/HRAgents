@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator, model_validator
 
 from hr_agents.models import (
     AnomalySeverity,
@@ -18,7 +19,7 @@ from hr_agents.models import (
     StrictModel,
     UtcDateTime,
 )
-from hr_agents.services.attendance import STANDARD_HOURS_PER_DAY
+from hr_agents.services.attendance import STANDARD_HOURS_PER_DAY, ColumnMapping
 
 
 class RunCreate(StrictModel):
@@ -52,7 +53,43 @@ class RunAction(StrictModel):
 
 
 class AttendanceCommit(StrictModel):
-    csv_text: str = Field(min_length=1, max_length=500_000)
+    """One attendance source: pasted/small CSV text, or an uploaded workbook.
+
+    Exactly one of ``csv_text`` and ``file_base64`` must be present. The
+    workbook path carries a mapping because machine exports name their columns
+    whatever the installer chose; the base64 is validated here so a corrupt
+    upload is a 422 rather than a 500 inside the parser.
+    """
+
+    csv_text: str | None = Field(default=None, max_length=500_000)
+    file_base64: str | None = Field(default=None, max_length=14_000_000)
+    filename: str | None = Field(default=None, max_length=320)
+    sheet: str | None = Field(default=None, max_length=120)
+    header_row: int = Field(default=1, ge=1, le=50)
+    mapping: ColumnMapping | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self) -> AttendanceCommit:
+        if (self.csv_text is None) == (self.file_base64 is None):
+            raise ValueError("provide exactly one of csv_text or file_base64")
+        return self
+
+    @field_validator("file_base64")
+    @classmethod
+    def _base64_decodes(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            base64.b64decode(value, validate=True)
+        except ValueError as exc:
+            raise ValueError("file_base64 is not valid base64") from exc
+        return value
+
+    def content(self) -> bytes | None:
+        """The uploaded bytes, or None when the request carried CSV text."""
+        if self.file_base64 is None:
+            return None
+        return base64.b64decode(self.file_base64, validate=True)
 
 
 class AttendanceErrorView(StrictModel):

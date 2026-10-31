@@ -1,9 +1,12 @@
 """Integration tests for the payroll API surface."""
 
-from datetime import timedelta
+import base64
+from datetime import time, timedelta
+from io import BytesIO
 from uuid import UUID
 
 from fastapi.testclient import TestClient
+from openpyxl import Workbook
 
 from hr_agents.identity import ActorRef
 from hr_agents.main import create_app
@@ -480,6 +483,72 @@ def test_attendance_preview_and_commit_fill_worked_time() -> None:
 
         fetched = client.get(f"/v1/payroll/runs/{run['id']}").json()
         assert fetched["lines"] == []
+
+
+def test_attendance_xlsx_previews_and_commits() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        employee = _create_numbered_employee(client, "EMP-201")
+        run = client.post(
+            "/v1/payroll/runs",
+            json={"period_year": YEAR, "period_month": 6},
+        ).json()
+        client.put(
+            f"/v1/payroll/runs/{run['id']}/inputs",
+            json={"inputs": [{"employee_id": employee["id"], "base_salary": 9_000_000}]},
+        )
+        first, second = _june_workdays(2)
+        workbook = Workbook()
+        sheet = workbook.active
+        assert sheet is not None
+        sheet.append(["NIK", "Tanggal", "Masuk", "Keluar"])
+        for day, clock_out in ((first, time(18, 0)), (second, time(17, 0))):
+            sheet.append(["EMP-201", day, time(8, 0), clock_out])
+        buffer = BytesIO()
+        workbook.save(buffer)
+        payload = {
+            "file_base64": base64.b64encode(buffer.getvalue()).decode(),
+            "filename": "attendance.xlsx",
+            "header_row": 1,
+            "mapping": {
+                "employee_number": "NIK",
+                "date": "Tanggal",
+                "clock_in": "Masuk",
+                "clock_out": "Keluar",
+            },
+        }
+
+        preview = client.post(f"/v1/payroll/runs/{run['id']}/attendance:preview", json=payload)
+        assert preview.status_code == 200, preview.text
+        body = preview.json()
+        assert body["errors"] == []
+        assert body["rows"][0]["days_present"] == 2
+        assert body["rows"][0]["overtime_hours"] == 3.0
+
+        committed = client.post(f"/v1/payroll/runs/{run['id']}/attendance:commit", json=payload)
+        assert committed.status_code == 200, committed.text
+
+
+def test_attendance_rejects_both_sources_and_invalid_base64() -> None:
+    app = create_app()
+    with TestClient(app) as client:
+        run = client.post(
+            "/v1/payroll/runs",
+            json={"period_year": YEAR, "period_month": 6},
+        ).json()
+        both = client.post(
+            f"/v1/payroll/runs/{run['id']}/attendance:preview",
+            json={"csv_text": "employee_number,date,clock_in,clock_out\n", "file_base64": "QQ=="},
+        )
+        neither = client.post(f"/v1/payroll/runs/{run['id']}/attendance:preview", json={})
+        bad = client.post(
+            f"/v1/payroll/runs/{run['id']}/attendance:preview",
+            json={"file_base64": "not base64!!"},
+        )
+
+    assert both.status_code == 422
+    assert neither.status_code == 422
+    assert bad.status_code == 422
 
 
 def test_attendance_commit_refuses_bad_rows_without_mutating() -> None:

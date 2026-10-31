@@ -92,18 +92,31 @@ def set_inputs(run_id: UUID, payload: InputsSet, payroll: PayrollDep, actor: Act
     "/runs/{run_id}/attendance:preview",
     response_model=AttendancePreviewView,
     dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
-    summary="Preview fingerprint CSV aggregation without writing",
+    summary="Preview fingerprint CSV/XLSX aggregation without writing",
 )
 def preview_attendance(
     run_id: UUID, payload: AttendanceCommit, payroll: PayrollDep, actor: ActorDep
 ) -> AttendancePreviewView:
     try:
         run = payroll.get_run(run_id)
-        preview = payroll.preview_attendance(
-            payload.csv_text,
-            period_year=run.period_year,
-            period_month=run.period_month,
-        )
+        content = payload.content()
+        if content is None:
+            assert payload.csv_text is not None
+            preview = payroll.preview_attendance(
+                payload.csv_text,
+                period_year=run.period_year,
+                period_month=run.period_month,
+                mapping=payload.mapping,
+            )
+        else:
+            preview = payroll.preview_attendance_xlsx(
+                content,
+                period_year=run.period_year,
+                period_month=run.period_month,
+                sheet=payload.sheet,
+                header_row=payload.header_row,
+                mapping=payload.mapping,
+            )
     except PayrollError as exc:
         raise not_found(str(exc)) from exc
     from hr_agents.api.payroll_schemas import AttendanceErrorView, AttendanceRowView
@@ -142,13 +155,25 @@ def preview_attendance(
     "/runs/{run_id}/attendance:commit",
     response_model=RunView,
     dependencies=[Depends(require_permission(Permission.PAYROLL_WRITE))],
-    summary="Fill overtime/absence on an editable run from fingerprint CSV",
+    summary="Fill overtime/absence on an editable run from fingerprint CSV/XLSX",
 )
 def commit_attendance(
     run_id: UUID, payload: AttendanceCommit, payroll: PayrollDep, actor: ActorDep
 ) -> RunView:
     try:
-        run = payroll.apply_attendance(run_id, payload.csv_text, actor=actor)
+        content = payload.content()
+        if content is None:
+            assert payload.csv_text is not None
+            run = payroll.apply_attendance(run_id, payload.csv_text, actor=actor)
+        else:
+            run = payroll.apply_attendance_xlsx(
+                run_id,
+                content,
+                actor=actor,
+                sheet=payload.sheet,
+                header_row=payload.header_row,
+                mapping=payload.mapping,
+            )
     except PayrollError as exc:
         raise conflict(exc) from exc
     return RunView.from_model(run)

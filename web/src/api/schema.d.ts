@@ -2839,7 +2839,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fill overtime/absence on an editable run from fingerprint CSV */
+        /** Fill overtime/absence on an editable run from fingerprint CSV/XLSX */
         post: operations["commit_attendance_v1_payroll_runs__run_id__attendance_commit_post"];
         delete?: never;
         options?: never;
@@ -2856,7 +2856,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Preview fingerprint CSV aggregation without writing */
+        /** Preview fingerprint CSV/XLSX aggregation without writing */
         post: operations["preview_attendance_v1_payroll_runs__run_id__attendance_preview_post"];
         delete?: never;
         options?: never;
@@ -3902,10 +3902,30 @@ export interface components {
              */
             updated_at: string;
         };
-        /** AttendanceCommit */
+        /**
+         * AttendanceCommit
+         * @description One attendance source: pasted/small CSV text, or an uploaded workbook.
+         *
+         *     Exactly one of ``csv_text`` and ``file_base64`` must be present. The
+         *     workbook path carries a mapping because machine exports name their columns
+         *     whatever the installer chose; the base64 is validated here so a corrupt
+         *     upload is a 422 rather than a 500 inside the parser.
+         */
         AttendanceCommit: {
             /** Csv Text */
-            csv_text: string;
+            csv_text?: string | null;
+            /** File Base64 */
+            file_base64?: string | null;
+            /** Filename */
+            filename?: string | null;
+            /**
+             * Header Row
+             * @default 1
+             */
+            header_row: number;
+            mapping?: components["schemas"]["ColumnMapping"] | null;
+            /** Sheet */
+            sheet?: string | null;
         };
         /** AttendanceErrorView */
         AttendanceErrorView: {
@@ -4351,6 +4371,37 @@ export interface components {
             role: string;
             /** Text */
             text: string;
+        };
+        /**
+         * ColumnMapping
+         * @description Which spreadsheet column carries each required field.
+         *
+         *     Fingerprint exports are named by whoever installed the machine, so the
+         *     canonical header cannot be assumed. The mapping is matched case-insensitively
+         *     after trimming, and a name that is not in the sheet is a header error — never
+         *     a silent zero.
+         */
+        ColumnMapping: {
+            /**
+             * Clock In
+             * @default clock_in
+             */
+            clock_in: string;
+            /**
+             * Clock Out
+             * @default clock_out
+             */
+            clock_out: string;
+            /**
+             * Date
+             * @default date
+             */
+            date: string;
+            /**
+             * Employee Number
+             * @default employee_number
+             */
+            employee_number: string;
         };
         /**
          * CommunicationKind
