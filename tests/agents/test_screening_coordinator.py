@@ -87,6 +87,19 @@ def test_protected_topics_detected(message: str) -> None:
     assert any("protected-topic" in violation for violation in violations)
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "I sent you a message about availability.",
+        "The hiring manager will follow up on language coverage.",
+    ],
+)
+def test_protected_topics_do_not_fire_on_substrings(message: str) -> None:
+    reply = base_reply(message=message)
+    violations = validate_reply(reply, current_state=ConversationState.AWAITING_CONSENT)
+    assert not [violation for violation in violations if "protected-topic" in violation]
+
+
 def test_handoff_requires_escalation_action() -> None:
     reply = base_reply(
         message="A human will follow up.",

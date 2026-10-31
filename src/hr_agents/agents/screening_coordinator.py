@@ -8,6 +8,7 @@ topics, valid state transitions) before any message leaves the system.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pydantic import Field
@@ -51,7 +52,7 @@ ALLOWED_TRANSITIONS: dict[ConversationState, frozenset[ConversationState]] = {
     ConversationState.HANDED_OFF_TO_HUMAN: frozenset(),
 }
 
-# Phrases the system may never send, across languages (lowercased substring match).
+# Phrases the system may never send, across languages (word-boundary match).
 BANNED_PHRASES: tuple[str, ...] = (
     "you got the job",
     "you're hired",
@@ -81,10 +82,17 @@ _PROTECTED_TERMS: tuple[str, ...] = (
     "race",
     "birth date",
     "usia",
+    "umur",
     "agama",
     "menikah",
     "hamil",
+    "kehamilan",
+    "ras",
+    "etnis",
 )
+
+_BANNED_PATTERNS = tuple(re.compile(rf"\b{re.escape(phrase)}\b") for phrase in BANNED_PHRASES)
+_PROTECTED_PATTERNS = tuple(re.compile(rf"\b{re.escape(term)}\b") for term in _PROTECTED_TERMS)
 
 _BASE_INSTRUCTIONS = """\
 You are the Screening Coordinator agent. You run one async conversation turn
@@ -127,11 +135,11 @@ def validate_reply(
     violations: list[str] = []
 
     lowered = reply.message.lower()
-    for phrase in BANNED_PHRASES:
-        if phrase in lowered:
+    for phrase, pattern in zip(BANNED_PHRASES, _BANNED_PATTERNS, strict=True):
+        if pattern.search(lowered):
             violations.append(f"banned phrase in message: {phrase!r}")
-    for term in _PROTECTED_TERMS:
-        if term in lowered:
+    for term, pattern in zip(_PROTECTED_TERMS, _PROTECTED_PATTERNS, strict=True):
+        if pattern.search(lowered):
             violations.append(f"protected-topic term in message: {term!r}")
 
     allowed = ALLOWED_TRANSITIONS.get(current_state, frozenset())

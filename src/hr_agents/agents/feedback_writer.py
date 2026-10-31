@@ -8,6 +8,7 @@ weaker ones, and no protected-attribute language may appear.
 
 from __future__ import annotations
 
+import re
 from enum import StrEnum
 
 from pydantic import Field
@@ -43,9 +44,15 @@ _PROTECTED_TERMS = (
     "agama",
     "nikah",
     "usia",
+    "umur",
     "hamil",
+    "kehamilan",
     "suku",
+    "ras",
+    "etnis",
 )
+
+_PROTECTED_PATTERNS = tuple(re.compile(rf"\b{re.escape(term)}\b") for term in _PROTECTED_TERMS)
 
 _BASE_INSTRUCTIONS = """\
 You are the Feedback Writer agent. You write candidate-facing feedback reports
@@ -154,8 +161,8 @@ def validate_grounding(
             *(item.text for item in report.growth_areas),
         ]
     ).lower()
-    for term in _PROTECTED_TERMS:
-        if term in haystack:
+    for term, pattern in zip(_PROTECTED_TERMS, _PROTECTED_PATTERNS, strict=True):
+        if pattern.search(haystack):
             violations.append(
                 GroundingViolation(
                     code=GroundingCode.PROTECTED_ATTRIBUTE,

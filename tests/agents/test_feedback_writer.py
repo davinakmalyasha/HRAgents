@@ -142,6 +142,21 @@ def test_protected_terms_indonesian_and_english(term: str) -> None:
     assert any(violation.code is GroundingCode.PROTECTED_ATTRIBUTE for violation in violations)
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Sent a message to the candidate about next steps.",
+        "The hiring manager reviewed the average coverage of skills.",
+        "Language skills and messaging history were reviewed.",
+    ],
+)
+def test_protected_terms_do_not_fire_on_substrings(text: str) -> None:
+    evaluation = make_evaluation(MIXED)
+    report = make_report(summary=text)
+    violations = validate_grounding(report, evaluation)
+    assert not [v for v in violations if v.code is GroundingCode.PROTECTED_ATTRIBUTE]
+
+
 def test_no_strengths_violation() -> None:
     evaluation = make_evaluation(STRONG_ALL)
     report = make_report(strengths=[])
