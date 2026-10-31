@@ -376,6 +376,7 @@ class CommunicationView(StrictModel):
     provider_message_id: str | None
     send_attempts: int
     last_error: str | None
+    last_attempt_at: datetime | None
     created_at: datetime
 
     @classmethod
@@ -401,6 +402,7 @@ class CommunicationView(StrictModel):
             provider_message_id=item.provider_message_id,
             send_attempts=item.send_attempts,
             last_error=item.last_error,
+            last_attempt_at=item.last_attempt_at,
             created_at=item.created_at,
         )
 

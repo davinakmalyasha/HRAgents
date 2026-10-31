@@ -33,7 +33,9 @@ def _render(summary: dict[str, Any]) -> str:
         else:
             lines.append(
                 f"dispatch via {send['provider']}: sent {send['sent']}, "
-                f"failed {send['failed']}, skipped {send['skipped']}"
+                f"failed {send['failed']}, skipped {send['skipped']}, "
+                f"deferred {send.get('deferred', 0)}, "
+                f"unrecorded {send.get('unrecorded', 0)}"
             )
     receive = summary.get("receive")
     if receive:

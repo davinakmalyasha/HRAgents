@@ -585,6 +585,7 @@ class DbCommunicationService(CommunicationService):
             )
             row.send_attempts = item.send_attempts
             row.last_error = item.last_error
+            row.last_attempt_at = item.last_attempt_at
             row.created_at = item.created_at
             session.flush()
 
@@ -611,6 +612,7 @@ class DbCommunicationService(CommunicationService):
             provider_message_id=row.provider_message_id,
             send_attempts=row.send_attempts,
             last_error=row.last_error,
+            last_attempt_at=None if row.last_attempt_at is None else _aware(row.last_attempt_at),
             created_at=_aware(row.created_at),
             version=row.version,
         )

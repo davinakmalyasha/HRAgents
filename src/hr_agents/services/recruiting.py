@@ -1176,6 +1176,7 @@ class CommunicationService:
                 "recipient": recipient,
                 "send_attempts": item.send_attempts + 1,
                 "last_error": None,
+                "last_attempt_at": sent_at or utc_now(),
             }
         )
         self._persist(updated)
@@ -1211,6 +1212,7 @@ class CommunicationService:
             update={
                 "send_attempts": item.send_attempts + 1,
                 "last_error": error[:500],
+                "last_attempt_at": utc_now(),
             }
         )
         self._persist(updated)

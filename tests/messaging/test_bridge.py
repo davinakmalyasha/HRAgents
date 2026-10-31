@@ -8,6 +8,7 @@ and mail that matches no candidate is never attributed.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -21,7 +22,7 @@ from hr_agents.messaging.base import (
 )
 from hr_agents.messaging.contacts import InMemoryCandidateDirectory
 from hr_agents.messaging.inbound import ReplyIngestor
-from hr_agents.messaging.outbox import OutboxDispatcher, default_subject
+from hr_agents.messaging.outbox import OutboxDispatcher, default_subject, retry_delay
 from hr_agents.messaging.store import ReplyStore
 from hr_agents.models import (
     ActorType,
@@ -275,6 +276,121 @@ def test_transport_error_is_recorded_and_the_run_continues(
     assert (report.sent, report.failed) == (1, 1)
     assert communications.get(first.id).send_attempts == 1
     assert communications.get(second.id).status is CommunicationStatus.SENT
+
+
+def test_an_unexpected_sender_error_does_not_abandon_the_batch(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    """A third-party adapter may raise anything; the other messages still go."""
+    register(evaluations)
+    first = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="First", to_email="first@example.com"
+    )
+    other = uuid4()
+    register(evaluations, candidate_id=other)
+    second = communications.queue_offer(
+        other, actor=ActorRef.legacy("hr-admin"), body="Second", to_email="second@example.com"
+    )
+
+    class ExplodingSender(FakeSender):
+        def send(self, message: OutboundEmail) -> SendResult:
+            if message.to == "first@example.com":
+                raise RuntimeError("adapter bug, not a TransportError")
+            return super().send(message)
+
+    report = OutboxDispatcher(
+        communications=communications, sender=ExplodingSender()
+    ).dispatch_pending()
+
+    assert (report.sent, report.failed) == (1, 1)
+    assert report.ok is False
+    assert communications.get(first.id).send_attempts == 1
+    assert communications.get(second.id).status is CommunicationStatus.SENT
+
+
+def test_a_message_that_is_no_longer_queued_is_skipped_not_sent(
+    evaluations: EvaluationService,
+    communications: CommunicationService,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The listing can be stale; a decided message must not go out twice."""
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+    communications.record_dispatch(
+        queued.id, provider="email.smtp", recipient=CANDIDATE_EMAIL, message_id="<one@example.com>"
+    )
+    monkeypatch.setattr(communications, "list_queued", lambda **_: [communications.get(queued.id)])
+    sender = FakeSender()
+
+    report = OutboxDispatcher(communications=communications, sender=sender).dispatch_pending()
+
+    assert (report.sent, report.skipped) == (0, 1)
+    assert sender.sent == []
+    assert "no longer queued" in report.outcomes[0].detail
+
+
+def test_a_sent_message_whose_record_cannot_land_is_ambiguous_not_retried(
+    evaluations: EvaluationService,
+    communications: CommunicationService,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The bytes left, the evidence did not: report it, never claim it failed."""
+    register(evaluations)
+    communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+    sender = FakeSender()
+
+    def refuse(*_args: object, **_kwargs: object) -> None:
+        raise RecruitingError("communication is sent; only a queued message can be recorded")
+
+    monkeypatch.setattr(communications, "record_dispatch", refuse)
+    report = OutboxDispatcher(communications=communications, sender=sender).dispatch_pending()
+
+    assert (report.sent, report.failed, report.unrecorded) == (0, 0, 1)
+    assert report.ok is False
+    assert len(sender.sent) == 1
+    assert "do not retry blindly" in report.outcomes[0].detail
+
+
+def test_a_failed_message_cools_off_before_the_next_attempt(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    """A bounced address was retried every scheduler tick, forever."""
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID, actor=ActorRef.legacy("hr-admin"), body="Offer body", to_email=CANDIDATE_EMAIL
+    )
+    first = OutboxDispatcher(
+        communications=communications, sender=FakeSender(accept=False)
+    ).dispatch_pending()
+    assert first.failed == 1
+    assert communications.get(queued.id).last_attempt_at is not None
+
+    recovered = FakeSender()
+    dispatcher = OutboxDispatcher(communications=communications, sender=recovered)
+    cooling = dispatcher.dispatch_pending()
+
+    assert (cooling.sent, cooling.failed, cooling.deferred) == (0, 0, 1)
+    assert cooling.ok is True
+    assert recovered.sent == []
+
+    attempt = communications.get(queued.id).last_attempt_at
+    assert attempt is not None
+    retried = dispatcher.dispatch_pending(started_at=attempt + retry_delay(1))
+
+    assert retried.sent == 1
+    assert [message.to for message in recovered.sent] == [CANDIDATE_EMAIL]
+
+
+def test_retry_delay_doubles_and_is_capped() -> None:
+    assert retry_delay(0) == timedelta(0)
+    assert retry_delay(1) == timedelta(minutes=15)
+    assert retry_delay(2) == timedelta(minutes=30)
+    assert retry_delay(3) == timedelta(hours=1)
+    assert retry_delay(50) == timedelta(hours=24)
 
 
 def test_only_queued_email_messages_are_considered(

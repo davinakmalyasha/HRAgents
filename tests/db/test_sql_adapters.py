@@ -713,6 +713,8 @@ def test_communication_adapter_persists_transport_evidence(
     assert loaded.provider_message_id == "<outbound-9@example.com>"
     assert loaded.send_attempts == 2
     assert loaded.last_error is None
+    assert loaded.last_attempt_at is not None
+    assert loaded.last_attempt_at.tzinfo is not None
     threaded = fresh.find_by_provider_message_id("<outbound-9@example.com>")
     assert threaded is not None and threaded.id == item.id
 

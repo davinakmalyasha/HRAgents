@@ -109,6 +109,7 @@ class CandidateCommunication(Versioned):
     provider_message_id: str | None = Field(default=None, max_length=500)
     send_attempts: int = Field(default=0, ge=0)
     last_error: str | None = Field(default=None, max_length=500)
+    last_attempt_at: UtcDateTime | None = None
     created_at: UtcDateTime = Field(default_factory=utc_now)
 
 
