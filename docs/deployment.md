@@ -305,9 +305,19 @@ EMP-001,2026-06-02,08:00,17:00
 
 Rules, all fail-closed: the header must match exactly; every row names a known
 employee number and a date inside the run's period with clock-out after
-clock-in; overtime is hours past 8 per day; absence is working days in the
-period minus days present, minus days on approved leave (which excuse an
-absence instead of counting as one). Preview first, then commit:
+clock-in. Overtime is hours past `standard_hours_per_day` — **8 by default**, and
+the preview response states the value it used (`standard_hours_per_day`); the
+*price* of an overtime hour still comes from the verified overtime rate table.
+Absence is working days in the period minus days present, minus days on approved
+leave (which excuse an absence instead of counting as one). Weekends and the
+public holidays you set on the leave calendar are both excluded — a holiday is
+not an absence.
+
+A row is one calendar day. A shift that ends after midnight cannot be
+represented: clock-out earlier than clock-in is refused rather than guessed, and
+the commit refuses the whole file. Split an overnight shift at midnight, or set
+the hours directly with `PUT /v1/payroll/runs/{id}/inputs`. Preview first, then
+commit:
 
 ```bash
 curl -s localhost:8000/v1/payroll/runs/<id>/attendance:preview \
@@ -444,8 +454,23 @@ because they decide whether the product *works* rather than whether it starts: n
 queue means submissions are accepted and never evaluated, and no skills library
 means every agent runs with no runbook.
 
-`/metrics` is plain Prometheus text; `curl` is enough, no exporter stack. The
-series worth alerting on:
+`/metrics` is plain Prometheus text; `curl` is enough, no exporter stack. It is
+public on a private network by default. To require a token (the scrape surface
+visible from a network you do not control), set `HRAGENTS_METRICS_TOKEN` and have
+the scraper send it as a bearer credential:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: hragents
+    authorization:
+      credentials: <the token>
+    static_configs:
+      - targets: ["hragents:8000"]
+```
+
+Without the token, `curl localhost:8000/metrics` keeps working exactly as
+documented below. The series worth alerting on:
 
 | Series | Meaning |
 |---|---|

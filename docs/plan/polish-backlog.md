@@ -114,9 +114,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       asserted the live value under a name claiming the opposite — an operator following the docs
       and pointing SMTP at a real relay would have started sending candidate email from a stack they
       believed was sandboxed
-- [ ] Retry/backoff policy audit per provider (failed sends stay queued and retry on the
+- [~] Retry/backoff policy audit per provider (failed sends stay queued and retry on the
       next run); circuit breakers for flaky integrations
-- [ ] `send_attempts` is written on every dispatch and read by nothing; no cap, no backoff, no alert
+- [~] `send_attempts` and `last_attempt_at` drive an exponential backoff (15 min, 30, 60 …
+      capped at 24 h) so a bounced address is no longer retried on every scheduler tick;
+      the message stays queued throughout and the outcome is reported as `deferred`, not
+      failed. Still open: no cap that requires a human, and no alert on repeated failures
 - [x] `/readyz` endpoint (DB + messaging + audit + **queue** + **skills** checks, 503 when degraded),
       distinct from `/healthz`; security headers, body-size ceiling, and per-principal rate limits in
       `api/hardening.py`

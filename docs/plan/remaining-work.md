@@ -340,8 +340,10 @@ Remaining in this area:
       and offboarding templates, job specs); employee-scoped vault/contract lists (bounded
       by one employee's record); computed lists that merge or derive rows (the compliance
       calendar's derived-deadlines-plus-operator entries, overdue breach steps, the ops
-      dead-letter envelope, POST sweep results); and workspace handoffs, whose store has no
-      database adapter yet.
+      dead-letter envelope, POST sweep results). Workspace handoffs moved out of that
+      list: `WorkspaceRequestStore.page_open` filters, orders, slices and counts in SQL
+      through the Postgres adapter, so the queue no longer materialises every closed
+      request the tenant ever filed to show one page.
 - [x] **No `CHECK` constraint exists anywhere in the tables.** Migration `0023` pins 38
       constraints onto the tables, every one mirroring an existing model validator: the
       payroll money columns are non-negative and the four `PayrollLine` arithmetic
@@ -834,7 +836,9 @@ latency, costs, and failure modes documented.
       CodeQL and Dependabot, API keys are role-bound and audited, and the rotation runbook covers
       keys, the settings key, VAPID, provider credentials and infrastructure passwords. Uploads pass
       an optional ClamAV scanner before storage: clean is recorded, infected is refused, and a
-      configured-but-unreachable scanner refuses rather than downgrading to unscanned. Remaining:
+      configured-but-unreachable scanner refuses rather than downgrading to unscanned. `/metrics`
+      can require a bearer token (`HRAGENTS_METRICS_TOKEN`) for a scrape surface that crosses an
+      untrusted network. Remaining:
       an external pen-test and a checklist for it, and wiring the scanner into any future
       object-store ingestion path that bypasses `/v1/documents`.
 - [x] Observability: optional OTLP/HTTP tracing instruments the API, outbound HTTP and the worker's
@@ -858,6 +862,9 @@ latency, costs, and failure modes documented.
       `docker-compose.yml` as a 15-minute loop. A failed run can also post one Slack-compatible
       message to `HRAGENTS_SCHEDULER_ALERT_WEBHOOK` (job names and errors, never records; the
       URL is never logged); a transport failure is logged and cannot change the exit code.
+      The target must be HTTPS — loopback HTTP stays available for a local sink, and
+      `HRAGENTS_SCHEDULER_ALERT_ALLOW_HTTP=true` is the explicit opt-in for a LAN relay
+      without TLS.
 - [ ] Managed cloud SaaS + billing — **deferred until proven demand** (`[-]` in master plan)
 - [ ] Dedicated instance (BYOC) recipes — only if requested
 - [ ] Office Connector folder-sync agent — only if demanded
@@ -933,6 +940,16 @@ backend + docs + tests slice; the dashboard import UI follows per slice.
       (`services/attendance.py`, `PayrollService.preview/apply_attendance`,
       leave-aware absence, salaries untouched, both routes behind
       `payroll:write`). Operator format documented in `deployment.md`.
+- [x] **Attendance figures stop inventing an absence on a holiday.** The preview
+      counted weekends only, so a public holiday the operator had already entered on
+      the leave calendar read as an absence and prorated the month down. Working days
+      now come from `LeaveService.working_days` (weekends **and** operator holidays),
+      and an approved leave day only excuses a day that is actually a working day, so
+      a request spanning a weekend cannot hide a real absence. The daily overtime
+      threshold is explicit in the response (`standard_hours_per_day`, default 8.0,
+      overridable) instead of a buried constant; pricing still comes from the verified
+      overtime table. Overnight shifts remain unsupported by the one-row-per-day
+      format and are documented as such — the import refuses rather than guesses.
 - [x] **Statutory Q&A pack for Ask HR.** Twelve sourced ID-labor notes
       (`skills/platform/labor-law/`, namespace `platform.labor-law` claimed by
       the Ask HR workspace): structure and day/month counts from the cited law
@@ -951,6 +968,27 @@ backend + docs + tests slice; the dashboard import UI follows per slice.
       intake path) or discards with a reason; drafts with no stored documents
       refuse. Replies stay owned by the reply bridge; bodyless mail is never
       stored as a reply. Operator rules in `deployment.md` §2.
+- [x] **One malformed email can no longer wedge the mailbox.** `parse_message` is total
+      by contract: a `From:` the address validator refuses (common in spam and broken
+      clients) returns `None` instead of raising, so the poll marks the message seen and
+      continues. Bodies are truncated at the model's 20 000-character bound, keeping the
+      head (the reply is written above the quoted history) rather than refusing the
+      message. Before this, a `ValidationError` escaped `poll()`, the message was never
+      marked seen, and every run re-read it — reply ingestion and CV drafting both
+      stopped until a human intervened. Guarded by
+      `tests/messaging/test_imap.py` (invalid sender, 25 000-character body).
+- [x] **A dispatch pass is honest about partial outcomes.** The per-item exception
+      boundary now covers any sender error (an operator adapter raising `RuntimeError`
+      used to abandon the remaining batch), a row that a human withdrew or another run
+      already sent is skipped instead of re-sent, and a message the transport accepted
+      whose evidence could not be written is counted as `unrecorded` — reported, exit
+      code nonzero, and explicitly "do not retry blindly" because a retry sends a second
+      copy. A failed send now records `last_attempt_at` (migration `0036`) and cools off
+      for 15 min, 30, 60 … capped at 24 h, so a bounced mailbox is not hammered on
+      every scheduler tick; the run reports it as `deferred`, the message stays queued,
+      and a fixed address recovers without a human reset. Remaining: a claim/lease on
+      the row before the send, so two concurrent dispatch processes cannot both call
+      the transport, and an alert when one message keeps failing.
 - [x] **Recalibrate the dead `AUTO_SCHEDULE` band.** Recalibrated 2026-10-30
       from the corpus bands: auto floor `0.85 → 0.75`, merit floor
       `0.70 → 0.60` (`config.py`, `PolicyThresholds`, `hitl-bounds.md` with a
