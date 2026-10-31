@@ -31,6 +31,32 @@ def test_sandbox_leaves_no_transport_active() -> None:
     assert build_email_receiver(settings=settings) is None
 
 
+def test_gmail_sender_is_selected_by_the_provider_layer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Selecting email.gmail in configuration hands the outbox the live sender."""
+    monkeypatch.setenv("HRAGENTS_PROVIDER_EMAIL_SEND", "email.gmail")
+    monkeypatch.setenv(
+        "HRAGENTS_PROVIDER_EMAIL_SEND_CONFIG",
+        json.dumps(
+            {
+                "client_id": "client-1",
+                "client_secret": "secret-1",
+                "refresh_token": "refresh-1",
+                "from_address": "talent@example.com",
+            }
+        ),
+    )
+    settings = Settings(messaging_sandbox=False)
+
+    sender = build_email_sender(settings=settings)
+
+    from hr_agents.integrations.gmail import GmailSender
+
+    assert isinstance(sender, GmailSender)
+    assert sender.provider_id == "email.gmail"
+
+
 def test_smtp_sender_is_built_from_provider_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HRAGENTS_PROVIDER_EMAIL_SEND", "email.smtp")
     monkeypatch.setenv(

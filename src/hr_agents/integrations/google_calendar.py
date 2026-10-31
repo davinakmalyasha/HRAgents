@@ -27,6 +27,7 @@ from typing import Any
 
 import httpx
 
+from hr_agents.integrations.google_oauth import GoogleOAuthError, RefreshTokenOAuth
 from hr_agents.logging import get_logger
 from hr_agents.models import TimeSlot
 from hr_agents.providers.calendar import GoogleCalendarConfig
@@ -34,10 +35,6 @@ from hr_agents.providers.calendar import GoogleCalendarConfig
 logger = get_logger(__name__)
 
 GOOGLE_CALENDAR_PROVIDER_ID = "calendar.google"
-
-TOKEN_SAFETY_SECONDS = 60
-"""Refresh a little early: a token that expires mid-request is a 401 the operator
-reads as a configuration fault."""
 
 
 class GoogleCalendarError(RuntimeError):
@@ -56,9 +53,15 @@ class GoogleCalendarBusy:
     ) -> None:
         self._config = config
         self._client = client or httpx.Client(timeout=30.0)
-        self._clock = clock
-        self._access_token: str | None = None
-        self._expires_at = 0.0
+        self._oauth = RefreshTokenOAuth(
+            client_id=config.client_id,
+            client_secret=config.client_secret.get_secret_value(),
+            refresh_token=config.refresh_token.get_secret_value(),
+            token_url=config.token_url,
+            client=self._client,
+            clock=clock,
+            provider="google calendar",
+        )
 
     @property
     def provider_id(self) -> str:
@@ -72,7 +75,10 @@ class GoogleCalendarBusy:
         # a 401 from a token request would hide it behind a credential error.
         time_min = _rfc3339(start)
         time_max = _rfc3339(end)
-        token = self._token()
+        try:
+            token = self._oauth.token()
+        except GoogleOAuthError as exc:
+            raise GoogleCalendarError(str(exc)) from exc
         url = f"{self._config.base_url.rstrip('/')}/calendar/v3/freeBusy"
         try:
             response = self._client.post(
@@ -120,41 +126,6 @@ class GoogleCalendarBusy:
                 raise GoogleCalendarError("free/busy returned a malformed interval") from None
             slots.append(window)
         return sorted(slots, key=lambda slot: slot.start_utc)
-
-    # --- OAuth -----------------------------------------------------------
-
-    def _token(self) -> str:
-        if self._access_token is not None and self._clock() < self._expires_at:
-            return self._access_token
-        try:
-            response = self._client.post(
-                self._config.token_url,
-                data={
-                    "client_id": self._config.client_id,
-                    "client_secret": self._config.client_secret.get_secret_value(),
-                    "refresh_token": self._config.refresh_token.get_secret_value(),
-                    "grant_type": "refresh_token",
-                },
-            )
-        except httpx.HTTPError as exc:
-            raise GoogleCalendarError(
-                f"{type(exc).__name__}: the token endpoint did not answer"
-            ) from exc
-        if response.status_code >= 400:
-            raise GoogleCalendarError(_error_detail(response))
-        try:
-            payload = response.json()
-            token = str(payload["access_token"])
-        except ValueError, KeyError, TypeError:
-            raise GoogleCalendarError("the token endpoint returned no access token") from None
-        expires_in = payload.get("expires_in", 3600)
-        try:
-            lifetime = float(expires_in)
-        except TypeError, ValueError:
-            lifetime = 3600.0
-        self._access_token = token
-        self._expires_at = self._clock() + max(lifetime - TOKEN_SAFETY_SECONDS, 0.0)
-        return token
 
 
 def _rfc3339(moment: datetime) -> str:

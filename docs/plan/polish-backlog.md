@@ -176,9 +176,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 ## Deferred by design (do not re-litigate without demand)
 
-- [~] Live provider adapters: email (SMTP send + IMAP poll), WhatsApp Cloud sending, Telegram
-      Bot send and Google Calendar free/busy are live and tested over respx/MockTransport.
-      Remaining: Gmail thread sync, Google Drive/Sheets, Microsoft Graph, and the calendar
-      directory that turns free/busy into interviewer availability
+- [~] Live provider adapters: email (SMTP send + IMAP poll + **Gmail API send**), WhatsApp
+      Cloud sending, Telegram Bot send and Google Calendar free/busy are live and tested over
+      respx/MockTransport. Remaining, and **credential-blocked for live verification**: Google
+      Drive/Sheets (needs its own OAuth scopes and file-picker flows) and Microsoft Graph
+      (needs an Azure app registration and the client-credentials grant); the calendar
+      directory that turns free/busy into interviewer availability is also still open
 - [-] Managed cloud SaaS + billing
 - [-] Office Connector folder-sync agent

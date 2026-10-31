@@ -491,6 +491,23 @@ for Telegram awaits a stored chat-id field on the communication record; the
 sender and provider are live and tested, and no queued Telegram message is
 silently dropped.
 
+### Gmail sending
+
+A Google Workspace mailbox can carry the outbox instead of SMTP:
+
+```bash
+HRAGENTS_PROVIDER_EMAIL_SEND=email.gmail
+HRAGENTS_PROVIDER_EMAIL_SEND_CONFIG={"client_id":"...","client_secret":"...","refresh_token":"...","from_address":"hr@example.com"}
+```
+
+The OAuth client needs the `gmail.send` scope, and the refresh token must be
+issued for that scope. Messages are composed as real RFC 2822 documents and sent
+through `users.messages.send`, so `In-Reply-To`/`References` survive and a reply
+threads correctly. A refused grant or a Gmail API error comes back as a dispatch
+refusal on the queued message — never as an exception into the loop — and the
+message id Meta returns is the dispatch evidence. Gmail **receiving** is still
+the IMAP poller (or the Resend webhook); thread-history sync is not wired.
+
 ### Google Calendar free/busy
 
 `calendar.google` is a live adapter, not a placeholder: it refreshes a

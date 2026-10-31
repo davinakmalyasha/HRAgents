@@ -410,7 +410,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [ ] Deployed behind Cloudflare Tunnel instructions for self-host webhooks
 
 ### 7.2 Google Workspace / Microsoft 365
-- [ ] Gmail send + thread sync
+- [~] Gmail: **send is live** (`integrations/gmail.py`: refresh-token OAuth shared with
+      calendar, RFC 2822 composition with threading headers, `users.messages.send`; pinned
+      over respx and selectable as `HRAGENTS_PROVIDER_EMAIL_SEND=email.gmail`). Remaining:
+      thread sync / inbound history (the IMAP poller already receives replies)
 - [~] Google Calendar: **free/busy is live** (`integrations/google_calendar.py`: refresh-token
       OAuth, cached access token, `freeBusy` lookup returning UTC `TimeSlot`s; pinned over
       respx, operator probe `scripts/check_calendar.py`). Remaining: mapping an interviewer

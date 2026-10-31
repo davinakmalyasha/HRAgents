@@ -62,6 +62,18 @@ class ResendReceiverConfig(ProviderConfig):
     signing_header: str = "svix-signature"
 
 
+class GmailSenderConfig(ProviderConfig):
+    """Send through the Gmail API with an OAuth refresh token (``gmail.send``)."""
+
+    client_id: str = Field(min_length=1)
+    client_secret: SecretStr
+    refresh_token: SecretStr
+    from_address: str = "hragents@example.com"
+    user_id: str = "me"
+    base_url: str = "https://gmail.googleapis.com"
+    token_url: str = "https://oauth2.googleapis.com/token"
+
+
 # --- builders (SMTP/IMAP build live adapters; Resend stays config-only) ---
 
 
@@ -75,6 +87,13 @@ def _build_smtp(config: ProviderConfig) -> Any:
 def _build_resend(config: ProviderConfig) -> dict[str, Any]:
     assert isinstance(config, ResendSenderConfig)
     return {"transport": "resend", "from_address": config.from_address}
+
+
+def _build_gmail(config: ProviderConfig) -> Any:
+    from hr_agents.integrations.gmail import build_gmail_sender
+
+    assert isinstance(config, GmailSenderConfig)
+    return build_gmail_sender(config)
 
 
 def _build_imap(config: ProviderConfig) -> Any:
@@ -128,6 +147,17 @@ def _health_resend_webhook(config: ProviderConfig) -> ProviderHealth:
     )
 
 
+def _health_gmail(config: ProviderConfig) -> ProviderHealth:
+    assert isinstance(config, GmailSenderConfig)
+    if not config.refresh_token.get_secret_value():
+        return ProviderHealth.misconfigured("refresh_token is required")
+    if not config.from_address.strip():
+        return ProviderHealth.misconfigured("from_address is required")
+    return ProviderHealth.ok(
+        "sends through the Gmail API; the OAuth client needs the gmail.send scope"
+    )
+
+
 def email_specs() -> list[Any]:
     from hr_agents.providers.base import ProviderSpec
 
@@ -154,6 +184,21 @@ def email_specs() -> list[Any]:
             health_check=_health_resend,
             requires_network=True,
             secret_fields=["api_key"],
+        ),
+        ProviderSpec(
+            id="email.gmail",
+            capability=Capability.EMAIL_SEND,
+            display_name="Gmail API",
+            description=(
+                "Send through a Google Workspace mailbox with an OAuth refresh token "
+                "(gmail.send scope); threading headers are preserved."
+            ),
+            docs_url="https://developers.google.com/gmail/api/guides/sending",
+            config_model=GmailSenderConfig,
+            build=_build_gmail,
+            health_check=_health_gmail,
+            requires_network=True,
+            secret_fields=["client_secret", "refresh_token"],
         ),
         ProviderSpec(
             id="email.imap_poll",
