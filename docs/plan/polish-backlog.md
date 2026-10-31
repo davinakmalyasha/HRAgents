@@ -11,8 +11,14 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 ## Performance
 
-- [ ] Database: index review per hot query (approvals by role+status, tasks overdue, queue scans,
-      evaluations by application, audit_log by sequence)
+- [x] Database: index review per hot query. Every named case is covered: approvals
+      (`assignee_role,status`; `subject,subject_id`; `sla_deadline`), tasks (`status,due_on`;
+      `assignee_role,status`; `related_subject,related_id`), communications
+      (`status,created_at`; normalized provider message id), the approval-sync queue
+      (`consumed_at,created_at`), evaluations (`application_id`; `candidate_id,job_id`;
+      `recommendation`), applications (`job_id,priority_score`; `candidate_id`), and audit
+      (`subject_type,subject_id`; `created_at`; `seq` is the primary key). A live `EXPLAIN`
+      pass on production-sized data is the remaining verification, not missing indexes.
 - [x] Pagination on every collection endpoint: all 49 list routes answer the `Page[T]`
       envelope, and every list that grows with the business now runs its predicate, ORDER BY,
       LIMIT/OFFSET and count in SQL rather than `select(Table)` plus a Python `sorted`
@@ -67,8 +73,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       `opentelemetry-instrumentation-fastapi`, `opentelemetry-exporter-otlp-proto-http`) are out
       of the runtime dependencies, so the production image no longer carries them; the tracing
       itself stays open under Phase 9 observability
-- [ ] Cost tracking: no `usage()` call exists anywhere, so "what did this candidate cost" is
-      unanswerable
+- [~] Cost tracking: the token ledger exists per evaluation/application (`llm_usage`,
+      `STORE_BACKEND` adapters) and `GET /v1/ops/usage` aggregates it by provider and model
+      over a day window. Still open: pricing tables (so tokens become currency) and a
+      per-candidate view that joins the ledger through the application.
 - [x] Dependency and setting hygiene: `lizard` is used (`services/ast_analysis.py`, with
       `radon` for Python), so it stays; `tenacity` and `orjson` were never imported and are
       gone; `Settings.github_token`, `crossref_mailto`, `telegram_bot_token` and the two
@@ -155,8 +163,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       placeholder that the grounded answer replaces. Only append-only growth is emitted,
       because a structured stream can revise a partial object; the final reply is
       authoritative. Tool usage ships on the same reply (`tools_used`)
-- [ ] Communication panel: pre-queue preview endpoint for rejection messages (today the composed
-      body is reviewed after queueing and before dispatch — nothing can be sent unreviewed)
+- [x] Communication panel: pre-queue preview endpoint for rejection messages —
+      `POST /v1/candidates/{id}/communications/rejection/preview` returns the exact
+      subject/body and the blockers without storing anything, and the panel refuses to
+      queue until that preview has been read (re-previewing when a field changes)
 - [ ] Motion pass (reduced-motion aware), skeleton loaders, optimistic updates where safe
 - [ ] Empty states, error states, and offline states for every workspace
 - [ ] Accessibility audit (axe + screen-reader pass) on all workspaces — the manual keyboard and
@@ -167,9 +177,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 ## Docs & developer experience
 
-- [ ] Docs site (mkdocs-material + Pages) with versioned API reference
-- [ ] Postgres adapters for `ConversationStore` and `WorkspaceRequestStore` (in-memory
-      primitives today; land with the dashboard so queues survive restarts)
+- [x] Docs site (mkdocs-material + Pages) with versioned API reference — `mkdocs.yml`,
+      `.github/workflows/docs.yml` deploys `dev` on main and a tagged version with `mike`,
+      old versions stay addressable
+- [x] Postgres adapters for `ConversationStore` and `WorkspaceRequestStore` —
+      `DbConversationStore` / `DbWorkspaceRequestStore` in `db/workspace.py` persist both
+      through the configured session factory, so queues survive a restart
 - [ ] Operator runbooks: provider failures, incident response, upgrade playbook
 - [ ] Reproduce benchmarks from a clean clone (script + CI artifact)
 - [ ] Type strictness: evaluate `mypy --strict` on `src/hr_agents`; branch coverage 100% on
