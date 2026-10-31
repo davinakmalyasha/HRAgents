@@ -17,7 +17,14 @@ from email.parser import BytesParser
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Any, Protocol, cast
 
-from hr_agents.messaging.base import InboundAttachment, InboundEmail, TransportError
+from pydantic import ValidationError
+
+from hr_agents.messaging.base import (
+    MAX_INBOUND_BODY_CHARS,
+    InboundAttachment,
+    InboundEmail,
+    TransportError,
+)
 from hr_agents.models import utc_now
 from hr_agents.providers.email import ImapReceiverConfig
 
@@ -88,7 +95,13 @@ def _text_body(message: EmailMessage) -> str | None:
     content = part.get_content()
     if not isinstance(content, str):
         return None
-    return content.strip() or None
+    text = content.strip()
+    if not text:
+        return None
+    # Keep the head, not the tail: a reply is written above the quoted history,
+    # and the model's field is bounded. Passing the full text would raise inside
+    # `validate`, which used to abort the whole poll run on one long thread.
+    return text[:MAX_INBOUND_BODY_CHARS]
 
 
 def _received_at(message: EmailMessage) -> datetime:
@@ -154,6 +167,11 @@ def parse_message(raw: bytes, *, provider: str = IMAP_PROVIDER_ID) -> InboundEma
     A bodyless message with document attachments still parses (the draft flow
     reads the files, not the prose); a bodyless message with nothing attached is
     not mail, it is noise.
+
+    Total by contract: a sender the address validator refuses (some spammers,
+    some broken clients) makes the message unattributable, and raising instead
+    would abort a whole poll pass before the message was marked seen -- the same
+    malformed mail would wedge the mailbox on every run.
     """
     message = cast(EmailMessage, BytesParser(policy=policy.default).parsebytes(raw))
     sender_name, sender = parseaddr(str(message.get("From", "")))
@@ -162,20 +180,23 @@ def parse_message(raw: bytes, *, provider: str = IMAP_PROVIDER_ID) -> InboundEma
     if not sender or (body is None and not attachments):
         return None
     references = str(message.get("References", "")).split()
-    return InboundEmail(
-        provider=provider,
-        from_address=sender,
-        from_name=sender_name.strip()[:320],
-        to_address=parseaddr(str(message.get("To", "")))[1],
-        subject=str(message.get("Subject", ""))[:500],
-        body=body or "",
-        message_id=str(message.get("Message-ID", "")).strip() or None,
-        in_reply_to=str(message.get("In-Reply-To", "")).strip() or None,
-        references=references,
-        attachments=attachments,
-        skipped_attachments=skipped,
-        received_at=_received_at(message),
-    )
+    try:
+        return InboundEmail(
+            provider=provider,
+            from_address=sender,
+            from_name=sender_name.strip()[:320],
+            to_address=parseaddr(str(message.get("To", "")))[1],
+            subject=str(message.get("Subject", ""))[:500],
+            body=body or "",
+            message_id=str(message.get("Message-ID", "")).strip() or None,
+            in_reply_to=str(message.get("In-Reply-To", "")).strip() or None,
+            references=references,
+            attachments=attachments,
+            skipped_attachments=skipped,
+            received_at=_received_at(message),
+        )
+    except ValidationError:
+        return None
 
 
 class ImapEmailReceiver:

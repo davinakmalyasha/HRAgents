@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from hr_agents.messaging.base import TransportError
+from hr_agents.messaging.base import MAX_INBOUND_BODY_CHARS, TransportError
 from hr_agents.messaging.imap import (
     IMAP_PROVIDER_ID,
     ImapEmailReceiver,
@@ -124,6 +124,44 @@ def test_message_without_a_sender_is_never_attributed() -> None:
     parsed = parse_message(b"Subject: hello\n\nbody\n")
 
     assert parsed is None
+
+
+def test_a_sender_the_address_validator_refuses_is_skipped_not_raised() -> None:
+    """One malformed From must not abort the poll before the message is marked.
+
+    Before this, the `ValidationError` escaped `poll()`, the message was never
+    marked seen, and every run re-read it: the mailbox wedged on one spam email.
+    """
+    raw = b"""From: Noreply <not-an-email>
+Subject: halo
+Message-ID: <bad@example.com>
+
+body
+"""
+    assert parse_message(raw) is None
+
+    client = FakeImapClient({"1": raw, "2": RAW_REPLY})
+    messages = make_receiver(client).poll()
+
+    assert [message.from_address for message in messages] == ["budi@example.com"]
+    assert [stored[0] for stored in client.stored] == ["1", "2"]
+
+
+def test_a_very_long_body_is_truncated_not_refused() -> None:
+    long_body = "x" * (MAX_INBOUND_BODY_CHARS + 5_000)
+    raw = (
+        "From: Budi Santoso <budi@example.com>\n"
+        "Subject: Re: application\n"
+        "Message-ID: <long@example.com>\n"
+        "Content-Type: text/plain; charset=utf-8\n"
+        "\n"
+        f"{long_body}\n"
+    ).encode()
+
+    parsed = parse_message(raw)
+
+    assert parsed is not None
+    assert len(parsed.body) == MAX_INBOUND_BODY_CHARS
 
 
 def test_search_failure_raises_a_transport_error() -> None:

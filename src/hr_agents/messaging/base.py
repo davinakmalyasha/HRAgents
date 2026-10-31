@@ -14,6 +14,10 @@ from pydantic import EmailStr, Field
 
 from hr_agents.models import StrictModel, UtcDateTime, utc_now
 
+MAX_INBOUND_BODY_CHARS = 20_000
+"""Bound on a stored reply body. The head is kept: a human writes above the
+quoted history, and refusing an over-long message would wedge the mailbox."""
+
 
 class TransportError(RuntimeError):
     """Raised when a transport cannot carry a message."""
@@ -55,7 +59,7 @@ class InboundEmail(StrictModel):
     from_name: str = Field(default="", max_length=320)
     to_address: str = Field(default="", max_length=320)
     subject: str = Field(default="", max_length=500)
-    body: str = Field(default="", max_length=20000)
+    body: str = Field(default="", max_length=MAX_INBOUND_BODY_CHARS)
     message_id: str | None = Field(default=None, max_length=500)
     in_reply_to: str | None = Field(default=None, max_length=500)
     references: list[str] = Field(default_factory=list, max_length=50)
