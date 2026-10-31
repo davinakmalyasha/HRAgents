@@ -26,6 +26,16 @@ void i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 })
 
+/**
+ * `index.html` ships `lang="en"`, and the switcher only updated the attribute on
+ * a *change*. A returning user whose stored language is Indonesian therefore
+ * loaded a document that told a screen reader (and the browser's hyphenation and
+ * spell-check) English, until they switched languages by hand.
+ */
+if (typeof document !== 'undefined') {
+  document.documentElement.lang = i18n.language
+}
+
 i18n.on('languageChanged', (language) => {
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, language)

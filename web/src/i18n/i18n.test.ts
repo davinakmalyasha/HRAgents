@@ -26,9 +26,11 @@ describe('i18n', () => {
   it('switches the active language', async () => {
     await i18n.changeLanguage('id')
     expect(i18n.t('home.watching')).toBe('Dipantau')
+    expect(document.documentElement.lang).toBe('id')
 
     await i18n.changeLanguage('en')
     expect(i18n.t('home.watching')).toBe('Watching')
+    expect(document.documentElement.lang).toBe('en')
   })
 
   it('falls back to English for unknown languages', async () => {

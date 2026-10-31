@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
+import { ATTENTION_QUERY_KEY } from '@/lib/queryKeys'
 import { api } from '@/lib/api'
 import { HttpError } from '@/lib/httpError'
 import type { WorkspaceId } from '@/lib/workspaces'
@@ -37,9 +38,19 @@ export interface AttentionQueueSummary {
   workspace: WorkspaceId | null
 }
 
+/**
+ * The home is the one screen that must not lie about what is waiting.
+ *
+ * The app-wide stale window is 30 seconds, which meant a decision taken in
+ * another workspace could still read as "nothing needs you" back on the home.
+ * These three queries therefore always re-read one page on mount, and the
+ * mutation defaults in `lib/query.ts` invalidate the prefix after every write.
+ */
 function usePendingApprovals() {
   return useQuery({
-    queryKey: ['attention', 'approvals', 'pending'],
+    queryKey: [...ATTENTION_QUERY_KEY, 'approvals', 'pending'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<QueuePage<Approval>> => {
       const { data, response } = await api.GET('/v1/approvals', {
         params: { query: { status: 'pending', limit: ATTENTION_PAGE_SIZE, offset: 0 } },
@@ -52,7 +63,9 @@ function usePendingApprovals() {
 
 function useOpenTasks() {
   return useQuery({
-    queryKey: ['attention', 'tasks', 'open'],
+    queryKey: [...ATTENTION_QUERY_KEY, 'tasks', 'open'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<QueuePage<Task>> => {
       const { data, response } = await api.GET('/v1/tasks', {
         params: { query: { limit: ATTENTION_PAGE_SIZE, offset: 0 } },
@@ -65,7 +78,9 @@ function useOpenTasks() {
 
 function useOpenHandoffs() {
   return useQuery({
-    queryKey: ['attention', 'handoffs', 'open'],
+    queryKey: [...ATTENTION_QUERY_KEY, 'handoffs', 'open'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<QueuePage<Handoff>> => {
       const { data, response } = await api.GET('/v1/chat/handoffs', {
         params: { query: { limit: ATTENTION_PAGE_SIZE, offset: 0 } },
@@ -111,6 +126,13 @@ export function useAttention() {
     }
   }
 
+  async function refresh() {
+    await Promise.all([approvals.refetch(), tasks.refetch(), handoffs.refetch()])
+  }
+
+  const isRefreshing = approvals.isFetching || tasks.isFetching || handoffs.isFetching
+  const updatedAt = Math.max(approvals.dataUpdatedAt, tasks.dataUpdatedAt, handoffs.dataUpdatedAt)
+
   const all: AttentionItem[] = [...attention.needsYou, ...attention.watching]
   const queues: AttentionQueueSummary[] = [
     {
@@ -136,6 +158,9 @@ export function useAttention() {
   return {
     ...attention,
     isLoading: approvals.isLoading || tasks.isLoading || handoffs.isLoading,
+    isRefreshing,
+    updatedAt,
+    refresh,
     failures,
     retry,
     queues,

@@ -55,7 +55,10 @@
     "loadFailed": "Some queues could not be loaded.",
     "retry": "Retry",
     "queueLimited": "Showing {{shown}} of {{total}} {{queue}}.",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "updatedAt": "Updated {{when}}"
   },
   "rooms": {
     "board": "Board",
@@ -401,6 +404,7 @@
     "transport": "the mail transport",
     "dispatchedVia": "Dispatched via {{provider}} · {{attempts}} attempt(s)",
     "dispatchFailed": "Still queued — {{provider}} could not send it: {{error}}",
+    "lastAttempt": "last attempt {{when}}",
     "repliesTitle": "Candidate replies",
     "repliesHint": "Captured from the connected mailbox. A reply is evidence only — accepting an offer or moving a stage stays a human decision.",
     "repliesEmpty": "No replies captured yet.",

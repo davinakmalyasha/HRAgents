@@ -46,10 +46,12 @@ export function dispatchEvidence(item: CommunicationView): {
   provider: string | null
   attempts: number
   error: string | null
+  lastAttemptAt: string | null
 } {
   return {
     provider: item.provider,
     attempts: item.send_attempts,
     error: item.status === 'queued' ? item.last_error : null,
+    lastAttemptAt: item.status === 'queued' ? item.last_attempt_at : null,
   }
 }

@@ -88,6 +88,7 @@ function communication(overrides: Partial<CommunicationView> = {}): Communicatio
     provider_message_id: null,
     send_attempts: 0,
     last_error: null,
+    last_attempt_at: null,
     created_at: '2026-09-20T03:00:00Z',
     ...overrides,
   }

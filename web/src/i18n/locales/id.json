@@ -55,7 +55,10 @@
     "loadFailed": "Sebagian antrean tidak bisa dimuat.",
     "retry": "Coba lagi",
     "queueLimited": "Menampilkan {{shown}} dari {{total}} {{queue}}.",
-    "viewAll": "Lihat semua"
+    "viewAll": "Lihat semua",
+    "refresh": "Muat ulang",
+    "refreshing": "Memuat ulang…",
+    "updatedAt": "Diperbarui {{when}}"
   },
   "rooms": {
     "board": "Papan",
@@ -401,6 +404,7 @@
     "transport": "transport email",
     "dispatchedVia": "Dikirim melalui {{provider}} · {{attempts}} kali percobaan",
     "dispatchFailed": "Masih di antrean — {{provider}} gagal mengirim: {{error}}",
+    "lastAttempt": "percobaan terakhir {{when}}",
     "repliesTitle": "Balasan kandidat",
     "repliesHint": "Diambil dari kotak surat yang terhubung. Balasan hanya bukti — menerima tawaran atau memindahkan tahap tetap keputusan manusia.",
     "repliesEmpty": "Belum ada balasan yang diambil.",

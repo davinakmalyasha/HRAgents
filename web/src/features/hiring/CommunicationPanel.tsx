@@ -548,6 +548,11 @@ function CommunicationItem({
             provider: evidence.provider ?? t('communication.transport'),
             error: evidence.error,
           })}
+          {evidence.lastAttemptAt === null
+            ? null
+            : ` · ${t('communication.lastAttempt', {
+                when: formatDateTime(evidence.lastAttemptAt),
+              })}`}
         </p>
       ) : evidence.provider !== null ? (
         <span className="text-2xs text-ink-muted">
