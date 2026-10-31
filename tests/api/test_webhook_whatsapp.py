@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+from collections.abc import Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -57,7 +58,7 @@ def signed(body: bytes, *, delivery_id: str = "delivery-1") -> dict[str, str]:
 
 
 @pytest.fixture
-def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(webhooks_router, "_meta_secrets", lambda: (VERIFY_TOKEN, APP_SECRET))
     with TestClient(create_app()) as test_client:
         yield test_client
