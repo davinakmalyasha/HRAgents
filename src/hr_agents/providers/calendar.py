@@ -31,6 +31,9 @@ class GoogleCalendarConfig(ProviderConfig):
     refresh_token: SecretStr
     calendar_id: str = "primary"
     default_timezone: str = "Asia/Jakarta"
+    # Overridable for a gateway or a test; Google's own endpoints are the default.
+    base_url: str = "https://www.googleapis.com"
+    token_url: str = "https://oauth2.googleapis.com/token"
 
 
 def _build_manual(config: ProviderConfig) -> dict[str, Any]:
@@ -38,13 +41,11 @@ def _build_manual(config: ProviderConfig) -> dict[str, Any]:
     return {"transport": "manual_slots", "timezone": config.default_timezone}
 
 
-def _build_google(config: ProviderConfig) -> dict[str, Any]:
+def _build_google(config: ProviderConfig) -> Any:
+    from hr_agents.integrations.google_calendar import build_google_calendar
+
     assert isinstance(config, GoogleCalendarConfig)
-    return {
-        "transport": "google",
-        "calendar_id": config.calendar_id,
-        "timezone": config.default_timezone,
-    }
+    return build_google_calendar(config)
 
 
 def _health_manual(config: ProviderConfig) -> ProviderHealth:
@@ -56,7 +57,9 @@ def _health_google(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, GoogleCalendarConfig)
     if not config.refresh_token.get_secret_value():
         return ProviderHealth.misconfigured("refresh_token is required")
-    return ProviderHealth.ok("configuration valid (free/busy probe in Phase 7)")
+    return ProviderHealth.ok(
+        "free/busy is live: the refresh token mints an access token on the first call"
+    )
 
 
 def calendar_specs() -> list[ProviderSpec]:
