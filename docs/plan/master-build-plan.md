@@ -408,7 +408,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       **Inbound is live**: `POST /v1/webhooks/telegram` verifies
       `X-Telegram-Bot-Api-Secret-Token` in constant time and attributes a text reply by the
       chat id, deduplicating Telegram's retried updates on the message id. The dashboard's
-      queue form still offers email and WhatsApp; the API accepts the chat id
+      queue form offers all three addressed channels and asks for the Telegram chat id
 - [x] Response SLA timers (anti-ghosting): the `reply-sla` scheduler job flags a dispatched
       message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
       chase message)

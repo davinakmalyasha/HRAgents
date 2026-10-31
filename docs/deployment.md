@@ -503,9 +503,10 @@ health badge stays `misconfigured` until a token is entered.
 A queued message names its destination with `to_telegram_chat_id` (migration
 `0040`); the bridge sends it with the same lease, backoff and evidence rules as
 email and WhatsApp, and `run_messaging.py --telegram` dispatches that queue
-alone (the default pass includes it). The dashboard's queue form still offers
-email and WhatsApp; a Telegram message is queued through the API until the form
-grows a chat-id field.
+alone (the default pass includes it). The dashboard's queue form offers email,
+WhatsApp and Telegram; the Telegram option asks for the chat id the dispatcher
+needs, and the message stays queued until a named human records dispatch (or
+the transport carries it).
 
 Inbound is a webhook with a shared secret. Set `webhook_secret`, then register
 the URL with the *same* value as Telegram's `secret_token`:

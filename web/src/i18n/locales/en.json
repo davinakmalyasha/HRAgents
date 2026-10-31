@@ -443,7 +443,10 @@
       "toEmailHint": "Optional. With an email transport connected, the queued message is carried to this address; leave it blank to keep sending it yourself.",
       "toPhone": "Send to (WhatsApp number)",
       "toPhonePlaceholder": "0812-3456-7890",
-      "toPhoneHint": "Optional. Used to build a wa.me link you open in WhatsApp; the system never sends on its own."
+      "toPhoneHint": "Optional. Used to build a wa.me link you open in WhatsApp; the system never sends on its own.",
+      "toTelegramChatId": "Send to (Telegram chat id)",
+      "toTelegramChatIdPlaceholder": "55501",
+      "toTelegramChatIdHint": "Optional. Used to address a queued Telegram message; the dispatcher sends it only after a human queues it, and an unknown chat is never guessed onto a candidate."
     },
     "dialogs": {
       "rejectionTitle": "Queue rejection message",

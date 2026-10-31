@@ -86,6 +86,7 @@ function CommunicationDialog({
   const [body, setBody] = useState('')
   const [toEmail, setToEmail] = useState('')
   const [toPhone, setToPhone] = useState('')
+  const [toTelegramChatId, setToTelegramChatId] = useState('')
   const [link, setLink] = useState<WhatsappDispatchLinkView | null>(null)
   const [preview, setPreview] = useState<CommunicationPreview | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
@@ -93,6 +94,7 @@ function CommunicationDialog({
 
   const recipient = toEmail.trim() === '' ? null : toEmail.trim()
   const phone = toPhone.trim() === '' ? null : toPhone.trim()
+  const telegramChatId = toTelegramChatId.trim() === '' ? null : toTelegramChatId.trim()
 
   /** Any change to what shapes the message invalidates a stale preview. */
   function invalidatePreview() {
@@ -162,6 +164,7 @@ function CommunicationDialog({
             channel,
             to_email: recipient,
             to_phone: phone,
+            to_telegram_chat_id: telegramChatId,
           })
         : mode === 'offer'
           ? await queueOfferMessage(candidateId, {
@@ -171,6 +174,7 @@ function CommunicationDialog({
               channel,
               to_email: recipient,
               to_phone: phone,
+              to_telegram_chat_id: telegramChatId,
             })
           : await markCommunicationSent(communicationId ?? '')
 
@@ -398,6 +402,27 @@ function CommunicationDialog({
               />
               <span className="text-2xs text-ink-muted">
                 {t('communication.fields.toPhoneHint')}
+              </span>
+            </div>
+          ) : null}
+
+          {mode !== 'sent' && mode !== 'link' && channel === 'telegram' ? (
+            <div className={fieldClass}>
+              <label htmlFor={`communication-telegram-${mode}`} className={labelClass}>
+                {t('communication.fields.toTelegramChatId')}
+              </label>
+              <Input
+                id={`communication-telegram-${mode}`}
+                value={toTelegramChatId}
+                onChange={(event) => {
+                  setToTelegramChatId(event.target.value)
+                  invalidatePreview()
+                }}
+                placeholder={t('communication.fields.toTelegramChatIdPlaceholder')}
+                autoComplete="off"
+              />
+              <span className="text-2xs text-ink-muted">
+                {t('communication.fields.toTelegramChatIdHint')}
               </span>
             </div>
           ) : null}

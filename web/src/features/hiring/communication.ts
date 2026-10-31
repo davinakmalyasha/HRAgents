@@ -9,7 +9,11 @@ export type WhatsappDispatchLinkView = components['schemas']['WhatsappDispatchLi
 
 export const REJECTION_DECISIONS: readonly PolicyDecision[] = ['hitl_soft_rejection', 'reject_auto']
 
-export const COMMUNICATION_CHANNELS = ['email', 'whatsapp'] as const satisfies readonly Channel[]
+export const COMMUNICATION_CHANNELS = [
+  'email',
+  'whatsapp',
+  'telegram',
+] as const satisfies readonly Channel[]
 
 /**
  * Mirrors the server gate (`CommunicationService._require_rejection_proof`):

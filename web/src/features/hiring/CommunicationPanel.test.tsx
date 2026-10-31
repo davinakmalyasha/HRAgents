@@ -224,6 +224,7 @@ describe('CommunicationPanel', () => {
       channel: 'email',
       to_email: null,
       to_phone: null,
+      to_telegram_chat_id: null,
     })
     expect(previewMock).toHaveBeenCalledTimes(1)
   })
@@ -394,6 +395,45 @@ describe('CommunicationPanel', () => {
       channel: 'email',
       to_email: 'budi@example.com',
       to_phone: null,
+      to_telegram_chat_id: null,
+    })
+  })
+
+  it('queues a Telegram message with the chat id the dispatcher needs', async () => {
+    state.overrides = [override()]
+    previewMock.mockResolvedValue({ status: 200, preview: preview({ channel: 'telegram' }) })
+    queueRejectionMock.mockResolvedValue({
+      status: 201,
+      communication: communication({ channel: 'telegram' }),
+    })
+    renderPanel('hitl_soft_rejection')
+
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueRejection') }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.fields.channel') }),
+    )
+    await userEvent.click(
+      screen.getByRole('menuitemradio', { name: i18n.t('communication.channels.telegram') }),
+    )
+    await userEvent.type(
+      screen.getByLabelText(i18n.t('communication.fields.toTelegramChatId')),
+      '55501',
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.previewAction') }),
+    )
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('communication.queueAfterPreview') }),
+    )
+
+    expect(queueRejectionMock).toHaveBeenCalledWith('cand-1', {
+      language: 'en',
+      channel: 'telegram',
+      to_email: null,
+      to_phone: null,
+      to_telegram_chat_id: '55501',
     })
   })
 

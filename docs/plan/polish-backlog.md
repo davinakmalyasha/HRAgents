@@ -184,7 +184,6 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       respx/MockTransport. Remaining, and **credential-blocked for live verification**:
       Google Drive/Sheets (needs its own OAuth scopes and file-picker flows) and Microsoft
       Graph (needs an Azure app registration and the client-credentials grant). Not
-      credential-blocked but still open: the dashboard queues Telegram via the API only, and
-      calendar invites/reschedules are manual.
+      credential-blocked but still open: calendar invites/reschedules are manual.
 - [-] Managed cloud SaaS + billing
 - [-] Office Connector folder-sync agent

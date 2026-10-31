@@ -443,7 +443,10 @@
       "toEmailHint": "Opsional. Jika transport email tersambung, pesan diantrean dikirim ke alamat ini; biarkan kosong bila Anda ingin mengirim sendiri.",
       "toPhone": "Kirim ke (nomor WhatsApp)",
       "toPhonePlaceholder": "0812-3456-7890",
-      "toPhoneHint": "Opsional. Dipakai untuk membuat tautan wa.me yang Anda buka di WhatsApp; sistem tidak pernah mengirim sendiri."
+      "toPhoneHint": "Opsional. Dipakai untuk membuat tautan wa.me yang Anda buka di WhatsApp; sistem tidak pernah mengirim sendiri.",
+      "toTelegramChatId": "Kirim ke (id obrolan Telegram)",
+      "toTelegramChatIdPlaceholder": "55501",
+      "toTelegramChatIdHint": "Opsional. Dipakai untuk mengalamatkan pesan Telegram yang diantrekan; pengirim hanya mengirim setelah manusia mengantrekannya, dan obrolan yang tidak dikenal tidak pernah ditebak ke kandidat."
     },
     "dialogs": {
       "rejectionTitle": "Antrekan pesan penolakan",
