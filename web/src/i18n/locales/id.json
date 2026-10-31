@@ -838,7 +838,34 @@
     "supersedeReasonPlaceholder": "Apa yang berubah sejak peninjauan?",
     "supersedeReasonRequired": "Perhitungan yang ditinjau tetap terkunci, jadi hitung ulang perlu alasan.",
     "confirmSupersede": "Mulai hitung ulang",
-    "supersedes": "Hitung ulang dari proses {{id}}"
+    "supersedes": "Hitung ulang dari proses {{id}}",
+    "attendance": {
+      "open": "Impor kehadiran",
+      "title": "Impor kehadiran",
+      "hint": "Isi lembur dan ketidakhadiran dari ekspor mesin absensi. Pratinjau dulu — tidak ada yang ditulis sebelum Anda terapkan.",
+      "file": "Berkas kerja atau CSV",
+      "fileHint": "XLSX/XLSM dari mesin, atau CSV dengan empat kolom. Maks 10 MiB.",
+      "paste": "Atau tempel CSV",
+      "pastePlaceholder": "employee_number,date,clock_in,clock_out",
+      "columns": "Nama kolom (dan baris header)",
+      "columnEmployee": "Nomor karyawan",
+      "columnDate": "Tanggal",
+      "columnIn": "Jam masuk",
+      "columnOut": "Jam keluar",
+      "headerRow": "Baris header",
+      "preview": "Pratinjau",
+      "commit": "Terapkan ke proses",
+      "resultTitle": "Hari kerja: {{working}} · lembur di atas {{threshold}} jam/hari",
+      "employee": "Karyawan",
+      "daysPresent": "Hari hadir",
+      "overtime": "Lembur (jam)",
+      "absence": "Absen (hari)",
+      "rowError": "Baris {{row}} · {{code}}: {{detail}}",
+      "errors": {
+        "previewFailed": "Berkas tidak bisa dipratinjau ({{status}}).",
+        "commitFailed": "Kehadiran ditolak ({{status}}). Tidak ada yang berubah."
+      }
+    }
   },
   "offboarding": {
     "boardTitle": "Sedang keluar",

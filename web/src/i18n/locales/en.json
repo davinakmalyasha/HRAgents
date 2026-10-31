@@ -838,7 +838,34 @@
     "supersedeReasonPlaceholder": "What changed since the review?",
     "supersedeReasonRequired": "The reviewed run stays frozen, so the re-run needs a reason.",
     "confirmSupersede": "Start the re-run",
-    "supersedes": "Re-run of run {{id}}"
+    "supersedes": "Re-run of run {{id}}",
+    "attendance": {
+      "open": "Import attendance",
+      "title": "Import attendance",
+      "hint": "Fill overtime and absence from the fingerprint export. Preview first — nothing is written until you commit.",
+      "file": "Workbook or CSV",
+      "fileHint": "XLSX/XLSM from the machine, or a CSV with the four columns. Max 10 MiB.",
+      "paste": "Or paste CSV",
+      "pastePlaceholder": "employee_number,date,clock_in,clock_out",
+      "columns": "Column names (and header row)",
+      "columnEmployee": "Employee number",
+      "columnDate": "Date",
+      "columnIn": "Clock in",
+      "columnOut": "Clock out",
+      "headerRow": "Header row",
+      "preview": "Preview",
+      "commit": "Apply to run",
+      "resultTitle": "Working days: {{working}} · overtime above {{threshold}} h/day",
+      "employee": "Employee",
+      "daysPresent": "Days present",
+      "overtime": "Overtime (h)",
+      "absence": "Absence (days)",
+      "rowError": "Row {{row}} · {{code}}: {{detail}}",
+      "errors": {
+        "previewFailed": "The file could not be previewed ({{status}}).",
+        "commitFailed": "The attendance was refused ({{status}}). Nothing was changed."
+      }
+    }
   },
   "offboarding": {
     "boardTitle": "Departing",
