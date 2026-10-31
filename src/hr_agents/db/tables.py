@@ -8,6 +8,7 @@ migrations when needed.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
@@ -21,6 +22,7 @@ from sqlalchemy import (
     Index,
     Integer,
     LargeBinary,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -524,6 +526,7 @@ class LlmUsageRecord(TenantScoped, Base):
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cache_read_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     requests: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

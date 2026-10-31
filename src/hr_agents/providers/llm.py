@@ -34,18 +34,31 @@ class ModelRef(ProviderConfig):
     )
 
 
-class TestLLMConfig(ProviderConfig):
+class PricedLLMConfig(ProviderConfig):
+    """An LLM provider that can carry operator-entered prices.
+
+    USD per million tokens, never a built-in list: the operator knows the
+    contract. Left at zero, the ledger records tokens and the rollup reports the
+    cost as unknown instead of inventing one.
+    """
+
+    input_cost_per_million: float = Field(default=0.0, ge=0)
+    output_cost_per_million: float = Field(default=0.0, ge=0)
+    cache_read_cost_per_million: float = Field(default=0.0, ge=0)
+
+
+class TestLLMConfig(PricedLLMConfig):
     """Offline model used in development, tests, and CI. No network, no keys."""
 
     __test__ = False
 
 
-class OllamaLLMConfig(ProviderConfig):
+class OllamaLLMConfig(PricedLLMConfig):
     base_url: str = "http://localhost:11434/v1"
     model: str = "llama3.1"
 
 
-class OpenAICompatibleLLMConfig(ProviderConfig):
+class OpenAICompatibleLLMConfig(PricedLLMConfig):
     """Any OpenAI-compatible endpoint: OpenAI, OpenRouter, Groq, vLLM, gateways."""
 
     api_key: SecretStr | None = None
@@ -53,7 +66,7 @@ class OpenAICompatibleLLMConfig(ProviderConfig):
     base_url: str | None = None
 
 
-class AnthropicLLMConfig(ProviderConfig):
+class AnthropicLLMConfig(PricedLLMConfig):
     api_key: SecretStr | None = None
     model: str = "claude-sonnet-4-5"
 
@@ -61,7 +74,7 @@ class AnthropicLLMConfig(ProviderConfig):
 COMMAND_CODE_BASE_URL = "https://api.commandcode.ai/provider/v1"
 
 
-class CommandCodeLLMConfig(ProviderConfig):
+class CommandCodeLLMConfig(PricedLLMConfig):
     """Command Code Provider API — every top model on one OpenAI-compatible endpoint.
 
     Zero data retention is on by default (``x-cmd-zdr: 1``): requests route only

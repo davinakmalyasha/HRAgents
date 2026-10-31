@@ -10,10 +10,17 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response, status
 
-from hr_agents.api.deps import ActorDep, PaginationDep, get_audit, require_permission
+from hr_agents.api.deps import (
+    ActorDep,
+    PaginationDep,
+    get_audit,
+    get_store,
+    require_permission,
+)
 from hr_agents.api.ops_schemas import (
     DeadLetterRequeue,
     DeadLetterRequeueResult,
@@ -23,6 +30,8 @@ from hr_agents.api.ops_schemas import (
 from hr_agents.api.problem import domain_problem, not_found, unavailable
 from hr_agents.api.schemas import Page
 from hr_agents.models import (
+    ApplicationUsage,
+    CandidateUsage,
     McpProbeResult,
     McpServerCatalogEntry,
     McpServerConfig,
@@ -36,6 +45,7 @@ from hr_agents.rbac import Permission
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.audit_events import record_audit
 from hr_agents.services.distribution import ScoreDistributionService
+from hr_agents.services.ingestion import ApplicationStore
 from hr_agents.services.mcp_catalog import catalog
 from hr_agents.services.mcp_config import McpConfigError
 from hr_agents.services.queue_ops import QueueOpsError
@@ -197,6 +207,38 @@ def usage_summary(
     if service is None:
         raise unavailable("token usage is not available")
     return service.summary(since=utc_now() - timedelta(days=days))
+
+
+@router.get(
+    "/usage/applications/{application_id}",
+    response_model=ApplicationUsage,
+    summary="One application's token and cost rollup",
+)
+def application_usage(
+    application_id: Annotated[str, Path(min_length=1, max_length=64)],
+    request: Request,
+) -> ApplicationUsage:
+    service = getattr(request.app.state, "llm_usage", None)
+    if service is None:
+        raise unavailable("token usage is not available")
+    return service.application_usage(application_id)
+
+
+@router.get(
+    "/usage/candidates/{candidate_id}",
+    response_model=CandidateUsage,
+    summary="A candidate's token and cost rollup across applications",
+)
+def candidate_usage(
+    candidate_id: UUID,
+    request: Request,
+    store: Annotated[ApplicationStore, Depends(get_store)],
+) -> CandidateUsage:
+    service = getattr(request.app.state, "llm_usage", None)
+    if service is None:
+        raise unavailable("token usage is not available")
+    application_ids = [str(record.id) for record in store.find_by_candidate(candidate_id)]
+    return service.candidate_usage(candidate_id, application_ids)
 
 
 @router.get("/dead-letters", response_model=Page[DeadLetterView])

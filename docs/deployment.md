@@ -99,6 +99,29 @@ To rotate the key, prepend the new key to the comma-separated list, restart,
 re-save the providers you changed (the UI keeps the secret when the field is
 blank), then remove the old key.
 
+### Token cost
+
+The LLM provider config accepts optional USD prices per million tokens:
+`input_cost_per_million`, `output_cost_per_million` and
+`cache_read_cost_per_million`. They are operator-entered, never built in:
+
+```bash
+HRAGENTS_PROVIDER_LLM_CONFIG={"model":"gpt-4o-mini","api_key":"...","input_cost_per_million":0.15,"output_cost_per_million":0.60}
+```
+
+Each evaluation stores the price that was in force when it ran, so changing a
+price does not rewrite past spend. The operations API can then answer the two
+cost questions:
+
+```bash
+curl -s "$HOST/v1/ops/usage/applications/<application-id>" -H "X-API-Key: $KEY"
+curl -s "$HOST/v1/ops/usage/candidates/<candidate-id>" -H "X-API-Key: $KEY"
+```
+
+Both return token totals, the per-model split and `cost_usd`. A ledger row
+recorded before prices were entered leaves `cost_usd` null and counts in
+`uncosted_entries`: a partial sum would read as the whole bill.
+
 ### Verified credentials
 
 A certificate on a CV is a claim. The credential registry is where an operator

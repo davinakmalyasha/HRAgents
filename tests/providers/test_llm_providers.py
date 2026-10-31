@@ -182,3 +182,17 @@ def test_config_defaults_are_sane() -> None:
     assert OllamaLLMConfig().base_url.startswith("http://localhost")
     assert OpenAICompatibleLLMConfig(model="x").model == "x"
     assert AnthropicLLMConfig().model
+    assert OpenAICompatibleLLMConfig(model="x").input_cost_per_million == 0.0
+
+
+def test_llm_configs_carry_operator_entered_prices() -> None:
+    config = OpenAICompatibleLLMConfig(
+        model="x",
+        input_cost_per_million=2.5,
+        output_cost_per_million=10.0,
+        cache_read_cost_per_million=0.5,
+    )
+
+    assert config.input_cost_per_million == 2.5
+    assert config.output_cost_per_million == 10.0
+    assert config.cache_read_cost_per_million == 0.5

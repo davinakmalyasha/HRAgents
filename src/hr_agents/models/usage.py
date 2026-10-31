@@ -52,6 +52,31 @@ class LlmUsage(UsageTotals):
         )
 
 
+TOKENS_PER_MILLION = 1_000_000
+
+
+class LlmPricing(StrictModel):
+    """Operator-entered USD prices per million tokens.
+
+    There is no built-in price list: providers change prices, and a hardcoded
+    number would silently misstate a deployment's spend. A provider without
+    prices records tokens and leaves the cost null.
+    """
+
+    input_cost_per_million: float = Field(default=0.0, ge=0)
+    output_cost_per_million: float = Field(default=0.0, ge=0)
+    cache_read_cost_per_million: float = Field(default=0.0, ge=0)
+
+    def cost(self, usage: UsageTotals) -> float:
+        """USD for this usage, rounded to the ledger's six decimals."""
+        dollars = (
+            usage.input_tokens * self.input_cost_per_million
+            + usage.output_tokens * self.output_cost_per_million
+            + usage.cache_read_tokens * self.cache_read_cost_per_million
+        ) / TOKENS_PER_MILLION
+        return round(dollars, 6)
+
+
 def sum_usage(items: list[LlmUsage]) -> LlmUsage | None:
     """Sum usages from the same provider/model, or the first one's identity.
 
@@ -83,18 +108,46 @@ class UsageSummary(StrictModel):
     by_model: list[LlmUsage] = Field(default_factory=list)
 
 
+class UsageRollup(StrictModel):
+    """The spend behind one subject (an application, or all of a candidate's).
+
+    ``cost_usd`` is null when any entry has no price snapshot: a partial sum
+    would read as the whole bill. ``uncosted_entries`` says how many are missing.
+    """
+
+    totals: UsageTotals
+    cost_usd: float | None = Field(default=None, ge=0)
+    uncosted_entries: int = Field(default=0, ge=0)
+    entries: int = Field(default=0, ge=0)
+    by_model: list[LlmUsage] = Field(default_factory=list)
+
+
+class ApplicationUsage(UsageRollup):
+    """One application's evaluation spend."""
+
+    application_id: str = Field(min_length=1, max_length=64)
+
+
+class CandidateUsage(UsageRollup):
+    """Every application a candidate has, summed; the answer to "what did this cost"."""
+
+    candidate_id: UUID
+    application_ids: list[str] = Field(default_factory=list)
+
+
 class LlmUsageEntry(Versioned):
     """One ledger row: an evaluation's usage, attributable to a model."""
 
     id: UUID = Field(default_factory=uuid4)
     evaluation_id: UUID | None = None
     application_id: str = Field(min_length=1, max_length=64)
-    provider_id: str = Field(min_length=1, max_length=120)
+    provider_id: str = Field(default="unknown", min_length=1, max_length=120)
     model: str | None = Field(default=None, max_length=200)
     input_tokens: int = Field(default=0, ge=0)
     output_tokens: int = Field(default=0, ge=0)
     cache_read_tokens: int = Field(default=0, ge=0)
     requests: int = Field(default=0, ge=0)
+    cost_usd: float | None = Field(default=None, ge=0)
     created_at: UtcDateTime = Field(default_factory=utc_now)
 
     def as_usage(self) -> LlmUsage:

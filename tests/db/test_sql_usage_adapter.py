@@ -7,7 +7,7 @@ from datetime import timedelta
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.usage import DbLlmUsageStore
-from hr_agents.models import LlmUsage, utc_now
+from hr_agents.models import LlmPricing, LlmUsage, utc_now
 from hr_agents.services.usage import LlmUsageService
 
 
@@ -47,3 +47,52 @@ def test_recent_reads_newest_first(factory: sessionmaker[Session]) -> None:
     recent = service.recent(limit=1)
 
     assert [entry.model for entry in recent] == ["second"]
+
+
+def test_the_application_rollup_groups_in_sql_and_keeps_its_cost(
+    factory: sessionmaker[Session],
+) -> None:
+    pricing = LlmPricing(input_cost_per_million=2.0, output_cost_per_million=8.0)
+    service = LlmUsageService(DbLlmUsageStore(factory), pricing=lambda: None)
+    service.record(
+        usage=LlmUsage(
+            provider_id="llm.demo",
+            model="a",
+            input_tokens=1_000_000,
+            output_tokens=0,
+            requests=1,
+        ),
+        application_id="app-1",
+        pricing=pricing,
+    )
+    service.record(
+        usage=LlmUsage(
+            provider_id="llm.demo",
+            model="a",
+            input_tokens=0,
+            output_tokens=500_000,
+            requests=1,
+        ),
+        application_id="app-1",
+        pricing=pricing,
+    )
+    service.record(
+        usage=LlmUsage(provider_id="llm.demo", model="b", input_tokens=1_000_000, requests=1),
+        application_id="app-2",
+    )
+
+    rollup = service.application_usage("app-1")
+
+    assert rollup.entries == 2
+    assert rollup.totals.input_tokens == 1_000_000
+    assert rollup.totals.output_tokens == 500_000
+    assert rollup.cost_usd == 6.0
+    assert rollup.uncosted_entries == 0
+    assert [item.model for item in rollup.by_model] == ["a"]
+
+    # A fresh adapter reads the same snapshot; the cost is on the row, not
+    # recomputed from today's prices.
+    fresh = LlmUsageService(DbLlmUsageStore(factory))
+    assert fresh.application_usage("app-1").cost_usd == 6.0
+    assert fresh.application_usage("app-2").cost_usd is None
+    assert fresh.application_usage("app-2").uncosted_entries == 1

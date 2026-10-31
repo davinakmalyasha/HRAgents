@@ -73,10 +73,13 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       `opentelemetry-instrumentation-fastapi`, `opentelemetry-exporter-otlp-proto-http`) are out
       of the runtime dependencies, so the production image no longer carries them; the tracing
       itself stays open under Phase 9 observability
-- [~] Cost tracking: the token ledger exists per evaluation/application (`llm_usage`,
-      `STORE_BACKEND` adapters) and `GET /v1/ops/usage` aggregates it by provider and model
-      over a day window. Still open: pricing tables (so tokens become currency) and a
-      per-candidate view that joins the ledger through the application.
+- [x] Cost tracking: tokens are recorded per evaluation/application, and the provider config
+      carries operator-entered USD prices per million tokens (input, output, cache read). A
+      price snapshot is stored on each ledger row, so a later price change cannot rewrite
+      history. `GET /v1/ops/usage` aggregates by provider/model; `GET
+      /v1/ops/usage/applications/{id}` and `GET /v1/ops/usage/candidates/{id}` roll up tokens,
+      cost and the per-model split. An unpriced entry makes the rollup cost null with
+      `uncosted_entries` set, never a partial sum that reads as the whole bill.
 - [x] Dependency and setting hygiene: `lizard` is used (`services/ast_analysis.py`, with
       `radon` for Python), so it stays; `tenacity` and `orjson` were never imported and are
       gone; `Settings.github_token`, `crossref_mailto`, `telegram_bot_token` and the two
