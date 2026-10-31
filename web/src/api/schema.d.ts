@@ -4524,6 +4524,8 @@ export interface components {
             recipient: string | null;
             /** Recipient Phone */
             recipient_phone: string | null;
+            /** Recipient Telegram Chat Id */
+            recipient_telegram_chat_id: string | null;
             /** Send Attempts */
             send_attempts: number;
             /** Sent At */
@@ -6238,6 +6240,8 @@ export interface components {
             to_email?: string | null;
             /** To Phone */
             to_phone?: string | null;
+            /** To Telegram Chat Id */
+            to_telegram_chat_id?: string | null;
         };
         /** OfferReviseRequest */
         OfferReviseRequest: {
@@ -7688,6 +7692,8 @@ export interface components {
             to_email?: string | null;
             /** To Phone */
             to_phone?: string | null;
+            /** To Telegram Chat Id */
+            to_telegram_chat_id?: string | null;
         };
         /** ReminderView */
         ReminderView: {

@@ -18,6 +18,7 @@ from hr_agents.messaging.runtime import (
     DisabledEmailSender,
     build_email_receiver,
     build_email_sender,
+    resolve_telegram_sender,
 )
 from hr_agents.messaging.smtp import SmtpEmailSender
 
@@ -29,6 +30,28 @@ def test_sandbox_leaves_no_transport_active() -> None:
 
     assert isinstance(sender, DisabledEmailSender)
     assert build_email_receiver(settings=settings) is None
+
+
+def test_telegram_sender_is_selected_by_the_provider_layer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HRAGENTS_PROVIDER_TELEGRAM", "telegram.bot")
+    monkeypatch.setenv("HRAGENTS_PROVIDER_TELEGRAM_CONFIG", json.dumps({"bot_token": "123:ABC"}))
+
+    sender = resolve_telegram_sender()
+
+    from hr_agents.messaging.telegram import TelegramSender
+
+    assert isinstance(sender, TelegramSender)
+    assert sender.provider_id == "telegram.bot"
+
+
+def test_telegram_has_no_transport_when_unconfigured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("HRAGENTS_PROVIDER_TELEGRAM", raising=False)
+
+    assert resolve_telegram_sender() is None
 
 
 def test_gmail_sender_is_selected_by_the_provider_layer(

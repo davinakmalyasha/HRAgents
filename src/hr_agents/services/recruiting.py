@@ -1065,6 +1065,7 @@ class CommunicationService:
         language: str = "en",
         to_email: EmailStr | None = None,
         to_phone: str | None = None,
+        to_telegram_chat_id: str | None = None,
     ) -> CandidateCommunication:
         """Queue the rejection message; only for a documented rejection."""
         actor.require_human("a candidate communication", RecruitingError)
@@ -1089,6 +1090,7 @@ class CommunicationService:
             approved_by=actor.actor_id,
             recipient=to_email,
             recipient_phone=to_phone,
+            recipient_telegram_chat_id=to_telegram_chat_id,
         )
         return self._queue(item, actor=actor)
 
@@ -1103,6 +1105,7 @@ class CommunicationService:
         language: str = "en",
         to_email: EmailStr | None = None,
         to_phone: str | None = None,
+        to_telegram_chat_id: str | None = None,
     ) -> CandidateCommunication:
         """Queue a human-authored offer; the named human is the gate."""
         actor.require_human("a candidate communication", RecruitingError)
@@ -1122,6 +1125,7 @@ class CommunicationService:
             approved_by=actor.actor_id,
             recipient=to_email,
             recipient_phone=to_phone,
+            recipient_telegram_chat_id=to_telegram_chat_id,
         )
         return self._queue(item, actor=actor)
 
@@ -1249,6 +1253,50 @@ class CommunicationService:
                 "provider": provider,
                 "approved_by": item.approved_by,
                 "recipient_phone": recipient_phone,
+                "message_id": message_id,
+            },
+        )
+        return updated
+
+    def record_telegram_dispatch(
+        self,
+        communication_id: UUID,
+        *,
+        provider: str,
+        recipient_chat_id: str,
+        message_id: str | None = None,
+        sent_at: datetime | None = None,
+    ) -> CandidateCommunication:
+        """Record a Telegram dispatch, whose address is a chat id."""
+        item = self._require_queued(communication_id)
+        updated = item.model_copy(
+            update={
+                "status": CommunicationStatus.SENT,
+                "sent_by": f"transport:{provider}"[:200],
+                "sent_at": sent_at or utc_now(),
+                "provider": provider,
+                "provider_message_id": message_id,
+                "recipient_telegram_chat_id": recipient_chat_id[:64],
+                "send_attempts": item.send_attempts + 1,
+                "last_error": None,
+                "last_attempt_at": sent_at or utc_now(),
+                "claimed_by": None,
+                "claimed_until": None,
+            }
+        )
+        self._persist(updated)
+        self._audit.append(
+            actor=ActorRef.system(f"transport:{provider}").audit_actor(),
+            action="communication.dispatched",
+            subject_type="candidate_communication",
+            subject_id=str(updated.id),
+            payload={
+                "candidate_id": str(updated.candidate_id),
+                "kind": updated.kind.value,
+                "channel": updated.channel.value,
+                "provider": provider,
+                "approved_by": item.approved_by,
+                "recipient_telegram_chat_id": recipient_chat_id,
                 "message_id": message_id,
             },
         )

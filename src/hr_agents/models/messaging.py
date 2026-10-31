@@ -105,6 +105,7 @@ class CandidateCommunication(Versioned):
     sent_at: UtcDateTime | None = None
     recipient: EmailStr | None = None
     recipient_phone: str | None = Field(default=None, max_length=32)
+    recipient_telegram_chat_id: str | None = Field(default=None, max_length=64)
     provider: str | None = Field(default=None, max_length=64)
     provider_message_id: str | None = Field(default=None, max_length=500)
     send_attempts: int = Field(default=0, ge=0)

@@ -377,6 +377,7 @@ class CommunicationView(StrictModel):
     sent_at: datetime | None
     recipient: str | None
     recipient_phone: str | None
+    recipient_telegram_chat_id: str | None
     provider: str | None
     provider_message_id: str | None
     send_attempts: int
@@ -403,6 +404,7 @@ class CommunicationView(StrictModel):
             sent_at=item.sent_at,
             recipient=item.recipient,
             recipient_phone=item.recipient_phone,
+            recipient_telegram_chat_id=item.recipient_telegram_chat_id,
             provider=item.provider,
             provider_message_id=item.provider_message_id,
             send_attempts=item.send_attempts,
@@ -449,6 +451,7 @@ class RejectionQueueRequest(StrictModel):
     language: Literal["en", "id"] = "en"
     to_email: EmailStr | None = None
     to_phone: str | None = Field(default=None, max_length=32)
+    to_telegram_chat_id: str | None = Field(default=None, max_length=64)
 
 
 class RejectionPreviewRequest(StrictModel):
@@ -503,6 +506,7 @@ class OfferQueueRequest(StrictModel):
     language: Literal["en", "id"] = "en"
     to_email: EmailStr | None = None
     to_phone: str | None = Field(default=None, max_length=32)
+    to_telegram_chat_id: str | None = Field(default=None, max_length=64)
 
     @field_validator("body")
     @classmethod

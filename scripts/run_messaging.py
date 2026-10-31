@@ -69,6 +69,19 @@ def _render(summary: dict[str, Any]) -> str:
                 f"deferred {whatsapp.get('deferred', 0)}, "
                 f"unrecorded {whatsapp.get('unrecorded', 0)}"
             )
+    telegram = summary.get("telegram")
+    if telegram:
+        if telegram.get("mode") == "sandbox":
+            lines.append(f"telegram sandbox: {telegram['queued']} message(s) queued, none sent")
+        elif telegram.get("mode") == "unavailable":
+            lines.append("telegram: no bot configured")
+        else:
+            lines.append(
+                f"telegram via {telegram['provider']}: sent {telegram['sent']}, "
+                f"failed {telegram['failed']}, skipped {telegram['skipped']}, "
+                f"deferred {telegram.get('deferred', 0)}, "
+                f"unrecorded {telegram.get('unrecorded', 0)}"
+            )
     return "\n".join(lines) or "nothing to do"
 
 
@@ -82,6 +95,11 @@ def main(argv: list[str] | None = None) -> int:
         help="dispatch queued WhatsApp messages through the Cloud API",
     )
     parser.add_argument(
+        "--telegram",
+        action="store_true",
+        help="dispatch queued Telegram messages through the Bot API",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=DEFAULT_DISPATCH_LIMIT,
@@ -90,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print the run summary as JSON")
     args = parser.parse_args(argv)
 
-    both = not (args.send or args.receive or args.whatsapp)
+    both = not (args.send or args.receive or args.whatsapp or args.telegram)
     app = create_app()
     messaging: MessagingServices = app.state.messaging  # type: ignore[attr-defined]
     communications = app.state.recruiting.communications  # type: ignore[attr-defined]
@@ -132,6 +150,25 @@ def main(argv: list[str] | None = None) -> int:
             ).dispatch_pending(limit=args.limit)
             failed = failed or not report.ok
             summary["whatsapp"] = {"mode": "live", **report.model_dump()}
+
+    if args.telegram or both:
+        telegram = messaging.telegram
+        if telegram is None:
+            summary["telegram"] = {
+                "mode": "unavailable",
+                "detail": "no Telegram bot is configured",
+            }
+        elif not messaging.live:
+            queued = communications.list_queued(channel=Channel.TELEGRAM)
+            summary["telegram"] = {"mode": "sandbox", "queued": len(queued)}
+        else:
+            from hr_agents.messaging.telegram import TelegramDispatcher
+
+            report = TelegramDispatcher(
+                communications=communications, sender=telegram
+            ).dispatch_pending(limit=args.limit)
+            failed = failed or not report.ok
+            summary["telegram"] = {"mode": "live", **report.model_dump()}
 
     if args.receive or both:
         receiver = messaging.receiver

@@ -112,6 +112,7 @@ def queue_rejection(
             language=payload.language,
             to_email=payload.to_email,
             to_phone=payload.to_phone,
+            to_telegram_chat_id=payload.to_telegram_chat_id,
         )
     except RecruitingError as exc:
         raise domain_problem(exc) from exc
@@ -170,6 +171,7 @@ def queue_offer(
             language=payload.language,
             to_email=payload.to_email,
             to_phone=payload.to_phone,
+            to_telegram_chat_id=payload.to_telegram_chat_id,
         )
     except RecruitingError as exc:
         raise domain_problem(exc) from exc

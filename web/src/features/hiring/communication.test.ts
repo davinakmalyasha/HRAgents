@@ -42,6 +42,7 @@ function communication(overrides: Partial<CommunicationView>): CommunicationView
     sent_at: null,
     recipient: null,
     recipient_phone: null,
+    recipient_telegram_chat_id: null,
     provider: null,
     provider_message_id: null,
     send_attempts: 0,

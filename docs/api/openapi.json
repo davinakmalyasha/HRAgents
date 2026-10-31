@@ -2549,6 +2549,17 @@
             ],
             "title": "Recipient Phone"
           },
+          "recipient_telegram_chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Telegram Chat Id"
+          },
           "send_attempts": {
             "title": "Send Attempts",
             "type": "integer"
@@ -2608,6 +2619,7 @@
           "sent_at",
           "recipient",
           "recipient_phone",
+          "recipient_telegram_chat_id",
           "provider",
           "provider_message_id",
           "send_attempts",
@@ -7133,6 +7145,18 @@
               }
             ],
             "title": "To Phone"
+          },
+          "to_telegram_chat_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Telegram Chat Id"
           }
         },
         "required": [
@@ -11046,6 +11070,18 @@
               }
             ],
             "title": "To Phone"
+          },
+          "to_telegram_chat_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Telegram Chat Id"
           }
         },
         "title": "RejectionQueueRequest",

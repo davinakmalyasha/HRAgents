@@ -27,6 +27,7 @@ from hr_agents.messaging.drafts import EmailDraftStore
 from hr_agents.messaging.inbound import ReplyIngestor
 from hr_agents.messaging.outbox import OutboxDispatcher
 from hr_agents.messaging.store import ReplyStore
+from hr_agents.messaging.telegram import TelegramSenderPort
 from hr_agents.messaging.whatsapp_cloud import WhatsAppSender
 from hr_agents.providers.base import Capability
 from hr_agents.providers.email import SmtpSenderConfig
@@ -54,6 +55,7 @@ class MessagingServices:
     directory: CandidateDirectory
     live: bool
     whatsapp: WhatsAppSender | None = None
+    telegram: TelegramSenderPort | None = None
 
     @property
     def provider_id(self) -> str:
@@ -121,6 +123,30 @@ def build_whatsapp_sender(
         return cast(WhatsAppSender, spec.build(config))
     except Exception:  # a stored config a downgrade made invalid
         logger.warning("whatsapp.sender_unavailable", exc_info=True)
+        return None
+
+
+def resolve_telegram_sender(
+    *,
+    registry: ProviderRegistry | None = None,
+) -> TelegramSenderPort | None:
+    """Resolve the active Telegram transport, or ``None`` when it cannot send.
+
+    Telegram has no offline fallback, so an unconfigured capability is honestly
+    ``None``: the dispatcher then has nothing to carry rather than pretending a
+    bot exists.
+    """
+    selected = _resolved(Capability.TELEGRAM)
+    if selected is None or selected.provider_id != "telegram.bot":
+        return None
+    spec = (registry or default_provider_registry()).get(selected.provider_id)
+    if spec.build is None:
+        return None
+    try:
+        config = spec.make_config(selected.config)
+        return cast(TelegramSenderPort, spec.build(config))
+    except Exception:  # a stored config a downgrade made invalid
+        logger.warning("telegram.sender_unavailable", exc_info=True)
         return None
 
 

@@ -72,7 +72,7 @@ from hr_agents.db.workspace import DbConversationStore, DbWorkspaceRequestStore
 from hr_agents.errors import DomainError
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
-from hr_agents.messaging.runtime import build_whatsapp_sender
+from hr_agents.messaging.runtime import build_whatsapp_sender, resolve_telegram_sender
 from hr_agents.messaging.webhooks import ReplayGuard
 from hr_agents.models import ApproverRole
 from hr_agents.providers.registry import default_registry as default_provider_registry
@@ -484,6 +484,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         directory=candidate_directory(session_factory),
         live=not settings.messaging_sandbox,
         whatsapp=build_whatsapp_sender(),
+        telegram=resolve_telegram_sender(),
     )
     app.state.dispatcher = UndispatchedDispatcher(
         "queue backend is not resolved yet; the application lifespan must run"

@@ -448,6 +448,32 @@ def test_offer_queues_human_authored_message_and_blocks_blank() -> None:
     assert body["approved_by"] == "local-dev"
 
 
+def test_a_telegram_offer_carries_its_chat_id() -> None:
+    with make_client() as client:
+        job = create_job(client)
+        application = submit_application(client, job["id"])
+        register_evaluation(
+            client,
+            application_id=application["application_id"],
+            candidate_id=application["candidate_id"],
+            job_id=job["id"],
+        )
+
+        queued = client.post(
+            f"/v1/candidates/{application['candidate_id']}/communications/offer",
+            json={
+                "body": "Halo, tawaran untuk posisi ini.",
+                "channel": "telegram",
+                "to_telegram_chat_id": "55501",
+            },
+        )
+
+    assert queued.status_code == 201, queued.text
+    body = queued.json()
+    assert body["channel"] == "telegram"
+    assert body["recipient_telegram_chat_id"] == "55501"
+
+
 def test_mark_sent_rules() -> None:
     with make_client() as client:
         job = create_job(client)

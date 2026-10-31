@@ -398,7 +398,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       body limit, Graph errors reported as refusals, and a dispatcher that reuses the
       outbox's claim/backoff/evidence contract (`run_messaging.py --whatsapp`)
 - [x] Telegram provider (`telegram.bot`): Bot API send with the same refusal semantics;
-      registered as its own capability, with an honest health check (no token, no channel)
+      registered as its own capability, with an honest health check (no token, no channel).
+      **Channel dispatch is live**: `candidate_communications.recipient_telegram_chat_id`
+      (migration `0040`) addresses a queued Telegram message, and the dispatcher reuses the
+      outbox's lease/backoff/evidence contract (`run_messaging.py --telegram`). The
+      dashboard's queue form still offers email and WhatsApp; the API accepts the chat id
 - [x] Response SLA timers (anti-ghosting): the `reply-sla` scheduler job flags a dispatched
       message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
       chase message)

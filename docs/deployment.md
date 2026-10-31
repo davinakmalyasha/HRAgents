@@ -486,10 +486,14 @@ continue to arrive by email or are recorded by a human.
 `telegram.bot` uses the Bot API with a bot token
 (`HRAGENTS_PROVIDER_TELEGRAM=telegram.bot`). The capability has no offline
 fallback on purpose — a channel that cannot send is not a channel — so the
-health badge stays `misconfigured` until a token is entered. Channel dispatch
-for Telegram awaits a stored chat-id field on the communication record; the
-sender and provider are live and tested, and no queued Telegram message is
-silently dropped.
+health badge stays `misconfigured` until a token is entered.
+
+A queued message names its destination with `to_telegram_chat_id` (migration
+`0040`); the bridge sends it with the same lease, backoff and evidence rules as
+email and WhatsApp, and `run_messaging.py --telegram` dispatches that queue
+alone (the default pass includes it). The dashboard's queue form still offers
+email and WhatsApp; a Telegram message is queued through the API until the form
+grows a chat-id field.
 
 ### Gmail sending
 
