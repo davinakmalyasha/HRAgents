@@ -1,9 +1,10 @@
-"""Run the scheduled job runner once (cron/systemd friendly).
+"""Run the scheduled job runner once, or forever with ``--loop``.
 
 Builds the same service containers as the API server, so the configured
 storage backend applies (``HRAGENTS_STORE_BACKEND=postgres`` for production),
 then runs every (or selected) job and prints the report. Exit code is nonzero
-when any job fails.
+when any job fails. ``--loop`` runs in-process rather than under a shell loop,
+so SIGTERM stops between ticks and a running sweep can finish.
 
 The report is also written to ``HRAGENTS_SCHEDULER_REPORT`` (default
 ``/tmp/hragents-scheduler.json``) on every tick. That file is what makes a
@@ -23,6 +24,7 @@ from hr_agents.api.metrics import record_scheduler_run
 from hr_agents.config import get_settings
 from hr_agents.logging import get_logger
 from hr_agents.main import create_app
+from hr_agents.services.periodic import run_periodic
 from hr_agents.services.scheduler import (
     JOB_NAMES,
     Scheduler,
@@ -63,8 +65,25 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="where to write the JSON report (default: $HRAGENTS_SCHEDULER_REPORT)",
     )
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="run every --interval-seconds until SIGTERM (drains the running tick)",
+    )
+    parser.add_argument(
+        "--interval-seconds",
+        type=float,
+        default=900.0,
+        help="wait between ticks in --loop (default: 900)",
+    )
     args = parser.parse_args(argv)
 
+    if args.loop:
+        return run_periodic(lambda: run_once(args), interval_seconds=args.interval_seconds)
+    return run_once(args)
+
+
+def run_once(args: argparse.Namespace) -> int:
     app = create_app()
     scheduler = Scheduler(
         people=app.state.people,

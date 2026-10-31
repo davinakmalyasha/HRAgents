@@ -52,7 +52,7 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       canaries that would have caught the missing worker on day one:
       `hragents_applications_stuck_queued` and `hragents_scheduler_last_success_timestamp`
 - [x] Scheduler and messaging loops write a JSON report to a shared volume every tick; `/metrics`
-      reads it, so a job failing inside `while true` goes stale instead of silent. Every loop
+      reads it, so a job failing inside the scheduler loop goes stale instead of silent. Every loop
       container has a `HEALTHCHECK`
 - [x] `/readyz` now checks `queue` and `skills` as well — it reports `degraded` when the product
       cannot work, not just when it cannot start
@@ -150,8 +150,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] `/readyz` endpoint (DB + messaging + audit + **queue** + **skills** checks, 503 when degraded),
       distinct from `/healthz`; security headers, body-size ceiling, and per-principal rate limits in
       `api/hardening.py`
-- [ ] Graceful shutdown: drain in-flight pipeline runs on SIGTERM. Compose `stop` signals `sh`, which
-      does not forward to the Python child in a `sh -c 'while true'` loop
+- [x] Graceful shutdown: the worker drains its in-flight batch on SIGTERM, and the
+      scheduler/messaging loops run in Python (`--loop`, `services/periodic.py`) instead of
+      `sh -c 'while true'`, so the signal reaches the process and the running tick finishes.
+      Compose gives each a `stop_grace_period` longer than its work (worker 6m vs the 300s
+      lease, scheduler 5m, messaging 2m); the old shell loop never forwarded SIGTERM to the
+      Python child.
 - [x] Backup/restore drill documented and scripted (`scripts/backup.py --verify` restores into a
       scratch database and re-verifies the audit chain; runbook in `docs/deployment.md`). The image
       now installs `postgresql-client` so the documented command actually runs, and `/app/data/backups`

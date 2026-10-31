@@ -101,14 +101,24 @@ def test_scheduled_jobs_run_in_the_compose_scheduler(compose: dict) -> None:
 
     assert "scripts/run_scheduler.py" in command
     assert "--purge" in command
-    assert "while true" in command
+    # The loop lives in Python so SIGTERM reaches it and the running tick drains.
+    assert "--loop" in command
+    assert "while true" not in command
 
 
 def test_messaging_runs_in_the_compose_messaging_service(compose: dict) -> None:
     command = " ".join(compose["services"]["messaging"]["command"])
 
     assert "scripts/run_messaging.py" in command
-    assert "while true" in command
+    assert "--loop" in command
+    assert "while true" not in command
+
+
+def test_long_running_services_get_a_grace_period_to_drain(compose: dict) -> None:
+    # Docker's 10s default would SIGKILL a running pipeline, purge sweep or
+    # messaging pass before it can finish and record its evidence.
+    for name in ("worker", "scheduler", "messaging"):
+        assert "stop_grace_period" in compose["services"][name], name
 
 
 def test_compose_never_enables_live_email_by_default(compose: dict) -> None:

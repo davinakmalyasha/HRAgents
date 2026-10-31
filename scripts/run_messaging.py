@@ -1,4 +1,6 @@
-"""Run the messaging bridge once: poll the inbox and carry the queued outbox.
+"""Run the messaging bridge once, or forever with ``--loop``.
+
+Poll the inbox and carry the queued outbox.
 
 Builds the same service containers as the API server, so the configured storage
 backend and the resolved email provider both apply. Sending is a no-op while
@@ -18,6 +20,7 @@ from hr_agents.main import create_app
 from hr_agents.messaging import MessagingServices, TransportError
 from hr_agents.messaging.outbox import DEFAULT_DISPATCH_LIMIT
 from hr_agents.models import Channel
+from hr_agents.services.periodic import run_periodic
 
 
 def _render(summary: dict[str, Any]) -> str:
@@ -106,8 +109,25 @@ def main(argv: list[str] | None = None) -> int:
         help=f"maximum messages to dispatch per run (default: {DEFAULT_DISPATCH_LIMIT})",
     )
     parser.add_argument("--json", action="store_true", help="print the run summary as JSON")
+    parser.add_argument(
+        "--loop",
+        action="store_true",
+        help="run every --interval-seconds until SIGTERM (drains the running pass)",
+    )
+    parser.add_argument(
+        "--interval-seconds",
+        type=float,
+        default=300.0,
+        help="wait between passes in --loop (default: 300)",
+    )
     args = parser.parse_args(argv)
 
+    if args.loop:
+        return run_periodic(lambda: run_once(args), interval_seconds=args.interval_seconds)
+    return run_once(args)
+
+
+def run_once(args: argparse.Namespace) -> int:
     both = not (args.send or args.receive or args.whatsapp or args.telegram)
     app = create_app()
     messaging: MessagingServices = app.state.messaging  # type: ignore[attr-defined]

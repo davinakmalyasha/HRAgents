@@ -678,7 +678,7 @@ documented below. The series worth alerting on:
 | Series | Meaning |
 |---|---|
 | `hragents_applications_stuck_queued` | accepted but never evaluated — **the worker is down or wedged** |
-| `hragents_scheduler_last_success_timestamp` | per job; a stale value means a job is failing inside the `while true` loop |
+| `hragents_scheduler_last_success_timestamp` | per job; a stale value means a job is failing inside the scheduler loop |
 | `hragents_applications_by_status` | where the pipeline actually is |
 | `hragents_http_request_duration_seconds_sum` | paired with `_count` for a mean |
 | `hragents_queue_pending` / `_inflight` / `_dead` | evaluation queue depth per topic; `_dead` above zero is a message that exhausted its retries |

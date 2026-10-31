@@ -622,7 +622,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Scheduled job wiring (retention sweep, breach overdue, review reminders, expiries, offer expiry,
       overdue tasks, audit verify, reply SLA) — all through `scripts/run_scheduler.py`, composed into
       Compose as a 15-minute loop. Each tick writes a JSON report to a shared volume and every loop
-      container has a `HEALTHCHECK`, so a job failing inside `while true` is visible. Alert rules
+      container has a `HEALTHCHECK`, so a job failing inside the scheduler loop is visible. Alert rules
       ship in `ops/alerts/hragents.rules.yml` (stuck queue, scheduler stale/failing, dead
       letters, backlog, API error/latency), guarded by a test against the metrics actually
       rendered; the dead-letter dashboard (`/app/ops`, metadata-only with a reason-gated

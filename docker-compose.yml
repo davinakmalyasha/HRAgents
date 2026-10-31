@@ -163,6 +163,9 @@ services:
       HRAGENTS_SCORING_RUNS: "3"
     volumes:
       - state:/app/state
+    # SIGTERM lets the in-flight batch finish. Keep this above the 300s claim
+    # lease: a killed mid-run would otherwise wait for lease expiry to retry.
+    stop_grace_period: 6m
     # A claim lease longer than the p95 extraction time, or a slow extraction
     # is redelivered while it is still running.
     healthcheck:
@@ -186,15 +189,10 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    command:
-      - sh
-      - -c
-      - >-
-        while true; do
-          echo "[scheduler] $(date -u +%FT%TZ) run";
-          python scripts/run_scheduler.py --purge || echo "[scheduler] run failed (see above)";
-          sleep 900;
-        done
+    command: ["python", "scripts/run_scheduler.py", "--purge", "--loop"]
+    # A purge sweep or an approval reconcile can outlast Docker's 10s default;
+    # SIGTERM stops the loop between ticks, this lets the running tick finish.
+    stop_grace_period: 5m
     volumes:
       - state:/app/state
     healthcheck:
@@ -220,15 +218,10 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    command:
-      - sh
-      - -c
-      - >-
-        while true; do
-          echo "[messaging] $(date -u +%FT%TZ) run";
-          python scripts/run_messaging.py || echo "[messaging] run failed (see above)";
-          sleep 300;
-        done
+    command: ["python", "scripts/run_messaging.py", "--loop"]
+    # One messaging pass can include slow SMTP and IMAP calls; SIGTERM stops the
+    # loop between passes, and this lets the current pass record its evidence.
+    stop_grace_period: 2m
     volumes:
       - state:/app/state
     healthcheck:
