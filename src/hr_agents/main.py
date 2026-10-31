@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -18,7 +19,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from hr_agents import __version__
 from hr_agents.agents.runtime import AgentRuntime
 from hr_agents.agentset import AgentSet, KnowledgeUnavailableError, build_agent_set
-from hr_agents.api.auth import settings_role_lookup
+from hr_agents.api.auth import auth_is_configured, settings_role_lookup
 from hr_agents.api.hardening import install_hardening, readiness_report
 from hr_agents.api.metrics import PROMETHEUS_CONTENT_TYPE
 from hr_agents.api.metrics import render_async as render_metrics
@@ -28,6 +29,7 @@ from hr_agents.api.problem import (
     ProblemCode,
     ProblemDetail,
     domain_problem,
+    problem,
     problem_uri,
 )
 from hr_agents.api.routers import (
@@ -315,6 +317,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     request path and the limiter.
     """
     settings = settings or get_settings()
+    if settings.environment == "production" and not auth_is_configured(settings):
+        # Deliberately a warning, not a refusal: the zero-config local install is a
+        # supported mode. A production instance with no credential, however, treats
+        # every caller as the local HR admin, so the one thing that must not happen
+        # is for that to be discovered from a log line nobody reads.
+        logger.warning(
+            "auth.disabled",
+            detail=(
+                "no API principal or key is configured; every request is treated as the "
+                "local HR admin. Set HRAGENTS_API_PRINCIPALS (or HRAGENTS_API_KEYS) "
+                "before exposing this instance"
+            ),
+        )
     app = FastAPI(
         title=f"{settings.app_name} API",
         description=(
@@ -532,7 +547,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         summary="Prometheus metrics (text format)",
         include_in_schema=False,
     )
-    async def metrics() -> Response:
+    async def metrics(request: Request) -> Response:
+        token = settings.metrics_token
+        if token is not None and token.get_secret_value():
+            presented = request.headers.get("Authorization", "")
+            scheme, _, credentials = presented.partition(" ")
+            provided = credentials.strip() if scheme.lower() == "bearer" else ""
+            if not secrets.compare_digest(token.get_secret_value(), provided):
+                raise problem(
+                    status.HTTP_401_UNAUTHORIZED,
+                    ProblemCode.AUTH_INVALID,
+                    "metrics requires the configured bearer token",
+                )
         return Response(content=await render_metrics(app), media_type=PROMETHEUS_CONTENT_TYPE)
 
     _mount_web_app(app)

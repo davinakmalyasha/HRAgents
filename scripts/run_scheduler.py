@@ -102,9 +102,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.json:
         print(format_report(report))
-    webhook = get_settings().scheduler_alert_webhook
+    settings = get_settings()
+    webhook = settings.scheduler_alert_webhook
     if webhook:
-        send_failure_alert(report, webhook)
+        send_failure_alert(report, webhook, allow_insecure_http=settings.scheduler_alert_allow_http)
     return 0 if all(job.ok for job in report.jobs) else 1
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
 from typing import TYPE_CHECKING
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -370,23 +371,53 @@ def alert_payload(report: SchedulerReport) -> dict[str, object]:
     }
 
 
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
+
+
+def _alert_url_is_allowed(url: str, *, allow_insecure_http: bool) -> bool:
+    """HTTPS always; plain HTTP only for loopback or an explicit opt-in.
+
+    Parse rather than ``startswith``: ``https://`` as a prefix accepts
+    ``https://user:pass@host`` and ``https://host\\@evil`` shapes, and a scheme
+    check that a parser does not agree with is not a check.
+    """
+    parts = urlsplit(url)
+    if parts.scheme == "https":
+        return bool(parts.hostname)
+    if parts.scheme != "http" or not parts.hostname:
+        return False
+    if allow_insecure_http:
+        return True
+    return parts.hostname.lower() in _LOOPBACK_HOSTS
+
+
 def send_failure_alert(
     report: SchedulerReport,
     webhook: str,
     *,
     post: Callable[..., object] | None = None,
     timeout: float = 5.0,
+    allow_insecure_http: bool = False,
 ) -> bool:
     """POST the failure summary when a run failed; True only if a request went out.
 
     Never raises: an unreachable chat channel must not turn a failed job into a
     crashed clock. The webhook URL is a bearer credential, so it stays out of
     the payload and the log line.
+
+    HTTPS only unless the operator opts in or the target is loopback: an alert
+    names failed jobs and their errors, and sending that in cleartext across a
+    network is a leak the operator did not ask for. A LAN relay
+    (Mattermost/Rocket.Chat over plain HTTP) still works through the explicit
+    flag, and a local development sink needs no flag at all.
     """
     if not webhook or all(job.ok for job in report.jobs):
         return False
-    if not webhook.startswith(("https://", "http://")):
-        logger.warning("scheduler.alert_skipped", reason="webhook must be an http(s) URL")
+    if not _alert_url_is_allowed(webhook, allow_insecure_http=allow_insecure_http):
+        logger.warning(
+            "scheduler.alert_skipped",
+            reason="webhook must be https (or loopback / explicitly allowed http)",
+        )
         return False
     sender = post or httpx.post
     try:

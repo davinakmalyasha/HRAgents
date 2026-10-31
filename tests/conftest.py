@@ -32,6 +32,13 @@ LEAKY_ENV_KEYS = frozenset(
         "HRAGENTS_STORE_BACKEND",
         "HRAGENTS_API_KEYS",
         "HRAGENTS_API_PRINCIPALS",
+        # Decides whether a plain-HTTP alert target is allowed. A developer who set
+        # it in their .env would make the "HTTP is refused by default" test pass for
+        # the wrong reason (or fail), so it is pinned away like the rest.
+        "HRAGENTS_SCHEDULER_ALERT_ALLOW_HTTP",
+        # A token here turns `/metrics` from public into bearer-gated, so a
+        # developer's .env would otherwise fail every scrape test.
+        "HRAGENTS_METRICS_TOKEN",
         # Names the local operator, and therefore the actor on every audit entry
         # an unconfigured test install records. A developer who set it in their
         # .env would see every `== "local-dev"` assertion fail for a reason that

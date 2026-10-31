@@ -97,3 +97,43 @@ def test_a_non_http_webhook_never_reaches_the_sender(
     assert recorder.calls == []
     events = [call.args[0] for call in logger.calls if call.args]
     assert "scheduler.alert_skipped" in events
+
+
+def test_plain_http_off_the_box_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    logger = CapturingLogger()
+    monkeypatch.setattr(scheduler_module, "logger", logger)
+    recorder = Recorder()
+
+    assert (
+        send_failure_alert(report(failed()), "http://chat.example.com/hook", post=recorder) is False
+    )
+    assert recorder.calls == []
+    assert "scheduler.alert_skipped" in [call.args[0] for call in logger.calls if call.args]
+
+
+def test_plain_http_to_loopback_still_works_for_a_local_sink() -> None:
+    recorder = Recorder()
+    assert (
+        send_failure_alert(report(failed()), "http://localhost:8065/hooks/x", post=recorder) is True
+    )
+    assert recorder.calls[0][0] == "http://localhost:8065/hooks/x"
+
+
+def test_plain_http_is_allowed_only_when_the_operator_opts_in() -> None:
+    recorder = Recorder()
+    assert (
+        send_failure_alert(
+            report(failed()),
+            "http://mattermost.internal/hooks/x",
+            post=recorder,
+            allow_insecure_http=True,
+        )
+        is True
+    )
+    assert len(recorder.calls) == 1
+
+
+def test_a_url_without_a_host_is_refused() -> None:
+    recorder = Recorder()
+    assert send_failure_alert(report(failed()), "https:///hook", post=recorder) is False
+    assert recorder.calls == []
