@@ -122,6 +122,10 @@ class Settings(BaseSettings):
     # same ceiling per file. Rate limit is per principal (or client address).
     api_max_body_bytes: int = Field(default=10 * 1024 * 1024, ge=1024)
     api_rate_limit_per_minute: int = Field(default=300, ge=1)
+    # Where the rate-limit window lives. `memory` is one process (the default
+    # single-replica install). `redis` shares one budget across replicas; without
+    # it, N processes silently allow N times the limit.
+    rate_limit_backend: Literal["memory", "redis"] = "memory"
     # Trust X-Forwarded-For for rate limiting. Off by default: an unauthenticated
     # caller can otherwise present a fresh address per request and bypass the
     # limit entirely. Turn on only when a proxy you control sits in front.

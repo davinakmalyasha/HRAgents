@@ -408,6 +408,25 @@ because an email is a nullable, changeable, shareable field, and a permission
 that depends on one is not a permission. An unbound principal is refused rather
 than assumed to own whatever it names.
 
+### Rate limits across more than one replica
+
+The limiter is a sliding window per principal (or per client address before
+authentication). By default it lives in the API process, which is right for the
+single-container install. If you run more than one `api` replica, every process
+would keep its own window and the deployment would allow the configured budget
+times the replica count:
+
+```bash
+HRAGENTS_RATE_LIMIT_BACKEND=redis
+HRAGENTS_REDIS_URL=redis://redis:6379/0   # the compose service name
+```
+
+The window is then one Redis sorted set per bucket, updated in a transaction so
+two processes cannot both take the last slot. If Redis is unreachable the
+limiter fails **open** and logs `rate_limit.store_unavailable`: at that point the
+queue is down too, and turning a dependency outage into a total refusal would
+not protect anything that is still working.
+
 > **What the two modes mean.** With no keys configured, every request is accepted
 > as a local development principal with full admin rights — appropriate for
 > `localhost`, not for a server. With keys configured, the dashboard signs in:

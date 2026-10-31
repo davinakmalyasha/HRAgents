@@ -6,16 +6,19 @@ deployment sits on a private network as often as on the open internet:
 - security headers on every response (CSP only for the bundled dashboard),
 - a request body ceiling enforced before the body is read,
 - a token-bucket rate limit per principal (or client address) with ``Retry-After``,
+  in memory for one process or in Redis when several share the limit,
 - a CORS policy that is off unless origins are configured explicitly.
 """
 
 from __future__ import annotations
 
+import math
 import time
 from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
+from uuid import uuid4
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse, Response
@@ -29,6 +32,9 @@ from hr_agents.api.metrics import record_http_request
 from hr_agents.api.problem import PROBLEM_MEDIA_TYPE, ProblemCode, problem_uri
 from hr_agents.api.request_id import RequestIdMiddleware
 from hr_agents.config import Settings, get_settings
+from hr_agents.logging import get_logger
+
+logger = get_logger(__name__)
 
 DEFAULT_MAX_BODY_BYTES = 10 * 1024 * 1024
 """10 MiB: the same ceiling the document endpoint enforces per file."""
@@ -276,6 +282,89 @@ class BodySizeLimitMiddleware:
             raise
 
 
+class RateLimitStore(Protocol):
+    """Where request counts live: this process, or a store every replica shares."""
+
+    async def hit(self, key: str) -> tuple[bool, float]: ...
+
+
+class InMemoryRateLimitStore:
+    """The default: one process's sliding window, no external dependency."""
+
+    def __init__(self, limiter: RateLimiter) -> None:
+        self._limiter = limiter
+
+    async def hit(self, key: str) -> tuple[bool, float]:
+        return self._limiter.check(key)
+
+
+_REDIS_KEY_PREFIX = "hragents:ratelimit:"
+"""One sorted set per bucket; a shared prefix makes an operator's flush easy to target."""
+
+
+class RedisRateLimitStore:
+    """A shared sliding window, for a deployment running several API processes.
+
+    A refusal is ``Retry-After`` seconds computed from the oldest hit still in
+    the window, so a throttled client is told when it may retry rather than
+    being handed a guess. If Redis is unreachable the limiter **fails open** and
+    logs: the queue and the stores are down in that state anyway, and refusing
+    every request would turn a dependency outage into an outage of the product.
+
+    The window is a Redis transaction (WATCH → trim/count → MULTI add) rather
+    than a Lua script, so it runs on any Redis and on ``fakeredis`` without the
+    Lua extra. Under contention a write loses the watch and retries; after
+    ``attempts`` losses the request is allowed rather than starved, which is the
+    same fail-open posture as an unreachable store.
+    """
+
+    def __init__(
+        self,
+        client: Any,
+        *,
+        limit: int,
+        window_seconds: float = 60.0,
+        clock: Callable[[], float] = time.time,
+        attempts: int = 3,
+    ) -> None:
+        self._client = client
+        self._limit = limit
+        self._window_seconds = window_seconds
+        self._clock = clock
+        self._attempts = attempts
+
+    async def hit(self, key: str) -> tuple[bool, float]:
+        from redis.exceptions import WatchError
+
+        redis_key = f"{_REDIS_KEY_PREFIX}{key}"
+        for _ in range(self._attempts):
+            now = self._clock()
+            try:
+                async with self._client.pipeline() as pipe:
+                    await pipe.watch(redis_key)
+                    await pipe.zremrangebyscore(redis_key, 0, now - self._window_seconds)
+                    count = int(await pipe.zcard(redis_key))
+                    if count >= self._limit:
+                        oldest = await pipe.zrange(redis_key, 0, 0, withscores=True)
+                        await pipe.unwatch()
+                        if not oldest:
+                            return True, 0.0
+                        retry_after = float(oldest[0][1]) + self._window_seconds - now
+                        return False, max(0.0, retry_after)
+                    pipe.multi()
+                    pipe.zadd(redis_key, {f"{now}:{uuid4().hex}": now})
+                    pipe.expire(redis_key, math.ceil(self._window_seconds))
+                    await pipe.execute()
+                    return True, 0.0
+            except WatchError:
+                continue
+            except Exception:
+                logger.error("rate_limit.store_unavailable", exc_info=True)
+                return True, 0.0
+        logger.warning("rate_limit.store_contended", key=key, attempts=self._attempts)
+        return True, 0.0
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Token-bucket gate with a standard ``Retry-After`` response."""
 
@@ -284,11 +373,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         app: ASGIApp,
         *,
         limiter: RateLimiter | None = None,
+        store: RateLimitStore | None = None,
         limit: int = DEFAULT_RATE_LIMIT_PER_MINUTE,
         exempt_paths: Iterable[str] = ("/healthz", "/readyz"),
     ) -> None:
         super().__init__(app)
         self._limiter = limiter or RateLimiter(limit=limit)
+        self._store = store or InMemoryRateLimitStore(self._limiter)
         self._exempt = frozenset(exempt_paths)
 
     @property
@@ -300,7 +391,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         if request.url.path in self._exempt:
             return await call_next(request)
-        allowed, retry_after = self._limiter.check(client_key(request))
+        allowed, retry_after = await self._store.hit(client_key(request))
         if not allowed:
             # Same reasoning as `_too_large`: ASGI middleware, so the document is built
             # here. `rate_limited` is the one code the frontend had no translation for,
@@ -328,6 +419,7 @@ def install_hardening(
     settings: Settings,
     *,
     limiter: RateLimiter | None = None,
+    rate_limit_store: RateLimitStore | None = None,
 ) -> None:
     """Register the hardening middleware and the CORS policy."""
     if settings.api_cors_origins:
@@ -341,9 +433,18 @@ def install_hardening(
             allow_headers=["Content-Type", "X-API-Key"],
             max_age=600,
         )
+    store = rate_limit_store
+    if store is None and settings.rate_limit_backend == "redis":
+        from redis.asyncio import Redis
+
+        store = RedisRateLimitStore(
+            Redis.from_url(settings.redis_url, decode_responses=True),
+            limit=settings.api_rate_limit_per_minute,
+        )
     app.add_middleware(
         RateLimitMiddleware,
         limiter=limiter or RateLimiter(limit=settings.api_rate_limit_per_minute),
+        store=store,
     )
     app.add_middleware(BodySizeLimitMiddleware, max_bytes=settings.api_max_body_bytes)
     app.add_middleware(SecurityHeadersMiddleware, hsts=settings.environment == "production")

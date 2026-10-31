@@ -85,6 +85,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] Rate-limiter key eviction: the bucket table is bounded by `max_tracked_keys`, expired
       buckets are pruned first, and what goes next is the least recently used -- never the
       principal being checked, whose window a refusal must not reset
+- [x] Shared rate limit for multi-replica deployments: `HRAGENTS_RATE_LIMIT_BACKEND=redis`
+      moves the sliding window into one Redis sorted set per bucket, updated in a
+      transaction so two processes cannot both take the last slot. The in-process
+      limiter stays the default for the single-container install; an unreachable
+      store fails open and logs, because the queue is down in that state too.
 - [x] Body-size ceiling: the middleware counts bytes as they stream in, so a chunked upload
       is stopped mid-flight, and a declared length is refused without reading a byte; the
       document endpoint's own limit matches the middleware's
