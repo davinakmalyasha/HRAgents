@@ -92,7 +92,20 @@ def test_meta_cloud_health_requires_token() -> None:
             "webhook_verify_token": "verify-1",
         },
     )
-    assert configured.status is ProviderHealthStatus.OK
+    # Send is ready; inbound needs the app secret Meta signs with.
+    assert configured.status is ProviderHealthStatus.DEGRADED
+    assert "app_secret" in configured.detail
+
+    inbound_ready = check(
+        "whatsapp.meta_cloud",
+        {
+            "phone_number_id": "123",
+            "access_token": "EAAB-token",
+            "webhook_verify_token": "verify-1",
+            "app_secret": "secret-1",
+        },
+    )
+    assert inbound_ready.status is ProviderHealthStatus.OK
 
 
 def test_manual_links_always_available() -> None:

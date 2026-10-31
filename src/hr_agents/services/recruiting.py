@@ -1090,9 +1090,33 @@ class CommunicationService:
             approved_by=actor.actor_id,
             recipient=to_email,
             recipient_phone=to_phone,
+            recipient_phone_normalized=self._normalized_phone(to_phone),
             recipient_telegram_chat_id=to_telegram_chat_id,
         )
         return self._queue(item, actor=actor)
+
+    def _normalized_phone(self, phone: str | None) -> str | None:
+        """Digits for inbound matching; an unusable number is simply not addressable.
+
+        Imported lazily: `messaging/__init__` builds the runtime, which imports
+        this module, so a top-level import here would be a package cycle.
+        """
+        from hr_agents.messaging.whatsapp import WhatsappLinkError, normalize_phone
+
+        if not phone:
+            return None
+        try:
+            return normalize_phone(phone)
+        except WhatsappLinkError:
+            return None
+
+    def find_by_recipient_phone(self, phone: str) -> CandidateCommunication | None:
+        """The most recent communication addressed to ``phone``, for reply threading."""
+        normalized = self._normalized_phone(phone)
+        if normalized is None:
+            return None
+        matches = [item for item in self._iter() if item.recipient_phone_normalized == normalized]
+        return max(matches, key=lambda item: item.created_at) if matches else None
 
     def queue_offer(
         self,
@@ -1125,6 +1149,7 @@ class CommunicationService:
             approved_by=actor.actor_id,
             recipient=to_email,
             recipient_phone=to_phone,
+            recipient_phone_normalized=self._normalized_phone(to_phone),
             recipient_telegram_chat_id=to_telegram_chat_id,
         )
         return self._queue(item, actor=actor)

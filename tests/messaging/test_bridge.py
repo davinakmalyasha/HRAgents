@@ -16,6 +16,7 @@ import pytest
 from hr_agents.identity import ActorProvenance, ActorRef
 from hr_agents.messaging.base import (
     InboundEmail,
+    InboundWhatsApp,
     OutboundEmail,
     SendResult,
     TransportError,
@@ -602,6 +603,72 @@ def test_rejection_approval_still_gates_dispatch(
 
 
 # --- inbound ---------------------------------------------------------------------
+
+
+def test_a_whatsapp_reply_is_attributed_by_the_number_it_answers(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    """There is no email address; the queued number is the thread."""
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID,
+        actor=ActorRef.legacy("hr-admin"),
+        body="Halo",
+        channel=Channel.WHATSAPP,
+        to_phone="0812-3456-7890",
+    )
+    replies = ReplyStore()
+    ingestor = ReplyIngestor(replies=replies, communications=communications)
+
+    report = ingestor.ingest_whatsapp(
+        [
+            InboundWhatsApp(
+                phone="6281234567890", body="Saya terima tawarannya.", message_id="wamid.1"
+            )
+        ]
+    )
+
+    assert (report.matched, report.unmatched) == (1, 0)
+    stored = replies.list_for(CANDIDATE_ID)
+    assert stored[0].channel is Channel.WHATSAPP
+    assert stored[0].communication_id == queued.id
+    assert stored[0].sender == "6281234567890"
+
+
+def test_a_whatsapp_reply_from_an_unknown_number_is_never_attributed(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    replies = ReplyStore()
+    ingestor = ReplyIngestor(replies=replies, communications=communications)
+
+    report = ingestor.ingest_whatsapp(
+        [InboundWhatsApp(phone="6289999999999", body="Halo?", message_id="wamid.9")]
+    )
+
+    assert (report.matched, report.unmatched) == (0, 1)
+    assert replies.list_all() == []
+
+
+def test_a_whatsapp_reply_is_stored_once_per_provider_message(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    communications.queue_offer(
+        CANDIDATE_ID,
+        actor=ActorRef.legacy("hr-admin"),
+        body="Halo",
+        channel=Channel.WHATSAPP,
+        to_phone="081234567890",
+    )
+    replies = ReplyStore()
+    ingestor = ReplyIngestor(replies=replies, communications=communications)
+    message = InboundWhatsApp(phone="6281234567890", body="Terima kasih", message_id="wamid.1")
+
+    ingestor.ingest_whatsapp([message])
+    report = ingestor.ingest_whatsapp([message])
+
+    assert report.duplicates == 1
+    assert len(replies.list_for(CANDIDATE_ID)) == 1
 
 
 def make_inbound(**overrides: object) -> InboundEmail:

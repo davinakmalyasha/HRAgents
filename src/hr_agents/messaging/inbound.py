@@ -16,12 +16,13 @@ from uuid import UUID
 from pydantic import Field
 
 from hr_agents.identity import ActorRef
-from hr_agents.messaging.base import InboundEmail
+from hr_agents.messaging.base import InboundEmail, InboundWhatsApp
 from hr_agents.messaging.contacts import CandidateDirectory
 from hr_agents.messaging.store import ReplyStore, reply_dedup_key
 from hr_agents.models import (
     CandidateCommunication,
     CandidateReply,
+    Channel,
     StrictModel,
     UtcDateTime,
     utc_now,
@@ -82,6 +83,27 @@ class ReplyIngestor:
         )
         for message in messages:
             self._ingest_one(message, report)
+        return report
+
+    def ingest_whatsapp(
+        self,
+        messages: Sequence[InboundWhatsApp],
+        *,
+        started_at: UtcDateTime | None = None,
+    ) -> IngestReport:
+        """Store WhatsApp replies by the number they came from.
+
+        There is no email address to match, so attribution uses the number the
+        outbound queue already stored (normalized once at queue time). A number
+        that matches no queued message is counted, never guessed into a
+        candidate.
+        """
+        report = IngestReport(
+            started_at=started_at or utc_now(),
+            provider=messages[0].provider if messages else "whatsapp.meta_cloud",
+        )
+        for message in messages:
+            self._ingest_whatsapp_one(message, report)
         return report
 
     # internals
@@ -162,6 +184,88 @@ class ReplyIngestor:
         report.outcomes.append(
             IngestOutcome(
                 from_address=message.from_address,
+                matched=True,
+                candidate_id=candidate_id,
+                reply_id=reply.id,
+                detail="stored",
+            )
+        )
+
+    def _ingest_whatsapp_one(self, message: InboundWhatsApp, report: IngestReport) -> None:
+        body = message.body.strip()
+        if not body:
+            report.unmatched += 1
+            report.outcomes.append(
+                IngestOutcome(
+                    from_address=message.phone,
+                    matched=False,
+                    detail="no text body",
+                )
+            )
+            return
+        communication = self._communications.find_by_recipient_phone(message.phone)
+        if communication is None:
+            report.unmatched += 1
+            report.outcomes.append(
+                IngestOutcome(
+                    from_address=message.phone,
+                    matched=False,
+                    detail="no queued message to this number",
+                )
+            )
+            return
+        candidate_id = communication.candidate_id
+        dedup_key = reply_dedup_key(
+            provider=message.provider,
+            message_id=message.message_id,
+            sender=message.phone,
+            subject="",
+            body=body,
+        )
+        existing = self._replies.find(provider=message.provider, dedup_key=dedup_key)
+        if existing is not None:
+            report.duplicates += 1
+            report.outcomes.append(
+                IngestOutcome(
+                    from_address=message.phone,
+                    matched=True,
+                    candidate_id=candidate_id,
+                    reply_id=existing.id,
+                    detail="already captured",
+                )
+            )
+            return
+        reply = self._replies.add(
+            CandidateReply(
+                candidate_id=candidate_id,
+                communication_id=communication.id,
+                channel=Channel.WHATSAPP,
+                sender=message.phone,
+                subject="",
+                body=body,
+                provider=message.provider,
+                provider_message_id=message.message_id,
+                dedup_key=dedup_key,
+                received_at=message.received_at,
+            )
+        )
+        self._audit.append(
+            actor=ActorRef.system(f"transport:{message.provider}").audit_actor(),
+            action="communication.reply_received",
+            subject_type="candidate_reply",
+            subject_id=str(reply.id),
+            payload={
+                "candidate_id": str(candidate_id),
+                "communication_id": str(communication.id),
+                "channel": Channel.WHATSAPP.value,
+                "provider": message.provider,
+                "message_id": message.message_id,
+            },
+        )
+        report.matched += 1
+        report.outcomes.append(
+            IngestOutcome(
+                from_address=message.phone,
                 matched=True,
                 candidate_id=candidate_id,
                 reply_id=reply.id,

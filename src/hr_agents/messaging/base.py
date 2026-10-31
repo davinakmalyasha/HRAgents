@@ -42,6 +42,16 @@ class SendResult(StrictModel):
     detail: str = Field(default="", max_length=500)
 
 
+class InboundWhatsApp(StrictModel):
+    """One inbound WhatsApp message, addressed by phone rather than email."""
+
+    phone: str = Field(min_length=1, max_length=32)
+    body: str = Field(min_length=1, max_length=8000)
+    message_id: str | None = Field(default=None, max_length=500)
+    provider: str = Field(default="whatsapp.meta_cloud", min_length=1, max_length=64)
+    received_at: UtcDateTime = Field(default_factory=utc_now)
+
+
 class InboundAttachment(StrictModel):
     """One file carried by inbound mail: a CV until proven otherwise."""
 

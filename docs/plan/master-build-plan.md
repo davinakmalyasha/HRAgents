@@ -393,10 +393,12 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] `whatsapp` providers: Meta Cloud API + manual `wa.me` links fallback (default until connected) —
       the manual-links transport is live (`messaging/whatsapp.py`: deterministic E.164 link
       composition, `POST /v1/communications/{id}/dispatch-link`, phone captured at queue time);
-      the human opens the link, sends, and records dispatch. **Meta Cloud sending is live**
-      (`messaging/whatsapp_cloud.py`): text messages through the Graph API, 4096-character
-      body limit, Graph errors reported as refusals, and a dispatcher that reuses the
-      outbox's claim/backoff/evidence contract (`run_messaging.py --whatsapp`)
+      the human opens the link, sends, and records dispatch. **Meta Cloud sending and
+      inbound are live** (`messaging/whatsapp_cloud.py`, `/v1/webhooks/whatsapp/meta`):
+      text messages through the Graph API (4096-character limit, Graph errors as
+      refusals), and `X-Hub-Signature-256`-verified inbound replies stored once and
+      attributed by the normalized number the outbound message carried. Inbound needs
+      `app_secret`; the handshake answers `hub.challenge` with the configured token
 - [x] Telegram provider (`telegram.bot`): Bot API send with the same refusal semantics;
       registered as its own capability, with an honest health check (no token, no channel).
       **Channel dispatch is live**: `candidate_communications.recipient_telegram_chat_id`

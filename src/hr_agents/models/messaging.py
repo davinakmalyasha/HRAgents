@@ -105,6 +105,7 @@ class CandidateCommunication(Versioned):
     sent_at: UtcDateTime | None = None
     recipient: EmailStr | None = None
     recipient_phone: str | None = Field(default=None, max_length=32)
+    recipient_phone_normalized: str | None = Field(default=None, max_length=32)
     recipient_telegram_chat_id: str | None = Field(default=None, max_length=64)
     provider: str | None = Field(default=None, max_length=64)
     provider_message_id: str | None = Field(default=None, max_length=500)
@@ -120,14 +121,16 @@ class CandidateReply(StrictModel):
     """An inbound candidate message captured from a connected mailbox.
 
     Replies are evidence, never decisions: an offer acceptance still requires a
-    named human through the offer API.
+    named human through the offer API. ``sender`` is an email address or a phone
+    number depending on ``channel`` — it was ``EmailStr`` until WhatsApp inbound
+    made that type a lie.
     """
 
     id: UUID = Field(default_factory=uuid4)
     candidate_id: UUID
     communication_id: UUID | None = None
     channel: Channel = Channel.EMAIL
-    sender: EmailStr
+    sender: str = Field(min_length=1, max_length=320)
     subject: str = Field(default="", max_length=500)
     body: str = Field(min_length=1, max_length=8000)
     provider: str = Field(min_length=1, max_length=64)

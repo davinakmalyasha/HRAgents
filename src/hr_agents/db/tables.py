@@ -359,6 +359,7 @@ class CandidateCommunicationRecord(TenantScoped, Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     recipient: Mapped[str | None] = mapped_column(String(320))
     recipient_phone: Mapped[str | None] = mapped_column(String(32))
+    recipient_phone_normalized: Mapped[str | None] = mapped_column(String(32))
     recipient_telegram_chat_id: Mapped[str | None] = mapped_column(String(64))
     provider: Mapped[str | None] = mapped_column(String(64))
     provider_message_id: Mapped[str | None] = mapped_column(String(500))

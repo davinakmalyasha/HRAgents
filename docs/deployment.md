@@ -478,8 +478,20 @@ Bodies are truncated at the API's 4 096-character text limit, and a Graph error
 is stored as the message's `last_error` rather than raised into the loop.
 `--whatsapp` runs this queue alone; the default pass runs email and WhatsApp.
 
-Inbound WhatsApp still needs a public webhook and is not wired yet; replies
-continue to arrive by email or are recorded by a human.
+Inbound is the same provider. Point Meta's callback at
+`https://<your-host>/v1/webhooks/whatsapp/meta`, set the verify token to
+`webhook_verify_token`, and add the app secret:
+
+```bash
+HRAGENTS_PROVIDER_WHATSAPP_CONFIG={"phone_number_id":"...","access_token":"...","webhook_verify_token":"...","app_secret":"..."}
+```
+
+The GET handshake echoes `hub.challenge` only for the configured token. A POST is
+verified with `X-Hub-Signature-256` (the app secret, not the access token), a
+delivery id is refused on replay, and a text reply is attributed by the number
+the queued outbound message carried — normalized at queue time, so `0812-…` and
+Meta's `62812…` match. A number that matches no queued message is counted, never
+guessed onto a candidate.
 
 ### Telegram sending
 

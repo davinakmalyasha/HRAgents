@@ -26,6 +26,8 @@ class MetaCloudConfig(ProviderConfig):
     phone_number_id: str = Field(min_length=1)
     access_token: SecretStr
     webhook_verify_token: SecretStr
+    # Meta signs inbound webhooks with the app secret, not the access token.
+    app_secret: SecretStr | None = None
     api_version: str = "v21.0"
     # Overridable so a test (or a gateway/proxy deployment) can point at a local
     # endpoint without changing the code path.
@@ -56,8 +58,12 @@ def _health_meta_cloud(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, MetaCloudConfig)
     if not config.access_token.get_secret_value():
         return ProviderHealth.misconfigured("access_token is required")
+    if config.app_secret is None or not config.app_secret.get_secret_value():
+        return ProviderHealth.degraded(
+            "send is live; inbound needs app_secret to verify Meta's signature"
+        )
     return ProviderHealth.ok(
-        "send is live through the Graph API; inbound needs a public webhook "
+        "send and inbound are live; the webhook must be publicly reachable "
         "(Cloudflare Tunnel for self-host)"
     )
 

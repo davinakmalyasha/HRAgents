@@ -584,6 +584,7 @@ class DbCommunicationService(CommunicationService):
             row.sent_at = item.sent_at
             row.recipient = item.recipient
             row.recipient_phone = item.recipient_phone
+            row.recipient_phone_normalized = item.recipient_phone_normalized
             row.recipient_telegram_chat_id = item.recipient_telegram_chat_id
             row.provider = item.provider
             row.provider_message_id = item.provider_message_id
@@ -619,6 +620,7 @@ class DbCommunicationService(CommunicationService):
             sent_at=None if row.sent_at is None else _aware(row.sent_at),
             recipient=row.recipient,
             recipient_phone=row.recipient_phone,
+            recipient_phone_normalized=row.recipient_phone_normalized,
             recipient_telegram_chat_id=row.recipient_telegram_chat_id,
             provider=row.provider,
             provider_message_id=row.provider_message_id,

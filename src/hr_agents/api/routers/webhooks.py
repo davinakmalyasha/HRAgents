@@ -19,9 +19,14 @@ from re import sub
 from typing import Any
 
 from fastapi import APIRouter, Request, status
+from fastapi.responses import PlainTextResponse
 
 from hr_agents.api.problem import ProblemCode, problem
-from hr_agents.messaging.base import MAX_INBOUND_BODY_CHARS, InboundEmail
+from hr_agents.messaging.base import (
+    MAX_INBOUND_BODY_CHARS,
+    InboundEmail,
+    InboundWhatsApp,
+)
 from hr_agents.messaging.webhooks import (
     ReplayGuard,
     WebhookError,
@@ -35,7 +40,7 @@ from hr_agents.providers.settings import resolve_provider_settings
 router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
 
 RESEND_PROVIDER_ID = "email.resend_webhook"
-
+WHATSAPP_PROVIDER_ID = "whatsapp.meta_cloud"
 HTML_TAG = r"<[^>]+>"
 
 
@@ -172,6 +177,158 @@ async def resend_inbound(request: Request) -> InboundWebhookResult:
     report = ingestor.ingest([message])
     return InboundWebhookResult(
         event=event,
+        stored=report.matched,
+        unmatched=report.unmatched,
+        duplicates=report.duplicates,
+    )
+
+
+def _meta_secrets() -> tuple[str, str | None] | None:
+    """``(verify_token, app_secret)`` for the configured WhatsApp Cloud provider."""
+    resolved = resolve_provider_settings().get(Capability.WHATSAPP)
+    if resolved is None or resolved.provider_id != WHATSAPP_PROVIDER_ID:
+        return None
+    verify = resolved.config.get("webhook_verify_token")
+    if not isinstance(verify, str) or not verify:
+        return None
+    secret = resolved.config.get("app_secret")
+    return verify, secret if isinstance(secret, str) and secret else None
+
+
+def _meta_messages(payload: dict[str, Any]) -> list[InboundWhatsApp]:
+    """Text messages from a Meta webhook; other event kinds are ignored."""
+    messages: list[InboundWhatsApp] = []
+    entries = payload.get("entry")
+    if not isinstance(entries, list):
+        return messages
+    for entry in entries:
+        changes = entry.get("changes") if isinstance(entry, dict) else None
+        for change in changes or []:
+            value = change.get("value") if isinstance(change, dict) else None
+            if not isinstance(value, dict):
+                continue
+            for message in value.get("messages") or []:
+                if not isinstance(message, dict):
+                    continue
+                phone = str(message.get("from") or "").strip()
+                body = _meta_text(message)
+                if not phone or not body:
+                    continue
+                messages.append(
+                    InboundWhatsApp(
+                        phone=phone[:32],
+                        body=body[:MAX_INBOUND_BODY_CHARS],
+                        message_id=str(message.get("id") or "").strip() or None,
+                        provider=WHATSAPP_PROVIDER_ID,
+                    )
+                )
+    return messages
+
+
+def _meta_text(message: dict[str, Any]) -> str:
+    text = message.get("text")
+    if isinstance(text, dict) and isinstance(text.get("body"), str):
+        return str(text["body"]).strip()
+    button = message.get("button")
+    if isinstance(button, dict) and isinstance(button.get("text"), str):
+        return str(button["text"]).strip()
+    interactive = message.get("interactive")
+    if isinstance(interactive, dict):
+        for key in ("button_reply", "list_reply"):
+            reply = interactive.get(key)
+            if isinstance(reply, dict) and isinstance(reply.get("title"), str):
+                return str(reply["title"]).strip()
+    return ""
+
+
+@router.get(
+    "/whatsapp/meta",
+    summary="Meta WhatsApp webhook verification (hub.challenge)",
+    response_class=PlainTextResponse,
+)
+def verify_whatsapp_webhook(request: Request) -> PlainTextResponse:
+    """Answer Meta's subscription handshake with the challenge, or refuse."""
+    secrets = _meta_secrets()
+    if secrets is None:
+        raise problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ProblemCode.SERVICE_UNAVAILABLE,
+            "the WhatsApp Cloud webhook is not configured",
+        )
+    verify_token, _ = secrets
+    params = request.query_params
+    challenge = params.get("hub.challenge", "")
+    if params.get("hub.mode") == "subscribe" and params.get("hub.verify_token") == verify_token:
+        return PlainTextResponse(challenge)
+    raise problem(
+        status.HTTP_403_FORBIDDEN,
+        ProblemCode.WEBHOOK_REFUSED,
+        "the verification token did not match",
+    )
+
+
+@router.post(
+    "/whatsapp/meta",
+    response_model=InboundWebhookResult,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Meta WhatsApp inbound messages (X-Hub-Signature-256)",
+)
+async def whatsapp_inbound(request: Request) -> InboundWebhookResult:
+    raw = await request.body()
+    secrets = _meta_secrets()
+    if secrets is None:
+        raise problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ProblemCode.SERVICE_UNAVAILABLE,
+            "the WhatsApp Cloud webhook is not configured",
+        )
+    _, app_secret = secrets
+    if app_secret is None:
+        raise problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ProblemCode.SERVICE_UNAVAILABLE,
+            "app_secret is required to verify inbound WhatsApp signatures",
+        )
+    guard: ReplayGuard | None = getattr(request.app.state, "webhook_replay_guard", None)
+    try:
+        verify_webhook(
+            scheme=WebhookScheme.META,
+            headers=dict(request.headers),
+            body=raw,
+            secret=app_secret,
+            guard=guard,
+        )
+    except WebhookError as exc:
+        raise problem(status.HTTP_401_UNAUTHORIZED, ProblemCode.WEBHOOK_REFUSED, str(exc)) from exc
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise problem(
+            status.HTTP_400_BAD_REQUEST,
+            ProblemCode.VALIDATION_FAILED,
+            "webhook body is not valid JSON",
+        ) from exc
+    if not isinstance(payload, dict):
+        raise problem(
+            status.HTTP_400_BAD_REQUEST,
+            ProblemCode.VALIDATION_FAILED,
+            "webhook body must be a JSON object",
+        )
+    messages = _meta_messages(payload)
+    if not messages:
+        return InboundWebhookResult(event=str(payload.get("object") or ""))
+    messaging = getattr(request.app.state, "messaging", None)
+    recruiting = getattr(request.app.state, "recruiting", None)
+    if messaging is None or recruiting is None:
+        raise problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ProblemCode.SERVICE_UNAVAILABLE,
+            "the reply bridge is not available",
+        )
+    ingestor = messaging.ingestor(recruiting.communications, audit=request.app.state.audit)
+    report = ingestor.ingest_whatsapp(messages)
+    return InboundWebhookResult(
+        event=str(payload.get("object") or "whatsapp"),
         stored=report.matched,
         unmatched=report.unmatched,
         duplicates=report.duplicates,
