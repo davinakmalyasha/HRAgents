@@ -118,9 +118,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       the image-created superuser on first init (ADR 0006 knew it was bypassed and deferred it).
       Existing volumes need the `ALTER ROLE` by hand
 - [ ] Log-redaction pass: fuzz `mask_secrets` with real provider payloads
-- [~] Dependency scanning cadence: Dependabot covers uv, GitHub Actions and npm weekly
-      (`.github/dependabot.yml`), and CodeQL runs in CI. Still open: a scheduled
-      `uvx pip-audit` (or equivalent) against the lockfile.
+- [x] Dependency scanning cadence: Dependabot covers uv, GitHub Actions and npm weekly
+      (`.github/dependabot.yml`), CodeQL runs in CI, and `.github/workflows/audit.yml` runs
+      `pip-audit --strict` against the exported lockfile every Monday (plus manual dispatch).
+      Its first run found and cleared advisories in `pypdf`, `joserfc` and `pyasn1`.
 - [ ] Session/auth hardening review. The current state is a documented trap: no keys means
       unauthenticated `HR_ADMIN` on `0.0.0.0:8000`; keys mean the dashboard 401s because there are
       no login screens. One or the other has to be resolved

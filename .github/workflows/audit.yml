@@ -1,0 +1,36 @@
+name: Dependency audit
+
+on:
+  schedule:
+    # Weekly, before the Monday dependency PRs are reviewed.
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependency-audit
+  cancel-in-progress: false
+
+jobs:
+  pip-audit:
+    name: pip-audit (lockfile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+      - run: uv python install 3.14
+      # Export the locked dependency set without the local project: pip-audit
+      # cannot look `hr-agents` up on PyPI, and the point is the third-party
+      # packages, not this package itself.
+      - run: >-
+          uv export --locked --no-emit-project --no-hashes
+          --format requirements.txt --output-file /tmp/requirements-audit.txt
+      # Fail the run on a known vulnerability, including one the maintainer has
+      # not released a fixed version for: an advisory without a patch is still a
+      # finding. The report stays in the log for triage.
+      - run: uv run --with pip-audit pip-audit -r /tmp/requirements-audit.txt --strict
