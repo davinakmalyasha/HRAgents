@@ -101,15 +101,22 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] Body-size ceiling: the middleware counts bytes as they stream in, so a chunked upload
       is stopped mid-flight, and a declared length is refused without reading a byte; the
       document endpoint's own limit matches the middleware's
-- [ ] Key management: rotation procedure for API keys and provider credentials; kid metadata
-- [ ] Upload scanning hook (ClamAV/YARA adapter) behind the storage provider. No MIME sniffing
-      either: `kind` is a client-supplied form field, and an arbitrary binary is decoded as UTF-8
+- [x] Key management: rotation procedure for API keys and provider credentials —
+      `docs/deployment.md` §"Secrets and rotation" (prepend the new settings key, reload, revoke
+      at the issuer; every rotation is audited) and the provider-credential settings key rotates
+      through `services/sealing.py`'s Fernet key list
+- [~] Upload scanning hook (ClamAV adapter) behind the storage provider — `services/scanning.py`
+      records clean, refuses infected, and refuses a configured-but-unreachable scanner rather
+      than storing unscanned. Still open: MIME sniffing; `kind` remains a client-supplied form
+      field and an arbitrary binary is decoded as UTF-8
 - [ ] Pen-test checklist executed against a staging instance; findings triaged here
 - [x] **RLS actually applies in the shipped stack**: `docker/postgres/10-non-superuser.sql` demotes
       the image-created superuser on first init (ADR 0006 knew it was bypassed and deferred it).
       Existing volumes need the `ALTER ROLE` by hand
 - [ ] Log-redaction pass: fuzz `mask_secrets` with real provider payloads
-- [ ] Dependency scanning cadence (Dependabot + periodic `uvx pip-audit` on lockfile)
+- [~] Dependency scanning cadence: Dependabot covers uv, GitHub Actions and npm weekly
+      (`.github/dependabot.yml`), and CodeQL runs in CI. Still open: a scheduled
+      `uvx pip-audit` (or equivalent) against the lockfile.
 - [ ] Session/auth hardening review. The current state is a documented trap: no keys means
       unauthenticated `HR_ADMIN` on `0.0.0.0:8000`; keys mean the dashboard 401s because there are
       no login screens. One or the other has to be resolved
