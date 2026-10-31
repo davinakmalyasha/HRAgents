@@ -139,11 +139,13 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       is a volume
 - [x] Audit chain verification scheduled: the `audit-verify` scheduler job runs from the compose
       `scheduler` service; an automated after-restore check is available via `backup.py --verify`
-- [~] Half-state repair: `approval-reconcile` replays a decision the approvals store already
-      holds onto a leave request, payroll run or erasure still waiting (last seven days),
-      which is the window a crash between two stores leaves behind. It never makes a
-      decision. Open: one transaction across every store per service method (the erasure
-      journal makes that sweep recoverable, not atomic)
+- [~] Half-state repair: **the approval pair is transactional now.** `ApprovalEngine`
+      writes the decided approval and its `pending_approval_syncs` row in one Postgres
+      transaction (migration `0039`), and `approval-reconcile` consumes the row
+      idempotently (domain refusal = already settled; store failure retried up to five
+      attempts; then `gave_up` with the last error). Open: the same treatment for the
+      other linked pairs (offers, scheduling, erasure) and a unit of work spanning
+      arbitrary services
 
 ## Beauty / UX
 

@@ -122,17 +122,27 @@ def save_model(factory: sessionmaker[Session], model: BaseModel, record_cls: typ
     their change -- and on a step completion or a mid-loop erasure, nobody would
     ever find out.
     """
-    pk = getattr(model, "id", None)
     with sync_session_scope(factory) as session:
-        row = session.get(record_cls, pk)
-        if row is None:
-            raise KeyError(f"unknown {record_cls.__tablename__} {pk}")
-        check_version(row, model)
-        for name, value in _row_values(model, record_cls).items():
-            if name == "version":
-                continue
-            setattr(row, name, value)
-        session.flush()
+        save_model_in_session(session, model, record_cls)
+
+
+def save_model_in_session(session: Session, model: BaseModel, record_cls: type[OrmBase]) -> None:
+    """`save_model` inside a caller-owned transaction.
+
+    The unit-of-work seam: a service that must write two rows atomically (a
+    decision and its outbox row) opens one session, calls this for the model and
+    adds the second row, and both commit or neither does.
+    """
+    pk = getattr(model, "id", None)
+    row = session.get(record_cls, pk)
+    if row is None:
+        raise KeyError(f"unknown {record_cls.__tablename__} {pk}")
+    check_version(row, model)
+    for name, value in _row_values(model, record_cls).items():
+        if name == "version":
+            continue
+        setattr(row, name, value)
+    session.flush()
 
 
 def get_model[ModelT: BaseModel](

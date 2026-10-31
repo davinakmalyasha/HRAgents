@@ -797,9 +797,13 @@ not a style opinion.
    (`purge_jobs`, migration `0033`), isolates a failing handler, leaves the record
    unpurged for the next sweep, and reports the failure on the compliance screen and the
    audit chain. Three set-whole writes (leave balance adjustments, the holiday calendar,
-   interviewer availability) are deliberately last-write-wins and say so. **Still open:**
-   one transaction across every store per service method — recoverability exists, distributed
-   atomicity does not.
+   interviewer availability) are deliberately last-write-wins and say so. **A real
+   transaction now covers the approval pair**: the decision and its subject-sync outbox
+   row (`pending_approval_syncs`, migration `0039`) commit together, and the reconcile
+   job consumes the row idempotently, so a crash cannot lose the subject update. A stale
+   decision rolls the outbox row back with it. **Still open:** the same treatment for the
+   other linked pairs (offers, scheduling, erasure) and one unit of work spanning
+   arbitrary services — recoverability exists for those, distributed atomicity does not.
 9. ~~**Feedback and screening validators substring-match** `"age"`, so "message",
    "average", "language", "coverage", and "manager" are false positives. Latent only
    because the screening agent is not yet on the live path.~~ **Fixed.**

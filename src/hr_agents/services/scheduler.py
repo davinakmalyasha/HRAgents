@@ -10,16 +10,16 @@ acted on, because breach response is a human decision.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import httpx
 
+from hr_agents.errors import DomainError
 from hr_agents.identity import ActorRef
 from hr_agents.logging import get_logger
 from hr_agents.models import (
-    ApprovalStatus,
     ApprovalSubject,
     ApproverRole,
     StrictModel,
@@ -73,9 +73,9 @@ DOCUMENT_EXPIRY_WINDOW_DAYS = 60
 
 REPLY_SLA_HOURS = 72
 
-APPROVAL_RECONCILE_WINDOW_DAYS = 7
-"""How far back the repair pass looks. A decision older than this whose subject is
-still pending is an operator problem, not a crash to replay."""
+APPROVAL_SYNC_MAX_ATTEMPTS = 5
+"""After this many failed applies the outbox row is closed as ``gave_up`` so one
+broken subject cannot occupy the reconciler forever; the last error stays on it."""
 
 APPROVAL_RECONCILE_LIMIT = 500
 """Anti-ghosting window: a dispatched message with no reply gets a follow-up task."""
@@ -259,47 +259,63 @@ class Scheduler:
         return len(escalated) + len(expired), f"escalated {len(escalated)}, expired {len(expired)}"
 
     def _run_approval_reconcile(self, moment: datetime, _purge: bool) -> tuple[int, str]:
-        """Apply decisions an approval already holds to a subject still waiting.
+        """Consume the durable outbox a decision committed with its approval.
 
-        Deciding an approval and updating its subject are two stores, not one
-        transaction. A crash between them leaves a leave request, payroll run or
-        erasure pending while the inbox says approved — an operator sees two
-        screens disagree. This pass replays the *recorded* decision onto the
-        subject; it never makes one, and a decision older than the window is left
-        for a human because the world may have moved.
+        The decision and this row are written in one transaction, so a crash
+        cannot leave a decided approval whose subject never hears about it. The
+        row is applied idempotently: a domain refusal means the subject is
+        already settled, while a transport/store failure is retried with a
+        bounded attempt count so one bad record cannot wedge the queue forever.
         """
-        since = moment - timedelta(days=APPROVAL_RECONCILE_WINDOW_DAYS)
-        decided = [
-            approval
-            for approval in self._people.approvals.list_all()
-            if approval.status
-            in {
-                ApprovalStatus.APPROVED,
-                ApprovalStatus.REJECTED,
-                ApprovalStatus.WITHDRAWN,
-                ApprovalStatus.EXPIRED,
-            }
-            and approval.decided_at is not None
-            and approval.decided_at >= since
-        ][:APPROVAL_RECONCILE_LIMIT]
+        pending = self._people.approvals.pending_syncs[:APPROVAL_RECONCILE_LIMIT]
         actor = ActorRef.system("approval-reconcile")
         applied = 0
-        skipped = 0
-        for approval in decided:
-            apply = self._decision_applier(approval.subject)
+        settled = 0
+        failed = 0
+        for item in pending:
+            apply = self._decision_applier(item.subject)
+            outcome: str | None = None
             if apply is None:
-                continue
-            try:
-                apply(approval.id, actor=actor)
-            except Exception:
-                # Already applied is the common case; an unknown subject is the
-                # other. Neither is an error worth failing the sweep for.
-                skipped += 1
-                continue
-            applied += 1
+                outcome = "no_sync_path"
+                settled += 1
+            else:
+                try:
+                    apply(item.approval_id, actor=actor)
+                    outcome = "applied"
+                    applied += 1
+                except DomainError:
+                    # The subject refused because it is already in the target
+                    # state (a replayed decision, or a human settled it first).
+                    outcome = "already_settled"
+                    settled += 1
+                except Exception as exc:
+                    attempts = item.attempts + 1
+                    failed += 1
+                    if attempts < APPROVAL_SYNC_MAX_ATTEMPTS:
+                        self._people.approvals.save_pending_sync(
+                            item.model_copy(
+                                update={"attempts": attempts, "last_error": str(exc)[:500]}
+                            )
+                        )
+                        continue
+                    outcome = "gave_up"
+                    self._people.approvals.save_pending_sync(
+                        item.model_copy(
+                            update={
+                                "attempts": attempts,
+                                "last_error": str(exc)[:500],
+                                "consumed_at": moment,
+                                "outcome": outcome,
+                            }
+                        )
+                    )
+                    continue
+            self._people.approvals.save_pending_sync(
+                item.model_copy(update={"consumed_at": moment, "outcome": outcome})
+            )
         return applied, (
-            f"reconciled {applied} subject(s) from {len(decided)} decided approval(s), "
-            f"{skipped} already settled or not applicable"
+            f"applied {applied}, settled {settled}, failed {failed} "
+            f"of {len(pending)} pending sync(s)"
         )
 
     def _decision_applier(self, subject: ApprovalSubject) -> Callable[..., object] | None:

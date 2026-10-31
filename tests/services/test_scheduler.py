@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from tests.actors import hr_admin, manager
+from tests.actors import finance, hr_admin, manager
 
 from hr_agents.identity import ActorProvenance, ActorRef, ActorType
 from hr_agents.messaging.store import ReplyStore
@@ -138,8 +138,8 @@ def test_approval_reconcile_applies_a_decision_the_subject_missed() -> None:
     assert people.leave.get_request(request.id).status is RequestStatus.APPROVED
 
 
-def test_approval_reconcile_leaves_an_old_decision_alone() -> None:
-    """Older than the window: the world may have moved, so a human looks."""
+def test_a_decision_commits_its_outbox_row_with_the_approval() -> None:
+    """The durable half: the decision and the work it implies are one write."""
     scheduler, people, _recruiting, _applications = make_scheduler()
     employee = people.employees.create(
         full_name="Sari Dewi",
@@ -166,12 +166,79 @@ def test_approval_reconcile_leaves_an_old_decision_alone() -> None:
         actor=owner(employee),
     )
     assert request.approval_id is not None
+
     people.approvals.decide(request.approval_id, actor=manager(), approve=True)
 
-    report = scheduler.run(["approval-reconcile"], now=NOW + timedelta(days=30))
+    pending = people.approvals.pending_syncs
+    assert len(pending) == 1
+    assert pending[0].approval_id == request.approval_id
+    assert pending[0].subject is ApprovalSubject.LEAVE_REQUEST
+    assert pending[0].decision is ApprovalStatus.APPROVED
 
-    assert report.jobs[0].changed == 0
-    assert people.leave.get_request(request.id).status is RequestStatus.PENDING
+    scheduler.run(["approval-reconcile"], now=NOW)
+
+    assert people.approvals.pending_syncs == []
+    assert people.leave.get_request(request.id).status is RequestStatus.APPROVED
+
+
+def test_a_failed_sync_is_retried_and_then_settles(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A store failure is not a lost decision: the row survives with its error."""
+    scheduler, people, _recruiting, _applications = make_scheduler()
+    approval = people.approvals.create(
+        subject=ApprovalSubject.LEAVE_REQUEST,
+        subject_id=str(uuid4()),
+        title="A request nobody can sync yet",
+        summary="",
+        assignee_role=ApproverRole.HR_ADMIN,
+        actor=hr_admin(),
+    )
+    people.approvals.decide(approval.id, actor=hr_admin(), approve=True, reason="ok")
+
+    def failing(_approval_id: UUID, *, actor: ActorRef) -> object:
+        raise OSError("the leave store is unavailable")
+
+    monkeypatch.setattr(people.leave, "apply_decision", failing)
+    first = scheduler.run(["approval-reconcile"], now=NOW)
+    monkeypatch.undo()
+
+    assert first.jobs[0].changed == 0
+    pending = people.approvals.pending_syncs
+    assert len(pending) == 1
+    assert pending[0].attempts == 1
+    assert "unavailable" in (pending[0].last_error or "")
+
+    scheduler.run(["approval-reconcile"], now=NOW)
+
+    # The leave request does not exist, so the real applier refuses with a domain
+    # error — the outbox treats that as settled rather than retrying forever.
+    assert people.approvals.pending_syncs == []
+
+
+def test_a_sync_that_keeps_failing_is_closed_as_gave_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scheduler, people, _recruiting, _applications = make_scheduler()
+    approval = people.approvals.create(
+        subject=ApprovalSubject.PAYROLL_RUN,
+        subject_id=str(uuid4()),
+        title="A payroll run with a broken store",
+        summary="",
+        assignee_role=ApproverRole.FINANCE,
+        actor=hr_admin(),
+    )
+    people.approvals.decide(approval.id, actor=finance(), approve=True, reason="ok")
+
+    def failing(_approval_id: UUID, *, actor: ActorRef) -> object:
+        raise OSError("the payroll store is unavailable")
+
+    monkeypatch.setattr(people.payroll, "apply_decision", failing)
+    for _ in range(5):
+        scheduler.run(["approval-reconcile"], now=NOW)
+
+    assert people.approvals.pending_syncs == []
+    all_rows = people.approvals.all_syncs()
+    assert all_rows[0].outcome == "gave_up"
+    assert all_rows[0].attempts == 5
 
 
 def test_approval_reconcile_ignores_subjects_without_a_sync_path() -> None:
@@ -190,6 +257,7 @@ def test_approval_reconcile_ignores_subjects_without_a_sync_path() -> None:
 
     assert report.jobs[0].ok is True
     assert report.jobs[0].changed == 0
+    assert people.approvals.pending_syncs == []
 
 
 def make_evaluation(candidate_id: UUID) -> TechnicalEvaluation:

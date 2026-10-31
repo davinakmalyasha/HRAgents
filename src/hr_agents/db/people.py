@@ -11,6 +11,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import case, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -22,6 +23,7 @@ from hr_agents.db.mapping import (
     list_models,
     model_from_row,
     save_model,
+    save_model_in_session,
 )
 from hr_agents.db.session import sync_session_scope
 from hr_agents.models import (
@@ -44,6 +46,8 @@ from hr_agents.services.people_store import (
     ApprovalStore,
     ContractStore,
     EmployeeStore,
+    PendingApprovalSync,
+    PendingSyncStore,
     RateTableStore,
     TaskStore,
 )
@@ -274,9 +278,47 @@ class DbContractStore(ContractStore):
             return [model_from_row(Contract, row) for row in rows], int(total or 0)
 
 
-class DbApprovalStore(ApprovalStore):
+class DbPendingSyncStore(PendingSyncStore):
+    """Durable subject-sync outbox; rows are written by `DbApprovalStore`."""
+
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         super().__init__()
+        self._session_factory = session_factory
+
+    def add(self, item: PendingApprovalSync) -> None:
+        add_model(self._session_factory, item, pt.PendingApprovalSyncRecord)
+
+    def save(self, item: PendingApprovalSync) -> None:
+        save_model(self._session_factory, item, pt.PendingApprovalSyncRecord)
+
+    def list_all(self) -> list[PendingApprovalSync]:
+        items = list_models(
+            self._session_factory, PendingApprovalSync, pt.PendingApprovalSyncRecord
+        )
+        return sorted(items, key=lambda item: (item.created_at, str(item.id)))
+
+    def list_pending(self) -> list[PendingApprovalSync]:
+        with sync_session_scope(self._session_factory) as session:
+            rows = (
+                session.execute(
+                    select(pt.PendingApprovalSyncRecord)
+                    .where(pt.PendingApprovalSyncRecord.consumed_at.is_(None))
+                    .order_by(
+                        pt.PendingApprovalSyncRecord.created_at,
+                        pt.PendingApprovalSyncRecord.id,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            return [model_from_row(PendingApprovalSync, row) for row in rows]
+
+
+class DbApprovalStore(ApprovalStore):
+    def __init__(
+        self, session_factory: sessionmaker[Session], *, pending: PendingSyncStore | None = None
+    ) -> None:
+        super().__init__(pending=pending or DbPendingSyncStore(session_factory))
         self._session_factory = session_factory
 
     def add(self, request: ApprovalRequest) -> None:
@@ -284,6 +326,37 @@ class DbApprovalStore(ApprovalStore):
 
     def save(self, request: ApprovalRequest) -> None:
         save_model(self._session_factory, request, pt.ApprovalRecord)
+
+    def persist_decision(self, request: ApprovalRequest, sync: PendingApprovalSync) -> None:
+        """The decision and its outbox row in **one** transaction.
+
+        Two `save_model` calls would be two commits, and a crash between them is
+        exactly the lost-sync window this exists to close. The version check runs
+        inside the same session, so a stale decision also rolls the outbox row
+        back rather than queueing work for a decision that never landed.
+        """
+        with sync_session_scope(self._session_factory) as session:
+            save_model_in_session(session, request, pt.ApprovalRecord)
+            try:
+                session.add(
+                    pt.PendingApprovalSyncRecord(
+                        id=sync.id,
+                        approval_id=sync.approval_id,
+                        subject=sync.subject.value,
+                        subject_id=sync.subject_id,
+                        decision=sync.decision.value,
+                        created_at=sync.created_at,
+                        attempts=sync.attempts,
+                        last_error=sync.last_error,
+                        consumed_at=sync.consumed_at,
+                        outcome=sync.outcome,
+                    )
+                )
+                session.flush()
+            except IntegrityError:
+                # One row per approval: a retried transition must not double-queue.
+                session.rollback()
+                raise
 
     def get(self, request_id: UUID) -> ApprovalRequest | None:
         return get_model(self._session_factory, ApprovalRequest, pt.ApprovalRecord, request_id)

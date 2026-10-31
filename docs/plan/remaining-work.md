@@ -191,8 +191,19 @@ Legend: `[ ]` not started · `[~]` partially done · `[x]` done.
       arrive -- and the handoff queue). **Every persist path with a model to carry a version
       is guarded.** Three set-whole writes keep last-write-wins and say so rather than being
       silently claimed: leave balance adjustments, the holiday calendar and interviewer
-      availability. The "one transaction per service method" half is still open, but the
-      erasure half is no longer a silent half-state: a purge handler that raises is isolated
+      availability. **One linked pair now has a real transaction:** an approval decision
+      and its subject-sync outbox row commit in one Postgres transaction
+      (`pending_approval_syncs`, migration `0039`), so a crash cannot leave a decided
+      approval whose leave request, payroll run or erasure never hears about it. The
+      `approval-reconcile` job consumes the row idempotently — a domain refusal means
+      the subject was already settled, a store failure is retried up to five attempts,
+      and a row that keeps failing is closed as `gave_up` with its last error rather
+      than blocking the queue. A stale decision rolls the outbox row back with it, so
+      work is never queued for a decision that did not land. What remains of the
+      original item: the other multi-store pairs (erasure still journals per handler,
+      offers and scheduling still write their subject after the approval) and a single
+      unit of work spanning arbitrary services. The erasure half is not a silent
+      half-state: a purge handler that raises is isolated
       (the sweep continues past it), the record is left unpurged so the next sweep retries it,
       the failure is reported in the purge report and on the compliance screen, and the audit
       chain records it. Every attempt is now journaled before its handler runs (`purge_jobs`,

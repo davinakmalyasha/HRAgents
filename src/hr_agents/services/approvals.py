@@ -28,7 +28,7 @@ from hr_agents.models import (
 from hr_agents.rbac import Principal, RoleId, approver_holders, may_decide_for
 from hr_agents.services.audit import AuditChain
 from hr_agents.services.audit_events import record_audit
-from hr_agents.services.people_store import ApprovalStore
+from hr_agents.services.people_store import ApprovalStore, PendingApprovalSync
 
 logger = get_logger(__name__)
 
@@ -178,7 +178,10 @@ class ApprovalEngine:
                 "updated_at": utc_now(),
             }
         )
-        self._store.save(decided)
+        # The decision and its outbox row commit together (one transaction on
+        # Postgres). A crash after this point cannot lose the subject update: the
+        # reconcile job reads the row and applies it, idempotently.
+        self._store.persist_decision(decided, self._sync_for(decided))
         self._record(decided, action=f"approval.{action}", actor=actor)
         logger.info(
             "approval.decided",
@@ -257,7 +260,7 @@ class ApprovalEngine:
                 "updated_at": utc_now(),
             }
         )
-        self._store.save(updated)
+        self._store.persist_decision(updated, self._sync_for(updated))
         self._record(updated, action="approval.withdrawn", actor=actor)
         return updated
 
@@ -528,9 +531,30 @@ class ApprovalEngine:
                 "updated_at": utc_now(),
             }
         )
-        self._store.save(expired)
+        self._store.persist_decision(expired, self._sync_for(expired))
         self._record(expired, action="approval.expired", actor=actor)
         return expired
+
+    def _sync_for(self, request: ApprovalRequest) -> PendingApprovalSync:
+        """The outbox row for a terminal transition of ``request``."""
+        return PendingApprovalSync(
+            approval_id=request.id,
+            subject=request.subject,
+            subject_id=request.subject_id,
+            decision=request.status,
+        )
+
+    @property
+    def pending_syncs(self) -> list[PendingApprovalSync]:
+        """Subject syncs still owed; the reconcile job consumes and closes them."""
+        return self._store.list_pending_syncs()
+
+    def all_syncs(self) -> list[PendingApprovalSync]:
+        """Every outbox row, consumed included; for tests and operator views."""
+        return self._store.list_all_syncs()
+
+    def save_pending_sync(self, sync: PendingApprovalSync) -> None:
+        self._store.save_pending_sync(sync)
 
     def _record(
         self,

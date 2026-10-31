@@ -17,6 +17,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
 )
@@ -197,6 +198,37 @@ class ApprovalRecord(TenantScoped, Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class PendingApprovalSyncRecord(TenantScoped, Base):
+    """A decision and the subject update it still owes, committed together.
+
+    ``unique(approval_id)`` makes enqueueing a decision idempotent: a retried
+    transition cannot double-queue, and a replay of the decision cannot create a
+    second row. The ``(consumed_at, created_at)`` index is the queue read.
+    """
+
+    __tablename__ = "pending_approval_syncs"
+    __table_args__ = (
+        UniqueConstraint("approval_id", name="uq_pending_approval_syncs_approval"),
+        Index("ix_pending_approval_syncs_queue", "consumed_at", "created_at"),
+        CheckConstraint("attempts >= 0", name="ck_pending_approval_syncs_attempts"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    approval_id: Mapped[UUID] = mapped_column(
+        ForeignKey("approvals.id", ondelete="CASCADE"), nullable=False
+    )
+    subject: Mapped[str] = mapped_column(String(40), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    outcome: Mapped[str | None] = mapped_column(String(40))
 
 
 class TaskRecord(TenantScoped, Base):

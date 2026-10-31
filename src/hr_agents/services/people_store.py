@@ -7,13 +7,16 @@ services' responsibility (stores are dumb persistence).
 
 from __future__ import annotations
 
-from datetime import date, timedelta
-from uuid import UUID
+from datetime import date, datetime, timedelta
+from uuid import UUID, uuid4
+
+from pydantic import Field
 
 from hr_agents.models import (
     ERASED_NAME,
     ApprovalRequest,
     ApprovalStatus,
+    ApprovalSubject,
     ApproverRole,
     AssetStatus,
     AssignmentStatus,
@@ -46,6 +49,7 @@ from hr_agents.models import (
     business_today,
     utc_now,
 )
+from hr_agents.models.common import StrictModel
 
 
 def _employee_order(employee: Employee) -> tuple[str, str]:
@@ -251,12 +255,80 @@ class ContractStore:
         return ordered[offset : offset + limit], len(ordered)
 
 
-class ApprovalStore:
+class PendingApprovalSync(StrictModel):
+    """A decision whose subject has not been updated yet.
+
+    Written in the same transaction as the approval decision, so a crash between
+    the two stores leaves this row behind instead of a disagreement. Consumed by
+    `approval-reconcile`; ``attempts`` and ``last_error`` make a repeatedly
+    failing subject visible rather than silently retried forever.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    approval_id: UUID
+    subject: ApprovalSubject
+    subject_id: str = Field(min_length=1, max_length=200)
+    decision: ApprovalStatus
+    created_at: datetime = Field(default_factory=utc_now)
+    attempts: int = Field(default=0, ge=0)
+    last_error: str | None = Field(default=None, max_length=500)
+    consumed_at: datetime | None = None
+    outcome: str | None = Field(default=None, max_length=40)
+
+
+class PendingSyncStore:
+    """In-memory outbox for pending subject syncs; the DB adapter overrides."""
+
     def __init__(self) -> None:
+        self._items: dict[UUID, PendingApprovalSync] = {}
+
+    def add(self, item: PendingApprovalSync) -> None:
+        self._items[item.id] = item
+
+    def save(self, item: PendingApprovalSync) -> None:
+        if item.id not in self._items:
+            raise KeyError(f"unknown pending sync {item.id}")
+        self._items[item.id] = item
+
+    def list_all(self) -> list[PendingApprovalSync]:
+        return sorted(self._items.values(), key=lambda item: (item.created_at, str(item.id)))
+
+    def list_pending(self) -> list[PendingApprovalSync]:
+        return [item for item in self.list_all() if item.consumed_at is None]
+
+
+class ApprovalStore:
+    def __init__(self, *, pending: PendingSyncStore | None = None) -> None:
         self._requests: dict[UUID, ApprovalRequest] = {}
+        self._pending = pending or PendingSyncStore()
+
+    @property
+    def pending(self) -> PendingSyncStore:
+        """The durable half of a decision: what the subject still has to receive."""
+        return self._pending
 
     def add(self, request: ApprovalRequest) -> None:
         self._requests[request.id] = request
+
+    def persist_decision(self, request: ApprovalRequest, sync: PendingApprovalSync) -> None:
+        """Save a decided approval **and** enqueue its subject sync together.
+
+        In memory the two writes are one Python step. The Postgres adapter
+        overrides this to put both rows in one transaction, which is the point:
+        a crash after the approval commits can no longer lose the sync, because
+        the sync committed with it.
+        """
+        self.save(request)
+        self._pending.add(sync)
+
+    def list_pending_syncs(self) -> list[PendingApprovalSync]:
+        return self._pending.list_pending()
+
+    def list_all_syncs(self) -> list[PendingApprovalSync]:
+        return self._pending.list_all()
+
+    def save_pending_sync(self, sync: PendingApprovalSync) -> None:
+        self._pending.save(sync)
 
     def save(self, request: ApprovalRequest) -> None:
         if request.id not in self._requests:
