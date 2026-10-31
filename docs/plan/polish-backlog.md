@@ -42,10 +42,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [ ] pgvector: HNSW/IVFFlat index parameters tuned against real corpus sizes — **blocked on a
       production-sized corpus**; tuning against synthetic vectors would encode a guess into a
       schema. The default index is correct, just not optimal for a scale we have not measured.
-- [~] Web bundle: route-level code splitting shipped (workspace, application detail, import,
+- [x] Web bundle: route-level code splitting shipped (workspace, application detail, import,
       jobs and operations load on demand; entry 891 KB → 425 KB, TBT 190 ms → 60 ms in the
-      Lighthouse mobile run). Icon tree-shaking is already implicit in the named lucide imports;
-      a CI bundle/Lighthouse budget is the remaining piece.
+      Lighthouse mobile run). A gzip budget now gates CI: `npm run size` fails over 180 KB for
+      the entry chunk, 50 KB CSS or 400 KB total (`web/scripts/check-bundle-size.mjs`). The
+      current build is 145/29/319 KB. Lighthouse itself is not in CI; the bundle budget is the
+      regression gate chosen, because it catches the accidental-import failure mode cheaply.
 - [x] Ingest path: extraction is bounded (200k characters, 200 PDF pages) and a cut-short
       document says so -- the flag travels on the queue message and the evaluation raises
       `document_truncated`, which routes the candidate to a person instead of scoring the part

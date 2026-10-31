@@ -143,6 +143,8 @@ jobs:
         working-directory: web
       - run: npm run build
         working-directory: web
+      - run: npm run size
+        working-directory: web
 
   landing:
     name: landing
