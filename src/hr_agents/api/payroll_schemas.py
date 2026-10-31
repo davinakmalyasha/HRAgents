@@ -18,6 +18,7 @@ from hr_agents.models import (
     StrictModel,
     UtcDateTime,
 )
+from hr_agents.services.attendance import STANDARD_HOURS_PER_DAY
 
 
 class RunCreate(StrictModel):
@@ -78,6 +79,7 @@ class AttendancePreviewView(StrictModel):
     file_hash: str
     rows: list[AttendanceRowView]
     errors: list[AttendanceErrorView]
+    standard_hours_per_day: float = STANDARD_HOURS_PER_DAY
 
 
 class AnomalyView(StrictModel):

@@ -3,6 +3,18 @@
 Pure parsing + aggregation. No database, no network, no LLM. The payroll
 service resolves employee numbers and approved leave; this module turns text
 into days so the rules stay testable without a database.
+
+Two assumptions are stated rather than hidden, because both decide how many
+hours are paid:
+
+- **A day is standard when it is shorter than ``standard_hours_per_day``** (8 by
+  default). Every hour past it is overtime. The preview reports the value it
+  used, and the operator can pass their own; the *price* of an overtime hour
+  still comes from the verified overtime rate table, never from here.
+- **One row is one calendar day.** A shift that ends after midnight cannot be
+  represented: clock-out earlier than clock-in is refused rather than guessed,
+  which fails the commit closed. Split an overnight shift at midnight, or use
+  the payroll inputs directly.
 """
 
 from __future__ import annotations
@@ -19,6 +31,8 @@ from pydantic import Field
 from hr_agents.models.common import StrictModel
 
 STANDARD_HOURS_PER_DAY = 8.0
+"""The default daily threshold; a scheduling assumption, not a statutory rate."""
+
 MAX_DATA_ROWS = 5000
 EXPECTED_HEADER = ("employee_number", "date", "clock_in", "clock_out")
 
@@ -56,6 +70,7 @@ class AttendancePreview(StrictModel):
     file_hash: str
     rows: list[EmployeeAttendance]
     errors: list[AttendanceRowError]
+    standard_hours_per_day: float = STANDARD_HOURS_PER_DAY
 
 
 class _RowError(ValueError):
@@ -73,9 +88,15 @@ def _parse_clock(value: str) -> time:
 
 
 def parse_attendance_csv(
-    text: str, *, period_year: int, period_month: int
+    text: str,
+    *,
+    period_year: int,
+    period_month: int,
+    standard_hours_per_day: float = STANDARD_HOURS_PER_DAY,
 ) -> tuple[list[AttendanceDay], list[AttendanceRowError]]:
     """Parse fingerprint-style CSV rows. Never guesses; every refusal names the row."""
+    if standard_hours_per_day <= 0:
+        raise ValueError("standard_hours_per_day must be positive")
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
     if not normalized.strip():
         return [], [AttendanceRowError(row=0, code="empty_file", detail="no rows in file")]
@@ -136,7 +157,7 @@ def parse_attendance_csv(
                 raise _RowError("duplicate_day", f"second row for {number} on {day.isoformat()}")
             seen.add((number, day))
             worked = round((end_minutes - start_minutes) / 60, 2)
-            overtime = round(max(0.0, worked - STANDARD_HOURS_PER_DAY), 2)
+            overtime = round(max(0.0, worked - standard_hours_per_day), 2)
             days.append(
                 AttendanceDay(
                     employee_number=number,

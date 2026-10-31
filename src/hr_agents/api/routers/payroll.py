@@ -113,6 +113,7 @@ def preview_attendance(
         period_month=preview.period_month,
         working_days=preview.working_days,
         file_hash=preview.file_hash,
+        standard_hours_per_day=preview.standard_hours_per_day,
         rows=[
             AttendanceRowView(
                 employee_number=row.employee_number,

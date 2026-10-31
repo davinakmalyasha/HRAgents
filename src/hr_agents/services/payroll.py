@@ -56,6 +56,7 @@ from hr_agents.models import (
 from hr_agents.models.money import ZERO, add, money, percent_of, sub
 from hr_agents.services.approvals import ApprovalEngine
 from hr_agents.services.attendance import (
+    STANDARD_HOURS_PER_DAY,
     AttendancePreview,
     AttendanceRowError,
     parse_attendance_csv,
@@ -391,7 +392,12 @@ class PayrollService:
     # --- attendance import ---------------------------------------------------
 
     def preview_attendance(
-        self, csv_text: str, *, period_year: int, period_month: int
+        self,
+        csv_text: str,
+        *,
+        period_year: int,
+        period_month: int,
+        standard_hours_per_day: float = STANDARD_HOURS_PER_DAY,
     ) -> AttendancePreview:
         """Turn fingerprint CSV text into per-employee aggregates without writing.
 
@@ -400,9 +406,12 @@ class PayrollService:
         ``errors``; only a commit fails closed on them.
         """
         days, errors = parse_attendance_csv(
-            csv_text, period_year=period_year, period_month=period_month
+            csv_text,
+            period_year=period_year,
+            period_month=period_month,
+            standard_hours_per_day=standard_hours_per_day,
         )
-        working_days = _working_days_in_month(period_year, period_month)
+        working_days = self._working_days(period_year, period_month)
         number_to_id: dict[str, UUID] = {}
         for employee in self._employees.list_employees():
             if employee.employee_number:
@@ -437,6 +446,10 @@ class PayrollService:
                         period_year=period_year,
                         period_month=period_month,
                     )
+                    # Only a working day can excuse an absence. A leave request
+                    # that spans a weekend would otherwise excuse a second day
+                    # and hide a real one from the absence count.
+                    if self._leave.is_working_day(item)
                 }
                 if covered:
                     leave_days[number] = covered
@@ -452,7 +465,22 @@ class PayrollService:
             file_hash=attendance_file_hash(csv_text),
             rows=resolved,
             errors=all_errors,
+            standard_hours_per_day=standard_hours_per_day,
         )
+
+    def _working_days(self, period_year: int, period_month: int) -> int:
+        """Working days in the period, including the operator's public holidays.
+
+        The weekends-only helper documents its own limitation, but the absence
+        figure it produced was still paid: a public holiday read as an absence
+        and prorated the month down. The leave calendar already owns the
+        operator's holiday list, so payroll asks it when one is configured.
+        """
+        if self._leave is None:
+            return _working_days_in_month(period_year, period_month)
+        first = date(period_year, period_month, 1)
+        last = date(period_year, period_month, calendar.monthrange(period_year, period_month)[1])
+        return int(self._leave.working_days(first, last))
 
     def apply_attendance(self, run_id: UUID, csv_text: str, *, actor: ActorRef) -> PayrollRun:
         """Fill overtime/absence on an editable run from fingerprint CSV text.
@@ -529,7 +557,10 @@ class PayrollService:
         extra = (RateTableKind.THR_FORMULA,) if run.kind is PayrollRunKind.THR else ()
         tables, table_ids, table_anomalies = self._resolve_tables(period=period, extra_kinds=extra)
 
-        working_days = _working_days_in_month(run.period_year, run.period_month)
+        # The same working-day count the attendance preview used, so an
+        # absence figure produced by the import is prorated over the denominator
+        # it was computed against (holidays are not working days).
+        working_days = self._working_days(run.period_year, run.period_month)
         lines: list[PayrollLine] = []
         anomalies: list[PayrollAnomaly] = list(table_anomalies)
 

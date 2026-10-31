@@ -392,7 +392,11 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Response SLA timers (anti-ghosting): the `reply-sla` scheduler job flags a dispatched
       message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
       chase message)
-- [ ] Webhook signature verification + replay protection
+- [x] Webhook signature verification + replay protection — `messaging/webhooks.py`:
+      Svix/Resend (`svix-id`/`svix-timestamp`/`svix-signature`, signed over the raw
+      bytes, five-minute tolerance) and Meta (`X-Hub-Signature-256`), constant-time
+      comparison, and a bounded `ReplayGuard` (`tests/messaging/test_webhooks.py`).
+      The public inbound route that uses it is still open below
 - [ ] Deployed behind Cloudflare Tunnel instructions for self-host webhooks
 
 ### 7.2 Google Workspace / Microsoft 365
@@ -499,7 +503,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] XLSX review packet (per-employee lines, totals, run info, explicit "no payments executed" notice); GET packet endpoint with notice header
 - [x] API: 10 endpoints (runs, inputs, compute, submit, decision sync, export, packet.xlsx, cancel)
 - [x] Tests: 23 new (service computations with exact expected values + API integration flows); audit chain covers every transition
-- [ ] Attendance/overtime import (CSV/XLSX) from office machines — Phase 7 files work
+- [~] Attendance/overtime import (CSV/XLSX) from office machines — Phase 7 files work
+      (fingerprint CSV with preview/commit ships, holidays excluded and the daily threshold
+      stated; XLSX and the dashboard column-mapping UI remain)
 - [ ] Payslip distribution coordination (human-approved) — Phase 7 messaging
 - [x] Payroll workspace UI (Phase 6) - runs board, run detail with blocking vs advisory anomalies, lifecycle-gated compute/submit/cancel, review-packet link (XLSX is review only, never payment execution)
 
@@ -690,10 +696,19 @@ not a style opinion.
    The name-swap fairness harness still cannot catch this class of defect — swapping a name does not
    change the distribution's shape. `tests/services/test_scoring_families.py` is the new guard, built on
    realistic per-occupation evidence the calibration corpus does not contain.
-4. **68 write endpoints are guarded by a READ permission**, and 6 of 17 permissions are
+4. ~~**68 write endpoints are guarded by a READ permission**, and 6 of 17 permissions are
    dead code (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`,
    `AUDIT_READ`, `ADMIN_MANAGE`). A `manager` can waive offboarding steps and finalize an
-   employee exit.
+   employee exit.~~ **Fixed.** Every mutating route names a write or self-service
+   permission, and the dead permissions are wired: `PEOPLE_WRITE`, `PAYROLL_WRITE`,
+   `COMPLIANCE_WRITE`, `RATES_VERIFY`, `RUBRICS_VERIFY`, `AUDIT_READ` (audit trail) and
+   `ADMIN_MANAGE` (ops dead letters) all guard routers now.
+   `tests/test_route_inventory.py` asserts the read-guarded write set is empty, walks all
+   27 router modules, and requires each to contribute routes to the fence. Approval
+   decisions are additionally bound to `assignee_role` (`ApprovalService._require_authority`),
+   so a manager cannot decide a finance-assigned sign-off. The open policy question is
+   narrower than this item: whether managers and finance should administer the employee
+   directory in a given deployment (a per-deployment decision, tracked in remaining-work).
 5. ~~**`money` is `float` with banker's rounding**; `round(0.125, 2) == 0.12`. A rupiah can
    be lost, and the XLSX totals row can disagree with the sum of its own lines.~~ **Fixed, and
    the audit underneath it was worse than the rounding.** `models/money.py` makes money a
@@ -742,28 +757,58 @@ not a style opinion.
    window, approvals, the document vault, audit entries, payroll runs, applications,
    communications and replies, offers, scheduling proposals, tasks, contracts, review
    cycles/assignments/summaries/goals, consents, retention records, erasures, breach
-   incidents and offboarding assets, plus the `_previous_run` and active-plan aggregations.
+   incidents, offboarding assets and the workspace-handoff queue, plus the `_previous_run`
+   and active-plan aggregations.
    The bounded and computed lists stay in Python by design, named in remaining-work:
-   operator-managed configuration, employee-scoped records, merged/derived lists (compliance
-   calendar, overdue breach steps, ops queue, POST sweeps), and handoffs (no database adapter
-   yet).
-8. **No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
+   operator-managed configuration, employee-scoped records, and merged/derived lists
+   (compliance calendar, overdue breach steps, ops queue, POST sweeps).
+8. ~~**No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
    version predicate and no unit of work, so two concurrent `complete_step` calls
-   silently lose one. A mid-loop erasure failure leaves a half-erased state.
-9. **Feedback and screening validators substring-match** `"age"`, so "message",
+   silently lose one. A mid-loop erasure failure leaves a half-erased state.~~
+   **Fixed for every persist path that has a model to carry a version.** Migration `0020`
+   adds `version` to every tenant table; `save_model` and the custom adapters refuse to
+   overwrite a row that moved since it was read, and the refusal leaves as
+   `409 stale_write` through one global handler. The erasure sweep journals each attempt
+   (`purge_jobs`, migration `0033`), isolates a failing handler, leaves the record
+   unpurged for the next sweep, and reports the failure on the compliance screen and the
+   audit chain. Three set-whole writes (leave balance adjustments, the holiday calendar,
+   interviewer availability) are deliberately last-write-wins and say so. **Still open:**
+   one transaction across every store per service method — recoverability exists, distributed
+   atomicity does not.
+9. ~~**Feedback and screening validators substring-match** `"age"`, so "message",
    "average", "language", "coverage", and "manager" are false positives. Latent only
-   because the screening agent is not yet on the live path.
-10. **The knowledge corpus is 5 documents** with no Indonesian leave, payroll, or
-    termination content, and the hash-embedding provider makes retrieval 100% lexical
-    with a 60% weight on the noisier half of the "hybrid" score. A leave question returns
-    an empty template.
-11. **The frontend has no refresh affordance and never invalidates the attention queries**,
-    so a phone user cannot force fresh data and the home page can show a stale board.
-12. **`toLocaleString(undefined)` in `web/src/lib/dates.ts`** means the language switcher
+   because the screening agent is not yet on the live path.~~ **Fixed.**
+   Both validators now match on word boundaries (`\bterm\b` precompiled patterns in
+   `feedback_writer.py`/`screening_coordinator.py`), so "message" no longer fires on
+   "age" while "Berapa usia Anda?" still does. Indonesian gaps closed (`umur`,
+   `kehamilan`, `ras`, `etnis`). Regression-tested with substring negatives.
+10. **The knowledge corpus is thin and retrieval is lexical by default.** The statutory pack
+    now ships 12 sourced notes under `skills/platform/labor-law/` (annual/sick/personal/maternity
+    leave, probation, working time and overtime, minimum wage, BPJS, PPh 21, THR timing,
+    public holidays, termination and final pay), guarded by
+    `tests/skills/test_labor_law_pack.py`. What remains: wider statutory coverage beyond
+    those notes, and the zero-config `embeddings.hash` provider makes the hybrid score
+    lexical — a client with no embedding provider gets keyword recall rather than semantic
+    recall. An API embedding provider is the fix, not a bigger corpus.
+11. ~~**The frontend has no refresh affordance and never invalidates the attention queries**,
+    so a phone user cannot force fresh data and the home page can show a stale board.~~
+    **Fixed.** The home has a manual refresh with an "updated at" line, its three queue
+    queries always re-read one page on mount, and the global mutation defaults invalidate
+    the shared `['attention']` prefix after every write, so a decision taken anywhere is
+    reflected without a reload.
+12. ~~**`toLocaleString(undefined)` in `web/src/lib/dates.ts`** means the language switcher
     does not control date formatting, and the app shows `2026-02-01` next to `Feb 1, 2026`
-    on one screen.
-13. **An undeclared transitive dependency installs a global import hook.** `beartype` (pulled
-    in by `pydantic-ai`, not declared here) patches `importlib`; on a developer Windows
-    machine it made `import hr_agents.models` take ~35 s and the suite 7-10× slower. A
-    hazard for contributors, a security-review question for a self-hosted product: pin it
-    explicitly or assert it away.
+    on one screen.~~ **Fixed.** `formatDate`/`formatDateTime` now resolve the locale
+    from the active i18n language (`id` → `id-ID`, else `en-US`), guarded by
+    `web/src/lib/dates.test.ts`.
+13. **An undeclared transitive dependency installs a global import hook.** `beartype`
+    (pulled in by `py-key-value-aio` ← `fastmcp-slim[client]` ← `pydantic-ai[mcp]`) is called
+    as `beartype_this_package()` on import of `key_value.aio`, which installs a meta-path
+    finder. **Measured on this checkout (2026-10-31):** `import hr_agents.models` takes
+    **2.8 s** with the hook and **2.6 s** with `PY_KEY_VALUE_DISABLE_BEARTYPE=true`, so the
+    35 s figure recorded earlier was an outlier, not the steady state — but the hook is
+    still process-global. It stays a security-review question for a self-hosted product
+    (an unvetted import-time mutation of the interpreter) and a contributor hazard on
+    Windows. The version is pinned in `uv.lock` with hashes; a future dependency sweep
+    should either vendor the value store or set `PY_KEY_VALUE_DISABLE_BEARTYPE=true` in
+    the test environment and re-measure.

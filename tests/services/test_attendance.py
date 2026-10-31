@@ -227,6 +227,56 @@ def test_preview_unknown_employee_flagged(
     assert [error.code for error in preview.errors] == ["unknown_employee"]
 
 
+def test_preview_holidays_do_not_count_as_absences(
+    payroll: PayrollService, employees: EmployeeService, leave: LeaveService
+) -> None:
+    """A public holiday used to read as an absence and prorate the month down."""
+    make_employee(employees, "EMP-1")
+    present = workdays(YEAR, MONTH, 3)
+    holiday = workdays(YEAR, MONTH, 4)[3]
+    leave.set_holidays([holiday], actor=hr_admin())
+
+    preview = payroll.preview_attendance(
+        csv_text([("EMP-1", day, "08:00", "17:00") for day in present]),
+        period_year=YEAR,
+        period_month=MONTH,
+    )
+
+    assert preview.errors == []
+    assert preview.working_days == _working_days_in_month(YEAR, MONTH) - 1
+    (row,) = preview.rows
+    assert row.absence_days == preview.working_days - 3
+
+
+def test_standard_hours_per_day_is_visible_and_overridable(
+    payroll: PayrollService, employees: EmployeeService
+) -> None:
+    """The overtime split states the threshold instead of burying an 8."""
+    make_employee(employees, "EMP-1")
+    day = workdays(YEAR, MONTH, 1)[0]
+    csv_rows = csv_text([("EMP-1", day, "08:00", "18:00")])
+
+    default = payroll.preview_attendance(csv_rows, period_year=YEAR, period_month=MONTH)
+    longer = payroll.preview_attendance(
+        csv_rows, period_year=YEAR, period_month=MONTH, standard_hours_per_day=10.0
+    )
+
+    assert default.standard_hours_per_day == 8.0
+    assert default.rows[0].overtime_hours == 2.0
+    assert longer.standard_hours_per_day == 10.0
+    assert longer.rows[0].overtime_hours == 0.0
+
+
+def test_a_non_positive_standard_day_is_refused() -> None:
+    with pytest.raises(ValueError, match="standard_hours_per_day"):
+        parse_attendance_csv(
+            "employee_number,date,clock_in,clock_out\n",
+            period_year=YEAR,
+            period_month=MONTH,
+            standard_hours_per_day=0,
+        )
+
+
 def test_preview_approved_leave_excuses_absence(
     payroll: PayrollService,
     employees: EmployeeService,
