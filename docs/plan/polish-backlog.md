@@ -147,8 +147,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 ## Beauty / UX
 
-- [ ] Chat: progressive token streaming + tool-call visibility (agent, tools read, citations) once
-      the backend emits event-by-event SSE; today the client uses `POST /v1/chat` for status codes
+- [x] Chat: progressive token streaming + tool-call visibility (agent, tools read, citations) —
+      `PolicyAssistant.ask_stream` reports growth of the structured answer, `/v1/chat/stream`
+      emits `delta` events before the final `reply`, and the client renders them into one
+      placeholder that the grounded answer replaces. Only append-only growth is emitted,
+      because a structured stream can revise a partial object; the final reply is
+      authoritative. Tool usage ships on the same reply (`tools_used`)
 - [ ] Communication panel: pre-queue preview endpoint for rejection messages (today the composed
       body is reviewed after queueing and before dispatch — nothing can be sent unreviewed)
 - [ ] Motion pass (reduced-motion aware), skeleton loaders, optimistic updates where safe

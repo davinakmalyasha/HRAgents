@@ -41,6 +41,25 @@ describe('chatThreadActions', () => {
     expect(answer?.handoffOptions).toEqual(['payroll'])
   })
 
+  it('renders deltas into one placeholder and lets the final reply replace it', () => {
+    chatThreadActions.appendUser('policy', 'cuti?')
+    chatThreadActions.begin('policy')
+    chatThreadActions.appendDelta('policy', 'Saldo ')
+    chatThreadActions.appendDelta('policy', 'cuti Anda 12 hari.')
+
+    const streaming = getChatThread('policy').messages.at(-1)
+    expect(streaming?.text).toBe('Saldo cuti Anda 12 hari.')
+    expect(streaming?.streaming).toBe(true)
+
+    chatThreadActions.resolve('policy', REPLY)
+
+    const thread = getChatThread('policy')
+    // The grounded answer replaces the streamed guess; it is not appended after it.
+    expect(thread.messages).toHaveLength(2)
+    expect(thread.messages.at(-1)?.streaming).toBe(false)
+    expect(thread.messages.at(-1)?.text).toBe(REPLY.answer)
+  })
+
   it('records failures without dropping the thread', () => {
     chatThreadActions.appendUser('policy', 'hai')
     chatThreadActions.begin('policy')

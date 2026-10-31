@@ -73,6 +73,25 @@ async def test_assistant_runs_with_knowledge_tool(skills: SkillRegistry) -> None
     assert "platform.knowledge" in {ref["skill_id"] for ref in result.skill_refs}
 
 
+async def test_assistant_streams_deltas_and_returns_the_same_answer(
+    skills: SkillRegistry,
+) -> None:
+    """The streaming path is the same run, reported as it grows."""
+    deps = AgentDeps(tools=ToolRegistry(audit=AuditChain()))
+    assistant = PolicyAssistant(AgentRuntime(TestModel(call_tools=[])), skills=skills)
+    deltas: list[str] = []
+
+    result = await assistant.ask_stream(
+        "How many annual leave days do we offer?", deps=deps, on_delta=deltas.append
+    )
+
+    assert isinstance(result.answer, PolicyAnswer)
+    # The offline model may emit the whole object in one chunk; what matters is
+    # that the stream and the final answer agree, and that the final object is
+    # the one grounding validates.
+    assert "".join(deltas) == "" or "".join(deltas) in result.answer.answer
+
+
 def test_agent_name_constant() -> None:
     assert AGENT_NAME == "policy_assistant"
     assert PolicyAssistant.agent_name == AGENT_NAME

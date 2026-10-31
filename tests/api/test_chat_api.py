@@ -1,5 +1,7 @@
 """Ask HR API: routed answers, SSE streaming, conversation history."""
 
+from collections.abc import Callable
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -25,6 +27,14 @@ class FixedResponder:
                 confidence=0.9,
             )
         )
+
+    async def ask_stream(
+        self, question: str, *, deps: AgentDeps, on_delta: Callable[[str], None]
+    ) -> PolicyResult:
+        """The same answer, reported in two chunks so the route has deltas to emit."""
+        for chunk in ("Grounded ", "answer for: "):
+            on_delta(chunk)
+        return await self.ask(question, deps=deps)
 
 
 def _install_fixed_chat(app: FastAPI) -> None:
@@ -203,6 +213,21 @@ def test_sse_stream_emits_reply_event() -> None:
         assert payload.index("event: routing") < payload.index("event: reply")
         assert "Grounded answer" in payload
         assert '"workspace": "leave"' in payload
+
+
+def test_sse_stream_emits_answer_deltas_before_the_reply() -> None:
+    """The first tokens arrive before the whole structured object is validated."""
+    app = create_app()
+    with TestClient(app) as client:
+        _install_fixed_chat(app)
+        with client.stream(
+            "GET", "/v1/chat/stream", params={"message": "How do I apply for leave?"}
+        ) as response:
+            payload = "".join(response.iter_text())
+
+    assert "event: delta" in payload
+    assert '"text": "Grounded "' in payload
+    assert payload.index("event: delta") < payload.index("event: reply")
 
 
 def test_chat_unavailable_returns_503() -> None:

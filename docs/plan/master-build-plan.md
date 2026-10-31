@@ -309,9 +309,13 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 6.2 Chat front door
 - [x] Chat UI with workspace quick-switch (sidebar rail; every workspace's Chat room, Ask HR runs
       the front door with routing and handoff suggestions)
-- [~] SSE streaming from FastAPI — the client uses `POST /v1/chat` (status codes drive the
-      409 conversation-split); upgrade to event streaming once the backend emits progressive events
-- [ ] Tool-call visibility (which agent is acting, what it read)
+- [~] SSE streaming from FastAPI — `/v1/chat/stream` now emits `routing`, `delta` (answer
+      growth) and the final `reply`, and the client renders the deltas into one placeholder
+      that the grounded answer replaces; `POST /v1/chat` remains for clients that want a
+      single response. Per-tool-call events remain (tool usage is on the final reply)
+- [x] Tool-call visibility (which agent is acting, what it read) — `AgentDeps.call_tool`
+      records each attempted call for the turn, the reply and audit entry carry the unique
+      `agent.tool` pairs, and the chat panel renders them
 - [~] Workspace-scoped conversation history — client threads are per-workspace and server-pinned
       (409 on cross-workspace continuation, visible restart); Postgres store with the UI phase
 
@@ -387,8 +391,12 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] `whatsapp` providers: Meta Cloud API + manual `wa.me` links fallback (default until connected) —
       the manual-links transport is live (`messaging/whatsapp.py`: deterministic E.164 link
       composition, `POST /v1/communications/{id}/dispatch-link`, phone captured at queue time);
-      the human opens the link, sends, and records dispatch. Meta Cloud stays config-only
-- [ ] Telegram bridge (optional provider)
+      the human opens the link, sends, and records dispatch. **Meta Cloud sending is live**
+      (`messaging/whatsapp_cloud.py`): text messages through the Graph API, 4096-character
+      body limit, Graph errors reported as refusals, and a dispatcher that reuses the
+      outbox's claim/backoff/evidence contract (`run_messaging.py --whatsapp`)
+- [x] Telegram provider (`telegram.bot`): Bot API send with the same refusal semantics;
+      registered as its own capability, with an honest health check (no token, no channel)
 - [x] Response SLA timers (anti-ghosting): the `reply-sla` scheduler job flags a dispatched
       message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
       chase message)

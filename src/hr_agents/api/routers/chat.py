@@ -7,6 +7,7 @@ chat path executes a consequential action.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator
 from typing import Annotated
@@ -164,13 +165,33 @@ async def stream_hr(
                 "handoff_options": [item.value for item in decision.alternates],
             },
         )
-        try:
-            reply = await chat.ask(
+        # The answer runs as a task while its deltas are drained, so the first
+        # token reaches the client instead of waiting for the whole structured
+        # object. A responder without a stream simply never pushes to the queue.
+        deltas: asyncio.Queue[str] = asyncio.Queue()
+
+        def on_delta(text: str) -> None:
+            deltas.put_nowait(text)
+
+        task = asyncio.create_task(
+            chat.ask(
                 message=message,
                 principal=principal,
                 workspace=workspace,
                 conversation_id=conversation_id,
+                on_delta=on_delta,
             )
+        )
+        try:
+            while True:
+                if task.done() and deltas.empty():
+                    break
+                try:
+                    text = await asyncio.wait_for(deltas.get(), timeout=0.05)
+                except TimeoutError:
+                    continue
+                yield _sse("delta", {"text": text})
+            reply = await task
         except ChatError as exc:
             yield _sse("error", {"detail": str(exc)})
             return

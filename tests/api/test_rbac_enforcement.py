@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from tests.route_probe import (
+    is_provider_webhook,
     read_guarded_write_routes,
     route,
     route_permissions,
@@ -364,10 +365,23 @@ def test_a_read_permission_alone_never_guards_a_write() -> None:
 def test_no_write_route_is_left_unguarded() -> None:
     """A write with no declared permission at all would be open to any key.
 
-    There is no such route today. Cheap to keep true.
+    Provider webhooks are the one deliberate exception: their caller is Meta or
+    Resend, and the request signature is the credential. The set is asserted by
+    path below, so a normal endpoint cannot acquire the exemption by accident.
     """
-    unguarded = [route.path for route in _write_routes() if not _route_permissions(route)]
+    unguarded = [
+        route.path
+        for route in write_routes()
+        if not _route_permissions(route) and not is_provider_webhook(route.path)
+    ]
     assert not unguarded, f"write routes with no permission: {unguarded}"
+
+    webhooks = {route.path for route in write_routes() if is_provider_webhook(route.path)}
+    assert webhooks == {"/v1/webhooks/email/resend"}
+    for path in webhooks:
+        assert not _route_permissions(route(path)), (
+            f"{path} is a provider webhook and must not declare a role permission"
+        )
 
 
 def _agent_settings() -> Settings:

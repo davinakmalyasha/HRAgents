@@ -7,7 +7,7 @@ escalation — an ungrounded answer is never shown to a user.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Literal, Protocol
 from uuid import UUID, uuid4
 
@@ -87,6 +87,14 @@ class PolicyResponder(Protocol):
     async def ask(self, question: str, *, deps: AgentDeps) -> PolicyResult: ...
 
 
+class StreamingPolicyResponder(Protocol):
+    """Optional capability: an answer that reports its growth as it arrives."""
+
+    async def ask_stream(
+        self, question: str, *, deps: AgentDeps, on_delta: Callable[[str], None]
+    ) -> PolicyResult: ...
+
+
 class ChatReply(StrictModel):
     """One answered exchange, with routing and grounding provenance."""
 
@@ -150,6 +158,7 @@ class ChatService:
         principal: Principal,
         workspace: WorkspaceId | None = None,
         conversation_id: UUID | None = None,
+        on_delta: Callable[[str], None] | None = None,
     ) -> ChatReply:
         decision: RouteDecision = self.route(message, workspace=workspace)
         definition = self._front_door.registry.get(decision.workspace)
@@ -174,7 +183,7 @@ class ChatService:
             request_id=str(record.id),
         ).for_workspace(definition)
 
-        result = await self._responder.ask(message, deps=deps)
+        result = await self._respond(message, deps=deps, on_delta=on_delta)
 
         violations = sorted(set(result.violations) | set(validate_policy_answer(result.answer)))
         if not violations:
@@ -229,6 +238,23 @@ class ChatService:
             escalate=escalate,
             tools_used=tools_used,
         )
+
+    async def _respond(
+        self,
+        message: str,
+        *,
+        deps: AgentDeps,
+        on_delta: Callable[[str], None] | None,
+    ) -> PolicyResult:
+        """Use the streaming path when the responder has one and a caller asked.
+
+        The port is optional on purpose: a fake or a future responder without
+        streaming still answers, it just arrives in one piece.
+        """
+        streamer = getattr(self._responder, "ask_stream", None)
+        if on_delta is not None and callable(streamer):
+            return await streamer(message, deps=deps, on_delta=on_delta)
+        return await self._responder.ask(message, deps=deps)
 
     @staticmethod
     def _actor(principal: Principal) -> AuditActor:

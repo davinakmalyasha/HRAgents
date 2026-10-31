@@ -19,6 +19,12 @@ describe('streamHr', () => {
       'event: routing',
       'data: {"workspace":"leave","reason":"keyword","matched_keywords":["cuti"],"handoff_options":[]}',
       '',
+      'event: delta',
+      'data: {"text":"Halo "}',
+      '',
+      'event: delta',
+      'data: {"text":"Budi"}',
+      '',
       'event: reply',
       'data: {"conversation_id":"c-1","workspace":"leave","route_reason":"keyword","matched_keywords":[],"handoff_options":[],"answer":"Halo","citations":[],"escalate":false}',
       '',
@@ -27,16 +33,19 @@ describe('streamHr', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sse(frames)))
     const routing: string[] = []
     const replies: string[] = []
+    const deltas: string[] = []
 
     const result = await streamHr(
       { message: 'cuti?', workspace: 'leave', conversationId: null },
       {
         onRouting: (decision) => routing.push(decision.workspace),
+        onDelta: (text) => deltas.push(text),
         onReply: (reply) => replies.push(reply.answer),
       },
     )
 
     expect(routing).toEqual(['leave'])
+    expect(deltas).toEqual(['Halo ', 'Budi'])
     expect(replies).toEqual(['Halo'])
     expect(result.status).toBe(200)
     expect(result.reply?.answer).toBe('Halo')

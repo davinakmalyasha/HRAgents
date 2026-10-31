@@ -17,6 +17,8 @@ export interface ChatMessage {
   handedOffTo: WorkspaceId[]
   /** Tools the answering agent used, as `agent.tool`, from the server's turn. */
   toolsUsed: string[]
+  /** True while the answer is still arriving; replaced by the final reply. */
+  streaming: boolean
 }
 
 export interface ChatThread {
@@ -79,6 +81,7 @@ export const chatThreadActions = {
           handoffOptions: [],
           handedOffTo: [],
           toolsUsed: [],
+          streaming: false,
         },
       ],
     }))
@@ -88,27 +91,60 @@ export const chatThreadActions = {
     updateThread(scope, (thread) => ({ ...thread, pending: true, error: null }))
   },
 
-  resolve(scope: string, reply: ChatReply): void {
-    updateThread(scope, (thread) => ({
-      ...thread,
-      conversationId: reply.conversation_id,
-      pending: false,
-      error: null,
-      messages: [
-        ...thread.messages,
-        {
+  appendDelta(scope: string, text: string): void {
+    updateThread(scope, (thread) => {
+      const messages = [...thread.messages]
+      const last = messages[messages.length - 1]
+      if (last !== undefined && last.role === 'assistant' && last.streaming) {
+        messages[messages.length - 1] = { ...last, text: last.text + text }
+      } else {
+        messages.push({
           id: messageId(),
           role: 'assistant',
-          text: reply.answer,
-          citations: reply.citations,
-          escalate: reply.escalate,
-          workspace: reply.workspace,
-          handoffOptions: reply.handoff_options,
+          text,
+          citations: [],
+          escalate: false,
+          handoffOptions: [],
           handedOffTo: [],
-          toolsUsed: reply.tools_used ?? [],
-        },
-      ],
-    }))
+          toolsUsed: [],
+          streaming: true,
+        })
+      }
+      return { ...thread, messages }
+    })
+  },
+
+  resolve(scope: string, reply: ChatReply): void {
+    updateThread(scope, (thread) => {
+      const messages = [...thread.messages]
+      const final = {
+        id: messageId(),
+        role: 'assistant' as const,
+        text: reply.answer,
+        citations: reply.citations,
+        escalate: reply.escalate,
+        workspace: reply.workspace,
+        handoffOptions: reply.handoff_options,
+        handedOffTo: [],
+        toolsUsed: reply.tools_used ?? [],
+        streaming: false,
+      }
+      const last = messages[messages.length - 1]
+      // Replace the placeholder the deltas were rendered into, so the final,
+      // grounded answer is shown once — not appended after the streamed guess.
+      if (last !== undefined && last.role === 'assistant' && last.streaming) {
+        messages[messages.length - 1] = final
+      } else {
+        messages.push(final)
+      }
+      return {
+        ...thread,
+        conversationId: reply.conversation_id,
+        pending: false,
+        error: null,
+        messages,
+      }
+    })
   },
 
   fail(scope: string, detail: string): void {
@@ -130,6 +166,7 @@ export const chatThreadActions = {
           handoffOptions: [],
           handedOffTo: [],
           toolsUsed: [],
+          streaming: false,
         },
       ],
     }))

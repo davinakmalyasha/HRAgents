@@ -19,6 +19,7 @@ export interface ChatRouting {
 
 export interface StreamCallbacks {
   onRouting?: (routing: ChatRouting) => void
+  onDelta?: (text: string) => void
   onReply?: (reply: ChatReply) => void
 }
 
@@ -95,6 +96,11 @@ export async function streamHr(
       if (event === undefined || data === undefined) continue
       if (event === 'routing') {
         callbacks.onRouting?.(JSON.parse(data) as ChatRouting)
+      } else if (event === 'delta') {
+        const delta = JSON.parse(data) as { text?: unknown }
+        if (typeof delta.text === 'string' && delta.text !== '') {
+          callbacks.onDelta?.(delta.text)
+        }
       } else if (event === 'reply') {
         reply = JSON.parse(data) as ChatReply
         callbacks.onReply?.(reply)

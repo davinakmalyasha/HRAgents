@@ -357,6 +357,10 @@ NO_ACTOR_WRITE_ROUTES = frozenset(
         # now reaches these routes so the claim is checked rather than asserted.
         "/v1/chat",
         "/v1/chat/handoffs",
+        # A provider webhook: the caller is Meta/Resend, not a person, and the
+        # Svix/Meta signature is the credential. There is no actor to name, so
+        # the reply ingest records a `transport:` system actor instead.
+        "/v1/webhooks/email/resend",
     }
 )
 """Mutating routes with no ``actor`` parameter, and why each is acceptable."""

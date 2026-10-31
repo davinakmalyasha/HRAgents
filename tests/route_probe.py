@@ -47,6 +47,21 @@ from hr_agents.rbac import Permission
 
 WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
+PROVIDER_WEBHOOK_PREFIX = "/v1/webhooks/"
+"""Paths whose caller is a provider, not a person or an API key.
+
+The inbound webhook verifies a provider signature before it reads a byte (see
+``messaging/webhooks.py``). A mail provider cannot hold a role, and minting one
+would put a machine identity beside a person on the audit chain, so these routes
+deliberately carry no permission and no actor dependency. The exemption is one
+prefix, asserted by path in ``test_route_inventory.py``, so an ordinary endpoint
+cannot acquire it by accident.
+"""
+
+
+def is_provider_webhook(path: str) -> bool:
+    return path.startswith(PROVIDER_WEBHOOK_PREFIX)
+
 
 def api_routers() -> Iterator[tuple[str, APIRouter]]:
     """Every ``APIRouter`` each router module defines, with its module name."""

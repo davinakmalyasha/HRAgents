@@ -7,6 +7,7 @@ escalate** — no uncited factual answers, ever.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import Field
@@ -89,6 +90,38 @@ class PolicyAssistant:
             f"Question: {question}", deps=deps, usage_limits=self._runtime.usage_limits()
         )
         answer: PolicyAnswer = result.output
+        return PolicyResult(
+            answer=answer,
+            violations=validate_policy_answer(answer),
+            skill_refs=list(self._skill_refs),
+        )
+
+    async def ask_stream(
+        self,
+        question: str,
+        *,
+        deps: AgentDeps,
+        on_delta: Callable[[str], None],
+    ) -> PolicyResult:
+        """Answer while reporting growth of the ``answer`` field as it arrives.
+
+        Only append-only growth is emitted: structured streaming can revise a
+        partial object, and a client that appends deltas must never be handed a
+        rewrite as if it were new text. The final reply carries the authoritative
+        (and grounded) answer, so any skipped revision is corrected there rather
+        than silently shown.
+        """
+        previous = ""
+        async with self._agent.run_stream(
+            f"Question: {question}", deps=deps, usage_limits=self._runtime.usage_limits()
+        ) as streamed:
+            async for partial in streamed.stream_output(debounce_by=0):
+                text = getattr(partial, "answer", "") or ""
+                if text.startswith(previous) and len(text) > len(previous):
+                    on_delta(text[len(previous) :])
+                if text.startswith(previous):
+                    previous = text
+            answer: PolicyAnswer = await streamed.get_output()
         return PolicyResult(
             answer=answer,
             violations=validate_policy_answer(answer),

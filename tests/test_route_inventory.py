@@ -18,7 +18,9 @@ from tests.route_probe import (
     WRITE_METHODS,
     all_routes_of,
     api_routers,
+    is_provider_webhook,
     read_guarded_write_routes,
+    route,
     route_permissions,
     write_routes,
 )
@@ -34,7 +36,7 @@ def test_every_router_module_is_reachable_by_the_structural_fences() -> None:
     `test_write_routes_declare_their_actor_as_a_dependency` without either
     failing -- the exact failure this file exists to prevent.
     """
-    assert len(MODULES) == 27, f"router modules changed: {MODULES}"
+    assert len(MODULES) == 28, f"router modules changed: {MODULES}"
     for name, router in api_routers():
         assert all_routes_of(router), f"{name} contributes no routes to the fences"
 
@@ -54,9 +56,9 @@ def test_the_session_router_is_read_only() -> None:
         for route in all_routes_of(router)
     ]
     assert session_routes, "session.py contributes no routes to the fences"
-    for route in session_routes:
-        assert not route.methods or not route.methods & WRITE_METHODS, (
-            f"{route.path} is a write route on the session surface"
+    for candidate in session_routes:
+        assert not candidate.methods or not candidate.methods & WRITE_METHODS, (
+            f"{candidate.path} is a write route on the session surface"
         )
 
 
@@ -78,7 +80,25 @@ def test_the_fences_see_more_routes_than_a_single_router_attribute_would() -> No
     write_paths = {route.path for route in write_routes()}
     assert len(people_write_routes) == 18, sorted(people_write_routes)
     assert people_write_routes <= write_paths
-    assert len(write_routes()) == 128, f"the API's mutating surface changed: {len(write_routes())}"
+    assert len(write_routes()) == 129, f"the API's mutating surface changed: {len(write_routes())}"
+
+
+def test_only_provider_webhooks_are_exempt_from_the_actor_fence() -> None:
+    """The exemption is one named route, not any route that happens to be new.
+
+    A provider webhook is called by Meta or Resend, so there is no person to
+    name and no role to require; the signature is the credential. Asserting the
+    exact set keeps that from becoming a habit: a normal write route cannot
+    slip past the fences by living under the prefix.
+    """
+    exempt = {
+        route.path
+        for name, router in api_routers()
+        for route in all_routes_of(router)
+        if route.methods and route.methods & WRITE_METHODS and is_provider_webhook(route.path)
+    }
+    assert exempt == {"/v1/webhooks/email/resend"}
+    assert all(not route_permissions(route(path)) for path in exempt)
 
 
 def test_permission_extraction_still_finds_declared_permissions() -> None:
