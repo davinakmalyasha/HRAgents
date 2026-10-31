@@ -1118,6 +1118,14 @@ class CommunicationService:
         matches = [item for item in self._iter() if item.recipient_phone_normalized == normalized]
         return max(matches, key=lambda item: item.created_at) if matches else None
 
+    def find_by_telegram_chat_id(self, chat_id: str) -> CandidateCommunication | None:
+        """The most recent communication addressed to ``chat_id``, for reply threading."""
+        needle = chat_id.strip()
+        if not needle:
+            return None
+        matches = [item for item in self._iter() if item.recipient_telegram_chat_id == needle]
+        return max(matches, key=lambda item: item.created_at) if matches else None
+
     def queue_offer(
         self,
         candidate_id: UUID,

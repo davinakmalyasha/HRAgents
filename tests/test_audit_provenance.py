@@ -362,6 +362,7 @@ NO_ACTOR_WRITE_ROUTES = frozenset(
         # the reply ingest records a `transport:` system actor instead.
         "/v1/webhooks/email/resend",
         "/v1/webhooks/whatsapp/meta",
+        "/v1/webhooks/telegram",
     }
 )
 """Mutating routes with no ``actor`` parameter, and why each is acceptable."""

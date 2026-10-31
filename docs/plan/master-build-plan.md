@@ -400,11 +400,15 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       attributed by the normalized number the outbound message carried. Inbound needs
       `app_secret`; the handshake answers `hub.challenge` with the configured token
 - [x] Telegram provider (`telegram.bot`): Bot API send with the same refusal semantics;
-      registered as its own capability, with an honest health check (no token, no channel).
+      registered as its own capability, with an honest health check (no token, no channel;
+      send only without a webhook secret).
       **Channel dispatch is live**: `candidate_communications.recipient_telegram_chat_id`
       (migration `0040`) addresses a queued Telegram message, and the dispatcher reuses the
-      outbox's lease/backoff/evidence contract (`run_messaging.py --telegram`). The
-      dashboard's queue form still offers email and WhatsApp; the API accepts the chat id
+      outbox's lease/backoff/evidence contract (`run_messaging.py --telegram`).
+      **Inbound is live**: `POST /v1/webhooks/telegram` verifies
+      `X-Telegram-Bot-Api-Secret-Token` in constant time and attributes a text reply by the
+      chat id, deduplicating Telegram's retried updates on the message id. The dashboard's
+      queue form still offers email and WhatsApp; the API accepts the chat id
 - [x] Response SLA timers (anti-ghosting): the `reply-sla` scheduler job flags a dispatched
       message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
       chase message)

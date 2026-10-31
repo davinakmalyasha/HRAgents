@@ -16,6 +16,7 @@ import pytest
 from hr_agents.identity import ActorProvenance, ActorRef
 from hr_agents.messaging.base import (
     InboundEmail,
+    InboundTelegram,
     InboundWhatsApp,
     OutboundEmail,
     SendResult,
@@ -666,6 +667,68 @@ def test_a_whatsapp_reply_is_stored_once_per_provider_message(
 
     ingestor.ingest_whatsapp([message])
     report = ingestor.ingest_whatsapp([message])
+
+    assert report.duplicates == 1
+    assert len(replies.list_for(CANDIDATE_ID)) == 1
+
+
+def test_a_telegram_reply_is_attributed_by_the_chat_it_answers(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    """The chat id is the address: no email, no phone, no normalization."""
+    register(evaluations)
+    queued = communications.queue_offer(
+        CANDIDATE_ID,
+        actor=ActorRef.legacy("hr-admin"),
+        body="Halo",
+        channel=Channel.TELEGRAM,
+        to_telegram_chat_id="55501",
+    )
+    replies = ReplyStore()
+    ingestor = ReplyIngestor(replies=replies, communications=communications)
+
+    report = ingestor.ingest_telegram(
+        [InboundTelegram(chat_id="55501", body="Siap, terima kasih.", message_id="41")]
+    )
+
+    assert (report.matched, report.unmatched) == (1, 0)
+    stored = replies.list_for(CANDIDATE_ID)
+    assert stored[0].channel is Channel.TELEGRAM
+    assert stored[0].communication_id == queued.id
+    assert stored[0].sender == "55501"
+
+
+def test_a_telegram_reply_from_an_unknown_chat_is_never_attributed(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    replies = ReplyStore()
+    ingestor = ReplyIngestor(replies=replies, communications=communications)
+
+    report = ingestor.ingest_telegram(
+        [InboundTelegram(chat_id="99999", body="Halo?", message_id="42")]
+    )
+
+    assert (report.matched, report.unmatched) == (0, 1)
+    assert replies.list_all() == []
+
+
+def test_a_telegram_reply_is_stored_once_per_provider_message(
+    evaluations: EvaluationService, communications: CommunicationService
+) -> None:
+    register(evaluations)
+    communications.queue_offer(
+        CANDIDATE_ID,
+        actor=ActorRef.legacy("hr-admin"),
+        body="Halo",
+        channel=Channel.TELEGRAM,
+        to_telegram_chat_id="55501",
+    )
+    replies = ReplyStore()
+    ingestor = ReplyIngestor(replies=replies, communications=communications)
+    message = InboundTelegram(chat_id="55501", body="Terima kasih", message_id="41")
+
+    ingestor.ingest_telegram([message])
+    report = ingestor.ingest_telegram([message])
 
     assert report.duplicates == 1
     assert len(replies.list_for(CANDIDATE_ID)) == 1

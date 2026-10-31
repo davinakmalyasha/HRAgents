@@ -179,12 +179,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 ## Deferred by design (do not re-litigate without demand)
 
 - [~] Live provider adapters: email (SMTP send + IMAP poll + Gmail API send), WhatsApp Cloud
-      **sending and inbound**, Telegram Bot send and channel dispatch, and Google Calendar
-      free/busy **feeding the interviewer directory** are live and tested over
+      **sending and inbound**, Telegram Bot **send, channel dispatch and inbound**, and Google
+      Calendar free/busy **feeding the interviewer directory** are live and tested over
       respx/MockTransport. Remaining, and **credential-blocked for live verification**:
       Google Drive/Sheets (needs its own OAuth scopes and file-picker flows) and Microsoft
       Graph (needs an Azure app registration and the client-credentials grant). Not
-      credential-blocked but still open: Telegram inbound is not wired, the dashboard
-      queues Telegram via the API only, and calendar invites/reschedules are manual.
+      credential-blocked but still open: the dashboard queues Telegram via the API only, and
+      calendar invites/reschedules are manual.
 - [-] Managed cloud SaaS + billing
 - [-] Office Connector folder-sync agent

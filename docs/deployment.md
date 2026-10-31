@@ -493,7 +493,7 @@ the queued outbound message carried — normalized at queue time, so `0812-…` 
 Meta's `62812…` match. A number that matches no queued message is counted, never
 guessed onto a candidate.
 
-### Telegram sending
+### Telegram sending and inbound
 
 `telegram.bot` uses the Bot API with a bot token
 (`HRAGENTS_PROVIDER_TELEGRAM=telegram.bot`). The capability has no offline
@@ -506,6 +506,24 @@ email and WhatsApp, and `run_messaging.py --telegram` dispatches that queue
 alone (the default pass includes it). The dashboard's queue form still offers
 email and WhatsApp; a Telegram message is queued through the API until the form
 grows a chat-id field.
+
+Inbound is a webhook with a shared secret. Set `webhook_secret`, then register
+the URL with the *same* value as Telegram's `secret_token`:
+
+```bash
+HRAGENTS_PROVIDER_TELEGRAM_CONFIG={"bot_token":"...","webhook_secret":"..."}
+curl "https://api.telegram.org/bot<token>/setWebhook" \
+  -d "url=https://<your-host>/v1/webhooks/telegram" \
+  -d "secret_token=<webhook_secret>"
+```
+
+Telegram does not sign bodies, so `X-Telegram-Bot-Api-Secret-Token` is the
+credential: a missing or wrong value is refused before the body is read, and an
+unconfigured secret makes the route `503` rather than open. A text message is
+attributed by the chat id the queued outbound message carried; an unknown chat
+is counted, never guessed onto a candidate, and Telegram's retried updates
+deduplicate on the message id. Without a secret the health badge stays
+`degraded` (send only), not `ok`.
 
 ### Gmail sending
 

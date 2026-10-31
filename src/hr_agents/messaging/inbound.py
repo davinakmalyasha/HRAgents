@@ -16,7 +16,7 @@ from uuid import UUID
 from pydantic import Field
 
 from hr_agents.identity import ActorRef
-from hr_agents.messaging.base import InboundEmail, InboundWhatsApp
+from hr_agents.messaging.base import InboundEmail, InboundTelegram, InboundWhatsApp
 from hr_agents.messaging.contacts import CandidateDirectory
 from hr_agents.messaging.store import ReplyStore, reply_dedup_key
 from hr_agents.models import (
@@ -106,6 +106,26 @@ class ReplyIngestor:
             self._ingest_whatsapp_one(message, report)
         return report
 
+    def ingest_telegram(
+        self,
+        messages: Sequence[InboundTelegram],
+        *,
+        started_at: UtcDateTime | None = None,
+    ) -> IngestReport:
+        """Store Telegram replies by the chat id the outbound message named.
+
+        A chat id is the address: there is no email or phone to normalize, so a
+        chat with no queued message is counted and never guessed onto a
+        candidate.
+        """
+        report = IngestReport(
+            started_at=started_at or utc_now(),
+            provider=messages[0].provider if messages else "telegram.bot",
+        )
+        for message in messages:
+            self._ingest_telegram_one(message, report)
+        return report
+
     # internals
 
     def _ingest_one(self, message: InboundEmail, report: IngestReport) -> None:
@@ -192,42 +212,79 @@ class ReplyIngestor:
         )
 
     def _ingest_whatsapp_one(self, message: InboundWhatsApp, report: IngestReport) -> None:
-        body = message.body.strip()
-        if not body:
+        self._ingest_addressed(
+            address=message.phone,
+            body=message.body,
+            communication=self._communications.find_by_recipient_phone(message.phone),
+            no_match_detail="no queued message to this number",
+            channel=Channel.WHATSAPP,
+            provider=message.provider,
+            message_id=message.message_id,
+            received_at=message.received_at,
+            report=report,
+        )
+
+    def _ingest_telegram_one(self, message: InboundTelegram, report: IngestReport) -> None:
+        self._ingest_addressed(
+            address=message.chat_id,
+            body=message.body,
+            communication=self._communications.find_by_telegram_chat_id(message.chat_id),
+            no_match_detail="no queued message to this chat",
+            channel=Channel.TELEGRAM,
+            provider=message.provider,
+            message_id=message.message_id,
+            received_at=message.received_at,
+            report=report,
+        )
+
+    def _ingest_addressed(
+        self,
+        *,
+        address: str,
+        body: str,
+        communication: CandidateCommunication | None,
+        no_match_detail: str,
+        channel: Channel,
+        provider: str,
+        message_id: str | None,
+        received_at: UtcDateTime,
+        report: IngestReport,
+    ) -> None:
+        cleaned = body.strip()
+        if not cleaned:
             report.unmatched += 1
             report.outcomes.append(
                 IngestOutcome(
-                    from_address=message.phone,
+                    from_address=address,
                     matched=False,
                     detail="no text body",
                 )
             )
             return
-        communication = self._communications.find_by_recipient_phone(message.phone)
         if communication is None:
             report.unmatched += 1
             report.outcomes.append(
                 IngestOutcome(
-                    from_address=message.phone,
+                    from_address=address,
                     matched=False,
-                    detail="no queued message to this number",
+                    detail=no_match_detail,
                 )
             )
             return
         candidate_id = communication.candidate_id
         dedup_key = reply_dedup_key(
-            provider=message.provider,
-            message_id=message.message_id,
-            sender=message.phone,
+            provider=provider,
+            message_id=message_id,
+            sender=address,
             subject="",
-            body=body,
+            body=cleaned,
         )
-        existing = self._replies.find(provider=message.provider, dedup_key=dedup_key)
+        existing = self._replies.find(provider=provider, dedup_key=dedup_key)
         if existing is not None:
             report.duplicates += 1
             report.outcomes.append(
                 IngestOutcome(
-                    from_address=message.phone,
+                    from_address=address,
                     matched=True,
                     candidate_id=candidate_id,
                     reply_id=existing.id,
@@ -239,33 +296,33 @@ class ReplyIngestor:
             CandidateReply(
                 candidate_id=candidate_id,
                 communication_id=communication.id,
-                channel=Channel.WHATSAPP,
-                sender=message.phone,
+                channel=channel,
+                sender=address,
                 subject="",
-                body=body,
-                provider=message.provider,
-                provider_message_id=message.message_id,
+                body=cleaned,
+                provider=provider,
+                provider_message_id=message_id,
                 dedup_key=dedup_key,
-                received_at=message.received_at,
+                received_at=received_at,
             )
         )
         self._audit.append(
-            actor=ActorRef.system(f"transport:{message.provider}").audit_actor(),
+            actor=ActorRef.system(f"transport:{provider}").audit_actor(),
             action="communication.reply_received",
             subject_type="candidate_reply",
             subject_id=str(reply.id),
             payload={
                 "candidate_id": str(candidate_id),
                 "communication_id": str(communication.id),
-                "channel": Channel.WHATSAPP.value,
-                "provider": message.provider,
-                "message_id": message.message_id,
+                "channel": channel.value,
+                "provider": provider,
+                "message_id": message_id,
             },
         )
         report.matched += 1
         report.outcomes.append(
             IngestOutcome(
-                from_address=message.phone,
+                from_address=address,
                 matched=True,
                 candidate_id=candidate_id,
                 reply_id=reply.id,

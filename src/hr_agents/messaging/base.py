@@ -52,6 +52,16 @@ class InboundWhatsApp(StrictModel):
     received_at: UtcDateTime = Field(default_factory=utc_now)
 
 
+class InboundTelegram(StrictModel):
+    """One inbound Telegram message, addressed by chat id rather than email."""
+
+    chat_id: str = Field(min_length=1, max_length=64)
+    body: str = Field(min_length=1, max_length=8000)
+    message_id: str | None = Field(default=None, max_length=500)
+    provider: str = Field(default="telegram.bot", min_length=1, max_length=64)
+    received_at: UtcDateTime = Field(default_factory=utc_now)
+
+
 class InboundAttachment(StrictModel):
     """One file carried by inbound mail: a CV until proven otherwise."""
 

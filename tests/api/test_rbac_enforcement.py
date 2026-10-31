@@ -380,6 +380,7 @@ def test_no_write_route_is_left_unguarded() -> None:
     assert webhooks == {
         "/v1/webhooks/email/resend",
         "/v1/webhooks/whatsapp/meta",
+        "/v1/webhooks/telegram",
     }
     for path in webhooks:
         assert not _route_permissions(route(path)), (

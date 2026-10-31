@@ -108,6 +108,18 @@ def test_meta_cloud_health_requires_token() -> None:
     assert inbound_ready.status is ProviderHealthStatus.OK
 
 
+def test_telegram_health_distinguishes_send_from_inbound() -> None:
+    bare = check("telegram.bot", {})
+    assert bare.status is ProviderHealthStatus.MISCONFIGURED
+
+    send_only = check("telegram.bot", {"bot_token": "123:ABC"})
+    assert send_only.status is ProviderHealthStatus.DEGRADED
+    assert "webhook_secret" in send_only.detail
+
+    inbound_ready = check("telegram.bot", {"bot_token": "123:ABC", "webhook_secret": "tg-secret-1"})
+    assert inbound_ready.status is ProviderHealthStatus.OK
+
+
 def test_manual_links_always_available() -> None:
     health = check("whatsapp.manual_links", {})
     assert health.status is ProviderHealthStatus.OK

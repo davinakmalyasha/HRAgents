@@ -21,6 +21,9 @@ from hr_agents.providers.base import (
 
 class TelegramConfig(ProviderConfig):
     bot_token: SecretStr
+    # Telegram does not sign webhook bodies; `setWebhook` registers a secret
+    # token that arrives in `X-Telegram-Bot-Api-Secret-Token` on every call.
+    webhook_secret: SecretStr | None = None
     base_url: str = "https://api.telegram.org"
 
 
@@ -35,7 +38,13 @@ def _health(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, TelegramConfig)
     if not config.bot_token.get_secret_value():
         return ProviderHealth.misconfigured("bot_token is required")
-    return ProviderHealth.ok("send is live through the Bot API; inbound polling is not wired")
+    if config.webhook_secret is None or not config.webhook_secret.get_secret_value():
+        return ProviderHealth.degraded(
+            "send is live; inbound needs webhook_secret to verify Telegram's calls"
+        )
+    return ProviderHealth.ok(
+        "send and inbound are live; register the webhook with the same secret_token"
+    )
 
 
 def telegram_specs() -> list[ProviderSpec]:

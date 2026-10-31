@@ -1,9 +1,10 @@
-"""Inbound provider webhooks — the provider is the caller and the signature is the credential.
+"""Inbound provider webhooks — the provider is the caller and its proof is the credential.
 
 These routes sit outside the API-key scheme on purpose: a mail provider cannot
 hold a role, and minting one for it would put a machine identity on the same
-footing as a person. What it can do is prove it signed the bytes, which
-`messaging/webhooks.py` verifies before anything is read.
+footing as a person. What it can do is prove the bytes are its own — an HMAC
+signature for Resend/Meta, or Telegram's shared secret-token header — which this
+module verifies before anything is read.
 
 Nothing here decides anything. An inbound reply is stored as evidence (the
 reply bridge already attributes it or refuses it); an event this route does not
@@ -12,6 +13,7 @@ understand is acknowledged so the provider stops retrying, not acted on.
 
 from __future__ import annotations
 
+import hmac
 import json
 from email.utils import parseaddr
 from html import unescape
@@ -25,6 +27,7 @@ from hr_agents.api.problem import ProblemCode, problem
 from hr_agents.messaging.base import (
     MAX_INBOUND_BODY_CHARS,
     InboundEmail,
+    InboundTelegram,
     InboundWhatsApp,
 )
 from hr_agents.messaging.webhooks import (
@@ -41,6 +44,7 @@ router = APIRouter(prefix="/v1/webhooks", tags=["webhooks"])
 
 RESEND_PROVIDER_ID = "email.resend_webhook"
 WHATSAPP_PROVIDER_ID = "whatsapp.meta_cloud"
+TELEGRAM_PROVIDER_ID = "telegram.bot"
 HTML_TAG = r"<[^>]+>"
 
 
@@ -329,6 +333,93 @@ async def whatsapp_inbound(request: Request) -> InboundWebhookResult:
     report = ingestor.ingest_whatsapp(messages)
     return InboundWebhookResult(
         event=str(payload.get("object") or "whatsapp"),
+        stored=report.matched,
+        unmatched=report.unmatched,
+        duplicates=report.duplicates,
+    )
+
+
+def _telegram_secret() -> str | None:
+    """The secret token registered with ``setWebhook``, if Telegram is configured."""
+    resolved = resolve_provider_settings().get(Capability.TELEGRAM)
+    if resolved is None or resolved.provider_id != TELEGRAM_PROVIDER_ID:
+        return None
+    secret = resolved.config.get("webhook_secret")
+    return secret if isinstance(secret, str) and secret else None
+
+
+def _telegram_messages(payload: dict[str, Any]) -> list[InboundTelegram]:
+    """Text messages from a Telegram update; edits and other kinds are ignored."""
+    message = payload.get("message")
+    if not isinstance(message, dict):
+        return []
+    chat = message.get("chat")
+    chat_id = chat.get("id") if isinstance(chat, dict) else None
+    body = message.get("text")
+    if chat_id is None or not isinstance(body, str) or not body.strip():
+        return []
+    return [
+        InboundTelegram(
+            chat_id=str(chat_id)[:64],
+            body=body.strip()[:MAX_INBOUND_BODY_CHARS],
+            message_id=str(message.get("message_id") or "").strip() or None,
+            provider=TELEGRAM_PROVIDER_ID,
+        )
+    ]
+
+
+@router.post(
+    "/telegram",
+    response_model=InboundWebhookResult,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Telegram inbound messages (X-Telegram-Bot-Api-Secret-Token)",
+)
+async def telegram_inbound(request: Request) -> InboundWebhookResult:
+    """Telegram does not sign bodies; the secret token is the credential."""
+    secret = _telegram_secret()
+    if secret is None:
+        raise problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ProblemCode.SERVICE_UNAVAILABLE,
+            "the Telegram webhook is not configured",
+        )
+    supplied = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not hmac.compare_digest(supplied, secret):
+        raise problem(
+            status.HTTP_401_UNAUTHORIZED,
+            ProblemCode.WEBHOOK_REFUSED,
+            "the webhook secret did not match",
+        )
+    raw = await request.body()
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise problem(
+            status.HTTP_400_BAD_REQUEST,
+            ProblemCode.VALIDATION_FAILED,
+            "webhook body is not valid JSON",
+        ) from exc
+    if not isinstance(payload, dict):
+        raise problem(
+            status.HTTP_400_BAD_REQUEST,
+            ProblemCode.VALIDATION_FAILED,
+            "webhook body must be a JSON object",
+        )
+    messages = _telegram_messages(payload)
+    if not messages:
+        return InboundWebhookResult(event="telegram")
+    messaging = getattr(request.app.state, "messaging", None)
+    recruiting = getattr(request.app.state, "recruiting", None)
+    if messaging is None or recruiting is None:
+        raise problem(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            ProblemCode.SERVICE_UNAVAILABLE,
+            "the reply bridge is not available",
+        )
+    ingestor = messaging.ingestor(recruiting.communications, audit=request.app.state.audit)
+    report = ingestor.ingest_telegram(messages)
+    return InboundWebhookResult(
+        event="telegram",
         stored=report.matched,
         unmatched=report.unmatched,
         duplicates=report.duplicates,
