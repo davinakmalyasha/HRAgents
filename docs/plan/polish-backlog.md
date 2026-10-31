@@ -34,8 +34,14 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] N+1 audit of DB adapters once Postgres persistence lands (eager loading for timelines)
 - [x] **LLM latency: the k extraction runs now execute concurrently** (`asyncio.gather`) instead of
       sequentially — k runs were k× the wall clock for no added signal
-- [ ] Cache policy: skill registry fingerprint, rate tables, provider health (TTL + invalidation)
-- [ ] pgvector: HNSW/IVFFlat index parameters tuned against real corpus sizes
+- [x] Cache policy: evaluated and deliberately not added. Provider health checks are local
+      config validation (no network), the skill fingerprint is a small deterministic hash with
+      no hot caller, and rate tables must never serve a cached statutory value while an
+      operator is correcting one. There is no measured hot path to justify the staleness risk;
+      revisit only with a profile that names one.
+- [ ] pgvector: HNSW/IVFFlat index parameters tuned against real corpus sizes — **blocked on a
+      production-sized corpus**; tuning against synthetic vectors would encode a guess into a
+      schema. The default index is correct, just not optimal for a scale we have not measured.
 - [~] Web bundle: route-level code splitting shipped (workspace, application detail, import,
       jobs and operations load on demand; entry 891 KB → 425 KB, TBT 190 ms → 60 ms in the
       Lighthouse mobile run). Icon tree-shaking is already implicit in the named lucide imports;
@@ -190,7 +196,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       `POST /v1/candidates/{id}/communications/rejection/preview` returns the exact
       subject/body and the blockers without storing anything, and the panel refuses to
       queue until that preview has been read (re-previewing when a field changes)
-- [ ] Motion pass (reduced-motion aware), skeleton loaders, optimistic updates where safe
+- [~] Motion pass: reduced-motion is global (`styles/globals.css` collapses animation and
+      transition duration for `prefers-reduced-motion: reduce`) and skeleton loaders cover
+      the workspaces that fetch (57 uses). Still open: optimistic updates where a local
+      mutation is safe to show before the server confirms it.
 - [ ] Empty states, error states, and offline states for every workspace
 - [ ] Accessibility audit (axe + screen-reader pass) on all workspaces — the manual keyboard and
       WCAG AA contrast pass is done (2026-10, light+dark, all boards + palette), see
@@ -206,14 +215,21 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] Postgres adapters for `ConversationStore` and `WorkspaceRequestStore` —
       `DbConversationStore` / `DbWorkspaceRequestStore` in `db/workspace.py` persist both
       through the configured session factory, so queues survive a restart
-- [ ] Operator runbooks: provider failures, incident response, upgrade playbook
+- [x] Operator runbooks: provider failures (`runbooks/provider-failure.md`), incident
+      response (`runbooks/incident-response.md`) and upgrade/rollback
+      (`runbooks/upgrade.md`), linked from the docs nav. They name the commands and the
+      evidence to check rather than restating the deployment guide.
 - [x] Reproduce benchmarks from a clean clone (script + CI artifact) —
       `scripts/benchmark_ingestion.py --json` prints one machine-readable object, and
       `.github/workflows/benchmark.yml` runs it weekly on a clean checkout and uploads
       `ingestion-benchmark` (30-day retention). The measured table stays in
       `docs/architecture/benchmarks.md`, with the CI caveat that runner hardware varies.
-- [ ] Type strictness: evaluate `mypy --strict` on `src/hr_agents`; branch coverage 100% on
-      invariant modules (scoring, policy, priority, audit, payroll gates)
+- [~] Type strictness: `mypy --strict src/hr_agents` was evaluated (2026-11-01) and reports
+      72 errors in 43 files — 57 `no-any-return` (mostly `getattr(request.app.state, ...)`),
+      8 `attr-defined`, 6 `type-arg`, 1 `redundant-cast`. The current flags already reject
+      untyped defs and implicit optionals; adopting `strict` today would mostly add casts
+      around dynamic app state, so it waits for a typed `AppState`. Branch coverage on
+      invariant modules (scoring, policy, priority, audit, payroll gates) is still open.
 - [ ] Web: storybook (or equivalent) for the component kit
 
 ## Deferred by design (do not re-litigate without demand)

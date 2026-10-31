@@ -66,6 +66,11 @@ nav:
       - Fairness & score monitoring: fairness.md
   - Paper: paper.md
   - Deployment & operations: deployment.md
+  - Operator runbooks:
+      - Index: runbooks/index.md
+      - Provider failure: runbooks/provider-failure.md
+      - Incident response: runbooks/incident-response.md
+      - Upgrade: runbooks/upgrade.md
   - Region & network recipes: regions.md
   - MCP server: mcp-server.md
   - MCP connector catalog: mcp-catalog.md
