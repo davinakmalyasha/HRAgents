@@ -122,9 +122,9 @@ def _health_resend_webhook(config: ProviderConfig) -> ProviderHealth:
     assert isinstance(config, ResendReceiverConfig)
     if not config.webhook_secret.get_secret_value():
         return ProviderHealth.misconfigured("webhook_secret is required")
-    return ProviderHealth.degraded(
-        "webhook secret is set and svix signatures are verified; "
-        "no public inbound route is mounted yet, so mail is not received"
+    return ProviderHealth.ok(
+        "Svix signatures are verified at /v1/webhooks/email/resend; "
+        "the provider must be able to reach that public URL"
     )
 
 
@@ -170,7 +170,10 @@ def email_specs() -> list[Any]:
             id="email.resend_webhook",
             capability=Capability.EMAIL_RECEIVE,
             display_name="Resend inbound webhook",
-            description="Real-time inbound email via signed webhooks (public URL required).",
+            description=(
+                "Real-time inbound email via Svix-signed webhooks, verified at "
+                "/v1/webhooks/email/resend (public HTTPS URL required)."
+            ),
             docs_url="https://resend.com/docs/dashboard/receiving/introduction",
             config_model=ResendReceiverConfig,
             build=_build_resend_webhook,

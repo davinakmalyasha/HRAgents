@@ -441,6 +441,30 @@ Then `docker compose up -d --force-recreate api messaging`. Until a message is
 queued behind a named human, nothing is sent — and the bridge records the
 provider, the message id, and any failure on the message itself.
 
+### Real-time inbound: the Resend webhook
+
+IMAP polling needs no public URL but only runs on the messaging loop. Resend
+can push instead: configure the receiving provider and point Resend at
+`https://<your-host>/v1/webhooks/email/resend`.
+
+```bash
+HRAGENTS_PROVIDER_EMAIL_RECEIVE=email.resend_webhook
+HRAGENTS_PROVIDER_EMAIL_RECEIVE_CONFIG={"webhook_secret":"whsec_..."}
+```
+
+The route needs no API key — a mail provider cannot hold a role, and minting one
+for it would put a machine identity beside a person. The Svix signature *is* the
+credential: it is verified in constant time over the raw bytes, the timestamp is
+checked against a five-minute tolerance, and a delivery id already accepted in
+this process is refused as a replay. A refused delivery answers `401`
+`webhook_refused`; an unconfigured route answers `503` rather than pretending
+to accept mail. A signed event the route does not handle is acknowledged with
+`202` so the provider stops retrying, and nothing is written.
+
+Self-hosting behind NAT uses the Cloudflare Tunnel recipe in `docs/regions.md`.
+The replay window is per process: two API replicas each keep their own, and the
+timestamp tolerance is what bounds a captured delivery between them.
+
 ### Email applications: CVs that arrive in the hiring mailbox
 
 The same `--receive` poll that captures replies also drafts applications from

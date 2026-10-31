@@ -87,6 +87,13 @@ class ProblemCode(StrEnum):
     """A configured malware scanner did not answer; the upload was refused."""
     SERVICE_UNAVAILABLE = "service_unavailable"
     INTERNAL = "internal"
+    WEBHOOK_REFUSED = "webhook_refused"
+    """An inbound webhook failed signature, freshness or replay verification.
+
+    The provider is the caller and the signature is the credential, so this is a
+    401 like a refused API key -- but a distinct code, because the fix (rotate
+    the webhook secret / fix the clock) is different from a key problem.
+    """
 
     # --- domain refusals --------------------------------------------------
     UNKNOWN_RECORD = "unknown_record"

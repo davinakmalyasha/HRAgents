@@ -3507,6 +3507,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/webhooks/email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend inbound email (Svix-signed)
+         * @description Verify, then store the reply. The signature check happens before parsing.
+         */
+        post: operations["resend_inbound_v1_webhooks_email_resend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/workspaces": {
         parameters: {
             query?: never;
@@ -5581,6 +5601,37 @@ export interface components {
             /** Holidays */
             holidays: string[];
         };
+        /**
+         * InboundWebhookResult
+         * @description What one delivery did; the provider only needs a 2xx to stop retrying.
+         */
+        InboundWebhookResult: {
+            /**
+             * Accepted
+             * @default true
+             */
+            accepted: boolean;
+            /**
+             * Duplicates
+             * @default 0
+             */
+            duplicates: number;
+            /**
+             * Event
+             * @default
+             */
+            event: string;
+            /**
+             * Stored
+             * @default 0
+             */
+            stored: number;
+            /**
+             * Unmatched
+             * @default 0
+             */
+            unmatched: number;
+        };
         /** InputLine */
         InputLine: {
             /**
@@ -6944,7 +6995,7 @@ export interface components {
          * @description Machine-readable error kinds. Switch on this rather than on the prose in `title`, which may be reworded.
          * @enum {string}
          */
-        ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
+        ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "webhook_refused" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
         /**
          * ProblemDetail
          * @description The response body. Documents the contract in the OpenAPI document.
@@ -7000,7 +7051,7 @@ export interface components {
                  *     so add a new one instead, and keep the retired value reserved.
                  * @enum {string}
                  */
-                ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
+                ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "webhook_refused" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
             };
         };
         /**
@@ -33168,6 +33219,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    resend_inbound_v1_webhooks_email_resend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboundWebhookResult"];
                 };
             };
             /** @description The request could not be understood. */

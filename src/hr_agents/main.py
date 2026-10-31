@@ -50,6 +50,7 @@ from hr_agents.api.routers import (
     rubrics,
     scheduling,
     session,
+    webhooks,
     workspaces,
 )
 from hr_agents.api.routers import chat as chat_router
@@ -71,6 +72,7 @@ from hr_agents.db.workspace import DbConversationStore, DbWorkspaceRequestStore
 from hr_agents.errors import DomainError
 from hr_agents.logging import configure_logging, get_logger
 from hr_agents.messaging import MessagingServices, build_email_receiver, build_email_sender
+from hr_agents.messaging.webhooks import ReplayGuard
 from hr_agents.models import ApproverRole
 from hr_agents.providers.registry import default_registry as default_provider_registry
 from hr_agents.queue import QueueUnavailableError, resolve_queue_backend
@@ -414,6 +416,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.store = store
     app.state.audit = audit
     app.state.settings = settings
+    # One replay window per process. A multi-replica deployment needs the store
+    # behind it (the same follow-up the rate limiter carries); the timestamp
+    # tolerance still bounds a captured delivery.
+    app.state.webhook_replay_guard = ReplayGuard()
     # Filled in by the lifespan: agents, queue, dispatcher. Pre-seeded so that
     # requests served before startup completes, and tests that skip the lifespan,
     # see the same degraded shape instead of an AttributeError.
@@ -526,6 +532,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(offboarding.router, responses=ERROR_RESPONSES)
     app.include_router(ops.router, responses=ERROR_RESPONSES)
     app.include_router(session.router, responses=ERROR_RESPONSES)
+    app.include_router(webhooks.router, responses=ERROR_RESPONSES)
 
     @app.get("/healthz", tags=["system"], summary="Liveness probe")
     async def healthz() -> dict[str, Any]:

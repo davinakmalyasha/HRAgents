@@ -76,7 +76,8 @@ def test_imap_health_flags_missing_password() -> None:
 def test_resend_webhook_requires_secret() -> None:
     assert check("email.resend_webhook", {}).status is ProviderHealthStatus.MISCONFIGURED
     ok = check("email.resend_webhook", {"webhook_secret": "whsec_1"})
-    assert ok.status is ProviderHealthStatus.DEGRADED
+    assert ok.status is ProviderHealthStatus.OK
+    assert "/v1/webhooks/email/resend" in ok.detail
 
 
 def test_meta_cloud_health_requires_token() -> None:
