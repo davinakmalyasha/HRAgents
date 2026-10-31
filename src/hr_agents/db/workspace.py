@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from hr_agents.db.mapping import check_version
@@ -111,6 +111,30 @@ class DbWorkspaceRequestStore(WorkspaceRequestStore):
         with sync_session_scope(self._session_factory) as session:
             rows = session.execute(select(WorkspaceRequestRecord)).scalars().all()
             return iter([self._to_record(row) for row in rows])
+
+    def page_open(
+        self, *, workspace: WorkspaceId | None, limit: int, offset: int
+    ) -> tuple[list[WorkspaceRequest], int]:
+        """The open-queue page, filtered, ordered, sliced and counted in SQL."""
+        conditions = [WorkspaceRequestRecord.status == RequestStatus.OPEN.value]
+        if workspace is not None:
+            conditions.append(WorkspaceRequestRecord.target_workspace == workspace.value)
+        with sync_session_scope(self._session_factory) as session:
+            total = session.scalar(
+                select(func.count()).select_from(WorkspaceRequestRecord).where(*conditions)
+            )
+            rows = (
+                session.execute(
+                    select(WorkspaceRequestRecord)
+                    .where(*conditions)
+                    .order_by(WorkspaceRequestRecord.created_at, WorkspaceRequestRecord.id)
+                    .offset(offset)
+                    .limit(limit)
+                )
+                .scalars()
+                .all()
+            )
+            return [self._to_record(row) for row in rows], int(total or 0)
 
     def _persist(self, record: WorkspaceRequest) -> None:
         with sync_session_scope(self._session_factory) as session:

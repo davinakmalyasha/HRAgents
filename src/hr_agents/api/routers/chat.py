@@ -118,12 +118,10 @@ def list_handoffs(
     paging: PaginationDep,
     workspace: WorkspaceId | None = None,
 ) -> Page[HandoffView]:
-    ordered = sorted(
-        handoffs.open_for(workspace),
-        key=lambda item: (item.created_at, str(item.id)),
-    )
-    return Page.slice(
-        [HandoffView.from_model(record) for record in ordered],
+    items, total = handoffs.page_open(workspace=workspace, limit=paging.limit, offset=paging.offset)
+    return Page.of(
+        [HandoffView.from_model(record) for record in items],
+        total=total,
         limit=paging.limit,
         offset=paging.offset,
     )

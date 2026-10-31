@@ -46,7 +46,7 @@ class WorkspaceRequest(Versioned):
 
 
 class WorkspaceRequestStore:
-    """In-memory queue behind persistence primitives (Postgres adapter later)."""
+    """In-memory queue behind persistence primitives, with SQL-pushed paging."""
 
     def __init__(self) -> None:
         self._items: dict[UUID, WorkspaceRequest] = {}
@@ -65,6 +65,24 @@ class WorkspaceRequestStore:
 
     def list_all(self) -> list[WorkspaceRequest]:
         return sorted(self._iter(), key=lambda item: item.created_at)
+
+    def page_open(
+        self, *, workspace: WorkspaceId | None, limit: int, offset: int
+    ) -> tuple[list[WorkspaceRequest], int]:
+        """One page of open requests, oldest first; the adapter pushes this into SQL.
+
+        The queue endpoint used to read the whole table -- including every closed
+        request the tenant ever filed -- to slice twenty rows. The in-memory
+        implementation defines the contract and the adapter must match it.
+        """
+        matches = [
+            item
+            for item in self.list_all()
+            if item.status is RequestStatus.OPEN
+            and (workspace is None or item.target_workspace is workspace)
+        ]
+        matches.sort(key=lambda item: (item.created_at, str(item.id)))
+        return matches[offset : offset + limit], len(matches)
 
 
 class HandoffService:
@@ -133,3 +151,11 @@ class HandoffService:
             if item.status is RequestStatus.OPEN
             and (workspace is None or item.target_workspace is workspace)
         ]
+
+    def page_open(
+        self, *, workspace: WorkspaceId | None, limit: int, offset: int
+    ) -> tuple[list[WorkspaceRequest], int]:
+        """One page of open requests, the store doing the filtering and counting."""
+        if workspace is not None:
+            self._registry.get(workspace)
+        return self._store.page_open(workspace=workspace, limit=limit, offset=offset)

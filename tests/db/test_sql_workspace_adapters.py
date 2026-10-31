@@ -135,6 +135,54 @@ def test_workspace_request_status_update_persists(factory: sessionmaker[Session]
     assert loaded.status is RequestStatus.CLAIMED
 
 
+def test_handoff_page_open_is_pushed_down(factory: sessionmaker[Session]) -> None:
+    """The open queue is filtered, ordered, sliced and counted in SQL."""
+    store = DbWorkspaceRequestStore(factory)
+    for index in range(3):
+        store._persist(
+            WorkspaceRequest(
+                source_workspace=WorkspaceId.RECORDS,
+                target_workspace=WorkspaceId.ONBOARDING,
+                text=f"Onboard hire {index}",
+                requested_by="sari",
+                created_at=MOMENT + timedelta(minutes=index),
+                updated_at=MOMENT + timedelta(minutes=index),
+            )
+        )
+    store._persist(
+        WorkspaceRequest(
+            source_workspace=WorkspaceId.RECORDS,
+            target_workspace=WorkspaceId.ONBOARDING,
+            text="Already handled",
+            requested_by="sari",
+            status=RequestStatus.CLOSED,
+            created_at=MOMENT,
+            updated_at=MOMENT,
+        )
+    )
+    store._persist(
+        WorkspaceRequest(
+            source_workspace=WorkspaceId.RECORDS,
+            target_workspace=WorkspaceId.PAYROLL,
+            text="A different queue",
+            requested_by="sari",
+            created_at=MOMENT,
+            updated_at=MOMENT,
+        )
+    )
+
+    fresh = DbWorkspaceRequestStore(factory)
+    first, total = fresh.page_open(workspace=WorkspaceId.ONBOARDING, limit=2, offset=0)
+    second, total_again = fresh.page_open(workspace=WorkspaceId.ONBOARDING, limit=2, offset=2)
+    every, every_total = fresh.page_open(workspace=None, limit=10, offset=0)
+
+    assert total == total_again == 3
+    assert [item.text for item in first] == ["Onboard hire 0", "Onboard hire 1"]
+    assert [item.text for item in second] == ["Onboard hire 2"]
+    assert every_total == 4
+    assert all(item.status is RequestStatus.OPEN for item in every)
+
+
 def test_handoff_queue_survives_a_restart(factory: sessionmaker[Session]) -> None:
     """An open handoff vanished mid-workflow with the dict-backed store."""
     DbWorkspaceRequestStore(factory)._persist(

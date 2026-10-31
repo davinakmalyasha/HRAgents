@@ -98,3 +98,48 @@ def test_open_for_filters_by_target_workspace_and_status() -> None:
     onboarding.status = RequestStatus.CLAIMED
     assert service.open_for(WorkspaceId.ONBOARDING) == []
     assert [item.id for item in service.open_for()] == [payroll.id]
+
+
+def test_page_open_counts_and_slices_open_requests_only() -> None:
+    service, _, store = make_service()
+    records = [
+        service.request(
+            message=f"Request {index}",
+            principal=PRINCIPAL,
+            source_workspace=WorkspaceId.POLICY,
+            target_workspace=WorkspaceId.ONBOARDING,
+        )
+        for index in range(3)
+    ]
+    records[1].status = RequestStatus.CLOSED
+    store._persist(records[1])
+
+    first, total = service.page_open(workspace=WorkspaceId.ONBOARDING, limit=1, offset=0)
+    second, total_again = service.page_open(workspace=WorkspaceId.ONBOARDING, limit=1, offset=1)
+
+    assert total == total_again == 2
+    assert [item.id for item in first] == [records[0].id]
+    assert [item.id for item in second] == [records[2].id]
+
+
+def test_page_open_orders_equal_instants_by_id_for_a_stable_offset() -> None:
+    service, _, _ = make_service()
+    first = service.request(
+        message="First",
+        principal=PRINCIPAL,
+        source_workspace=WorkspaceId.POLICY,
+        target_workspace=WorkspaceId.PAYROLL,
+    )
+    second = service.request(
+        message="Second",
+        principal=PRINCIPAL,
+        source_workspace=WorkspaceId.POLICY,
+        target_workspace=WorkspaceId.PAYROLL,
+    )
+    stamp = first.created_at
+    first.created_at = stamp
+    second.created_at = stamp
+
+    page, _ = service.page_open(workspace=None, limit=10, offset=0)
+
+    assert [item.id for item in page] == sorted([first.id, second.id], key=str)
