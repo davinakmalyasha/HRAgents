@@ -18,6 +18,7 @@ CAPABILITIES = {
     "email_send",
     "email_receive",
     "whatsapp",
+    "telegram",
     "calendar",
     "storage",
     "vector_store",

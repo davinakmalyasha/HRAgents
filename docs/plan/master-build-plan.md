@@ -228,7 +228,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Vector providers: `vector.in_memory` + `vector.pgvector`
 - [x] Settings resolution: env layer (`HRAGENTS_PROVIDER_*`, `.env` loaded) with fail-fast validation
 - [x] `health_check` declared on every provider + masked-secret contract (`mask_secrets`)
-- [x] **Complete matrix: 20 providers across 9 capabilities** — every capability has a zero-config default
+- [x] **Complete matrix: 21 providers across 10 capabilities** — every capability the
+      zero-config stack uses has a default; the opt-in `telegram.bot` capability has none
+      and says so (a channel that cannot send is not a channel)
 - [ ] Provider settings audit entries (field names only, values redacted) — Phase 5
 - [~] Live adapter implementations: email is live (SMTP send + IMAP poll under `hr_agents.messaging`,
       driven by `scripts/run_messaging.py`); whatsapp/calendar/storage remain config-only
