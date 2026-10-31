@@ -378,6 +378,17 @@ Remaining in this area:
        the scheduling integration owns, not necessarily to an employee, so validating
        it against `employees` would refuse legitimate external interviewers. The FK
        waits for whatever interviewer directory the calendar integration ships.
+- [x] **A confirmed interview holds its interviewer's time.** `SchedulingService.propose`
+       excluded nothing, so two candidates could be offered the same slot and both
+       confirmed — a double-booked interviewer and two candidates arriving at once.
+       Proposals now drop slots overlapping a `CONFIRMED` or `AUTO_SCHEDULED` proposal
+       that includes any of the requested interviewers, only for slots still in the
+       future (a proposal carries the slots it *offered*, not the one the candidate
+       accepted, so every slot is treated as held while live — deliberately
+       conservative). A reschedule excludes its own predecessor, so it can reuse that
+       time. When every recorded slot is held the service refuses with a clear message
+       instead of building an empty proposal. Remaining: recording which slot was
+       accepted, which would make the exclusion exact rather than conservative.
 
 ---
 

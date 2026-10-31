@@ -1556,6 +1556,7 @@ class SchedulingService:
         actor: ActorRef | None = None,
         requested_channels: list[SchedulingChannel] | None = None,
         notes: str | None = None,
+        exclude_proposal_id: UUID | None = None,
     ) -> SchedulingProposalRecord:
         """Build a proposal; auto-scheduling only when policy permits."""
         if not interviewer_ids:
@@ -1571,11 +1572,28 @@ class SchedulingService:
         if not availability_present:
             raise RecruitingError("no interviewer availability recorded for this request")
 
+        # A confirmed (or auto-scheduled) interview already holds its slots. A
+        # proposal that offered the same time again would double-book the
+        # interviewer, and the candidate would arrive to a room someone else is
+        # using. The proposal being replaced is ignored: a reschedule is
+        # releasing those slots.
+        booked = self._booked_intervals(interviewer_ids, exclude_proposal_id=exclude_proposal_id)
+        common = [slot for slot in common if not self._overlaps_booking(slot, booked)]
+
         needs_reconciliation = not common
         if common:
             slots = sorted(common, key=lambda slot: slot.start_utc)[:MAX_PROPOSED_SLOTS]
         else:
-            slots = self._union_slots(interviewer_ids)[: MAX_PROPOSED_SLOTS + 2]
+            alternatives = [
+                slot
+                for slot in self._union_slots(interviewer_ids)
+                if not self._overlaps_booking(slot, booked)
+            ]
+            if not alternatives:
+                raise RecruitingError(
+                    "every recorded slot for these interviewers is already booked"
+                )
+            slots = alternatives[: MAX_PROPOSED_SLOTS + 2]
 
         policy = evaluate_policy(
             s_tech=record.evaluation.s_tech,
@@ -1746,6 +1764,9 @@ class SchedulingService:
             actor=actor,
             requested_channels=[proposal.payload.channel],
             notes=proposal.payload.notes,
+            # The old proposal still holds its slots until it is superseded below;
+            # excluding it is what makes a reschedule able to reuse the time.
+            exclude_proposal_id=proposal.id,
         )
         self._withdraw_linked_approval(approval, actor=actor, reason=reason)
         superseded = self._mark(proposal, ProposalStatus.SUPERSEDED, actor=actor)
@@ -1851,6 +1872,41 @@ class SchedulingService:
                 seen.add(key)
                 union.append(slot)
         return sorted(union, key=lambda slot: slot.start_utc)
+
+    def _booked_intervals(
+        self,
+        interviewer_ids: list[UUID],
+        *,
+        exclude_proposal_id: UUID | None = None,
+    ) -> list[tuple[datetime, datetime]]:
+        """Time already held by a confirmed or auto-scheduled interview.
+
+        A proposal carries the slots it offered, not the one the candidate
+        accepted, so every slot of a live confirmed proposal is treated as held
+        until it is in the past. That is deliberately conservative: it can
+        under-offer an interviewer for a few days, which is preferable to
+        offering a time that is already taken.
+        """
+        wanted = set(interviewer_ids)
+        held: list[tuple[datetime, datetime]] = []
+        now = utc_now()
+        for proposal in self._iter_proposals():
+            if proposal.id == exclude_proposal_id:
+                continue
+            if proposal.status not in {ProposalStatus.CONFIRMED, ProposalStatus.AUTO_SCHEDULED}:
+                continue
+            if not wanted.intersection(proposal.payload.interviewer_ids):
+                continue
+            held.extend(
+                (slot.start_utc, slot.end_utc)
+                for slot in proposal.payload.slots
+                if slot.end_utc > now
+            )
+        return held
+
+    @staticmethod
+    def _overlaps_booking(slot: TimeSlot, booked: list[tuple[datetime, datetime]]) -> bool:
+        return any(slot.start_utc < end and start < slot.end_utc for start, end in booked)
 
 
 # --- container -------------------------------------------------------------------

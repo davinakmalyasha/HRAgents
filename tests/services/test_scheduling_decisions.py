@@ -219,6 +219,108 @@ def test_confirm_refuses_when_the_linked_approval_was_rejected() -> None:
         )
 
 
+def test_a_confirmed_interview_removes_its_slots_from_the_next_proposal() -> None:
+    """Offering a time that a confirmed interview holds double-books the interviewer."""
+    world = build()
+    start = utc_now() + timedelta(days=2)
+    slots = [
+        TimeSlot(start_utc=start + timedelta(hours=hour), end_utc=start + timedelta(hours=hour + 1))
+        for hour in range(4)
+    ]
+    world.scheduling.set_availability(
+        world.interviewer_id, slots=slots, actor=hr_admin_principal("hr-admin")
+    )
+    first = propose(world)
+    assert len(first.payload.slots) == 3
+    world.scheduling.decide(first.id, decision="confirm", actor=hr_admin_principal("hr-admin"))
+
+    other, _ = world.applications.submit(
+        SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
+    )
+    world.evaluations.register(
+        application_id=other.id,
+        evaluation=make_evaluation(other.candidate_id, s_tech=0.65),
+        candidate_name="Siti Rahma",
+        job_title="Backend Engineer",
+    )
+    second = world.scheduling.propose(
+        candidate_id=other.candidate_id, job_id=uuid4(), interviewer_ids=[world.interviewer_id]
+    )
+
+    assert [slot.start_utc for slot in second.payload.slots] == [slots[3].start_utc]
+
+
+def test_every_slot_booked_refuses_with_a_clear_message() -> None:
+    world = build()
+    start = utc_now() + timedelta(days=3)
+    world.scheduling.set_availability(
+        world.interviewer_id,
+        slots=[TimeSlot(start_utc=start, end_utc=start + timedelta(hours=1))],
+        actor=hr_admin_principal("hr-admin"),
+    )
+    first = propose(world)
+    world.scheduling.decide(first.id, decision="confirm", actor=hr_admin_principal("hr-admin"))
+
+    other, _ = world.applications.submit(
+        SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
+    )
+    world.evaluations.register(
+        application_id=other.id,
+        evaluation=make_evaluation(other.candidate_id, s_tech=0.65),
+        candidate_name="Siti Rahma",
+        job_title="Backend Engineer",
+    )
+
+    with pytest.raises(RecruitingError, match="already booked"):
+        world.scheduling.propose(
+            candidate_id=other.candidate_id, job_id=uuid4(), interviewer_ids=[world.interviewer_id]
+        )
+
+
+def test_a_pending_proposal_does_not_hold_the_slot() -> None:
+    """Only a decision books time; a proposal still waiting is not an interview."""
+    world = build()
+    start = utc_now() + timedelta(days=4)
+    slots = [TimeSlot(start_utc=start, end_utc=start + timedelta(hours=1))]
+    world.scheduling.set_availability(
+        world.interviewer_id, slots=slots, actor=hr_admin_principal("hr-admin")
+    )
+    propose(world)
+
+    another = world.scheduling.propose(
+        candidate_id=world.candidate_id, job_id=uuid4(), interviewer_ids=[world.interviewer_id]
+    )
+
+    assert [slot.start_utc for slot in another.payload.slots] == [slots[0].start_utc]
+
+
+def test_rescheduling_a_confirmed_interview_can_reuse_its_own_slots() -> None:
+    world = build()
+    start = utc_now() + timedelta(days=5)
+    slots = [
+        TimeSlot(start_utc=start + timedelta(hours=hour), end_utc=start + timedelta(hours=hour + 1))
+        for hour in range(2)
+    ]
+    world.scheduling.set_availability(
+        world.interviewer_id, slots=slots, actor=hr_admin_principal("hr-admin")
+    )
+    first = propose(world)
+    world.scheduling.decide(first.id, decision="confirm", actor=hr_admin_principal("hr-admin"))
+
+    superseded, replacement = world.scheduling.decide(
+        first.id,
+        decision="reschedule",
+        actor=hr_admin_principal("hr-admin"),
+        reason="candidate asked for a new time",
+    )
+
+    assert superseded.status is ProposalStatus.SUPERSEDED
+    assert replacement is not None
+    assert [slot.start_utc for slot in replacement.payload.slots] == [
+        slot.start_utc for slot in slots
+    ]
+
+
 def test_reschedule_without_availability_keeps_the_old_proposal() -> None:
     world = build()
     proposal = propose(world)
