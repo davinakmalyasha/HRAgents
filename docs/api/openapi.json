@@ -1061,6 +1061,11 @@
             "title": "Rows",
             "type": "array"
           },
+          "standard_hours_per_day": {
+            "default": 8.0,
+            "title": "Standard Hours Per Day",
+            "type": "number"
+          },
           "working_days": {
             "title": "Working Days",
             "type": "integer"
@@ -2376,6 +2381,18 @@
             "title": "Language",
             "type": "string"
           },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
           "last_error": {
             "anyOf": [
               {
@@ -2494,6 +2511,7 @@
           "provider_message_id",
           "send_attempts",
           "last_error",
+          "last_attempt_at",
           "created_at"
         ],
         "title": "CommunicationView",

@@ -3930,6 +3930,11 @@ export interface components {
             period_year: number;
             /** Rows */
             rows: components["schemas"]["AttendanceRowView"][];
+            /**
+             * Standard Hours Per Day
+             * @default 8
+             */
+            standard_hours_per_day: number;
             /** Working Days */
             working_days: number;
         };
@@ -4434,6 +4439,8 @@ export interface components {
              * @enum {string}
              */
             language: "en" | "id";
+            /** Last Attempt At */
+            last_attempt_at: string | null;
             /** Last Error */
             last_error: string | null;
             /** Provider */
