@@ -176,6 +176,9 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 
 ## Deferred by design (do not re-litigate without demand)
 
-- [-] Live messaging/Google/Microsoft adapters — waiting for operator credentials
+- [~] Live provider adapters: email (SMTP send + IMAP poll), WhatsApp Cloud sending, Telegram
+      Bot send and Google Calendar free/busy are live and tested over respx/MockTransport.
+      Remaining: Gmail thread sync, Google Drive/Sheets, Microsoft Graph, and the calendar
+      directory that turns free/busy into interviewer availability
 - [-] Managed cloud SaaS + billing
 - [-] Office Connector folder-sync agent

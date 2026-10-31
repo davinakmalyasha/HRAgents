@@ -411,7 +411,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 
 ### 7.2 Google Workspace / Microsoft 365
 - [ ] Gmail send + thread sync
-- [ ] Google Calendar: free/busy, slot proposal, invites, reschedules
+- [~] Google Calendar: **free/busy is live** (`integrations/google_calendar.py`: refresh-token
+      OAuth, cached access token, `freeBusy` lookup returning UTC `TimeSlot`s; pinned over
+      respx, operator probe `scripts/check_calendar.py`). Remaining: mapping an interviewer
+      to a calendar id (the directory), slot proposal from free windows, invites, reschedules
 - [ ] Google Drive: document import (CVs, policies)
 - [ ] Google Sheets: candidate/employee import-export
 - [ ] Microsoft Graph (Outlook/Calendar/OneDrive) — same adapter interface

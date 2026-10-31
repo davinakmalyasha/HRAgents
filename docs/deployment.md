@@ -491,6 +491,24 @@ for Telegram awaits a stored chat-id field on the communication record; the
 sender and provider are live and tested, and no queued Telegram message is
 silently dropped.
 
+### Google Calendar free/busy
+
+`calendar.google` is a live adapter, not a placeholder: it refreshes a
+short-lived access token from the operator's refresh token, caches it until
+just before expiry, and asks the free/busy endpoint which intervals are taken.
+
+```bash
+HRAGENTS_PROVIDER_CALENDAR=calendar.google
+HRAGENTS_PROVIDER_CALENDAR_CONFIG={"client_id":"...","client_secret":"...","refresh_token":"...","calendar_id":"primary"}
+uv run python scripts/check_calendar.py --days 7   # prints the booked windows
+```
+
+The probe is deliberately a script rather than a page load: a calendar query
+per dashboard view would be slow and rate-limited. Automatic availability sync
+waits for an interviewer directory that maps a person to a calendar id; the
+adapter is what that directory will call, and the scheduler's availability
+registry still takes slots a human (or that future sync) supplies.
+
 ### Real-time inbound: the Resend webhook
 
 IMAP polling needs no public URL but only runs on the messaging loop. Resend
