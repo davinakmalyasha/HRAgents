@@ -6967,6 +6967,7 @@ export interface components {
              * @default
              */
             reason: string;
+            slot?: components["schemas"]["TimeSlot"] | null;
         };
         /**
          * ProposalDecisionResponse
@@ -7880,6 +7881,7 @@ export interface components {
         };
         /** SchedulingProposalView */
         SchedulingProposalView: {
+            confirmed_slot?: components["schemas"]["TimeSlot"] | null;
             /**
              * Created At
              * Format: date-time

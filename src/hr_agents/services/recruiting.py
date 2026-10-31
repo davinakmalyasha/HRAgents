@@ -1481,6 +1481,7 @@ class SchedulingProposalRecord(Versioned):
     supersedes_id: UUID | None = None
     decided_by: str | None = Field(default=None, max_length=200)
     decided_at: datetime | None = None
+    confirmed_slot: TimeSlot | None = None
     created_by: str = "system"
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -1697,12 +1698,19 @@ class SchedulingService:
         decision: str,
         actor: ActorRef,
         reason: str = "",
+        slot: TimeSlot | None = None,
     ) -> tuple[SchedulingProposalRecord, SchedulingProposalRecord | None]:
         """Confirm, cancel, or supersede a proposal as a named human.
 
         Returns ``(proposal, replacement)``; ``replacement`` is the new
         superseding proposal only for ``reschedule``. Confirmations decide the
         linked scheduling approval (when one exists) through the shared engine.
+
+        ``slot`` names the time the interviewer and candidate actually agreed.
+        When it is omitted and the proposal offered exactly one slot, that slot
+        is recorded; when several were offered and none is chosen, no single
+        time is invented — every offered slot stays held, which is conservative
+        but never double-books.
         """
         if decision not in {"confirm", "cancel", "reschedule"}:
             raise RecruitingError(f"unknown decision {decision!r}")
@@ -1725,7 +1733,10 @@ class SchedulingService:
 
         if decision == "confirm":
             self._decide_linked_approval(approval, actor=actor, reason=reason)
-            updated = self._mark(proposal, ProposalStatus.CONFIRMED, actor=actor)
+            confirmed = self._confirmed_slot(proposal, slot)
+            updated = self._mark(
+                proposal, ProposalStatus.CONFIRMED, actor=actor, confirmed_slot=confirmed
+            )
             self._sync_application_scheduled(proposal)
             self._audit.append(
                 actor=DocumentService._actor(actor),
@@ -1737,6 +1748,9 @@ class SchedulingService:
                     "job_id": str(proposal.payload.job_id),
                     "approval": approval.status.value if approval is not None else "none",
                     "reason_present": bool(reason.strip()),
+                    "confirmed_slot": (
+                        None if confirmed is None else confirmed.start_utc.isoformat()
+                    ),
                 },
             )
             return updated, None
@@ -1788,17 +1802,38 @@ class SchedulingService:
     # internals
 
     def _mark(
-        self, proposal: SchedulingProposalRecord, status: ProposalStatus, *, actor: ActorRef
+        self,
+        proposal: SchedulingProposalRecord,
+        status: ProposalStatus,
+        *,
+        actor: ActorRef,
+        confirmed_slot: TimeSlot | None = None,
     ) -> SchedulingProposalRecord:
         updated = proposal.model_copy(
             update={
                 "status": status,
                 "decided_by": actor.actor_id,
                 "decided_at": datetime.now(UTC),
+                "confirmed_slot": confirmed_slot,
             }
         )
         self._persist_proposal(updated)
         return updated
+
+    @staticmethod
+    def _confirmed_slot(
+        proposal: SchedulingProposalRecord, chosen: TimeSlot | None
+    ) -> TimeSlot | None:
+        """The agreed slot, or ``None`` when the decision did not name one.
+
+        An explicit slot must be one the proposal actually offered: confirming a
+        time nobody was offered is a data-entry error, not a scheduling outcome.
+        """
+        if chosen is None:
+            return proposal.payload.slots[0] if len(proposal.payload.slots) == 1 else None
+        if chosen not in proposal.payload.slots:
+            raise RecruitingError("the chosen slot is not one of the proposed slots")
+        return chosen
 
     def _find_linked_approval(self, proposal_id: UUID) -> ApprovalRequest | None:
         if self._approvals is None:
@@ -1896,6 +1931,15 @@ class SchedulingService:
             if proposal.status not in {ProposalStatus.CONFIRMED, ProposalStatus.AUTO_SCHEDULED}:
                 continue
             if not wanted.intersection(proposal.payload.interviewer_ids):
+                continue
+            if proposal.confirmed_slot is not None:
+                # The agreed time is known; only that one is held, so the other
+                # slots the proposal offered stay available to other candidates.
+                held.extend(
+                    ((proposal.confirmed_slot.start_utc, proposal.confirmed_slot.end_utc),)
+                    if proposal.confirmed_slot.end_utc > now
+                    else ()
+                )
                 continue
             held.extend(
                 (slot.start_utc, slot.end_utc)

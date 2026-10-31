@@ -387,8 +387,12 @@ Remaining in this area:
        accepted, so every slot is treated as held while live — deliberately
        conservative). A reschedule excludes its own predecessor, so it can reuse that
        time. When every recorded slot is held the service refuses with a clear message
-       instead of building an empty proposal. Remaining: recording which slot was
-       accepted, which would make the exclusion exact rather than conservative.
+       instead of building an empty proposal. **The agreed slot is now recorded**: a
+       confirmation may name a `slot` (one the proposal offered, enforced), a single-slot
+       proposal records it automatically, and only that interval is held afterwards —
+       the others are free for other candidates. Confirming several offered slots without
+       naming one stays conservative (all held), because inventing a time would be a
+       guess. The dashboard asks which time was agreed and sends it.
 
 ---
 

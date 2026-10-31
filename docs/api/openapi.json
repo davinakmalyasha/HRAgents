@@ -9316,6 +9316,16 @@
             "maxLength": 500,
             "title": "Reason",
             "type": "string"
+          },
+          "slot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeSlot"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -11652,6 +11662,16 @@
       "SchedulingProposalView": {
         "additionalProperties": false,
         "properties": {
+          "confirmed_slot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeSlot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",

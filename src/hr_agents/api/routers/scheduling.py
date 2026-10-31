@@ -113,6 +113,7 @@ def decide_proposal(
             decision=payload.decision,
             actor=actor,
             reason=payload.reason,
+            slot=payload.slot,
         )
     except RecruitingError as exc:
         raise domain_problem(exc) from exc

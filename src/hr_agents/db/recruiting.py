@@ -450,6 +450,11 @@ class DbSchedulingService(SchedulingService):
             row.job_id = payload.job_id
             row.status = proposal.status.value
             row.payload = payload.model_dump(mode="json")
+            row.confirmed_slot = (
+                None
+                if proposal.confirmed_slot is None
+                else proposal.confirmed_slot.model_dump(mode="json")
+            )
             row.requires_human_approval = proposal.requires_human_approval
             row.needs_human_reconciliation = proposal.needs_human_reconciliation
             row.supersedes_id = proposal.supersedes_id
@@ -470,6 +475,9 @@ class DbSchedulingService(SchedulingService):
             supersedes_id=row.supersedes_id,
             decided_by=row.decided_by,
             decided_at=None if row.decided_at is None else _aware(row.decided_at),
+            confirmed_slot=(
+                None if row.confirmed_slot is None else TimeSlot.model_validate(row.confirmed_slot)
+            ),
             created_by=row.created_by or "system",
             created_at=_aware(row.created_at),
             version=row.version,

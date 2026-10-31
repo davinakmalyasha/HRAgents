@@ -321,6 +321,91 @@ def test_rescheduling_a_confirmed_interview_can_reuse_its_own_slots() -> None:
     ]
 
 
+def test_confirming_one_slot_holds_only_that_slot() -> None:
+    """Naming the agreed time frees the other offered slots for other candidates."""
+    world = build()
+    start = utc_now() + timedelta(days=6)
+    slots = [
+        TimeSlot(start_utc=start + timedelta(hours=hour), end_utc=start + timedelta(hours=hour + 1))
+        for hour in range(4)
+    ]
+    world.scheduling.set_availability(
+        world.interviewer_id, slots=slots, actor=hr_admin_principal("hr-admin")
+    )
+    first = propose(world)
+    assert [slot.start_utc for slot in first.payload.slots] == [
+        slots[0].start_utc,
+        slots[1].start_utc,
+        slots[2].start_utc,
+    ]
+
+    confirmed, _ = world.scheduling.decide(
+        first.id,
+        decision="confirm",
+        actor=hr_admin_principal("hr-admin"),
+        slot=slots[1],
+    )
+    assert confirmed.confirmed_slot == slots[1]
+
+    other, _ = world.applications.submit(
+        SubmissionInput(job_id=uuid4(), source_channel="api", consent_granted=True)
+    )
+    world.evaluations.register(
+        application_id=other.id,
+        evaluation=make_evaluation(other.candidate_id, s_tech=0.65),
+        candidate_name="Siti Rahma",
+        job_title="Backend Engineer",
+    )
+    second = world.scheduling.propose(
+        candidate_id=other.candidate_id, job_id=uuid4(), interviewer_ids=[world.interviewer_id]
+    )
+
+    # The two offered slots that were not agreed are free again, plus the fourth.
+    assert {slot.start_utc for slot in second.payload.slots} == {
+        slots[0].start_utc,
+        slots[2].start_utc,
+        slots[3].start_utc,
+    }
+
+
+def test_a_slot_the_proposal_never_offered_is_refused() -> None:
+    world = build()
+    start = utc_now() + timedelta(days=7)
+    world.scheduling.set_availability(
+        world.interviewer_id,
+        slots=[TimeSlot(start_utc=start, end_utc=start + timedelta(hours=1))],
+        actor=hr_admin_principal("hr-admin"),
+    )
+    proposal = propose(world)
+    invented = TimeSlot(
+        start_utc=start + timedelta(days=1), end_utc=start + timedelta(days=1, hours=1)
+    )
+
+    with pytest.raises(RecruitingError, match="not one of the proposed slots"):
+        world.scheduling.decide(
+            proposal.id,
+            decision="confirm",
+            actor=hr_admin_principal("hr-admin"),
+            slot=invented,
+        )
+
+
+def test_a_single_slot_proposal_records_it_without_being_asked() -> None:
+    world = build()
+    start = utc_now() + timedelta(days=8)
+    slot = TimeSlot(start_utc=start, end_utc=start + timedelta(hours=1))
+    world.scheduling.set_availability(
+        world.interviewer_id, slots=[slot], actor=hr_admin_principal("hr-admin")
+    )
+    proposal = propose(world)
+
+    confirmed, _ = world.scheduling.decide(
+        proposal.id, decision="confirm", actor=hr_admin_principal("hr-admin")
+    )
+
+    assert confirmed.confirmed_slot == slot
+
+
 def test_reschedule_without_availability_keeps_the_old_proposal() -> None:
     world = build()
     proposal = propose(world)

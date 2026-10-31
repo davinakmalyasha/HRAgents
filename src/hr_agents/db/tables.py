@@ -183,6 +183,7 @@ class ScheduleProposal(TenantScoped, Base):
     job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONVariant, nullable=False)
+    confirmed_slot: Mapped[dict[str, Any] | None] = mapped_column(JSONVariant)
     requires_human_approval: Mapped[bool | None] = mapped_column(Boolean)
     needs_human_reconciliation: Mapped[bool | None] = mapped_column(Boolean)
     supersedes_id: Mapped[UUID | None] = mapped_column(

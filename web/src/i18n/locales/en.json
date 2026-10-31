@@ -507,10 +507,13 @@
     "fields": {
       "by": "Decided by",
       "reason": "Reason",
-      "reasonPlaceholder": "Recorded in the audit log"
+      "reasonPlaceholder": "Recorded in the audit log",
+      "confirmedSlot": "Which time was agreed?",
+      "confirmedSlotHint": "Only the agreed slot is held; the others stay available to other candidates."
     },
     "errors": {
       "reasonRequired": "A reason is required to cancel or reschedule.",
+      "slotRequired": "Choose the time that was agreed with the candidate.",
       "approvalRejected": "The linked approval was rejected; create a new proposal instead.",
       "forbidden": "Your role cannot decide scheduling proposals.",
       "notFound": "The proposal no longer exists.",

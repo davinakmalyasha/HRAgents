@@ -608,6 +608,20 @@ def test_scheduling_adapter_availability_and_proposal(factory: sessionmaker[Sess
     assert [item.id for item in fresh.list_all()] == [proposal.id]
     assert fresh.get(proposal.id).payload.slots[0].start_utc == slots[0].start_utc
 
+    # Confirm one agreed slot and prove it survives a fresh adapter: the column is
+    # what the next proposal's exclusion reads.
+    confirmed, _ = scheduling.decide(
+        proposal.id,
+        decision="confirm",
+        actor=ActorRef.legacy("hr-admin"),
+        slot=proposal.payload.slots[1],
+    )
+    assert confirmed.confirmed_slot == proposal.payload.slots[1]
+    reloaded = DbSchedulingService(evaluations=evaluations, session_factory=factory).get(
+        proposal.id
+    )
+    assert reloaded.confirmed_slot == proposal.payload.slots[1]
+
     other_record, _ = applications.submit(_submission(job_id=job.id, candidate_name="Budi"))
     evaluations.register(
         application_id=other_record.id,

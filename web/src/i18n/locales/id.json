@@ -507,10 +507,13 @@
     "fields": {
       "by": "Diputuskan oleh",
       "reason": "Alasan",
-      "reasonPlaceholder": "Tercatat di log audit"
+      "reasonPlaceholder": "Tercatat di log audit",
+      "confirmedSlot": "Waktu mana yang disepakati?",
+      "confirmedSlotHint": "Hanya slot yang disepakati yang ditahan; sisanya tetap tersedia untuk kandidat lain."
     },
     "errors": {
       "reasonRequired": "Alasan wajib diisi untuk membatalkan atau menjadwalkan ulang.",
+      "slotRequired": "Pilih waktu yang disepakati dengan kandidat.",
       "approvalRejected": "Persetujuan tertaut ditolak; buat usulan baru.",
       "forbidden": "Peran Anda tidak boleh memutuskan usulan penjadwalan.",
       "notFound": "Usulan sudah tidak ada.",

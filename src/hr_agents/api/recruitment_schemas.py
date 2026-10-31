@@ -319,6 +319,7 @@ class SchedulingProposalView(StrictModel):
     supersedes_id: UUID | None = None
     decided_by: str | None = None
     decided_at: datetime | None = None
+    confirmed_slot: TimeSlot | None = None
     created_by: str
     created_at: datetime
 
@@ -333,6 +334,7 @@ class SchedulingProposalView(StrictModel):
             supersedes_id=record.supersedes_id,
             decided_by=record.decided_by,
             decided_at=record.decided_at,
+            confirmed_slot=record.confirmed_slot,
             created_by=record.created_by,
             created_at=record.created_at,
         )
@@ -343,6 +345,9 @@ class ProposalDecisionRequest(StrictModel):
 
     decision: Literal["confirm", "cancel", "reschedule"]
     reason: str = Field(default="", max_length=500)
+    # Which proposed time was agreed. Required in practice when several were
+    # offered; the server refuses a slot the proposal never carried.
+    slot: TimeSlot | None = None
 
 
 class ProposalDecisionResponse(StrictModel):
