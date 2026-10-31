@@ -4346,7 +4346,7 @@ export interface components {
          * @description External capabilities the platform consumes.
          * @enum {string}
          */
-        Capability: "llm" | "embeddings" | "email_send" | "email_receive" | "whatsapp" | "calendar" | "storage" | "vector_store" | "queue";
+        Capability: "llm" | "embeddings" | "email_send" | "email_receive" | "whatsapp" | "telegram" | "calendar" | "storage" | "vector_store" | "queue";
         /**
          * Channel
          * @enum {string}
