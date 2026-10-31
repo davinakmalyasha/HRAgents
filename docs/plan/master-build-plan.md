@@ -418,9 +418,18 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       OAuth, cached access token, `freeBusy` lookup returning UTC `TimeSlot`s; pinned over
       respx, operator probe `scripts/check_calendar.py`). Remaining: mapping an interviewer
       to a calendar id (the directory), slot proposal from free windows, invites, reschedules
-- [ ] Google Drive: document import (CVs, policies)
-- [ ] Google Sheets: candidate/employee import-export
-- [ ] Microsoft Graph (Outlook/Calendar/OneDrive) — same adapter interface
+- [ ] Google Drive: document import (CVs, policies) — **credential-blocked for live work**:
+      it needs its own OAuth scopes (`drive.readonly`, and `drive.file` for uploads) plus a
+      folder picker contract, none of which this deployment has. The adapter shape is the
+      same as Gmail/Calendar; it is not written because an untested Drive integration would
+      claim a capability no one can exercise
+- [ ] Google Sheets: candidate/employee import-export — **credential-blocked for live work**:
+      same OAuth app and the `spreadsheets` scope; the CSV/XLSX import paths already cover
+      the operator need today
+- [ ] Microsoft Graph (Outlook/Calendar/OneDrive) — **credential-blocked for live work**:
+      needs an Azure app registration and either the client-credentials grant (tenant admin
+      consent) or a delegated refresh token. The adapter interface is the provider layer;
+      no Graph endpoint is invented here
 
 ### 7.3 Files & office reality
 - [ ] XLSX/CSV import with column-mapping UI
