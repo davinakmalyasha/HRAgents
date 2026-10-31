@@ -4370,6 +4370,8 @@ export interface components {
             /** Matched Keywords */
             matched_keywords: string[];
             route_reason: components["schemas"]["RouteReason"];
+            /** Tools Used */
+            tools_used?: string[];
             workspace: components["schemas"]["WorkspaceId"];
         };
         /** ChatRequest */

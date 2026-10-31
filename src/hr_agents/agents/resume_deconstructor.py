@@ -125,7 +125,7 @@ class ResumeDeconstructor:
 
 async def _search_knowledge(ctx: RunContext[AgentDeps], query: str) -> dict[str, Any]:
     """Search the evaluation knowledge base (rubrics, policy) and cite results."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME,
         tool_name="search_knowledge",
         arguments={"query": query},
@@ -134,7 +134,7 @@ async def _search_knowledge(ctx: RunContext[AgentDeps], query: str) -> dict[str,
 
 async def _canonicalize_skill(ctx: RunContext[AgentDeps], skill_name: str) -> dict[str, Any]:
     """Normalize a technology name to its canonical form (e.g. Postgres -> postgresql)."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME,
         tool_name="canonicalize_skill",
         arguments={"skill_name": skill_name},

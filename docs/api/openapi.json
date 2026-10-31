@@ -2144,6 +2144,13 @@
           "route_reason": {
             "$ref": "#/components/schemas/RouteReason"
           },
+          "tools_used": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tools Used",
+            "type": "array"
+          },
           "workspace": {
             "$ref": "#/components/schemas/WorkspaceId"
           }

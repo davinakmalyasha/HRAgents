@@ -332,6 +332,7 @@
     "thinking": "Sedang berpikir…",
     "error": "Terjadi kesalahan. Silakan coba lagi.",
     "citations": "Sumber",
+    "toolsUsed": "Dibaca dengan: {{tools}}",
     "escalated": "Seorang manusia akan menindaklanjuti.",
     "newSubject": "Topik baru — percakapan dimulai ulang.",
     "handoff": {

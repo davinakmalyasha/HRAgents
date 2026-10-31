@@ -105,42 +105,42 @@ class CodePortfolioEvaluator:
 
 async def _github_profile(ctx: RunContext[AgentDeps], username: str) -> dict[str, Any]:
     """List a candidate's public GitHub repositories."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="github_profile", arguments={"username": username}
     )
 
 
 async def _repo_metrics(ctx: RunContext[AgentDeps], full_name: str) -> dict[str, Any]:
     """Fetch detailed metrics for one repository (owner/name)."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="repo_metrics", arguments={"full_name": full_name}
     )
 
 
 async def _analyze_repo_ast(ctx: RunContext[AgentDeps], repo_path: str) -> dict[str, Any]:
     """Analyze a local repository checkout (complexity, tests, CI)."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="analyze_repo_ast", arguments={"repo_path": repo_path}
     )
 
 
 async def _detect_frameworks(ctx: RunContext[AgentDeps], repo_path: str) -> dict[str, Any]:
     """Detect frameworks from a repository's manifest files."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="detect_frameworks", arguments={"repo_path": repo_path}
     )
 
 
 async def _lookup_publication(ctx: RunContext[AgentDeps], doi: str) -> dict[str, Any]:
     """Verify a publication DOI and get bibliographic details."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="lookup_publication", arguments={"doi": doi}
     )
 
 
 async def _verify_credential(ctx: RunContext[AgentDeps], credential_id: str) -> dict[str, Any]:
     """Verify a professional credential ID against the issuer registry."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME,
         tool_name="verify_credential",
         arguments={"credential_id": credential_id},
@@ -149,6 +149,6 @@ async def _verify_credential(ctx: RunContext[AgentDeps], credential_id: str) -> 
 
 async def _search_knowledge(ctx: RunContext[AgentDeps], query: str) -> dict[str, Any]:
     """Search evaluation rubrics and process knowledge."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="search_knowledge", arguments={"query": query}
     )

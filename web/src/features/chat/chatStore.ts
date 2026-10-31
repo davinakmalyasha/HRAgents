@@ -15,6 +15,8 @@ export interface ChatMessage {
   workspace?: WorkspaceId
   handoffOptions: WorkspaceId[]
   handedOffTo: WorkspaceId[]
+  /** Tools the answering agent used, as `agent.tool`, from the server's turn. */
+  toolsUsed: string[]
 }
 
 export interface ChatThread {
@@ -76,6 +78,7 @@ export const chatThreadActions = {
           escalate: false,
           handoffOptions: [],
           handedOffTo: [],
+          toolsUsed: [],
         },
       ],
     }))
@@ -102,6 +105,7 @@ export const chatThreadActions = {
           workspace: reply.workspace,
           handoffOptions: reply.handoff_options,
           handedOffTo: [],
+          toolsUsed: reply.tools_used ?? [],
         },
       ],
     }))
@@ -125,6 +129,7 @@ export const chatThreadActions = {
           escalate: false,
           handoffOptions: [],
           handedOffTo: [],
+          toolsUsed: [],
         },
       ],
     }))

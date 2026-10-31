@@ -62,6 +62,12 @@ function MessageRow({
         </ul>
       ) : null}
 
+      {!isUser && message.toolsUsed.length > 0 ? (
+        <p className="text-2xs text-ink-muted">
+          {t('chat.toolsUsed', { tools: message.toolsUsed.join(', ') })}
+        </p>
+      ) : null}
+
       {!isUser && message.handoffOptions.length > 0 ? (
         <HandoffButtons
           scope={scope}

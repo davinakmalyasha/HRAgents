@@ -98,6 +98,6 @@ class PolicyAssistant:
 
 async def _search_knowledge(ctx: RunContext[AgentDeps], query: str) -> dict[str, Any]:
     """Search the knowledge base; results carry citations."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="search_knowledge", arguments={"query": query}
     )

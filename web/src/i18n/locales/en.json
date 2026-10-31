@@ -332,6 +332,7 @@
     "thinking": "Thinking…",
     "error": "Something went wrong. Please try again.",
     "citations": "Sources",
+    "toolsUsed": "Read with: {{tools}}",
     "escalated": "A human will follow up.",
     "newSubject": "New subject — started a fresh conversation.",
     "handoff": {

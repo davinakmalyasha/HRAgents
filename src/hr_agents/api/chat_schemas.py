@@ -29,6 +29,7 @@ class ChatReplyView(StrictModel):
     answer: str
     citations: list[str]
     escalate: bool
+    tools_used: list[str] = Field(default_factory=list)
 
     @classmethod
     def from_model(cls, reply: ChatReply) -> ChatReplyView:

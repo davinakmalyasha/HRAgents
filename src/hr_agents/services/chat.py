@@ -98,6 +98,7 @@ class ChatReply(StrictModel):
     answer: str
     citations: list[str] = Field(default_factory=list)
     escalate: bool = False
+    tools_used: list[str] = Field(default_factory=list)
 
 
 class ChatService:
@@ -198,6 +199,12 @@ class ChatService:
         record.updated_at = utc_now()
         self._conversations._persist(record)
 
+        # "Which agent is acting, what it read": the turn's own tool calls, in a
+        # stable order and bounded, so the transcript can say what the answer was
+        # built from without exposing arguments (those stay on the audit chain as
+        # a digest).
+        tools_used = sorted({f"{call.agent}.{call.tool}" for call in deps.tool_calls})[:20]
+
         self._audit.append(
             actor=self._actor(principal),
             action="chat.answered",
@@ -208,6 +215,7 @@ class ChatService:
                 "route_reason": decision.reason.value,
                 "escalate": escalate,
                 "citations": len(citations),
+                "tools_used": tools_used,
             },
         )
         return ChatReply(
@@ -219,6 +227,7 @@ class ChatService:
             answer=answer,
             citations=citations,
             escalate=escalate,
+            tools_used=tools_used,
         )
 
     @staticmethod

@@ -209,7 +209,7 @@ class ScreeningCoordinator:
 
 async def _search_knowledge(ctx: RunContext[AgentDeps], query: str) -> dict[str, Any]:
     """Search screening and compliance knowledge; cite it in answers."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME, tool_name="search_knowledge", arguments={"query": query}
     )
 
@@ -218,7 +218,7 @@ async def _capture_consent(
     ctx: RunContext[AgentDeps], candidate_id: str, granted: bool
 ) -> dict[str, Any]:
     """Record the candidate's explicit consent decision."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME,
         tool_name="capture_consent",
         arguments={"candidate_id": candidate_id, "granted": granted},
@@ -229,7 +229,7 @@ async def _record_availability(
     ctx: RunContext[AgentDeps], candidate_id: str, availability: dict[str, Any]
 ) -> dict[str, Any]:
     """Record the candidate's availability windows."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME,
         tool_name="record_availability",
         arguments={"candidate_id": candidate_id, "availability": availability},
@@ -240,7 +240,7 @@ async def _escalate_to_human(
     ctx: RunContext[AgentDeps], candidate_id: str, reason: str
 ) -> dict[str, Any]:
     """Hand the conversation to a human reviewer."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME,
         tool_name="escalate_to_human",
         arguments={"candidate_id": candidate_id, "reason": reason},
@@ -249,7 +249,7 @@ async def _escalate_to_human(
 
 async def _get_candidate_profile(ctx: RunContext[AgentDeps], candidate_id: str) -> dict[str, Any]:
     """Fetch candidate profile facts for context."""
-    return await ctx.deps.tools.execute(
+    return await ctx.deps.call_tool(
         agent_name=AGENT_NAME,
         tool_name="get_candidate_profile",
         arguments={"candidate_id": candidate_id},

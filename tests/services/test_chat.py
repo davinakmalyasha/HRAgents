@@ -65,6 +65,40 @@ async def test_grounded_answer_is_returned_with_routing_provenance() -> None:
     assert "chat.escalated" not in actions
 
 
+async def test_tool_calls_are_reported_on_the_reply() -> None:
+    """The transcript can say what the answer was read from, without arguments."""
+    answer = PolicyAnswer(answer="Saldo cuti tahunan Anda 12 hari.", citations=["leave.md#saldo"])
+    audit = AuditChain()
+    tools = ToolRegistry(audit=audit)
+    tools.register(
+        ToolDefinition(
+            name="search_knowledge",
+            description="Search the policy corpus",
+            allowed_agents=frozenset({"policy_assistant"}),
+            handler=lambda query: {"hits": [], "query": query},
+        )
+    )
+
+    class ToolUsingResponder:
+        async def ask(self, question: str, *, deps: AgentDeps) -> PolicyResult:
+            await deps.call_tool(
+                agent_name="policy_assistant",
+                tool_name="search_knowledge",
+                arguments={"query": "saldo cuti"},
+            )
+            return PolicyResult(answer=answer)
+
+    service = ChatService(
+        front_door=FrontDoor(), responder=ToolUsingResponder(), audit=audit, tools=tools
+    )
+
+    reply = await service.ask(message="berapa saldo cuti saya?", principal=PRINCIPAL)
+
+    assert reply.tools_used == ["policy_assistant.search_knowledge"]
+    entry = next(item for item in audit.entries if item.action == "chat.answered")
+    assert entry.payload["tools_used"] == ["policy_assistant.search_knowledge"]
+
+
 async def test_uncited_answer_is_replaced_by_escalation() -> None:
     answer = PolicyAnswer(answer="Saya pikir cutinya 20 hari.", citations=[])
     service, _, audit = make_service(answer)
