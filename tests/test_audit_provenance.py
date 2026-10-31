@@ -361,6 +361,7 @@ NO_ACTOR_WRITE_ROUTES = frozenset(
         # Svix/Meta signature is the credential. There is no actor to name, so
         # the reply ingest records a `transport:` system actor instead.
         "/v1/webhooks/email/resend",
+        "/v1/webhooks/whatsapp/meta",
     }
 )
 """Mutating routes with no ``actor`` parameter, and why each is acceptable."""

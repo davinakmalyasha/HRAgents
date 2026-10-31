@@ -377,7 +377,10 @@ def test_no_write_route_is_left_unguarded() -> None:
     assert not unguarded, f"write routes with no permission: {unguarded}"
 
     webhooks = {route.path for route in write_routes() if is_provider_webhook(route.path)}
-    assert webhooks == {"/v1/webhooks/email/resend"}
+    assert webhooks == {
+        "/v1/webhooks/email/resend",
+        "/v1/webhooks/whatsapp/meta",
+    }
     for path in webhooks:
         assert not _route_permissions(route(path)), (
             f"{path} is a provider webhook and must not declare a role permission"
