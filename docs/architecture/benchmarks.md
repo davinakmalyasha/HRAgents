@@ -7,6 +7,11 @@ All numbers are measured, not estimated. Re-run any benchmark with the command s
 **Command:** `uv run python scripts/benchmark_ingestion.py --total 5000 --concurrency 64`
 **Measured:** 2026-09-11
 
+A weekly CI job (`.github/workflows/benchmark.yml`) runs the same script with
+`--json --total 1000 --concurrency 32` on a clean checkout and uploads
+`ingestion-benchmark` as an artifact. Runner hardware differs from the table
+below, so compare it week to week as a trend, not as an absolute capacity claim.
+
 | Metric | Value | Contract |
 |---|---|---|
 | Throughput | **608.5 req/s = 36,509 req/min** | 10,000 req/min ✅ (3.6×) |

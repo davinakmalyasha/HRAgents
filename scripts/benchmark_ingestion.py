@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import statistics
 import time
 from uuid import uuid4
@@ -78,9 +79,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--total", type=int, default=5000)
     parser.add_argument("--concurrency", type=int, default=64)
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="print one JSON object (for a CI artifact) instead of a table",
+    )
     args = parser.parse_args()
 
     results = asyncio.run(run_benchmark(args.total, args.concurrency))
+    if args.json:
+        print(json.dumps(results, indent=2, sort_keys=True))
+        return
     width = max(len(key) for key in results)
     print("=" * (width + 18))
     print("HRAgents ingestion benchmark (in-process ASGI)")

@@ -120,7 +120,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
 - [x] **RLS actually applies in the shipped stack**: `docker/postgres/10-non-superuser.sql` demotes
       the image-created superuser on first init (ADR 0006 knew it was bypassed and deferred it).
       Existing volumes need the `ALTER ROLE` by hand
-- [ ] Log-redaction pass: fuzz `mask_secrets` with real provider payloads
+- [x] Log-redaction pass: every provider's declared `secret_fields` is checked to be a
+      `SecretStr` (or `SecretStr | None`), and a Hypothesis fuzz asserts masking a nested
+      payload never returns the raw secret for any printable value
+      (`tests/providers/test_secret_hygiene.py`). A plain-`str` token can no longer be
+      declared secret and leak through `mask_secrets`.
 - [x] Dependency scanning cadence: Dependabot covers uv, GitHub Actions and npm weekly
       (`.github/dependabot.yml`), CodeQL runs in CI, and `.github/workflows/audit.yml` runs
       `pip-audit --strict` against the exported lockfile every Monday (plus manual dispatch).
@@ -203,7 +207,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       `DbConversationStore` / `DbWorkspaceRequestStore` in `db/workspace.py` persist both
       through the configured session factory, so queues survive a restart
 - [ ] Operator runbooks: provider failures, incident response, upgrade playbook
-- [ ] Reproduce benchmarks from a clean clone (script + CI artifact)
+- [x] Reproduce benchmarks from a clean clone (script + CI artifact) —
+      `scripts/benchmark_ingestion.py --json` prints one machine-readable object, and
+      `.github/workflows/benchmark.yml` runs it weekly on a clean checkout and uploads
+      `ingestion-benchmark` (30-day retention). The measured table stays in
+      `docs/architecture/benchmarks.md`, with the CI caveat that runner hardware varies.
 - [ ] Type strictness: evaluate `mypy --strict` on `src/hr_agents`; branch coverage 100% on
       invariant modules (scoring, policy, priority, audit, payroll gates)
 - [ ] Web: storybook (or equivalent) for the component kit
