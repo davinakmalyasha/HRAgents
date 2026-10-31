@@ -123,8 +123,8 @@ def _health_resend_webhook(config: ProviderConfig) -> ProviderHealth:
     if not config.webhook_secret.get_secret_value():
         return ProviderHealth.misconfigured("webhook_secret is required")
     return ProviderHealth.degraded(
-        "webhook secret is set but signature verification is not implemented; "
-        "inbound mail is accepted without verifying the sender"
+        "webhook secret is set and svix signatures are verified; "
+        "no public inbound route is mounted yet, so mail is not received"
     )
 
 

@@ -40,6 +40,15 @@ from hr_agents.messaging.runtime import (
 )
 from hr_agents.messaging.smtp import SMTP_PROVIDER_ID, SmtpEmailSender
 from hr_agents.messaging.store import ReplyStore, reply_dedup_key
+from hr_agents.messaging.webhooks import (
+    ReplayGuard,
+    WebhookError,
+    WebhookRefusal,
+    WebhookScheme,
+    WebhookVerdict,
+    verified_headers,
+    verify_webhook,
+)
 
 __all__ = [
     "IMAP_PROVIDER_ID",
@@ -64,15 +73,22 @@ __all__ = [
     "MessagingServices",
     "OutboundEmail",
     "OutboxDispatcher",
+    "ReplayGuard",
     "ReplyIngestor",
     "ReplyStore",
     "SendResult",
     "SmtpEmailSender",
     "TransportError",
+    "WebhookError",
+    "WebhookRefusal",
+    "WebhookScheme",
+    "WebhookVerdict",
     "build_email_receiver",
     "build_email_sender",
     "draft_dedup_key",
     "normalize_subject",
     "reply_dedup_key",
     "suggest_job",
+    "verified_headers",
+    "verify_webhook",
 ]
