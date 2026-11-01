@@ -67,6 +67,7 @@ yarn-error.log*
 
 # --- Web dashboard (web/) ---
 web/coverage/
+web/storybook-static/
 web/*.tsbuildinfo
 web/.vite/
 

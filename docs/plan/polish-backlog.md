@@ -254,7 +254,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       reads the JSON report and fails the gate (and CI) if any of the five loses a branch,
       so the global 90% floor cannot hide a regression in the code that decides money and
       truth.
-- [ ] Web: storybook (or equivalent) for the component kit
+- [x] Web: Storybook 10 for the component kit. `npm run storybook` runs the catalog and
+      `npm run build-storybook` builds it; CI builds it after the app bundle. The first story is
+      `Status/StatusBadge` (waiting/error/done). The config drops the app's PWA plugin, whose
+      service-worker generation targets the app entry and fails on a catalog build. Output is
+      gitignored and excluded from lint/format scans.
 
 ## Deferred by design (do not re-litigate without demand)
 
