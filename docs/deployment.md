@@ -624,7 +624,11 @@ is policy, not inference: `HRAGENTS_CALENDAR_WORK_START_HOUR` (default `9`),
 timezone, weekends excluded. Unmapped interviewers keep whatever slots a human
 entered, and a calendar that fails is counted and left as it was rather than
 wiping that interviewer's availability. Invites and reschedules are still
-manual.
+manual: writing them needs two things this deployment does not have — a refresh
+token with `calendar.events` scope, and attendee emails on the scheduling
+payload (it carries candidate/job/interviewer ids, not addresses). Supply both
+before turning event creation on; until then the free/busy read is the only
+calendar write-free guarantee.
 
 ### Real-time inbound: the Resend webhook
 

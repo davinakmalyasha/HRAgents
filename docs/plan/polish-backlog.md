@@ -218,7 +218,10 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       jsdom and covered instead by `theme.contrast.test.ts`); the manual keyboard and WCAG AA
       contrast pass is done (2026-10, light+dark, all boards + palette). Remaining: add the same axe
       assertion to each workspace as its component test harness grows, and a screen-reader pass.
-- [ ] EN/ID microcopy review with a native HR speaker; date/number/currency formatting audit
+- [~] EN/ID microcopy review: structural parity is enforced (`i18n.test.ts` checks identical key
+      sets, non-empty values, and matching `{{placeholders}}` in both languages), and date/number
+      formatting is pinned by the existing formatting tests. Still blocked on a native HR speaker
+      for wording quality; no machine translation is presented as reviewed copy.
 - [~] Design token audit against `product-concept.md` §7: colors are structurally guarded
       (`theme.guard.test.ts` confines every hex literal to `theme.css`; the contrast test pins
       WCAG AA in light and dark). A spacing pass found no off-scale large padding/margin; the

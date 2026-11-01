@@ -14,6 +14,28 @@ function flatten(value: Record<string, unknown>, prefix = ''): string[] {
   })
 }
 
+function flattenValues(
+  value: Record<string, unknown>,
+  prefix = '',
+  into = new Map<string, string>(),
+): Map<string, string> {
+  for (const [key, entry] of Object.entries(value)) {
+    const path = prefix === '' ? key : `${prefix}.${key}`
+    if (typeof entry === 'object' && entry !== null) {
+      flattenValues(entry as Record<string, unknown>, path, into)
+    } else if (typeof entry === 'string') {
+      into.set(path, entry)
+    }
+  }
+  return into
+}
+
+function placeholders(value: string): string[] {
+  return [
+    ...new Set([...value.matchAll(/\{\{\s*([\w.]+)\s*\}\}/g)].map((match) => match[1])),
+  ].sort()
+}
+
 describe('i18n', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('en')
@@ -21,6 +43,27 @@ describe('i18n', () => {
 
   it('keeps English and Bahasa Indonesia complete and in sync', () => {
     expect(flatten(id).sort()).toEqual(flatten(en).sort())
+  })
+
+  it('keeps every translation non-empty with matching placeholders', () => {
+    const english = flattenValues(en)
+    const indonesian = flattenValues(id)
+    const problems: string[] = []
+
+    for (const [path, value] of english) {
+      const translation = indonesian.get(path)
+      if (translation === undefined) {
+        continue
+      }
+      if (value.trim() === '' || translation.trim() === '') {
+        problems.push(`${path}: empty translation`)
+      }
+      if (placeholders(value).join(',') !== placeholders(translation).join(',')) {
+        problems.push(`${path}: placeholders differ`)
+      }
+    }
+
+    expect(problems).toEqual([])
   })
 
   it('switches the active language', async () => {
