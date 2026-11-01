@@ -236,8 +236,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       72 errors in 43 files — 57 `no-any-return` (mostly `getattr(request.app.state, ...)`),
       8 `attr-defined`, 6 `type-arg`, 1 `redundant-cast`. The current flags already reject
       untyped defs and implicit optionals; adopting `strict` today would mostly add casts
-      around dynamic app state, so it waits for a typed `AppState`. Branch coverage on
-      invariant modules (scoring, policy, priority, audit, payroll gates) is still open.
+      around dynamic app state, so it waits for a typed `AppState`.
+- [x] Branch coverage 100% on the invariant modules: scoring, policy, priority, audit and
+      payroll are all at 100% lines and branches. `scripts/check_invariant_coverage.py`
+      reads the JSON report and fails the gate (and CI) if any of the five loses a branch,
+      so the global 90% floor cannot hide a regression in the code that decides money and
+      truth.
 - [ ] Web: storybook (or equivalent) for the component kit
 
 ## Deferred by design (do not re-litigate without demand)

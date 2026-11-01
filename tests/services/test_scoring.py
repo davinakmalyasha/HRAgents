@@ -21,6 +21,7 @@ from hr_agents.services.dimensions import ENGINEERING, FINANCE
 from hr_agents.services.scoring import (
     dimensions_evidenced,
     normalize_skill,
+    role_fit_sufficient,
     score_candidate,
     score_runs,
 )
@@ -377,3 +378,57 @@ def test_the_engineering_scores_are_pinned_byte_for_byte() -> None:
         '{"technical_depth":0.86875,"stack_alignment":0.875,'
         '"systems_literacy":0.98,"verifiable_certifications":0.8}'
     )
+
+
+def dimension(
+    dimension: ScoreDimension, score: float, components: dict[str, float] | None = None
+) -> DimensionScore:
+    return DimensionScore(
+        dimension=dimension,
+        score=score,
+        weight=0.25,
+        rationale="evidence",
+        components=components or {},
+    )
+
+
+def test_role_fit_is_sufficient_without_both_dimensions() -> None:
+    depth = dimension(ScoreDimension.TECHNICAL_DEPTH, 0.8, {"tenure": 0.9})
+
+    assert role_fit_sufficient([]) is True
+    assert role_fit_sufficient([depth]) is True
+
+
+def test_role_fit_is_sufficient_when_depth_is_zero() -> None:
+    depth = dimension(ScoreDimension.TECHNICAL_DEPTH, 0.0, {"tenure": 0.0})
+    stack = dimension(ScoreDimension.STACK_ALIGNMENT, 0.0, {"must_have": 0.0})
+
+    assert role_fit_sufficient([depth, stack]) is True
+
+
+def test_role_fit_is_sufficient_without_a_must_have_signal() -> None:
+    depth = dimension(ScoreDimension.TECHNICAL_DEPTH, 0.8, {"tenure": 0.9})
+    stack = dimension(ScoreDimension.STACK_ALIGNMENT, 0.2)
+
+    assert role_fit_sufficient([depth, stack]) is True
+
+
+def test_role_fit_is_sufficient_when_tenure_does_not_carry_depth() -> None:
+    depth = dimension(ScoreDimension.TECHNICAL_DEPTH, 0.8, {"tenure": 0.1})
+    stack = dimension(ScoreDimension.STACK_ALIGNMENT, 0.2, {"must_have": 0.1})
+
+    assert role_fit_sufficient([depth, stack]) is True
+
+
+def test_role_fit_is_insufficient_when_tenure_carries_thin_must_have() -> None:
+    depth = dimension(ScoreDimension.TECHNICAL_DEPTH, 0.8, {"tenure": 0.9})
+    stack = dimension(ScoreDimension.STACK_ALIGNMENT, 0.2, {"must_have": 0.1})
+
+    assert role_fit_sufficient([depth, stack]) is False
+
+
+def test_role_fit_is_sufficient_when_must_have_is_met() -> None:
+    depth = dimension(ScoreDimension.TECHNICAL_DEPTH, 0.8, {"tenure": 0.9})
+    stack = dimension(ScoreDimension.STACK_ALIGNMENT, 0.8, {"must_have": 0.9})
+
+    assert role_fit_sufficient([depth, stack]) is True

@@ -25,6 +25,7 @@ ENV/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage-invariants.json
 coverage.xml
 htmlcov/
 .tox/

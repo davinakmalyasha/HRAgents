@@ -26,7 +26,10 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy
-      - run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=90
+      - run: >-
+          uv run pytest --cov --cov-report=term-missing
+          --cov-report=json:.coverage-invariants.json --cov-fail-under=90
+      - run: uv run python scripts/check_invariant_coverage.py .coverage-invariants.json
 
   migrations:
     name: migrations

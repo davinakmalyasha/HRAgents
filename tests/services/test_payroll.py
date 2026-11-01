@@ -11,6 +11,7 @@ from hr_agents.models import (
     AnomalySeverity,
     ApproverRole,
     Employee,
+    PayrollAnomaly,
     PayrollRun,
     PayrollRunKind,
     PayrollRunStatus,
@@ -515,6 +516,16 @@ def test_supersede_creates_a_linked_editable_successor(
     service.set_inputs(successor.id, inputs=computed.inputs, actor=actor)
     recomputed = service.compute(successor.id, actor=actor)
     assert recomputed.status is PayrollRunStatus.READY_FOR_REVIEW
+
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    info = load_workbook(BytesIO(service.build_review_packet_xlsx(successor.id)))["Run info"]
+    assert any(
+        row[0] == "Replaces run" and row[1] == str(run.id)
+        for row in info.iter_rows(values_only=True)
+    )
 
     actions = [entry.action for entry in audit.entries]
     assert "payroll.run_superseded" in actions
@@ -1364,3 +1375,195 @@ def test_audit_chain_covers_payroll(
     assert "payroll.inputs_set" in actions
     assert "payroll.computed" in actions
     assert audit.verify() == -1
+
+
+def test_create_run_refuses_an_invalid_period_month(service: PayrollService) -> None:
+    with pytest.raises(PayrollError, match="period_month"):
+        service.create_run(
+            period_year=PERIOD_YEAR,
+            period_month=13,
+            actor=ActorRef.legacy("hr-admin"),
+        )
+
+
+def test_committing_attendance_without_inputs_is_refused(service: PayrollService) -> None:
+    run = make_run(service)
+
+    with pytest.raises(PayrollError, match="no inputs"):
+        service.apply_attendance_xlsx(run.id, b"not a workbook", actor=ActorRef.legacy("hr-admin"))
+
+
+def test_submitting_a_draft_for_signoff_is_refused(service: PayrollService) -> None:
+    run = make_run(service)
+
+    with pytest.raises(PayrollError, match="compute it first"):
+        service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
+
+
+def test_exporting_a_run_that_is_not_approved_is_refused(service: PayrollService) -> None:
+    run = make_run(service)
+
+    with pytest.raises(PayrollError, match="only approved"):
+        service.mark_exported(run.id, actor=ActorRef.legacy("hr-admin"))
+
+
+def test_applying_an_approval_with_no_linked_run_is_refused(service: PayrollService) -> None:
+    with pytest.raises(PayrollError, match="no payroll run linked"):
+        service.apply_decision(uuid4(), actor=ActorRef.legacy("hr-admin"))
+
+
+def test_a_thr_payout_with_a_full_period_absence_pays_zero(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service, kind=PayrollRunKind.THR, period_month=3)
+    service.set_inputs(
+        run.id,
+        inputs=[
+            PayrollInput(
+                employee_id=employee.id,
+                base_salary=m(10_000_000),
+                absence_days=float(working_days_in(PERIOD_YEAR, 3)),
+                service_months=24,
+            )
+        ],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+
+    computed = service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert computed.lines[0].base_salary == ZERO
+    assert computed.lines[0].thr_months == 3
+
+
+def test_a_small_net_change_does_not_warn(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    first = make_run(service, period_month=5)
+    service.set_inputs(
+        first.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(10_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    service.compute(first.id, actor=ActorRef.legacy("hr-admin"))
+
+    second = make_run(service, period_month=6)
+    service.set_inputs(
+        second.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(10_200_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(second.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert not any(anomaly.code == "net_deviation" for anomaly in computed.anomalies)
+
+
+def test_a_new_employee_is_not_compared_to_an_unrelated_previous_run(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    first_employee = make_employee(employees, "Sari Dewi")
+    second_employee = make_employee(employees, "Budi Santoso")
+    first = make_run(service, period_month=5)
+    service.set_inputs(
+        first.id,
+        inputs=[PayrollInput(employee_id=first_employee.id, base_salary=m(10_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    service.compute(first.id, actor=ActorRef.legacy("hr-admin"))
+
+    second = make_run(service, period_month=6)
+    service.set_inputs(
+        second.id,
+        inputs=[PayrollInput(employee_id=second_employee.id, base_salary=m(4_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(second.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert not any(anomaly.code == "net_deviation" for anomaly in computed.anomalies)
+
+
+def test_submitting_a_ready_run_with_no_lines_is_refused(service: PayrollService) -> None:
+    run = make_run(service)
+    service._save_run(run.model_copy(update={"status": PayrollRunStatus.READY_FOR_REVIEW}))
+
+    with pytest.raises(PayrollError, match="no computed lines"):
+        service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
+
+
+def test_an_approval_on_a_run_that_became_unsignable_is_refused(
+    service: PayrollService,
+    employees: EmployeeService,
+    rate_tables: RateTableService,
+    approvals: ApprovalEngine,
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    run = make_run(service)
+    service.set_inputs(
+        run.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(8_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    service.compute(run.id, actor=ActorRef.legacy("hr-admin"))
+    submitted = service.submit_for_signoff(run.id, actor=ActorRef.legacy("hr-admin"))
+    approval_id = submitted.approval_id
+    assert approval_id is not None
+
+    current = service.get_run(run.id)
+    service._save_run(
+        current.model_copy(
+            update={
+                "anomalies": [
+                    *current.anomalies,
+                    PayrollAnomaly(
+                        code="late_blocker",
+                        severity=AnomalySeverity.ERROR,
+                        detail="a blocker discovered after submission",
+                    ),
+                ]
+            }
+        )
+    )
+    approvals.decide(approval_id, actor=finance_principal("finance-lead"), approve=True)
+
+    with pytest.raises(PayrollError, match="cannot approve run"):
+        service.apply_decision(approval_id, actor=ActorRef.legacy("hr-admin"))
+
+
+def test_two_prior_runs_in_the_same_period_do_not_break_deviation(
+    service: PayrollService, employees: EmployeeService, rate_tables: RateTableService
+) -> None:
+    from hr_agents.models import PayrollInput
+
+    seed_verified_tables(rate_tables)
+    employee = make_employee(employees)
+    for _ in range(2):
+        earlier = make_run(service, period_month=5)
+        service.set_inputs(
+            earlier.id,
+            inputs=[PayrollInput(employee_id=employee.id, base_salary=m(10_000_000))],
+            actor=ActorRef.legacy("hr-admin"),
+        )
+        service.compute(earlier.id, actor=ActorRef.legacy("hr-admin"))
+
+    current = make_run(service, period_month=6)
+    service.set_inputs(
+        current.id,
+        inputs=[PayrollInput(employee_id=employee.id, base_salary=m(10_000_000))],
+        actor=ActorRef.legacy("hr-admin"),
+    )
+    computed = service.compute(current.id, actor=ActorRef.legacy("hr-admin"))
+
+    assert computed.status is PayrollRunStatus.READY_FOR_REVIEW

@@ -517,3 +517,47 @@ def test_apply_refuses_without_inputs(payroll: PayrollService, employees: Employ
             csv_text([("EMP-1", day, "08:00", "17:00")]),
             actor=hr_admin(),
         )
+
+
+def test_preview_without_a_leave_service_still_imports(
+    employees: EmployeeService, approvals: ApprovalEngine, audit: AuditChain
+) -> None:
+    payroll = PayrollService(
+        employees=employees,
+        rate_tables=RateTableService(RateTableStore(), audit=audit),
+        approvals=approvals,
+        audit=audit,
+    )
+    make_employee(employees, "EMP-1")
+    day = workdays(YEAR, MONTH, 1)[0]
+
+    preview = payroll.preview_attendance(
+        csv_text([("EMP-1", day, "08:00", "17:00")]),
+        period_year=YEAR,
+        period_month=MONTH,
+    )
+
+    assert preview.errors == []
+    assert len(preview.rows) == 1
+
+
+def test_preview_skips_an_employee_without_a_number(
+    payroll: PayrollService, employees: EmployeeService
+) -> None:
+    employees.create(
+        full_name="No Number",
+        actor=hr_admin(),
+        hire_date=TODAY - timedelta(days=30),
+        job_title="Staff",
+    )
+    make_employee(employees, "EMP-1")
+    day = workdays(YEAR, MONTH, 1)[0]
+
+    preview = payroll.preview_attendance(
+        csv_text([("EMP-1", day, "08:00", "17:00")]),
+        period_year=YEAR,
+        period_month=MONTH,
+    )
+
+    assert preview.errors == []
+    assert len(preview.rows) == 1

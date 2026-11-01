@@ -97,3 +97,11 @@ def test_rank_queue_orders_by_priority_then_arrival() -> None:
     assert ranked[0][0] == "strong"
     # equal priority ties keep arrival order
     assert [name for name, _ in ranked[1:]] == ["first-arrival", "second-arrival"]
+
+
+def test_negative_risk_flags_are_refused() -> None:
+    with pytest.raises(ValueError, match="risk_flag_count"):
+        compute_priority(
+            PriorityInputs(s_tech=0.5, hours_waiting=1, risk_flag_count=-1),
+            settings=make_settings(),
+        )

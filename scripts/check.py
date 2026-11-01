@@ -16,7 +16,14 @@ COMMANDS: list[list[str]] = [
     ["ruff", "check", "."],
     ["ruff", "format", "--check", "."],
     ["mypy"],
-    ["pytest", "--cov", "--cov-report=term-missing", "--cov-fail-under=90"],
+    [
+        "pytest",
+        "--cov",
+        "--cov-report=term-missing",
+        "--cov-report=json:.coverage-invariants.json",
+        "--cov-fail-under=90",
+    ],
+    ["python", "scripts/check_invariant_coverage.py", ".coverage-invariants.json"],
 ]
 
 
