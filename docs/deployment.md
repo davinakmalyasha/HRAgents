@@ -182,6 +182,15 @@ are refused with guidance to save as PDF or DOCX, and an arbitrary binary is
 never decoded as text. A refusal is audited as `document.rejected_format` with
 the size and business `kind` only — not the filename or content.
 
+### Candidate feedback PDFs
+
+`GET /v1/candidates/{candidate_id}/feedback.pdf?language=en|id` renders the
+candidate-facing report as a PDF (`reportlab`, no system libraries). Only the
+summary, strengths, growth areas, process note and correction notice are
+printed; internal notes and raw scores are not part of the report model. Names
+and free text are XML-escaped before ReportLab sees them, and the filename is
+the candidate UUID, so an uploaded name cannot inject markup or a path.
+
 ### External MCP tools (optional, HTTP/SSE only)
 
 An operator can attach an MCP server for tools that live outside HRAgents

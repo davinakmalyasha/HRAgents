@@ -44,6 +44,7 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.44",
     "opentelemetry-instrumentation-fastapi>=0.65b0",
     "opentelemetry-instrumentation-httpx>=0.65b0",
+    "reportlab>=4.2",
 ]
 
 [project.urls]

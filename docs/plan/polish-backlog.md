@@ -143,8 +143,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       and the no-keys state is an explicit local-operator mode documented as localhost-only. The
       prior trap — keys configured but no login screen — no longer exists; both branches have UI
       and tests.
-- [ ] Handoff queue reads currently require only `chat:use`; revisit per-workspace read
-      permissions for `GET /v1/chat/handoffs` when the dashboard defines queue access
+- [x] Handoff queue reads: listing `GET /v1/chat/handoffs` now requires `people:read`, not just
+      `chat:use`. There is no per-principal workspace membership in the model, so scoping to
+      "workspaces you belong to" cannot be expressed; the queue's free text can carry
+      employee/candidate context, and an employee asking another team for help is still allowed
+      to create one (`chat:use`). The read is an HR-operations view.
 
 ## Reliability
 

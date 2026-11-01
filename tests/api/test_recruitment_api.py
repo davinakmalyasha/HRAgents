@@ -367,6 +367,14 @@ def test_feedback_report_served_from_evaluation() -> None:
             f"/v1/candidates/{application['candidate_id']}/feedback", params={"language": "id"}
         )
         missing = client.get(f"/v1/candidates/{uuid4()}/feedback")
+        pdf = client.get(f"/v1/candidates/{application['candidate_id']}/feedback.pdf")
+        missing_pdf = client.get(f"/v1/candidates/{uuid4()}/feedback.pdf")
+
+    assert missing_pdf.status_code == 404
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF-")
+    assert 'filename="feedback-' in pdf.headers["content-disposition"]
 
     assert english.status_code == 200
     body = english.json()

@@ -298,6 +298,33 @@ def test_self_target_handoff_returns_422() -> None:
         assert response.status_code == 422
 
 
+def test_an_employee_can_request_a_handoff_but_not_read_the_queue() -> None:
+    """The queue carries cross-workspace text; reading it needs people:read.
+
+    ``chat:use`` is every employee's permission, so listing the queue let any
+    employee read HR's internal requests. Asking for a handoff is still allowed:
+    that is the employee's own message to another team.
+    """
+    app = _two_employee_app()
+    with TestClient(app) as client:
+        _install_handoffs(app)
+        headers = {"X-API-Key": "sari-key"}
+
+        created = client.post(
+            "/v1/chat/handoffs",
+            json={
+                "message": "Please confirm my bank account change",
+                "source_workspace": "policy",
+                "target_workspace": "payroll",
+            },
+            headers=headers,
+        )
+        listed = client.get("/v1/chat/handoffs", headers=headers)
+
+    assert created.status_code == 201, created.text
+    assert listed.status_code == 403
+
+
 def test_handoffs_unavailable_returns_503() -> None:
     app = create_app()
     with TestClient(app) as client:

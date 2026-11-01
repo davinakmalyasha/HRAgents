@@ -448,8 +448,10 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 7.3 Files & office reality
 - [x] XLSX/CSV import with column-mapping UI (attendance: workbook or pasted CSV, explicit
       column map, per-row refusal; `AttendanceImportDialog`)
-- [~] Export: XLSX reports done (payroll review packet, `GET /v1/payroll/runs/{id}/packet.xlsx`);
-      PDF feedback letters still open
+- [x] Export: XLSX reports (payroll review packet) and PDF candidate feedback letters
+      (`services/feedback_pdf.py`, `GET /v1/candidates/{id}/feedback.pdf`). The PDF carries only
+      the candidate-facing sections, uses the report's EN/ID labels, and escapes user text before
+      ReportLab sees it.
 - [ ] Office Connector: local folder sync agent for NAS/shared drives (only if demand)
 
 ### 7.4 MCP layer

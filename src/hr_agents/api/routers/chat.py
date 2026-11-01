@@ -112,6 +112,7 @@ def request_handoff(
 @router.get(
     "/handoffs",
     response_model=Page[HandoffView],
+    dependencies=[Depends(require_permission(Permission.PEOPLE_READ))],
     summary="Open handoffs, optionally filtered to one workspace",
 )
 def list_handoffs(
