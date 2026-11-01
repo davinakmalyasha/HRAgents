@@ -207,7 +207,13 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       WCAG AA contrast pass is done (2026-10, light+dark, all boards + palette), see
       `theme.contrast.test.ts`
 - [ ] EN/ID microcopy review with a native HR speaker; date/number/currency formatting audit
-- [ ] Design token audit against `product-concept.md` §7 (no rogue colors/spacing)
+- [~] Design token audit against `product-concept.md` §7: colors are structurally guarded
+      (`theme.guard.test.ts` confines every hex literal to `theme.css`; the contrast test pins
+      WCAG AA in light and dark). A spacing pass found no off-scale large padding/margin; the
+      only arbitrary value is shadcn's `p-[3px]` tabs inset, and the half-steps (`0.5`/`1.5`/
+      `2.5` = 2/6/10px) are Tailwind density primitives. Enforcing the 4px scale as a hard guard
+      would mean rewriting upstream component micro-spacing for no visible gain, so the audit is
+      recorded rather than codified.
 
 ## Docs & developer experience
 
