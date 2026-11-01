@@ -1,0 +1,22 @@
+[package]
+name = "hragents-desktop"
+description = "HRAgents Desktop — Tauri 2.12 shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "hragents_desktop_lib"
+crate-type = ["staticlib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+serde.workspace = true
+serde_json.workspace = true
+hragents-core = { path = "../../crates/hragents-core" }
+hragents-store = { path = "../../crates/hragents-store" }
+hragents-ipc = { path = "../../crates/hragents-ipc" }

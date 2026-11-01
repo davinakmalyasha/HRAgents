@@ -189,7 +189,7 @@ ends at export (`rust_xlsxwriter`, CSV, PDF); no payment-execution code exists.
 
 ## 9. AI layer
 
-- **Providers and output:** `rig` 0.44 (OpenAI, Anthropic, Gemini, Ollama, OpenRouter,
+- **Providers and output:** `rig` 0.46 (OpenAI, Anthropic, Gemini, Ollama, OpenRouter,
   Groq); fallback is OpenAI-compatible `/chat/completions` over `reqwest`. Structured
   output is a `#[derive(JsonSchema)]` DTO through `Extractor` plus a Rust validator;
   endpoints without native schemas fall back to prompted JSON through the same validator.
@@ -258,7 +258,7 @@ binary — no base64, no needless JSON round-trip.
 | `tauri` / `tauri-build` / `tauri-specta` | 2.12.x / 2.x | Shell and typed IPC. **Tauri 3 is not stable — do not use** |
 | SQLite / `rusqlite` | 3.54.1 / 0.41 | Bundled storage (`backup`, `functions`, `blob`) |
 | `axum` / `sqlx` | 0.8 / 0.9 | Optional server edition; alternative driver |
-| `rig` / `tokio` | 0.44 / 1.x | LLM layer; async runtime |
+| `rig` / `tokio` | 0.46 / 1.x | LLM layer; async runtime |
 | `serde` / `serde_json` / `schemars` | 1 | Serialization, tool and IPC schemas |
 | `thiserror` / `argon2` / `sha2` | 2 / 0.5 / 0.10 | Errors, password hashing, audit chain |
 | `rust_decimal` / `chrono` / `chrono-tz` | 1.x / 0.4 / 0.10 | Ratio math, dates, `Asia/Jakarta` |

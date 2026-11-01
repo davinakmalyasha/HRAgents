@@ -1,0 +1,27 @@
+[
+  {
+    "input": "0",
+    "name": "zero",
+    "sen": 0
+  },
+  {
+    "input": "0.125",
+    "name": "half_up_positive",
+    "sen": 13
+  },
+  {
+    "input": "-0.125",
+    "name": "half_up_negative",
+    "sen": -13
+  },
+  {
+    "input": "1234567.89",
+    "name": "two_places",
+    "sen": 123456789
+  },
+  {
+    "input": "9876543210.55",
+    "name": "large",
+    "sen": 987654321055
+  }
+]

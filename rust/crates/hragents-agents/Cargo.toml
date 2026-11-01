@@ -1,0 +1,13 @@
+[package]
+name = "hragents-agents"
+description = "Deterministic extraction and policy-assistant contracts for HRAgents Desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hragents-core = { path = "../hragents-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

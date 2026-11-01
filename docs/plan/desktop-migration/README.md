@@ -30,7 +30,7 @@ HR person do repetitive, exhausting work.
 | Backend | Rust **1.99.1**, in-process with Tauri; no Python at runtime |
 | Database | SQLite **3.54.1**, one file per company, WAL, FTS5; the current 55 tables (54 tenant-scoped) become a single-company schema |
 | IPC | Tauri commands via `tauri-specta`; no localhost HTTP server |
-| AI | Rust-native agent layer (`rig` 0.44.x or latest stable) |
+| AI | Rust-native agent layer (`rig` 0.46.x or latest stable) |
 | Network | Only LLM, SMTP/IMAP, WhatsApp links/API, calendar ICS; no inbound webhooks |
 | Distribution | Signed Windows installer first, then macOS notarized build |
 | Performance | Rust core, direct IPC, SQLite, no Docker, no Python, no Redis, no Postgres |
@@ -60,6 +60,7 @@ this desktop edition.
 | 10 | [`10-quality.md`](10-quality.md) | Tests, parity harness, benchmarks, CI, release |
 | 11 | [`11-risks.md`](11-risks.md) | Risk register, open decisions, non-goals |
 | 12 | [`12-impact.md`](12-impact.md) | Positioning, demo, metrics, pilot |
+| 13 | [`13-implementation-status.md`](13-implementation-status.md) | What is actually built, gate status, evidence, next tasks |
 
 The executive summary is [`../massive-polishment.md`](../massive-polishment.md).
 
@@ -125,7 +126,7 @@ Pin exact versions in `Cargo.lock`, `package-lock.json`, and the Tauri config. R
 | i18next / react-i18next | 26.x / 17.x | Latest compatible pair |
 | Axum | 0.8.x | Only for the optional server edition |
 | SQLx | 0.9.x | Only if the SQLite access layer chooses SQLx over rusqlite |
-| `rig` | 0.44.x | Rust LLM agents/providers |
+| `rig` | 0.46.x | Rust LLM agents/providers |
 | `tauri-specta` | 2.x | Typed IPC bindings |
 | `tokio` | 1.x | Async runtime for network/jobs |
 | `serde` / `schemars` | 1.x | Serialization and structured-output schemas |

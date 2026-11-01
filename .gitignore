@@ -83,3 +83,17 @@ site/
 
 # playwright MCP output
 .playwright-mcp/
+
+# --- Desktop (Rust + Tauri) ---
+rust/target/
+rust/apps/desktop/ui/node_modules/
+rust/apps/desktop/ui/dist/
+rust/apps/desktop/gen/
+rust/apps/desktop/icons/*.ico.bak
+*.db
+*.db-shm
+*.db-wal
+hragents-demo.db
+hragents-demo-backup.db
+ui-*.png
+.playwright-mcp/

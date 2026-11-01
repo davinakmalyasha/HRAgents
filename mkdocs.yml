@@ -83,12 +83,38 @@ nav:
       - The provider layer: adr/0004-provider-layer.md
       - Sync domain, async edge: adr/0005-sync-domain-async-edge.md
       - Tenancy and RLS: adr/0006-tenancy-rls.md
+      - Tauri 2 desktop shell: adr/0007-tauri-2-desktop-shell.md
+      - Rust core in-process IPC: adr/0008-rust-core-in-process-ipc.md
+      - SQLite and rusqlite: adr/0009-sqlite-rusqlite.md
+      - One company per install: adr/0010-one-company-per-install.md
+      - Single HR operator role: adr/0011-single-hr-operator-role.md
+      - Encryption at rest: adr/0012-encryption-at-rest.md
+      - Money in integer sen: adr/0013-money-integer-sen.md
+      - Rust LLM layer: adr/0014-rust-llm-layer-rig.md
+      - Python parity oracle: adr/0015-python-parity-oracle.md
+      - Server-edition boundary: adr/0016-server-edition-boundary.md
   - Research:
       - Literature review: research/literature-review.md
   - Data governance:
       - Export, deletion and subprocessors: data-governance.md
       - DPA template: legal/dpa-template.md
   - Project:
+      - Massive polishment: plan/massive-polishment.md
+      - Desktop migration: plan/desktop-migration/README.md
+      - Product scope: plan/desktop-migration/00-product-scope.md
+      - Current features: plan/desktop-migration/01-current-features.md
+      - Target architecture: plan/desktop-migration/02-architecture.md
+      - Rust backend: plan/desktop-migration/03-rust-backend.md
+      - SQLite data layer: plan/desktop-migration/04-sqlite-data.md
+      - Tauri desktop: plan/desktop-migration/05-tauri-desktop.md
+      - Auth and security: plan/desktop-migration/06-auth-security.md
+      - UI/UX: plan/desktop-migration/07-ui-ux.md
+      - Feature parity: plan/desktop-migration/08-feature-parity.md
+      - Sequence and gates: plan/desktop-migration/09-sequence.md
+      - Quality: plan/desktop-migration/10-quality.md
+      - Risks: plan/desktop-migration/11-risks.md
+      - Impact: plan/desktop-migration/12-impact.md
+      - Implementation status: plan/desktop-migration/13-implementation-status.md
       - Master build plan: plan/master-build-plan.md
       - Remaining work: plan/remaining-work.md
       - Problem statement: plan/problem-statement.md

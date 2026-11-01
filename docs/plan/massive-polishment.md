@@ -133,7 +133,7 @@ primary action. No UUIDs. No dead links. No “Queue” tab hiding the only butt
 | UI state | Zustand | 5.x |
 | Router | react-router | 8.x |
 | i18n | i18next / react-i18next | 26.x / 17.x |
-| LLM agents | `rig` | 0.44.x |
+| LLM agents | `rig` | 0.46.x |
 | IPC types | `tauri-specta` | 2.x |
 | Async | Tokio | 1.x |
 | Serialization | serde / schemars | 1.x |

@@ -9,7 +9,8 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 > [`desktop-migration/`](desktop-migration/README.md) folder. The Python/FastAPI +
 > React/PostgreSQL phases below remain the reference implementation and the running product
 > until the desktop gates pass; do not treat this file as the target architecture for the new
-> edition.
+> edition. Implementation evidence so far is in
+> [`desktop-migration/13-implementation-status.md`](desktop-migration/13-implementation-status.md).
 
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done · `[-]` explicitly deferred
 
