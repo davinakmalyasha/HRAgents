@@ -150,9 +150,15 @@ class EvaluationJobHandler:
             return
 
         assert result.evaluation is not None, "a non-halted result must carry an evaluation"
+        # The extractor generates its own profile id; the evaluation must name the
+        # candidate the application was submitted for, or the foreign key and the
+        # candidate's history point at a person who does not exist.
+        evaluation = result.evaluation
+        if evaluation.candidate_id != application.candidate_id:
+            evaluation = evaluation.model_copy(update={"candidate_id": application.candidate_id})
         self._evaluations.register(
             application_id=application_id,
-            evaluation=result.evaluation,
+            evaluation=evaluation,
             candidate_name=candidate_name,
             job_title=job.title,
             policy=result.policy,

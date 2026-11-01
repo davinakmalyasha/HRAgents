@@ -170,3 +170,27 @@ async def test_handler_rejects_unknown_application() -> None:
 
     with pytest.raises(ValueError):
         await handler(_message(record))
+
+
+async def test_the_registered_evaluation_uses_the_application_candidate() -> None:
+    """The extractor's profile id must not become the evaluation's candidate id.
+
+    On PostgreSQL the generated id has no `candidates` row, so the insert fails
+    the foreign key; on the in-memory store it silently wrote an evaluation for a
+    different person than the application named.
+    """
+    audit, record, applications, evaluations, jobs, _ = _setup()
+    generated = _evaluation(uuid4(), record.job_id)
+    handler = EvaluationJobHandler(
+        pipeline=_pipeline(_result(generated)),
+        applications=applications,
+        evaluations=evaluations,
+        jobs=jobs,
+        audit=audit,
+    )
+
+    await handler(_message(record))
+
+    registered = evaluations.get_by_application(record.id)
+    assert registered.candidate_id == record.candidate_id
+    assert registered.evaluation.candidate_id == record.candidate_id

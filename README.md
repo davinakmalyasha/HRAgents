@@ -17,8 +17,9 @@ technical work — see [Work with the author](#work-with-the-author).
 The platform core, all five agents, the recruitment API surface, all Wave-1
 department engines, the hiring dashboard workspaces, auth screens, the MCP layer
 (read tools plus approval-backed write tools) and the document-request flow are
-built, tested and running behind a worker (1953 tests, coverage enforced at 90%
-in CI). Open work is tracked honestly in
+built, tested and running behind a worker (2,233 backend tests + 448 web tests,
+coverage enforced at 90% in CI, and the five invariant modules held at 100%
+branch coverage). Open work is tracked honestly in
 [remaining work](docs/plan/remaining-work.md) — mostly items that need the outside
 world (vendor gateways, a live model, a narrated demo video).
 
@@ -82,6 +83,10 @@ product's central safety property, not a demo bug.
 sandboxed, and the LLM defaults to the offline `test` model. To use a real model,
 set `HRAGENTS_LLM_MODEL` and the matching provider config — see
 [`.env.example`](.env.example).
+
+No Docker? The API and dashboard run natively against a local PostgreSQL +
+Redis; the Windows/Laragon steps (including the pgvector extension) are in
+[deployment §7](docs/deployment.md#without-docker).
 
 Logs: `docker compose logs -f api worker`. Stop: `docker compose down`.
 Data survives; `docker compose down -v` deletes it.

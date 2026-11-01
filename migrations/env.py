@@ -6,7 +6,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
@@ -65,6 +65,21 @@ def do_run_migrations(connection: Connection) -> None:
     )
 
     with context.begin_transaction():
+        if connection.dialect.name == "postgresql":
+            # Alembic 1.20 creates `alembic_version.version_num` as VARCHAR(32)
+            # with no option to widen it, and revision `0037_communication_...`
+            # is 33 characters. Create it first (or widen an older one) so a
+            # fresh Postgres install can apply the chain instead of dying at 0037.
+            connection.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS alembic_version ("
+                    "version_num VARCHAR(64) NOT NULL, "
+                    "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+                )
+            )
+            connection.execute(
+                text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)")
+            )
         context.run_migrations()
 
 

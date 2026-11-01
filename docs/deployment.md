@@ -822,6 +822,44 @@ In-memory mode (`HRAGENTS_STORE_BACKEND=memory`, the default) needs nothing at
 all: it is the zero-configuration developer experience and the right choice for
 a demo, not for real HR data.
 
+### Windows/Laragon, no Docker
+
+Full stack is possible with a native PostgreSQL and Redis. The one extra piece
+is **pgvector**, which the migrations require:
+
+1. Install the pgvector binaries matching the PostgreSQL major version into
+   `lib/` (`vector.dll`) and `share/extension/` (`vector--*.sql`, `vector.control`),
+   then `CREATE EXTENSION vector`.
+2. Start Redis (Laragon ships `redis-server.exe` under
+   `bin/redis/redis-<version>/`).
+3. Point the processes at the database and queue:
+
+```powershell
+$env:HRAGENTS_STORE_BACKEND="postgres"
+$env:HRAGENTS_PROVIDER_QUEUE="queue.redis"
+$env:HRAGENTS_PROVIDER_QUEUE_CONFIG='{"redis_url":"redis://localhost:6379/0"}'
+# Offline extraction when no model key is configured:
+$env:HRAGENTS_PROVIDER_LLM="llm.test"
+$env:HRAGENTS_PROVIDER_LLM_CONFIG="{}"
+$env:HRAGENTS_LLM_MODEL="test"
+
+uv run alembic upgrade head
+uv run python scripts/seed_demo.py
+uv run uvicorn hr_agents.main:app --host 127.0.0.1 --port 8000
+# second terminal, same environment:
+uv run python scripts/run_worker.py
+```
+
+The dashboard is at **http://127.0.0.1:8000/app**. Without keys, the local
+operator is `hr_admin` and no sign-in is required. The seeded rate tables stay
+unverified on purpose; payroll will refuse to compute until a human verifies
+them.
+
+If the worker logs `ModelHTTPError: 401`, the configured model key is expired:
+the two `llm.test` lines above switch extraction to the offline model. Seeded
+applications have no document text, so the dispatcher skips them; upload a CV and
+submit it with `documents: [{document_id, kind}]` to see the full pipeline.
+
 ## 8. Fully offline (local models)
 
 Everything below keeps candidate and employee data on the machine. The
