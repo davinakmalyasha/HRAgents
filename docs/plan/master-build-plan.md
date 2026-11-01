@@ -3,6 +3,14 @@
 **Purpose:** the single source of truth for everything to build. Nothing is out of scope — items are
 ordered by dependency, and checkboxes track reality so nothing is missed or forgotten.
 
+> **Direction change (2026-11-01):** the next edition is a **desktop-first, HR-only cockpit**
+> built with Tauri 2.12, a Rust backend, and SQLite. The plan is
+> [`docs/plan/massive-polishment.md`](massive-polishment.md) and its detailed
+> [`desktop-migration/`](desktop-migration/README.md) folder. The Python/FastAPI +
+> React/PostgreSQL phases below remain the reference implementation and the running product
+> until the desktop gates pass; do not treat this file as the target architecture for the new
+> edition.
+
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done · `[-]` explicitly deferred
 
 **Update rule:** every work session ends by updating this file. An item is `[x]` only when its tests

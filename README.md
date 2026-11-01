@@ -23,6 +23,11 @@ branch coverage). Open work is tracked honestly in
 [remaining work](docs/plan/remaining-work.md) — mostly items that need the outside
 world (vendor gateways, a live model, a narrated demo video).
 
+> **Desktop edition (2026):** the next edition is an HR-only desktop cockpit built with
+> Tauri 2.12, a Rust backend, and SQLite. The web app described in this README remains the
+> running product until the desktop migration gates pass. The plan is
+> [`massive-polishment.md`](docs/plan/massive-polishment.md).
+
 ---
 
 ## Quickstart
