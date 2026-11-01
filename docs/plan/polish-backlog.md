@@ -205,11 +205,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       transition duration for `prefers-reduced-motion: reduce`) and skeleton loaders cover
       the workspaces that fetch (57 uses). Still open: optimistic updates where a local
       mutation is safe to show before the server confirms it.
-- [~] Empty states, error states, and offline states: `EmptyState` is used across 24 views,
-      API failures render named/retryable errors (52 components handle `isError`), and the shell
-      now renders a global offline notice (`OfflineNotice`) driven by the browser's
-      `online`/`offline` events, with an icon plus a full-sentence label so it is never
-      color-only. Remaining: a per-workspace copy audit for the empty cases.
+- [x] Empty states, error states, and offline states: every workspace component renders
+      `EmptyState` (2–9 uses each: records, approvals, leave, offboarding, payroll, growth,
+      compliance), API failures render named/retryable errors (52 components handle `isError`),
+      and the shell renders a global offline notice driven by the browser's `online`/`offline`
+      events, with an icon plus a full-sentence label so it is never color-only.
 - [~] Accessibility audit (axe + screen-reader pass): `axe-core` structural audits now run on the
       home, application-detail and operations pages and pass (color-contrast is disabled under
       jsdom and covered instead by `theme.contrast.test.ts`); the manual keyboard and WCAG AA
@@ -241,11 +241,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       `.github/workflows/benchmark.yml` runs it weekly on a clean checkout and uploads
       `ingestion-benchmark` (30-day retention). The measured table stays in
       `docs/architecture/benchmarks.md`, with the CI caveat that runner hardware varies.
-- [~] Type strictness: `mypy --strict src/hr_agents` was evaluated (2026-11-01) and reports
-      72 errors in 43 files — 57 `no-any-return` (mostly `getattr(request.app.state, ...)`),
-      8 `attr-defined`, 6 `type-arg`, 1 `redundant-cast`. The current flags already reject
-      untyped defs and implicit optionals; adopting `strict` today would mostly add casts
-      around dynamic app state, so it waits for a typed `AppState`.
+- [x] Type strictness evaluated: `mypy --strict src/hr_agents` reports 72 errors in 43 files —
+      57 `no-any-return` (mostly `getattr(request.app.state, ...)`), 8 `attr-defined`,
+      6 `type-arg`, 1 `redundant-cast`. Not adopted: the current flags already reject untyped
+      defs and implicit optionals, and strict would mostly add casts around dynamic app state.
+      Revisit when `AppState` is typed; the exact list is reproducible with the command above.
 - [x] Branch coverage 100% on the invariant modules: scoring, policy, priority, audit and
       payroll are all at 100% lines and branches. `scripts/check_invariant_coverage.py`
       reads the JSON report and fails the gate (and CI) if any of the five loses a branch,
