@@ -71,8 +71,10 @@
     "done": "Terverifikasi"
   },
   "workspace": {
-    "boardPlaceholder": "Papan {name} hadir pada tahap berikutnya.",
-    "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini."
+    "boardPlaceholder": "Papan {{name}} hadir pada tahap berikutnya.",
+    "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini.",
+    "chatOnlyBoard": "Tanya HR adalah ruang obrolan; tidak ada papan proses.",
+    "chatOnlyQueue": "Tanya HR tidak memiliki antrean. Ajukan pertanyaan di Obrolan."
   },
   "hiring": {
     "allJobs": "Semua lowongan",

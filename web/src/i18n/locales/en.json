@@ -71,8 +71,10 @@
     "done": "Verified"
   },
   "workspace": {
-    "boardPlaceholder": "The {name} board lands in a later slice.",
-    "queuePlaceholder": "Decisions waiting on you will appear here."
+    "boardPlaceholder": "The {{name}} board lands in a later slice.",
+    "queuePlaceholder": "Decisions waiting on you will appear here.",
+    "chatOnlyBoard": "Ask HR is a conversation space; it has no process board.",
+    "chatOnlyQueue": "Ask HR has no queue. Ask your question in Chat."
   },
   "hiring": {
     "allJobs": "All jobs",
