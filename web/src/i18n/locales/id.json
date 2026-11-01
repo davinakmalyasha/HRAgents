@@ -565,6 +565,7 @@
       "rateLimited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi."
     },
     "skipToContent": "Lompat ke konten",
+    "offline": "Anda sedang offline. Permintaan tidak dapat mencapai server; tidak ada yang dikirim sampai koneksi kembali.",
     "loading": "Memuat…"
   },
   "onboarding": {

@@ -205,7 +205,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       transition duration for `prefers-reduced-motion: reduce`) and skeleton loaders cover
       the workspaces that fetch (57 uses). Still open: optimistic updates where a local
       mutation is safe to show before the server confirms it.
-- [ ] Empty states, error states, and offline states for every workspace
+- [~] Empty states, error states, and offline states: `EmptyState` is used across 24 views,
+      API failures render named/retryable errors (52 components handle `isError`), and the shell
+      now renders a global offline notice (`OfflineNotice`) driven by the browser's
+      `online`/`offline` events, with an icon plus a full-sentence label so it is never
+      color-only. Remaining: a per-workspace copy audit for the empty cases.
 - [~] Accessibility audit (axe + screen-reader pass): `axe-core` structural audits now run on the
       home, application-detail and operations pages and pass (color-contrast is disabled under
       jsdom and covered instead by `theme.contrast.test.ts`); the manual keyboard and WCAG AA

@@ -565,6 +565,7 @@
       "rateLimited": "Too many requests. Wait a moment and try again."
     },
     "skipToContent": "Skip to content",
+    "offline": "You are offline. Requests cannot reach the server; nothing is sent until the connection returns.",
     "loading": "Loading…"
   },
   "onboarding": {
