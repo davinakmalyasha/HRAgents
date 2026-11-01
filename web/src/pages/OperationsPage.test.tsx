@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import axe from 'axe-core'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -195,5 +196,15 @@ describe('Operations page', () => {
     expect(
       screen.getByText('No dead-lettered messages. That is the healthy state.'),
     ).toBeInTheDocument()
+  })
+
+  it('has no structural accessibility violations', async () => {
+    const { container } = renderWith(<OperationsPage />)
+
+    const results = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false } },
+    })
+
+    expect(results.violations).toEqual([])
   })
 })

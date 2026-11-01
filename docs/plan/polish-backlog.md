@@ -137,9 +137,12 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       (`.github/dependabot.yml`), CodeQL runs in CI, and `.github/workflows/audit.yml` runs
       `pip-audit --strict` against the exported lockfile every Monday (plus manual dispatch).
       Its first run found and cleared advisories in `pypdf`, `joserfc` and `pyasn1`.
-- [ ] Session/auth hardening review. The current state is a documented trap: no keys means
-      unauthenticated `HR_ADMIN` on `0.0.0.0:8000`; keys mean the dashboard 401s because there are
-      no login screens. One or the other has to be resolved
+- [x] Session/auth hardening review: keys are compared with `secrets.compare_digest`, a managed
+      install distinguishes `auth_required` from `auth_invalid` (401) and role refusal (403), the
+      dashboard has a sign-in screen and keeps the key in `sessionStorage` (not `localStorage`),
+      and the no-keys state is an explicit local-operator mode documented as localhost-only. The
+      prior trap — keys configured but no login screen — no longer exists; both branches have UI
+      and tests.
 - [ ] Handoff queue reads currently require only `chat:use`; revisit per-workspace read
       permissions for `GET /v1/chat/handoffs` when the dashboard defines queue access
 
@@ -203,9 +206,11 @@ Legend: `[ ]` open · `[~]` partially addressed · `[x]` done.
       the workspaces that fetch (57 uses). Still open: optimistic updates where a local
       mutation is safe to show before the server confirms it.
 - [ ] Empty states, error states, and offline states for every workspace
-- [ ] Accessibility audit (axe + screen-reader pass) on all workspaces — the manual keyboard and
-      WCAG AA contrast pass is done (2026-10, light+dark, all boards + palette), see
-      `theme.contrast.test.ts`
+- [~] Accessibility audit (axe + screen-reader pass): `axe-core` structural audits now run on the
+      home, application-detail and operations pages and pass (color-contrast is disabled under
+      jsdom and covered instead by `theme.contrast.test.ts`); the manual keyboard and WCAG AA
+      contrast pass is done (2026-10, light+dark, all boards + palette). Remaining: add the same axe
+      assertion to each workspace as its component test harness grows, and a screen-reader pass.
 - [ ] EN/ID microcopy review with a native HR speaker; date/number/currency formatting audit
 - [~] Design token audit against `product-concept.md` §7: colors are structurally guarded
       (`theme.guard.test.ts` confines every hex literal to `theme.css`; the contrast test pins

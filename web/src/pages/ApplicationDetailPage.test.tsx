@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import axe from 'axe-core'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -135,5 +136,15 @@ describe('ApplicationDetailPage', () => {
     expect(
       screen.getByText('Layered FastAPI service with clear module boundaries.'),
     ).toBeInTheDocument()
+  })
+
+  it('has no structural accessibility violations', async () => {
+    const { container } = renderPage()
+
+    const results = await axe.run(container, {
+      rules: { 'color-contrast': { enabled: false } },
+    })
+
+    expect(results.violations).toEqual([])
   })
 })

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import axe from 'axe-core'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -286,5 +287,16 @@ describe('HomePage', () => {
       'href',
       '/w/approvals?room=queue',
     )
+  })
+
+  it('has no structural accessibility violations', async () => {
+    const { container } = renderHome()
+
+    const results = await axe.run(container, {
+      // jsdom has no layout or computed colors; contrast is covered separately.
+      rules: { 'color-contrast': { enabled: false } },
+    })
+
+    expect(results.violations).toEqual([])
   })
 })
