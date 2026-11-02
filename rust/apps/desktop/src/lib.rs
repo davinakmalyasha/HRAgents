@@ -17,7 +17,7 @@ use hragents_ipc::{
 };
 use serde::Serialize;
 use std::str::FromStr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
 
 mod growth_commands;
@@ -28,7 +28,57 @@ mod hiring_commands;
 use hiring_commands::*;
 
 pub(crate) struct AppState {
-    service: Mutex<AppService>,
+    service: Arc<Mutex<AppService>>,
+}
+
+/// Shared handle that lets the background scheduler drive the same
+/// single-connection AppService the commands use. Jobs run under the
+/// unlocked operator session when one exists; when the app is locked they
+/// fail fast and log, never blocking the loop.
+struct SharedBackend(Arc<Mutex<AppService>>);
+
+impl hragents_ipc::scheduler::JobBackend for SharedBackend {
+    fn run_retention_sweep(&mut self) -> Result<usize, String> {
+        self.0
+            .lock()
+            .map_err(|_| "state is poisoned".to_owned())?
+            .retention_sweep(hragents_core::time::BusinessDate::today())
+            .map(|due| due.len())
+            .map_err(|error| error.to_string())
+    }
+
+    fn run_offer_sweep(&mut self) -> Result<usize, String> {
+        self.0
+            .lock()
+            .map_err(|_| "state is poisoned".to_owned())?
+            .sweep_expired_offers(hragents_core::time::BusinessDate::today())
+            .map_err(|error| error.to_string())
+    }
+
+    fn run_backup(&mut self) -> Result<u64, String> {
+        Err("backup directory is not configured".to_owned())
+    }
+
+    fn run_backup_to(&mut self, dest: &std::path::Path) -> Result<u64, String> {
+        self.0
+            .lock()
+            .map_err(|_| "state is poisoned".to_owned())?
+            .backup(dest)
+            .map_err(|error| error.to_string())
+    }
+
+    fn verify_audit(&self) -> Result<usize, String> {
+        self.0
+            .lock()
+            .map_err(|_| "state is poisoned".to_owned())?
+            .audit_verify()
+            .map(|verification| verification.entries)
+            .map_err(|error| error.to_string())
+    }
+}
+
+struct SchedulerState {
+    _shutdown: tokio::sync::watch::Sender<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -214,6 +264,34 @@ fn evaluate_from_text(
     let application_id: ApplicationId = parse_id(&application_id)?;
     with_service(&state, |service| {
         service.evaluate_from_text(application_id, &document_text, rubric)
+    })
+}
+
+#[tauri::command]
+fn extract_and_evaluate(
+    state: State<'_, AppState>,
+    application_id: String,
+    document_id: String,
+    rubric: Rubric,
+) -> CmdResult<EvaluationView> {
+    let application_id: ApplicationId = parse_id(&application_id)?;
+    let document_id: DocumentId = parse_id(&document_id)?;
+    with_service(&state, |service| {
+        service.extract_and_evaluate(application_id, document_id, rubric)
+    })
+}
+
+#[tauri::command]
+fn extract_with_provider(
+    state: State<'_, AppState>,
+    application_id: String,
+    document_text: String,
+    rubric: Rubric,
+    provider: hragents_agents::provider::ProviderConfig,
+) -> CmdResult<EvaluationView> {
+    let application_id: ApplicationId = parse_id(&application_id)?;
+    with_service(&state, |service| {
+        service.extract_with_provider(application_id, &document_text, rubric, provider)
     })
 }
 
@@ -540,8 +618,28 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let service = AppService::open(data_dir.join("hragents.db"))
                 .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
+            let service = Arc::new(Mutex::new(service));
             app.manage(AppState {
-                service: Mutex::new(service),
+                service: Arc::clone(&service),
+            });
+            // Background jobs: retention sweep, offer-expiry sweep, daily
+            // backup, audit verification. Read-only until an operator unlocks;
+            // writes land under the unlocked session and are audited.
+            let (shutdown_tx, shutdown_rx) = hragents_ipc::scheduler::shutdown_trigger();
+            let backend: Arc<tokio::sync::Mutex<dyn hragents_ipc::scheduler::JobBackend>> =
+                Arc::new(tokio::sync::Mutex::new(SharedBackend(Arc::clone(&service))));
+            let config = hragents_ipc::scheduler::SchedulerConfig {
+                backup_dir: Some(data_dir.join("backups")),
+                ..hragents_ipc::scheduler::SchedulerConfig::default()
+            };
+            tauri::async_runtime::spawn(async move {
+                // The worker is detached; the shutdown sender retained in
+                // state stops it. No await here: the setup hook must return.
+                let _scheduler =
+                    hragents_ipc::scheduler::Scheduler::spawn(backend, config, shutdown_rx);
+            });
+            app.manage(SchedulerState {
+                _shutdown: shutdown_tx,
             });
             Ok(())
         })
@@ -568,6 +666,8 @@ pub fn run() {
             import_candidate,
             evaluate_candidate,
             evaluate_from_text,
+            extract_and_evaluate,
+            extract_with_provider,
             evaluation_for,
             reject_candidate,
             create_leave_type,

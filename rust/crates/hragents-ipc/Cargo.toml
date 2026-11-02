@@ -17,6 +17,7 @@ chrono.workspace = true
 uuid.workspace = true
 schemars.workspace = true
 rust_xlsxwriter.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

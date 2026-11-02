@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -18,6 +18,7 @@ import { FeedbackSection, MessageSection, OfferSection, ScheduleSection } from "
 import type {
   Application,
   Candidate,
+  Document,
   Evaluation,
   Job,
   Rubric,
@@ -292,6 +293,7 @@ export function Hire({ session }: { session: SessionView }) {
       {extractOpen && activeApplication ? (
         <ExtractDialog
           applicationId={activeApplication.id}
+          candidateId={candidate?.id ?? activeApplication.candidate_id}
           onClose={() => setExtractOpen(false)}
           onScored={async () => {
             setExtractOpen(false);
@@ -571,29 +573,74 @@ function RejectDialog({
 
 function ExtractDialog({
   applicationId,
+  candidateId,
   onClose,
   onScored,
 }: {
   applicationId: string;
+  candidateId: string;
   onClose: () => void;
   onScored: () => Promise<void>;
 }) {
   const [text, setText] = useState(
     "Built a Rust ingestion pipeline handling 2M events per day. Reduced p99 latency from 900ms to 180ms across checkout. Led a three-engineer migration to Postgres and introduced SQL query budgets.",
   );
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileBase64, setFileBase64] = useState<string | null>(null);
+  const [fileMime, setFileMime] = useState("text/plain");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onFile(file: File) {
+    setError(null);
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    const chunk = 8192;
+    for (let i = 0; i < buffer.length; i += chunk) {
+      binary += String.fromCharCode(...buffer.slice(i, i + chunk));
+    }
+    setFileName(file.name);
+    setFileBase64(btoa(binary));
+    setFileMime(file.type || "application/octet-stream");
+    if (file.name.toLowerCase().endsWith(".txt") || file.type.startsWith("text/")) {
+      try {
+        setText(new TextDecoder().decode(buffer));
+      } catch {
+        /* keep pasted text */
+      }
+    } else {
+      setText("");
+    }
+  }
+
+  const isFile = Boolean(fileBase64 && /\.(pdf|docx)$/i.test(fileName ?? ""));
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await command("evaluate_from_text", {
-        application_id: applicationId,
-        document_text: text,
-        rubric: DEMO_RUBRIC,
-      });
+      if (isFile) {
+        const uploaded = await command<Document>("upload_document", {
+          owner_type: "candidate",
+          owner_id: candidateId,
+          filename: fileName,
+          mime_type: fileMime,
+          base64: fileBase64,
+        });
+        await command("extract_and_evaluate", {
+          application_id: applicationId,
+          document_id: uploaded.id,
+          rubric: DEMO_RUBRIC,
+        });
+      } else {
+        await command("evaluate_from_text", {
+          application_id: applicationId,
+          document_text: text,
+          rubric: DEMO_RUBRIC,
+        });
+      }
       await onScored();
     } catch (caught) {
       setError(typeof caught === "object" && caught && "message" in caught ? String((caught as { message: unknown }).message) : String(caught));
@@ -605,13 +652,18 @@ function ExtractDialog({
   return (
     <Modal
       title="Extract evidence and score"
-      subtitle="Offline keyword extractor · deterministic · every score needs a quote"
+      subtitle="PDF, DOCX, or pasted text · deterministic offline extractor · every score needs a quote"
       onClose={onClose}
       wide
       footer={
         <>
           <button className="btn" onClick={onClose} type="button">Cancel</button>
-          <button className="btn primary" form="extract-form" type="submit" disabled={busy || text.trim().length < 20}>
+          <button
+            className="btn primary"
+            form="extract-form"
+            type="submit"
+            disabled={busy || (!isFile && text.trim().length < 20)}
+          >
             {busy ? "Extracting…" : "Run extraction"}
             <Sparkles size={15} />
           </button>
@@ -619,17 +671,42 @@ function ExtractDialog({
       }
     >
       <form id="extract-form" onSubmit={submit} className="grid" style={{ gap: 12 }}>
-        <div className="notice">
-          <Sparkles size={15} />
-          <div>
-            This first slice uses a deterministic offline extractor: keyword evidence, then the Rust
-            scorer. It is not a live model. A provider-backed extractor plugs into the same contract
-            and must return the same structured evidence shape.
-          </div>
+        <div className="row">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".txt,.md,.pdf,.docx"
+            style={{ display: "none" }}
+            aria-label="Choose a CV file"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void onFile(file);
+            }}
+          />
+          <button className="btn sm" type="button" onClick={() => fileRef.current?.click()}>
+            <Upload size={13} /> {fileName ?? "Choose .txt / .pdf / .docx"}
+          </button>
+          {fileName ? (
+            <span className="small faint">
+              {/\.(pdf|docx)$/i.test(fileName)
+                ? "parsed in Rust, then scored"
+                : "read as text, then scored"}
+            </span>
+          ) : null}
         </div>
-        <Field label="CV or portfolio text" hint="Paste the text you want scored. Prompt-injection text is treated as data.">
-          <textarea value={text} onChange={(event) => setText(event.target.value)} style={{ minHeight: 160 }} />
-        </Field>
+        {!isFile ? (
+          <Field label="CV or portfolio text" hint="Paste the text you want scored. Prompt-injection text is treated as data.">
+            <textarea value={text} onChange={(event) => setText(event.target.value)} style={{ minHeight: 160 }} />
+          </Field>
+        ) : (
+          <div className="notice">
+            <Sparkles size={15} />
+            <div>
+              {fileName} will be uploaded, parsed to text in Rust, and scored with evidence quotes
+              pointing at the stored file.
+            </div>
+          </div>
+        )}
         {error ? <ErrorBox>{error}</ErrorBox> : null}
       </form>
     </Modal>

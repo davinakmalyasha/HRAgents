@@ -3,13 +3,16 @@
 //! Same pattern as growth_services: session/audit/store rules shared with the
 //! core AppService. Every consequential transition is named and audited.
 
-use super::{AppError, AppResult, AppService};
+use super::{AppError, AppResult, AppService, EvaluationView};
+use hragents_agents::provider::{ProviderConfig, ProviderExtractor, RigLlmClient};
+use hragents_agents::{ExtractionRequest, Extractor, KeywordExtractor, documents_text};
 use hragents_core::error::DomainError;
+use hragents_core::hiring::{Evaluation, Rubric, evaluate_policy};
 use hragents_core::hiring_comms::{
     CandidateMessage, FeedbackReport, InterviewSlot, MessageChannel, MessageKind, Offer,
     ScheduleProposal,
 };
-use hragents_core::ids::{ApplicationId, CandidateId, MessageId, OfferId, ScheduleId};
+use hragents_core::ids::{ApplicationId, CandidateId, DocumentId, MessageId, OfferId, ScheduleId};
 use hragents_core::money::Money;
 use hragents_core::time::{BusinessDate, UtcInstant};
 
@@ -427,8 +430,186 @@ impl AppService {
         Ok(report)
     }
 
+    /// Provider-backed extraction for an operator-configured model.
+    /// Same contract as the offline extractor: the provider returns evidence
+    /// and scores in the validated shape, the Rust scorer decides. Used only
+    /// when the operator configured a provider; otherwise the offline path is
+    /// the default. The provider key is read from the environment at call
+    /// time and never stored.
+    pub fn extract_with_provider(
+        &mut self,
+        application_id: ApplicationId,
+        document_text: &str,
+        rubric: Rubric,
+        provider: ProviderConfig,
+    ) -> AppResult<EvaluationView> {
+        let now = UtcInstant::now();
+        self.require_active_pub()?;
+        let application = self.store().application(application_id)?;
+        let mut candidate = self.store().candidate(application.candidate_id)?;
+        if !candidate.consent.permits_processing() {
+            return Err(AppError::Domain(DomainError::validation(
+                "E_CONSENT_REQUIRED",
+                "consent is not granted; extraction and scoring are blocked",
+            )));
+        }
+        let document = hragents_core::people::Document {
+            id: DocumentId::new(),
+            owner_type: hragents_core::people::DocumentOwnerType::Candidate,
+            owner_id: candidate.id.to_string(),
+            filename: "provider-input.txt".into(),
+            mime_type: "text/plain".into(),
+            sha256: hragents_core::audit::hex_sha256(document_text.as_bytes()),
+            size_bytes: document_text.len() as i64,
+            status: hragents_core::people::DocumentStatus::Pending,
+            expires_on: None,
+            uploaded_at: now,
+            verified_at: None,
+            verified_by: None,
+            rejection_reason: None,
+            tags: vec!["provider-input".into()],
+        };
+        self.store_mut()
+            .save_document(&document, &format!("inline://{}", document.id))?;
+        candidate.document_ids.push(document.id);
+        self.store_mut().save_candidate(&candidate)?;
+        let client = RigLlmClient::new(provider.clone())
+            .map_err(|error| AppError::Agent(error.to_string()))?;
+        let extracted = ProviderExtractor::new(client)
+            .extract_structured(document_text, Some(document.id), &rubric.dimensions)
+            .map_err(|error| AppError::Agent(error.to_string()))?;
+        let evaluation = Evaluation::from_runs(
+            application.id,
+            &rubric,
+            &extracted.runs,
+            extracted.evidence,
+            now,
+        )?;
+        self.store_mut().save_evaluation(&evaluation)?;
+        let policy = evaluate_policy(candidate.consent, Some(&evaluation), &rubric);
+        self.append_audit_pub(
+            "candidate.extracted",
+            "application",
+            &application.id.to_string(),
+            serde_json::json!({
+                "candidate_id": candidate.id.to_string(),
+                "runs": evaluation.runs,
+                "overall_bp": evaluation.overall_bp,
+                "sigma_bp": evaluation.sigma_bp,
+                "evidence": evaluation.evidence.len(),
+                "extractor": format!("provider:{}", provider.provider),
+                "model": provider.model,
+            }),
+            now,
+        )?;
+        self.append_audit_pub(
+            "candidate.evaluated",
+            "application",
+            &application.id.to_string(),
+            serde_json::json!({
+                "overall_bp": evaluation.overall_bp,
+                "sigma_bp": evaluation.sigma_bp,
+                "policy": format!("{policy:?}"),
+            }),
+            now,
+        )?;
+        Ok(EvaluationView {
+            evaluation,
+            policy,
+            candidate_name: candidate.full_name,
+        })
+    }
+
     pub fn feedback_for(&self, application_id: ApplicationId) -> AppResult<Option<FeedbackReport>> {
         self.require_session_pub()?;
         Ok(self.store().feedback_for(application_id)?)
+    }
+
+    // ------------------------------------------------------------------
+    // File extraction
+    // ------------------------------------------------------------------
+
+    /// Extract text from an uploaded document (PDF/DOCX/TXT) and score it.
+    /// The bytes on disk are the auditable source; the extractor produces
+    /// evidence and scores, never decisions.
+    pub fn extract_and_evaluate(
+        &mut self,
+        application_id: ApplicationId,
+        document_id: DocumentId,
+        rubric: Rubric,
+    ) -> AppResult<EvaluationView> {
+        let now = UtcInstant::now();
+        self.require_active_pub()?;
+        let application = self.store().application(application_id)?;
+        let candidate = self.store().candidate(application.candidate_id)?;
+        if !candidate.consent.permits_processing() {
+            return Err(AppError::Domain(DomainError::validation(
+                "E_CONSENT_REQUIRED",
+                "consent is not granted; extraction and scoring are blocked",
+            )));
+        }
+        let document = self.store().document(document_id)?;
+        let path = self.store().document_path(document_id)?;
+        let bytes = std::fs::read(&path)
+            .map_err(|error| AppError::Export(format!("read document: {error}")))?;
+        if document.owner_type != hragents_core::people::DocumentOwnerType::Candidate
+            || document.owner_id != candidate.id.to_string()
+        {
+            return Err(AppError::Domain(DomainError::validation(
+                "E_DOCUMENT_OWNER",
+                "this document does not belong to the candidate",
+            )));
+        }
+        let text = documents_text::extract_text(&document.filename, &bytes)
+            .map_err(|error| AppError::Agent(error.to_string()))?;
+        let request = ExtractionRequest {
+            document_text: text,
+            document_id: Some(document_id),
+            dimensions: rubric.dimensions.clone(),
+        };
+        let extracted = KeywordExtractor::new()
+            .extract(&request)
+            .map_err(|error| AppError::Agent(error.to_string()))?;
+        let evaluation = Evaluation::from_runs(
+            application.id,
+            &rubric,
+            &extracted.runs,
+            extracted.evidence,
+            now,
+        )?;
+        self.store_mut().save_evaluation(&evaluation)?;
+        let policy = evaluate_policy(candidate.consent, Some(&evaluation), &rubric);
+        self.append_audit_pub(
+            "candidate.extracted",
+            "application",
+            &application.id.to_string(),
+            serde_json::json!({
+                "candidate_id": candidate.id.to_string(),
+                "document_id": document_id.to_string(),
+                "parser": document.filename.rsplit('.').next().unwrap_or(""),
+                "runs": evaluation.runs,
+                "overall_bp": evaluation.overall_bp,
+                "sigma_bp": evaluation.sigma_bp,
+                "evidence": evaluation.evidence.len(),
+                "extractor": "keyword-offline-v1",
+            }),
+            now,
+        )?;
+        self.append_audit_pub(
+            "candidate.evaluated",
+            "application",
+            &application.id.to_string(),
+            serde_json::json!({
+                "overall_bp": evaluation.overall_bp,
+                "sigma_bp": evaluation.sigma_bp,
+                "policy": format!("{policy:?}"),
+            }),
+            now,
+        )?;
+        Ok(EvaluationView {
+            evaluation,
+            policy,
+            candidate_name: candidate.full_name,
+        })
     }
 }

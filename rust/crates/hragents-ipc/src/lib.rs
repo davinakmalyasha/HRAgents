@@ -30,6 +30,7 @@ use hragents_store::{Store, StoreError};
 mod compliance_services;
 mod growth_services;
 mod hiring_services;
+pub mod scheduler;
 
 pub use compliance_services::RetentionDueItem;
 use rust_xlsxwriter::{Format, Workbook};
@@ -2443,6 +2444,110 @@ mod tests {
                 .unwrap()
                 .len(),
             1
+        );
+    }
+
+    #[test]
+    fn extract_from_uploaded_document_scores_with_parser_label() {
+        use hragents_core::people::DocumentOwnerType;
+        let mut service = service();
+        let job = service.create_job("Backend Engineer", "Product").unwrap();
+        let (candidate, application) = service
+            .import_candidate(ImportCandidateInput {
+                full_name: "Tono Pradana".into(),
+                email: None,
+                phone: None,
+                source: "Referral".into(),
+                headline: None,
+                job_id: job.id,
+                consent: ConsentStatus::Granted,
+                document: None,
+            })
+            .unwrap();
+        let document = service
+            .upload_document(
+                DocumentOwnerType::Candidate,
+                &candidate.id.to_string(),
+                "cv.txt",
+                "text/plain",
+                b"Built a Rust ingestion pipeline handling 2M events per day. Reduced p99 latency."
+                    .to_vec(),
+            )
+            .unwrap();
+        let rubric = Rubric {
+            id: "backend-v1".into(),
+            name: "Backend".into(),
+            dimensions: vec![
+                Dimension {
+                    key: "skills".into(),
+                    label: "Skills".into(),
+                    weight_bp: 6_000,
+                },
+                Dimension {
+                    key: "impact".into(),
+                    label: "Impact".into(),
+                    weight_bp: 4_000,
+                },
+            ],
+            merit_floor_bp: 6_000,
+            sigma_limit_bp: 500,
+        };
+        let view = service
+            .extract_and_evaluate(application.id, document.id, rubric)
+            .unwrap();
+        assert!(view.evaluation.overall_bp > 0);
+        assert_eq!(view.evaluation.evidence.len(), 2);
+        let actions: Vec<String> = service
+            .audit_recent(20)
+            .unwrap()
+            .into_iter()
+            .map(|entry| entry.action)
+            .collect();
+        assert!(actions.contains(&"candidate.extracted".to_owned()));
+    }
+
+    #[test]
+    fn extract_rejects_document_of_another_candidate() {
+        use hragents_core::people::DocumentOwnerType;
+        let mut service = service();
+        let job = service.create_job("Backend Engineer", "Product").unwrap();
+        let (_candidate, application) = service
+            .import_candidate(ImportCandidateInput {
+                full_name: "Udin Saleh".into(),
+                email: None,
+                phone: None,
+                source: "Referral".into(),
+                headline: None,
+                job_id: job.id,
+                consent: ConsentStatus::Granted,
+                document: None,
+            })
+            .unwrap();
+        let stranger = service.create_employee(employee_input()).unwrap();
+        let document = service
+            .upload_document(
+                DocumentOwnerType::Employee,
+                &stranger.id.to_string(),
+                "note.txt",
+                "text/plain",
+                b"not the candidate's file".to_vec(),
+            )
+            .unwrap();
+        let rubric = Rubric {
+            id: "backend-v1".into(),
+            name: "Backend".into(),
+            dimensions: vec![Dimension {
+                key: "skills".into(),
+                label: "Skills".into(),
+                weight_bp: 10_000,
+            }],
+            merit_floor_bp: 6_000,
+            sigma_limit_bp: 500,
+        };
+        assert!(
+            service
+                .extract_and_evaluate(application.id, document.id, rubric)
+                .is_err()
         );
     }
 

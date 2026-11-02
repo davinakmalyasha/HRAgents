@@ -651,7 +651,7 @@ function evaluate(input: {
   rubric: { id: string; merit_floor_bp: number; sigma_limit_bp: number; dimensions: { key: string }[] };
   runs: { dimension_scores: Record<string, number> }[];
   evidence: Evaluation["evidence"];
-}): EvaluationView {
+}, _documentText?: string): EvaluationView {
   const dimensionScores: Record<string, number> = {};
   for (const dimension of input.rubric.dimensions) {
     const values = input.runs.map((run) => run.dimension_scores[dimension.key] ?? 0).sort((a, b) => a - b);
@@ -958,6 +958,66 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       const job = args.job_id ? String(args.job_id) : null;
       return state.applications.filter((item) => !job || item.job_id === job) as T;
     }
+
+    case "extract_and_evaluate": {
+      requireSession();
+      const application = state.applications.find((item) => item.id === String(args.application_id));
+      if (!application) throw { code: "E_NOT_FOUND", message: "Application not found" };
+      const doc = state.documents.find((item) => item.id === String(args.document_id));
+      if (!doc) throw { code: "E_NOT_FOUND", message: "Document not found" };
+      const rubric = args.rubric as {
+        id: string;
+        merit_floor_bp: number;
+        sigma_limit_bp: number;
+        dimensions: { key: string; label: string; weight_bp: number }[];
+      };
+      const text = `${doc.filename} parsed text. Built a Rust ingestion pipeline handling 2M events per day. Reduced p99 latency from 900ms to 180ms.`;
+      return evaluate({
+        application_id: application.id,
+        rubric,
+        runs: [1, 2, 3].map(() => ({
+          dimension_scores: {
+            skills: 8500,
+            impact: 7500,
+          },
+        })),
+        evidence: [
+          {
+            dimension: "skills",
+            quote: "Built a Rust ingestion pipeline handling 2M events per day.",
+            source_document_id: doc.id ?? crypto.randomUUID(),
+            confidence_bp: 8800,
+            page: null,
+          },
+        ],
+      }, text) as T;
+    }
+    case "extract_with_provider": {
+      requireSession();
+      const rubric = args.rubric as {
+        id: string;
+        merit_floor_bp: number;
+        sigma_limit_bp: number;
+        dimensions: { key: string; label: string; weight_bp: number }[];
+      };
+      return evaluate({
+        application_id: String(args.application_id),
+        rubric,
+        runs: [
+          { dimension_scores: { skills: 8600, impact: 7600 } },
+          { dimension_scores: { skills: 8400, impact: 7400 } },
+        ],
+        evidence: [
+          {
+            dimension: "skills",
+            quote: String(args.document_text).slice(0, 160),
+            source_document_id: crypto.randomUUID(),
+            confidence_bp: 8700,
+            page: null,
+          },
+        ],
+      }, String(args.document_text)) as T;
+    }
     case "evaluation_for": {
       requireSession();
       return (state.evaluations.find((item) => item.application_id === String(args.application_id)) ??
@@ -1229,23 +1289,23 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       ) as T;
     case "read_document": {
       requireSession();
-      const document = state.documents.find((item) => item.id === String(args.document_id));
-      if (!document) throw { code: "E_NOT_FOUND", message: "Document not found" };
-      const text = `HRAgents preview for ${document.filename} (${document.mime_type}, ${document.size_bytes} bytes). Full binary preview renders in the packaged app; this browser preview shows metadata and the audit trail.`;
+      const doc = state.documents.find((item) => item.id === String(args.document_id));
+      if (!doc) throw { code: "E_NOT_FOUND", message: "Document not found" };
+      const text = `HRAgents preview for ${doc.filename} (${doc.mime_type}, ${doc.size_bytes} bytes). Full binary preview renders in the packaged app; this browser preview shows metadata and the audit trail.`;
       const bytes = new TextEncoder().encode(text);
       let binary = "";
       bytes.forEach((byte) => (binary += String.fromCharCode(byte)));
-      return { document, base64: btoa(binary), size_bytes: bytes.length } as T;
+      return { document: doc, base64: btoa(binary), size_bytes: bytes.length } as T;
     }
     case "verify_document": {
       requireSession();
-      const document = state.documents.find((item) => item.id === String(args.document_id));
-      if (!document) throw { code: "E_NOT_FOUND", message: "Document not found" };
-      document.status = "verified";
-      document.verified_at = now();
-      document.verified_by = "Rina";
-      state.audit.push(makeAudit(state.audit.length, "document.verified", "document", document.filename));
-      return document as T;
+      const doc = state.documents.find((item) => item.id === String(args.document_id));
+      if (!doc) throw { code: "E_NOT_FOUND", message: "Document not found" };
+      doc.status = "verified";
+      doc.verified_at = now();
+      doc.verified_by = "Rina";
+      state.audit.push(makeAudit(state.audit.length, "document.verified", "document", doc.filename));
+      return doc as T;
     }
     case "export_audit":
       requireSession();

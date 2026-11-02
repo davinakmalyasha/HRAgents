@@ -24,9 +24,16 @@ pub enum AgentError {
     EmptyDocument,
     #[error("the rubric has no dimensions")]
     EmptyRubric,
+    #[error("unsupported document type {0:?}; upload .txt, .pdf, or .docx")]
+    UnsupportedType(String),
+    #[error("could not read document: {0}")]
+    Unreadable(String),
     #[error("provider failed: {0}")]
     Provider(String),
 }
+
+pub mod documents_text;
+pub mod provider;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExtractionRequest {

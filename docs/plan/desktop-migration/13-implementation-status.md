@@ -26,6 +26,11 @@ actually prove, and what is still open. It is updated at every merge.
 | Consent, retention, erasure, breach | **Core done; UI partial** | `hragents-core/src/compliance.rs` |
 | Policy retrieval with citations | **Done (keyword fallback)** | `hragents-core/src/policy.rs` |
 | Deterministic extractor + agent contracts | **Done (offline keyword extractor)** | `hragents-agents/src/lib.rs` |
+| Document text extraction (TXT/PDF/DOCX) | **Done, fixture-tested** | `hragents-agents/src/documents_text.rs` |
+| Provider-backed extraction (`rig` 0.46) | **Done (ReplayClient tested, live test ignored)** | `hragents-agents/src/provider.rs` |
+| File-based scoring (upload → parse → score) | **Done (IPC + Tauri + UI)** | `extract_and_evaluate` |
+| Background scheduler (retention/offer/backup/audit) | **Done, wired in Tauri setup** | `hragents-ipc/src/scheduler.rs` |
+| Parity corpus freeze | **Done** | `parity/FROZEN.md` |
 | Payroll review packet (XLSX) | **Done** | `hragents-ipc/src/lib.rs` export |
 | Growth cycles, review forms, goals | **Core + store + IPC + UI** | `hragents-core/src/growth.rs` |
 | Offboarding checklist + final-pay gate | **Core + store + IPC + UI** | `hragents-core/src/offboarding.rs` |
@@ -45,13 +50,13 @@ actually prove, and what is still open. It is updated at every merge.
 
 ```text
 cargo test --workspace --exclude hragents-desktop
-  hragents-agents  4 passed
+  hragents-agents  16 passed
   hragents-core   69 passed
   python_parity    5 passed
   payroll_parity   4 passed
   hragents-store  11 passed
-  hragents-ipc    16 passed (1 release benchmark ignored)
-  total          109 passed
+  hragents-ipc    22 passed (1 release benchmark ignored)
+  total          127 passed
 
 uv run python scripts/check.py (Python oracle gate)
   2234 passed, 5 skipped, coverage 92.41%, invariants ok
@@ -106,9 +111,9 @@ missing evidence above exists.
 
 ## 3. What is deliberately still missing
 
-1. **Provider-backed agent layer (`rig`)** — the deterministic offline extractor and
-   policy-answer contract exist; prompts, structured-output providers, streaming,
-   and recorded LLM fixtures do not.
+1. **Provider live key + streaming** — the `rig` adapter, recorded replay fixtures,
+   and the ignored live test exist; no production key is configured and there is
+   no streaming UI yet. The offline extractor stays the default.
 2. **CV ingestion and document preview** — bytes are hashed and metadata stored, but
    no extractor or viewer yet.
 3. **SQLCipher local verification** — the feature, `open_encrypted`, and the
@@ -120,9 +125,9 @@ missing evidence above exists.
 5. **XLSX payroll export, payslips, 1,000-employee benchmark** — engine only.
 6. **Scheduling, offers, candidate messaging, feedback PDF** — core models exist;
    workflows and UI are not ported.
-7. **Retention sweep scheduler** — the sweep is on-demand (Today/Settings action),
-   not a background job; the Tokio scheduler for reminders/IMAP/outbox is the
-   remaining platform piece.
+7. **Scheduler follow-ups** — retention/offer/backup/audit jobs run in-process on a
+   shared session (they idle while the app is locked); IMAP polling, the outbox,
+   and reminder notifications are still manual actions, not jobs.
 8. **Scheduling/offers/messaging** — done (core + store + IPC + Tauri + UI);
    PDF/DOCX parsing and the provider-backed extractor remain.
 8. **Scoring parity breadth** — the merge and population σ are parity-tested against
