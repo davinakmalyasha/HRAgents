@@ -106,6 +106,9 @@ recovery and full-set CLI drill:
   recovery key export: wrong password rejected; correct password returns 64-hex; audited
   pre-login recovery: key file deleted -> recover_with_key -> login + key rewrapped +
   "security.recovered" audit entry; wrong key leaves the key file absent
+  packaged app with hragents.key temporarily removed: UI Automation reads
+  "Recover this installation", the 64-hex hint, username/password fields, and
+  "Recover and sign in"; the DB still verifies encrypted after the key returns
   rewrap: same key, new OS-protected hragents.key; database still verifies encrypted: yes
   backup-set: 684,968 bytes, members manifest.json + hragents.db + hragents.key
   restore-set: 0 documents, 0 audit entries, verify encrypted: yes
