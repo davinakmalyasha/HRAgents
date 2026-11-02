@@ -3637,6 +3637,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "uuid",
+ "zip",
 ]
 
 [[package]]

@@ -7,7 +7,7 @@ use hragents_ipc::{
     SetupInput,
 };
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn main() {
     if let Err(error) = run() {
@@ -23,6 +23,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("verify") => verify(&args[1..]),
         Some("backup") => backup(&args[1..]),
         Some("restore") => restore(&args[1..]),
+        Some("rewrap") => rewrap(&args[1..]),
+        Some("backup-set") => backup_set(&args[1..]),
+        Some("restore-set") => restore_set(&args[1..]),
         Some("--version") | Some("-V") => {
             println!("hragents {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -38,6 +41,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "  hragents-cli restore <backup-path> <db-path> [--force] [--key <key> | --key-file <path>]"
             );
+            println!("  hragents-cli backup-set <db-path> <output.hrbackup> [--key <key>]");
+            println!(
+                "  hragents-cli restore-set <archive.hrbackup> <data-dir> [--key <recovery-key>]"
+            );
+            println!("  hragents-cli rewrap <data-dir> --key <recovery-key>");
+            println!("    verify the encrypted database, then re-protect the key for this OS user");
             println!("    verify-first; refuse to overwrite a newer live DB without --force;");
             println!("    snapshot live DB to <db-path>.pre-restore-<epoch> before swap");
             println!(
@@ -288,6 +297,82 @@ fn backup(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         _ => store.backup_to(&output)?,
     };
     println!("backup: {size} bytes at {}", output.display());
+    Ok(())
+}
+
+fn backup_set(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let db = positional(args, 0)?;
+    let output = positional(args, 1)?;
+    let key = parse_key(args)?;
+    let store = open_store(&db, key.as_deref())?;
+    store.checkpoint()?;
+    drop(store);
+    let data_dir = db.parent().unwrap_or_else(|| Path::new("."));
+    let size = hragents_ipc::backup_set::create(
+        &output,
+        &db,
+        &data_dir.join("documents"),
+        Some(&data_dir.join("hragents.key")),
+        key.as_deref(),
+    )?;
+    println!("backup set: {size} bytes at {}", output.display());
+    Ok(())
+}
+
+fn restore_set(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let archive = positional(args, 0)?;
+    let dest = positional(args, 1)?;
+    let key = parse_key(args)?;
+    let snapshot = if dest.exists() {
+        let epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        let snapshot = dest.with_extension(format!("pre-restore-{epoch}"));
+        std::fs::rename(&dest, &snapshot)?;
+        println!("existing data snapshotted at {}", snapshot.display());
+        Some(snapshot)
+    } else {
+        None
+    };
+    match hragents_ipc::backup_set::restore(&archive, &dest, key.as_deref()) {
+        Ok(manifest) => {
+            println!(
+                "restore set: {} document(s), {} audit entries at {}",
+                manifest.documents,
+                manifest.audit_entries,
+                dest.display()
+            );
+            Ok(())
+        }
+        Err(error) => {
+            if let Some(snapshot) = snapshot {
+                let _ = std::fs::rename(snapshot, &dest);
+            }
+            Err(error.into())
+        }
+    }
+}
+
+/// Recover on another machine (or Windows user): verify the database with the
+/// exported recovery key, then write a locally protected `hragents.key`.
+fn rewrap(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let data_dir = positional(args, 0)?;
+    let key = parse_key(args)?.ok_or("rewrap requires --key <recovery-key>")?;
+    let db = data_dir.join("hragents.db");
+    if !db.exists() {
+        return Err(format!("database not found: {}", db.display()).into());
+    }
+    let store = open_store(&db, Some(&key))?;
+    if store.integrity_check()? != "ok" {
+        return Err("refusing rewrap: database integrity_check failed".into());
+    }
+    drop(store);
+    hragents_store::keyfile::write_key(&data_dir, &key)?;
+    println!(
+        "key rewrapped for {} (database verified)",
+        data_dir.display()
+    );
     Ok(())
 }
 

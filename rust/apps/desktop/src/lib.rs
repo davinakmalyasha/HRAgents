@@ -198,6 +198,19 @@ fn reauth(state: State<'_, AppState>, password: String) -> CmdResult<SessionView
 }
 
 #[tauri::command]
+fn recovery_key(state: State<'_, AppState>, password: String) -> CmdResult<String> {
+    with_service(&state, |service| service.recovery_key(&password))
+}
+
+#[tauri::command]
+fn rewrap_install_key(state: State<'_, AppState>, password: String) -> CmdResult<()> {
+    with_service(&state, |service| {
+        service.rewrap_install_key(&password)?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
 fn current_session(state: State<'_, AppState>) -> CmdResult<SessionView> {
     with_service(&state, |service| service.current_session())
 }
@@ -638,6 +651,11 @@ fn backup(state: State<'_, AppState>, path: String) -> CmdResult<u64> {
 }
 
 #[tauri::command]
+fn backup_set(state: State<'_, AppState>, path: String) -> CmdResult<u64> {
+    with_service(&state, |service| service.backup_set(path))
+}
+
+#[tauri::command]
 fn evaluate_input_schema() -> CmdResult<serde_json::Value> {
     Ok(serde_json::json!({
         "rubric": {"id": "string", "name": "string", "dimensions": [{"key":"string","label":"string","weight_bp":6000}], "merit_floor_bp": 6000, "sigma_limit_bp": 500},
@@ -709,6 +727,8 @@ pub fn run() {
             lock,
             unlock,
             reauth,
+            recovery_key,
+            rewrap_install_key,
             current_session,
             today,
             create_employee,
@@ -816,6 +836,7 @@ pub fn run() {
             verify_document,
             search,
             backup,
+            backup_set,
             evaluate_input_schema
         ])
         .run(tauri::generate_context!())

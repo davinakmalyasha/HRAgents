@@ -72,9 +72,18 @@ Tauri cannot downgrade in place (§05). Rehearse the supported path:
   per-install key; Windows wraps it with DPAPI. A legacy plaintext database is
   converted in place, documents use ChaCha20-Poly1305, and database backups use
   SQLCipher export. A wrong key fails closed.
-- [ ] **Key recovery drill.** Copy `hragents.key` and the encrypted documents to a
-  second location, restore on the same Windows user, and confirm the DB opens.
-  Losing the key means losing the data; the UI and runbook must say this.
+- [x] **Key recovery drill.** Settings exports the key after re-authentication
+  (audited). On another machine:
+
+  1. Recover the complete set: `hragents-cli restore-set <archive> <data-dir> --key <recovery-key>`
+  2. Re-protect the key for that OS user: `hragents-cli rewrap <data-dir> --key <recovery-key>`
+  3. Launch the app; sign in normally.
+
+  The CLI is a release tool, not part of the GUI installer. Losing the key means
+  losing the data; the UI says so.
+- [x] **Full backup set.** Settings/CLI produce a `.hrbackup` ZIP with the
+  encrypted database, encrypted documents, key file, and a SHA-256 manifest.
+  `restore-set` verifies every hash and the audit count before swapping.
 - [ ] Run this drill green on a clean Windows 11 machine (install, first run,
   second-instance focus, backup/restore, uninstall-keeps-data).
 - [ ] Confirm diagnostic bundles (`.hrdiag`) contain no PII/secrets (fixture test)

@@ -52,6 +52,20 @@ pub fn unlock_key_for(data_dir: &Path, db_path: &Path) -> StoreResult<String> {
     create_key(&path)
 }
 
+/// Write (or rewrap) the install key with the current OS user's protection.
+/// The staging file is renamed over the old key only after a successful write.
+pub fn write_key(data_dir: &Path, key: &str) -> StoreResult<()> {
+    let raw = decode_hex(key)?;
+    let wrapped = protect(&raw)?;
+    let path = key_path(data_dir);
+    let staging = path.with_extension("key-tmp");
+    write_private(&staging, &wrapped)?;
+    std::fs::rename(&staging, &path).map_err(|error| {
+        let _ = std::fs::remove_file(&staging);
+        StoreError::Key(format!("replace key {}: {error}", path.display()))
+    })
+}
+
 pub fn read_key(path: &Path) -> StoreResult<String> {
     let stored = fs::read(path)
         .map_err(|error| StoreError::Key(format!("read key {}: {error}", path.display())))?;
@@ -76,8 +90,13 @@ fn create_key(path: &Path) -> StoreResult<String> {
         .map_err(|error| StoreError::Key(format!("system random generator: {error}")))?;
     let stored = protect(&raw)?;
 
+    write_private(path, &stored)?;
+    Ok(encode_hex(&raw))
+}
+
+fn write_private(path: &Path, bytes: &[u8]) -> StoreResult<()> {
     let mut options = fs::OpenOptions::new();
-    options.write(true).create_new(true);
+    options.write(true).create(true).truncate(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
@@ -86,10 +105,25 @@ fn create_key(path: &Path) -> StoreResult<String> {
     let mut file = options
         .open(path)
         .map_err(|error| StoreError::Key(format!("create key {}: {error}", path.display())))?;
-    file.write_all(&stored)
+    file.write_all(bytes)
         .and_then(|()| file.sync_all())
         .map_err(|error| StoreError::Key(format!("write key {}: {error}", path.display())))?;
-    Ok(encode_hex(&raw))
+    Ok(())
+}
+
+fn decode_hex(value: &str) -> StoreResult<[u8; KEY_LEN]> {
+    if value.len() != KEY_LEN * 2 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(StoreError::Key(
+            "recovery key must be exactly 64 hexadecimal characters".into(),
+        ));
+    }
+    let mut raw = [0u8; KEY_LEN];
+    for (index, byte) in raw.iter_mut().enumerate() {
+        let start = index * 2;
+        *byte = u8::from_str_radix(&value[start..start + 2], 16)
+            .map_err(|_| StoreError::Key("recovery key is not valid hex".into()))?;
+    }
+    Ok(raw)
 }
 
 fn encode_hex(bytes: &[u8]) -> String {
@@ -202,6 +236,17 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(first.len(), KEY_LEN * 2);
         assert!(key_path(dir.path()).exists());
+    }
+
+    #[test]
+    fn key_can_be_rewrapped_without_changing_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("hragents.db");
+        let key = unlock_key_for(dir.path(), &db).unwrap();
+        write_key(dir.path(), &key).unwrap();
+        assert_eq!(read_key(&key_path(dir.path())).unwrap(), key);
+        assert!(write_key(dir.path(), "not-a-key").is_err());
+        assert_eq!(read_key(&key_path(dir.path())).unwrap(), key);
     }
 
     #[test]

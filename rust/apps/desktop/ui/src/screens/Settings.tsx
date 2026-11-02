@@ -12,14 +12,15 @@ import {
 } from "lucide-react";
 import { command, formatDateTime, isDesktop } from "../api";
 import type { AuditVerification, OperatorView, RateTable, SessionView } from "../types";
-import { ErrorBox, Field, StatusPill } from "../components/ui";
+import { ErrorBox, Field, Modal, StatusPill } from "../components/ui";
 import { ComplianceSection } from "./Compliance";
 
 export function Settings({ session }: { session: SessionView }) {
   const [verifyResult, setVerifyResult] = useState<AuditVerification | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [complianceError, setComplianceError] = useState<string | null>(null);
-  const [backupPath, setBackupPath] = useState("hragents-backup.db");
+  const [backupPath, setBackupPath] = useState("hragents-backup.hrbackup");
   const [exportPath, setExportPath] = useState("audit-export.json");
   const [exportResult, setExportResult] = useState<string | null>(null);
   const [backupResult, setBackupResult] = useState<string | null>(null);
@@ -46,8 +47,8 @@ export function Settings({ session }: { session: SessionView }) {
     setBusy(true);
     setBackupResult(null);
     try {
-      const size = await command<number>("backup", { path: backupPath });
-      setBackupResult(`Encrypted backup written: ${(size / 1024).toFixed(0)} KB. Copy hragents.key and the documents folder separately.`);
+      const size = await command<number>("backup_set", { path: backupPath });
+      setBackupResult(`Encrypted backup set written: ${(size / 1024).toFixed(0)} KB (database + documents + key). Store it offline.`);
     } catch (caught) {
       setBackupResult(message(caught));
     } finally {
@@ -173,14 +174,14 @@ export function Settings({ session }: { session: SessionView }) {
             <div className="card-head">
               <HardDriveDownload size={15} />
               <h2>Backup</h2>
-              <span className="sub">SQLCipher export + integrity check</span>
+              <span className="sub">Database + documents + key, hashed</span>
             </div>
             <div className="card-pad grid" style={{ gap: 10 }}>
-              <Field label="Backup path" hint={isDesktop ? "Absolute path. The file is encrypted; keep the key and documents separate." : "Browser preview does not write a file."}>
+              <Field label="Backup path" hint={isDesktop ? "One encrypted archive with the database, documents, and key." : "Browser preview does not write a file."}>
                 <input value={backupPath} onChange={(event) => setBackupPath(event.target.value)} />
               </Field>
               <button className="btn" onClick={backup} disabled={busy || !backupPath}>
-                Create verified backup
+                Create encrypted backup set
               </button>
               {backupResult ? <div className="small muted">{backupResult}</div> : null}
             </div>
@@ -252,6 +253,17 @@ export function Settings({ session }: { session: SessionView }) {
           </section>
 
           <section className="card card-pad">
+            <div style={{ fontWeight: 620 }}>Recovery key</div>
+            <div className="small muted" style={{ marginTop: 4 }}>
+              Export the 64-character key for offline storage, or re-protect the key file with the
+              current Windows user. Both actions require your password.
+            </div>
+            <button className="btn sm" style={{ marginTop: 10 }} onClick={() => setRecoveryOpen(true)}>
+              <KeyRound size={13} /> Manage recovery key
+            </button>
+          </section>
+
+          <section className="card card-pad">
             <div style={{ fontWeight: 620 }}>Updates</div>
             <div className="small muted" style={{ marginTop: 4 }}>
               Everything works offline. No account, no subscription, no update server.
@@ -286,6 +298,7 @@ export function Settings({ session }: { session: SessionView }) {
       </div>
       {complianceError ? <ErrorBox>{complianceError}</ErrorBox> : null}
       <ComplianceSection onError={setComplianceError} />
+      {recoveryOpen ? <RecoveryKeyModal onClose={() => setRecoveryOpen(false)} /> : null}
     </>
   );
 }
@@ -326,4 +339,97 @@ function message(caught: unknown): string {
     return String((caught as { message: unknown }).message);
   }
   return String(caught);
+}
+
+
+function RecoveryKeyModal({ onClose }: { onClose: () => void }) {
+  const [password, setPassword] = useState("");
+  const [key, setKey] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function exportKey(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const value = await command<string>("recovery_key", { password });
+      setKey(value);
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rewrapKey() {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await command("rewrap_install_key", { password });
+      setNotice("The key file is now protected by the current OS user.");
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyKey() {
+    if (!key) return;
+    try {
+      await navigator.clipboard.writeText(key);
+      setNotice("Recovery key copied to the clipboard.");
+    } catch {
+      setNotice("Copy failed; select the key text and copy it manually.");
+    }
+  }
+
+  return (
+    <Modal
+      title="Recovery key"
+      subtitle="Anyone with this key and the database can read the data. Store it offline."
+      onClose={onClose}
+    >
+      <form className="grid" style={{ gap: 12 }} onSubmit={exportKey}>
+        <Field label="Your password" hint="Required before the key can be shown or rewrapped.">
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        </Field>
+        {error ? <ErrorBox>{error}</ErrorBox> : null}
+        {notice ? <div className="small muted">{notice}</div> : null}
+        {key ? (
+          <div className="grid" style={{ gap: 6 }}>
+            <div className="small" style={{ fontWeight: 600 }}>Recovery key</div>
+            <div className="row" style={{ gap: 6 }}>
+              <input readOnly value={key} className="mono" aria-label="Recovery key" />
+              <button className="btn sm" type="button" onClick={copyKey}>
+                Copy
+              </button>
+            </div>
+            <div className="small faint">
+              Keep this in a password manager or offline safe. It is the only way to open the data
+              if this Windows user or machine is lost.
+            </div>
+          </div>
+        ) : null}
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn primary" type="submit" disabled={busy || !password}>
+            {busy ? "Checking…" : "Show recovery key"}
+          </button>
+          <button className="btn" type="button" disabled={busy || !password} onClick={rewrapKey}>
+            Re-protect key file
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
 }

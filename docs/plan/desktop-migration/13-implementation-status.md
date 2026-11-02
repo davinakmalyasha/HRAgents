@@ -45,6 +45,9 @@ actually prove, and what is still open. It is updated at every merge.
 | WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
 | SQLCipher database encryption | **Enabled in the desktop build** | `Store::open_encrypted`, `apps/desktop` enables the feature |
 | Per-install key | **32 random bytes; DPAPI-wrapped on Windows, mode 0600 elsewhere** | `hragents-store/src/keyfile.rs` |
+| Recovery-key export | **Reauth + password gated, audited, no key in audit payload** | `AppService::recovery_key` |
+| Key rewrap / recovery | **Rewrap the same key for the current OS user; CLI `rewrap` for another machine** | `AppService::rewrap_install_key`, CLI |
+| Full backup set | **ZIP: DB + documents + key + SHA-256 manifest; restore verifies every hash** | `hragents-ipc/src/backup_set.rs` |
 | Plaintext → encrypted migration | **In place, verified, plaintext copy removed** | `Store::encrypt_plaintext_in_place` |
 | Encrypted uploaded documents | **ChaCha20-Poly1305; legacy files migrate on open** | `crates/hragents-ipc` document vault |
 | Encrypted backups | **SQLCipher export; wrong key fails closed** | `Store::backup_to`, `Store::backup_to_key` |
@@ -54,7 +57,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Tauri 2.12 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
 | Single-instance guard | **Done** | `tauri-plugin-single-instance` focuses the running window |
 | Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
-| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.14 MiB with SQLCipher** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.18 MiB with SQLCipher + recovery UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
 | Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
 | Five-surface React UI + login/lock | **Done; screens code-split** | `rust/apps/desktop/ui` |
 | UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
@@ -70,15 +73,15 @@ cargo test --workspace --exclude hragents-desktop
   payroll_parity    4 passed
   python_parity     5 passed
   hragents-ipc     24 passed, 1 ignored (release benchmark)
-  hragents-store   16 passed (includes key-file tests)
-  total           132 passed, 2 ignored
+  hragents-store   17 passed (includes key-file tests)
+  total           133 passed, 2 ignored
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
 
 cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl transplant)
-  20 passed, including encrypted reopen, wrong-key rejection, raw 256-bit key,
-  plaintext-to-encrypted migration, and encrypted backup round-trip
+  21 passed, including encrypted reopen, wrong-key rejection, raw 256-bit key,
+  plaintext-to-encrypted migration, encrypted backup round-trip, and key rewrap
 
 cargo test -p hragents-ipc --features sqlcipher
   25 passed, 1 ignored; the encryption test covers:
@@ -86,8 +89,8 @@ cargo test -p hragents-ipc --features sqlcipher
   encrypted document read -> encrypted backup -> reopen backup
 
 NSIS (free edition, unsigned, per-user, SQLCipher)
-  HRAgents_0.1.0_x64-setup.exe, 7,484,051 bytes (7.14 MiB)
-  SHA-256 5896285bee7dd0a331083cad44f53b7b375b1322a2183f0e856f8031d5342c87
+  HRAgents_0.1.0_x64-setup.exe, 7,530,477 bytes (7.18 MiB)
+  SHA-256 db2ee5c65c252fc33143fb053bc7a772dbe39dd0c32fdf27d1483f96bf204577
   built binary launches; a second launch exits 0 while the first keeps running
 
 live upgrade of the real local database (not a fixture):
@@ -97,6 +100,13 @@ live upgrade of the real local database (not a fixture):
   wrong key -> "file is not a database" (fail closed)
   encrypted backup 684,032 bytes (not plaintext) -> restore -> verify encrypted: yes
   tampered document ciphertext -> read rejected
+
+recovery and full-set CLI drill:
+  recovery key export: wrong password rejected; correct password returns 64-hex; audited
+  rewrap: same key, new OS-protected hragents.key; database still verifies encrypted: yes
+  backup-set: 684,968 bytes, members manifest.json + hragents.db + hragents.key
+  restore-set: 0 documents, 0 audit entries, verify encrypted: yes
+  restore-set with wrong key: exit 1, "file is not a database"
 
 uv run python scripts/check.py (Python oracle gate, unchanged runtime)
   2234 passed, 5 skipped, coverage 92.41%, invariants ok
@@ -159,12 +169,11 @@ remain open until the missing evidence exists.
 2. **Parity breadth** — the merge and population σ are parity-tested; the
    4-dimension rubric extraction itself is not. BPJS/THR/final payroll need a
    Python-generated corpus before the sen-level claim covers them.
-3. **Key recovery and rotation** — the key is protected, but there is no
-   operator-facing recovery-key export or password-change rewrap. Losing the key
-   file (or the Windows DPAPI context) loses the data by design; Settings says so.
-4. **Document blobs in backups** — the database backup is encrypted, but the
-   `documents/` directory is not bundled into it. A complete backup set must copy
-   the encrypted document files and `hragents.key` separately.
+3. **Pre-login recovery screen** — recovery works by exporting the key and using
+   the CLI `rewrap` on another machine; there is no in-app "paste recovery key"
+   screen before login yet.
+4. **Key rotation** — rewrap re-protects the same key. If the recovery key itself
+   leaks, there is no audited data rekey operation yet.
 5. **Payslip view** — payroll exports a review packet; there is no per-employee
    payslip screen yet.
 6. **Python removal** — deferred to the release cut by the migration plan.
@@ -177,9 +186,8 @@ remain open until the missing evidence exists.
 
 ## 4. Next tasks, in order
 
-1. Add a recovery-key export at setup and a rewrap flow for password changes.
-2. Include encrypted document blobs in the backup set (or state the two-part
-   backup procedure in the UI and drill).
+1. Add a pre-login "recover this installation" screen that accepts the 64-hex key.
+2. Add an audited full key-rotation path for a leaked recovery key.
 3. Generate the full BPJS/THR/final payroll parity corpus and add a payslip view.
 4. Add extraction-level scoring parity (4 dimensions) against the Python oracle.
 5. Exercise the provider adapter with a recorded replay in CI; keep the live test ignored.

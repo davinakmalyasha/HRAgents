@@ -2002,6 +2002,15 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
     case "backup":
       requireSession();
       return 622592 as T;
+    case "backup_set":
+      requireSession();
+      return 688128 as T;
+    case "recovery_key":
+      requireSession();
+      return "0123456789abcdef".repeat(4) as T;
+    case "rewrap_install_key":
+      requireSession();
+      return undefined as T;
     case "evaluate_input_schema":
       return {} as T;
     default:

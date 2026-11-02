@@ -27,6 +27,7 @@ use hragents_core::policy::PolicyCorpus;
 use hragents_core::time::{BusinessDate, UtcInstant};
 use hragents_store::{Store, StoreError};
 
+pub mod backup_set;
 mod compliance_services;
 mod growth_services;
 mod hiring_services;
@@ -213,6 +214,7 @@ pub struct AppService {
     store: Store,
     documents_dir: std::path::PathBuf,
     document_key: Option<[u8; 32]>,
+    database_key: Option<String>,
     auth: AuthService,
     session: Option<Session>,
     operator: Option<Operator>,
@@ -325,6 +327,7 @@ impl AppService {
             store,
             documents_dir,
             document_key,
+            database_key: passphrase.map(str::to_owned),
             auth: AuthService::default(),
             session: None,
             operator: None,
@@ -340,6 +343,7 @@ impl AppService {
             store: Store::open_in_memory()?,
             documents_dir,
             document_key: None,
+            database_key: None,
             auth: AuthService::default(),
             session: None,
             operator: None,
@@ -522,6 +526,50 @@ impl AppService {
         }
         session.last_activity_at = now;
         Ok(session)
+    }
+
+    /// Re-authenticate, then return the 64-hex install key for offline storage.
+    /// The key is never written to the audit payload.
+    pub fn recovery_key(&mut self, password: &str) -> AppResult<String> {
+        self.reauth(password)?;
+        let key = self.database_key.clone().ok_or(AppError::Setup {
+            code: "E_NOT_ENCRYPTED",
+            message: "this database is not encrypted".into(),
+        })?;
+        let operator_id = self.require_active()?.operator_id.to_string();
+        self.append_audit(
+            "security.recovery_key_exported",
+            "operator",
+            &operator_id,
+            serde_json::json!({"format": "hex", "bits": 256}),
+            UtcInstant::now(),
+        )?;
+        Ok(key)
+    }
+
+    /// Re-protect the existing key with the current OS user's wrapper. The
+    /// database key itself does not change, so no data is re-encrypted.
+    pub fn rewrap_install_key(&mut self, password: &str) -> AppResult<()> {
+        self.reauth(password)?;
+        let key = self.database_key.clone().ok_or(AppError::Setup {
+            code: "E_NOT_ENCRYPTED",
+            message: "this database is not encrypted".into(),
+        })?;
+        let data_dir = self
+            .documents_dir
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        hragents_store::keyfile::write_key(data_dir, &key)?;
+        let operator_id = self.require_active()?.operator_id.to_string();
+        self.append_audit(
+            "security.key_rewrapped",
+            "operator",
+            &operator_id,
+            serde_json::json!({"wrapper": "os-user"}),
+            UtcInstant::now(),
+        )?;
+        Ok(())
     }
 
     fn require_reauth(&mut self) -> AppResult<&Session> {
@@ -1856,6 +1904,35 @@ impl AppService {
         Ok(size)
     }
 
+    /// Complete backup set: encrypted database, encrypted documents, and the
+    /// OS-protected key file. Restore verifies every hash before opening.
+    pub fn backup_set(&mut self, path: impl AsRef<Path>) -> AppResult<u64> {
+        let now = UtcInstant::now();
+        self.require_active()?;
+        self.store.checkpoint()?;
+        let data_dir = self
+            .documents_dir
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let key_file = data_dir.join(hragents_store::keyfile::KEY_FILE_NAME);
+        let size = backup_set::create(
+            path.as_ref(),
+            self.store.path(),
+            &self.documents_dir,
+            Some(&key_file),
+            self.database_key.as_deref(),
+        )?;
+        self.append_audit(
+            "backup.set_created",
+            "system",
+            &path.as_ref().display().to_string(),
+            serde_json::json!({"size_bytes": size, "includes": ["database", "documents", "key"]}),
+            now,
+        )?;
+        Ok(size)
+    }
+
     pub fn policy_corpus(&self) -> PolicyCorpus {
         PolicyCorpus::default()
     }
@@ -3025,6 +3102,34 @@ mod tests {
         assert_eq!(service.store().schema_version().unwrap(), 2);
         assert!(AppService::open_encrypted(&db, "wrong key").is_err());
 
+        assert!(service.recovery_key("wrong password").is_err());
+        let exported = service
+            .recovery_key("correct horse battery staple")
+            .unwrap();
+        assert_eq!(exported, key);
+        assert!(
+            service
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "security.recovery_key_exported")
+        );
+        let key_file = dir.path().join("hragents.key");
+        let before_rewrap = hragents_store::keyfile::read_key(&key_file).unwrap();
+        service
+            .rewrap_install_key("correct horse battery staple")
+            .unwrap();
+        let after_rewrap = hragents_store::keyfile::read_key(&key_file).unwrap();
+        assert_eq!(before_rewrap, after_rewrap);
+        assert_eq!(after_rewrap, key);
+        assert!(
+            service
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "security.key_rewrapped")
+        );
+
         let document_path = service.store().document_path(document_id).unwrap();
         let raw = std::fs::read(&document_path).unwrap();
         assert!(
@@ -3034,6 +3139,30 @@ mod tests {
         );
         let (_, bytes) = service.read_document(document_id).unwrap();
         assert_eq!(bytes, b"top secret legacy document");
+
+        let set = dir.path().join("full.hrbackup");
+        let set_size = service.backup_set(&set).unwrap();
+        assert!(set_size > 0);
+        let restored_dir = dir.path().join("restored-set");
+        let manifest = crate::backup_set::restore(&set, &restored_dir, None).unwrap();
+        assert_eq!(manifest.documents, 1);
+        assert!(manifest.key_included);
+        let mut restored =
+            AppService::open_encrypted(restored_dir.join("hragents.db"), &key).unwrap();
+        restored
+            .login("rina", "correct horse battery staple")
+            .unwrap();
+        let (_, restored_bytes) = restored.read_document(document_id).unwrap();
+        assert_eq!(restored_bytes, b"top secret legacy document");
+        assert!(
+            crate::backup_set::restore(
+                &set,
+                &dir.path().join("wrong-key-set"),
+                Some("0000000000000000000000000000000000000000000000000000000000000000"),
+            )
+            .is_err()
+        );
+
         let mut tampered = raw;
         let last = tampered.len() - 1;
         tampered[last] ^= 0x01;
