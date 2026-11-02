@@ -56,6 +56,39 @@ pub fn is_valid_key(value: &str) -> bool {
     value.len() == KEY_LEN * 2 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
+/// Fresh 256-bit key, hex encoded.
+pub fn generate_key() -> StoreResult<String> {
+    let mut raw = [0u8; KEY_LEN];
+    getrandom::fill(&mut raw)
+        .map_err(|error| StoreError::Key(format!("system random generator: {error}")))?;
+    Ok(encode_hex(&raw))
+}
+
+/// Seal arbitrary bytes with the current OS user's protection and write them
+/// atomically. Used for the rotation journal (it holds both key generations).
+pub fn seal_file(path: &Path, bytes: &[u8]) -> StoreResult<()> {
+    let sealed = protect(bytes)?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| StoreError::Key(format!("create {}: {error}", parent.display())))?;
+    }
+    let staging = path.with_extension("seal-tmp");
+    write_private(&staging, &sealed)?;
+    std::fs::rename(&staging, path).map_err(|error| {
+        let _ = fs::remove_file(&staging);
+        StoreError::Key(format!("replace {}: {error}", path.display()))
+    })
+}
+
+pub fn open_sealed_file(path: &Path) -> StoreResult<Option<Vec<u8>>> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let sealed = fs::read(path)
+        .map_err(|error| StoreError::Key(format!("read {}: {error}", path.display())))?;
+    Ok(Some(unprotect(&sealed)?))
+}
+
 /// Write (or rewrap) the install key with the current OS user's protection.
 /// The staging file is renamed over the old key only after a successful write.
 pub fn write_key(data_dir: &Path, key: &str) -> StoreResult<()> {

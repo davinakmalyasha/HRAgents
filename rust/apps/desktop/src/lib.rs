@@ -262,6 +262,11 @@ fn recovery_key(state: State<'_, AppState>, password: String) -> CmdResult<Strin
 }
 
 #[tauri::command]
+fn rotate_database_key(state: State<'_, AppState>, password: String) -> CmdResult<String> {
+    with_service(&state, |service| service.rotate_database_key(&password))
+}
+
+#[tauri::command]
 fn rewrap_install_key(state: State<'_, AppState>, password: String) -> CmdResult<()> {
     with_service(&state, |service| {
         service.rewrap_install_key(&password)?;
@@ -803,6 +808,7 @@ pub fn run() {
             unlock,
             reauth,
             recovery_key,
+            rotate_database_key,
             rewrap_install_key,
             current_session,
             today,

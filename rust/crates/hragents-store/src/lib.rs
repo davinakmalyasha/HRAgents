@@ -39,7 +39,10 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+pub mod document_crypto;
 pub mod keyfile;
+#[cfg(feature = "sqlcipher")]
+pub mod rotation;
 
 const SCHEMA: &str = include_str!("../migrations/0001_init.sql");
 const INDEXES: &str = include_str!("../migrations/0002_indexes.sql");
@@ -160,6 +163,20 @@ impl Store {
         store.configure()?;
         store.migrate()?;
         Ok(store)
+    }
+
+    /// Change the SQLCipher key of the open database. SQLCipher performs the
+    /// page rewrite; the caller owns the crash-safety journal around it.
+    #[cfg(feature = "sqlcipher")]
+    pub fn rekey(&mut self, new_key: &str) -> StoreResult<()> {
+        self.conn.execute_batch(&format!(
+            "PRAGMA rekey = {};",
+            sqlcipher_key_literal(new_key)
+        ))?;
+        self.conn
+            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        self.key = Some(new_key.to_owned());
+        Ok(())
     }
 
     #[cfg(not(feature = "sqlcipher"))]
@@ -3961,6 +3978,93 @@ mod tests {
             Some("Nusantara Labs")
         );
         assert!(Store::open_encrypted(&path, "wrong key").is_err());
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn rotation_resumes_after_database_rekey() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("hragents.db");
+        let documents = dir.path().join("documents");
+        std::fs::create_dir_all(&documents).unwrap();
+        let old_key = keyfile::generate_key().unwrap();
+        let new_key = keyfile::generate_key().unwrap();
+        let mut store = Store::open_encrypted(&db, &old_key).unwrap();
+        store
+            .set_company("Nusantara Labs", None, None, now())
+            .unwrap();
+        store.checkpoint().unwrap();
+        let old_document = document_crypto::derive_key(&old_key);
+        std::fs::write(
+            documents.join("doc"),
+            document_crypto::encrypt(&old_document, b"secret").unwrap(),
+        )
+        .unwrap();
+        keyfile::write_key(dir.path(), &old_key).unwrap();
+
+        rotation::begin(dir.path(), &db, &old_key, &new_key).unwrap();
+        store.rekey(&new_key).unwrap();
+        drop(store);
+        assert_eq!(
+            keyfile::read_key(&dir.path().join("hragents.key")).unwrap(),
+            old_key,
+            "the key file stays old until the journal finishes"
+        );
+
+        let active = rotation::resume(dir.path(), &db).unwrap().unwrap();
+        assert_eq!(active, new_key);
+        assert_eq!(
+            keyfile::read_key(&dir.path().join("hragents.key")).unwrap(),
+            new_key
+        );
+        assert!(!rotation::journal_path(dir.path()).exists());
+        assert!(!dir.path().join("hragents.db.pre-rotate").exists());
+        assert!(Store::open_encrypted(&db, &old_key).is_err());
+        let reopened = Store::open_encrypted(&db, &new_key).unwrap();
+        assert_eq!(
+            reopened.company_name().unwrap().as_deref(),
+            Some("Nusantara Labs")
+        );
+        assert!(
+            reopened
+                .audit_entries()
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "security.key_rotation_resumed")
+        );
+        let stored = std::fs::read(documents.join("doc")).unwrap();
+        assert_eq!(
+            document_crypto::decrypt(&document_crypto::derive_key(&new_key), &stored).unwrap(),
+            b"secret"
+        );
+        assert!(document_crypto::decrypt(&document_crypto::derive_key(&old_key), &stored).is_err());
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn rotation_restores_the_database_when_rekey_corrupted_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("hragents.db");
+        let old_key = keyfile::generate_key().unwrap();
+        let new_key = keyfile::generate_key().unwrap();
+        let mut store = Store::open_encrypted(&db, &old_key).unwrap();
+        store
+            .set_company("Nusantara Labs", None, None, now())
+            .unwrap();
+        store.checkpoint().unwrap();
+        keyfile::write_key(dir.path(), &old_key).unwrap();
+        rotation::begin(dir.path(), &db, &old_key, &new_key).unwrap();
+        drop(store);
+        std::fs::write(&db, b"corrupted during rekey").unwrap();
+
+        let active = rotation::resume(dir.path(), &db).unwrap().unwrap();
+        assert_eq!(active, new_key);
+        let reopened = Store::open_encrypted(&db, &new_key).unwrap();
+        assert_eq!(
+            reopened.company_name().unwrap().as_deref(),
+            Some("Nusantara Labs")
+        );
+        assert_eq!(reopened.integrity_check().unwrap(), "ok");
     }
 
     #[cfg(feature = "sqlcipher")]

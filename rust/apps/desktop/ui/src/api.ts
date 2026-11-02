@@ -2039,6 +2039,9 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
     case "rewrap_install_key":
       requireSession();
       return undefined as T;
+    case "rotate_database_key":
+      requireSession();
+      return "fedcba9876543210".repeat(4) as T;
     case "evaluate_input_schema":
       return {} as T;
     default:

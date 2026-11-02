@@ -49,6 +49,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Pre-login recovery screen | **Accepts the 64-hex key, verifies the DB + operator, rewraps, audits** | `screens/Recovery.tsx`, `recover_encrypted_database` |
 | Key rewrap / recovery | **Rewrap the same key for the current OS user; CLI `rewrap` for another machine** | `AppService::rewrap_install_key`, CLI |
 | Full backup set | **ZIP: DB + documents + key + SHA-256 manifest; restore verifies every hash** | `hragents-ipc/src/backup_set.rs` |
+| Audited key rotation | **Rekey DB, re-encrypt documents, sealed journal, resumable** | `hragents-store/src/rotation.rs` |
 | Plaintext → encrypted migration | **In place, verified, plaintext copy removed** | `Store::encrypt_plaintext_in_place` |
 | Encrypted uploaded documents | **ChaCha20-Poly1305; legacy files migrate on open** | `crates/hragents-ipc` document vault |
 | Encrypted backups | **SQLCipher export; wrong key fails closed** | `Store::backup_to`, `Store::backup_to_key` |
@@ -58,7 +59,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Tauri 2.12 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
 | Single-instance guard | **Done** | `tauri-plugin-single-instance` focuses the running window |
 | Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
-| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.19 MiB with SQLCipher + recovery UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.20 MiB with SQLCipher + recovery/rotation UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
 | Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
 | Five-surface React UI + login/lock | **Done; screens code-split** | `rust/apps/desktop/ui` |
 | UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
@@ -74,24 +75,25 @@ cargo test --workspace --exclude hragents-desktop
   payroll_parity    4 passed
   python_parity     5 passed
   hragents-ipc     24 passed, 1 ignored (release benchmark)
-  hragents-store   17 passed (includes key-file tests)
-  total           133 passed, 2 ignored
+  hragents-store   18 passed (includes key-file and document-crypto tests)
+  total           134 passed, 2 ignored
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
 
 cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl transplant)
-  21 passed, including encrypted reopen, wrong-key rejection, raw 256-bit key,
-  plaintext-to-encrypted migration, encrypted backup round-trip, and key rewrap
+  24 passed, including encrypted reopen, wrong-key rejection, raw 256-bit key,
+  plaintext-to-encrypted migration, encrypted backup round-trip, key rewrap,
+  full rotation, and both crash-resume scenarios
 
 cargo test -p hragents-ipc --features sqlcipher
-  26 passed, 1 ignored; the encryption/recovery tests cover:
+  27 passed, 1 ignored; the encryption/recovery tests cover:
   plaintext DB + document -> key file -> encrypted reopen -> login ->
   encrypted document read -> encrypted backup -> reopen backup
 
 NSIS (free edition, unsigned, per-user, SQLCipher)
-  HRAgents_0.1.0_x64-setup.exe, 7,538,460 bytes (7.19 MiB)
-  SHA-256 81ba907378cd1908aa63386bb7bc9e2b3dfa4508ad4b08bcbd3459e7e0de64d7
+  HRAgents_0.1.0_x64-setup.exe, 7,548,314 bytes (7.20 MiB)
+  SHA-256 c22e1541424a6f675ddbbe82e8c4f93f77fe7fc0170ac1fe8ca97d0d6139bb93
   built binary launches; a second launch exits 0 while the first keeps running
 
 live upgrade of the real local database (not a fixture):
@@ -106,6 +108,9 @@ recovery and full-set CLI drill:
   recovery key export: wrong password rejected; correct password returns 64-hex; audited
   pre-login recovery: key file deleted -> recover_with_key -> login + key rewrapped +
   "security.recovered" audit entry; wrong key leaves the key file absent
+  key rotation: old key fails, new key opens, document re-encrypted, audited
+  interrupted rotation: DB rekeyed + documents old + key old -> resume finishes;
+  corrupted rekey -> pre-rotation backup restored and rekeyed
   packaged app with hragents.key temporarily removed: UI Automation reads
   "Recover this installation", the 64-hex hint, username/password fields, and
   "Recover and sign in"; the DB still verifies encrypted after the key returns
@@ -130,7 +135,7 @@ cargo run -p hragents-cli -- verify <copy of a real v1 database>
                                 offboarding_plans.final_pay_run_id
 
 UI build (initial bundle, five screens lazy-loaded):
-  index  330.37 kB / 99.23 kB gzip
+  index  330.44 kB / 99.26 kB gzip
   Hire    35.34 kB, People 27.57 kB, Pay 14.57 kB, Settings 13.24 kB, Ask 7.09 kB
   (before split: single 436.50 kB / 119.89 kB gzip initial)
 
@@ -175,28 +180,25 @@ remain open until the missing evidence exists.
 2. **Parity breadth** — the merge and population σ are parity-tested; the
    4-dimension rubric extraction itself is not. BPJS/THR/final payroll need a
    Python-generated corpus before the sen-level claim covers them.
-3. **Key rotation** — recovery/rewrap re-protect the same key. If the recovery key
-   itself leaks, there is no audited full data-rekey operation yet.
-5. **Payslip view** — payroll exports a review packet; there is no per-employee
+3. **Payslip view** — payroll exports a review packet; there is no per-employee
    payslip screen yet.
-6. **Python removal** — deferred to the release cut by the migration plan.
-7. **Import from the existing Postgres product** — not implemented.
-8. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
+4. **Python removal** — deferred to the release cut by the migration plan.
+5. **Import from the existing Postgres product** — not implemented.
+6. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
    signed auto-update feed are out of scope for this free edition.
-9. **Pilot** — needs real companies and a named human reviewer.
+7. **Pilot** — needs real companies and a named human reviewer.
 
 ---
 
 ## 4. Next tasks, in order
 
-1. Add an audited full key-rotation path for a leaked recovery key.
-3. Generate the full BPJS/THR/final payroll parity corpus and add a payslip view.
-4. Add extraction-level scoring parity (4 dimensions) against the Python oracle.
-5. Exercise the provider adapter with a recorded replay in CI; keep the live test ignored.
-6. Profile the packaged build on a 1,000-employee database; check Today/reminders
+1. Generate the full BPJS/THR/final payroll parity corpus and add a payslip view.
+2. Add extraction-level scoring parity (4 dimensions) against the Python oracle.
+3. Exercise the provider adapter with a recorded replay in CI; keep the live test ignored.
+4. Profile the packaged build on a 1,000-employee database; check Today/reminders
    query counts stay constant after the index migration.
-7. Run the pilot entry checklist in `15-pilot.md`.
-8. At the release cut: freeze the corpus, remove Python from the runtime, and run G5.
+5. Run the pilot entry checklist in `15-pilot.md`.
+6. At the release cut: freeze the corpus, remove Python from the runtime, and run G5.
 
 ---
 

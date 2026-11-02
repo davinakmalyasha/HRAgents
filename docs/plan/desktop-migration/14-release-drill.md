@@ -84,6 +84,11 @@ Tauri cannot downgrade in place (§05). Rehearse the supported path:
   4. `hragents-cli rewrap` remains the headless/fallback path.
 
   Losing the key means losing the data; the UI says so.
+- [x] **Full key-rotation drill.** Rotate from Settings with a password and the
+  confirmation checkbox. The old recovery key must stop opening the database, the
+  new key must open it, documents must still read, and no `hragents.rotate`
+  journal or `hragents.db.pre-rotate` file may remain. Repeat after killing the
+  process mid-rotation: the next launch must resume and audit the recovery.
 - [x] **Full backup set.** Settings/CLI produce a `.hrbackup` ZIP with the
   encrypted database, encrypted documents, key file, and a SHA-256 manifest.
   `restore-set` verifies every hash and the audit count before swapping.

@@ -346,6 +346,7 @@ function RecoveryKeyModal({ onClose }: { onClose: () => void }) {
   const [password, setPassword] = useState("");
   const [key, setKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [rotateConfirmed, setRotateConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -357,6 +358,24 @@ function RecoveryKeyModal({ onClose }: { onClose: () => void }) {
     try {
       const value = await command<string>("recovery_key", { password });
       setKey(value);
+    } catch (caught) {
+      setError(message(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function rotateDataKey() {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const rotated = await command<string>("rotate_database_key", { password });
+      setKey(rotated);
+      setRotateConfirmed(false);
+      setNotice(
+        "Data key rotated. The old recovery key no longer works; store this new one before closing.",
+      );
     } catch (caught) {
       setError(message(caught));
     } finally {
@@ -428,6 +447,36 @@ function RecoveryKeyModal({ onClose }: { onClose: () => void }) {
           <button className="btn" type="button" disabled={busy || !password} onClick={rewrapKey}>
             Re-protect key file
           </button>
+        </div>
+        <div className="notice" style={{ marginTop: 4 }}>
+          <ShieldCheck size={15} />
+          <div className="grid" style={{ gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>Rotate the data key</div>
+              <div className="small muted" style={{ marginTop: 2 }}>
+                Rekeys the database and re-encrypts every document. The old recovery key stops
+                working immediately. A sealed journal lets an interrupted rotation resume on the
+                next launch.
+              </div>
+            </div>
+            <label className="row small" style={{ gap: 7 }}>
+              <input
+                type="checkbox"
+                checked={rotateConfirmed}
+                onChange={(event) => setRotateConfirmed(event.target.checked)}
+              />
+              I understand the old recovery key will stop working.
+            </label>
+            <button
+              className="btn sm"
+              type="button"
+              disabled={busy || !password || !rotateConfirmed}
+              onClick={rotateDataKey}
+              style={{ width: "fit-content" }}
+            >
+              Rotate data key
+            </button>
+          </div>
         </div>
       </form>
     </Modal>

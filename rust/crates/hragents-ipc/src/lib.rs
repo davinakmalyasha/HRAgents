@@ -25,7 +25,7 @@ use hragents_core::people::{
 };
 use hragents_core::policy::PolicyCorpus;
 use hragents_core::time::{BusinessDate, UtcInstant};
-use hragents_store::{Store, StoreError};
+use hragents_store::{Store, StoreError, document_crypto};
 
 pub mod backup_set;
 mod compliance_services;
@@ -33,14 +33,10 @@ mod growth_services;
 mod hiring_services;
 pub mod scheduler;
 
-use chacha20poly1305::aead::{Aead, KeyInit};
-use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 pub use compliance_services::RetentionDueItem;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
-use std::io::Read;
 use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
@@ -214,6 +210,7 @@ pub struct AppService {
     store: Store,
     documents_dir: std::path::PathBuf,
     document_key: Option<[u8; 32]>,
+    previous_document_key: Option<[u8; 32]>,
     database_key: Option<String>,
     auth: AuthService,
     session: Option<Session>,
@@ -224,78 +221,14 @@ pub struct AppService {
 /// file in place first. Returns the key so backups can use the same secret.
 #[cfg(feature = "sqlcipher")]
 pub fn unlock_encrypted_database(data_dir: &Path, db_path: &Path) -> AppResult<String> {
+    if let Some(key) = hragents_store::rotation::resume(data_dir, db_path)? {
+        return Ok(key);
+    }
     let key = hragents_store::keyfile::unlock_key_for(data_dir, db_path)?;
     if db_path.exists() && hragents_store::keyfile::is_plaintext_sqlite(db_path)? {
         Store::encrypt_plaintext_in_place(db_path, &key)?;
     }
     Ok(key)
-}
-
-const DOCUMENT_MAGIC: &[u8; 4] = b"HRD1";
-
-fn document_key(passphrase: &str) -> [u8; 32] {
-    Sha256::digest(passphrase.as_bytes()).into()
-}
-
-fn encrypt_document(key: &[u8; 32], bytes: &[u8]) -> AppResult<Vec<u8>> {
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(key));
-    let mut nonce = [0u8; 12];
-    getrandom::fill(&mut nonce)
-        .map_err(|error| AppError::Export(format!("document nonce: {error}")))?;
-    let ciphertext = cipher
-        .encrypt(Nonce::from_slice(&nonce), bytes)
-        .map_err(|_| AppError::Export("encrypt document failed".into()))?;
-    let mut out = Vec::with_capacity(DOCUMENT_MAGIC.len() + nonce.len() + ciphertext.len());
-    out.extend_from_slice(DOCUMENT_MAGIC);
-    out.extend_from_slice(&nonce);
-    out.extend_from_slice(&ciphertext);
-    Ok(out)
-}
-
-fn decrypt_document(key: &[u8; 32], stored: &[u8]) -> AppResult<Vec<u8>> {
-    if !stored.starts_with(DOCUMENT_MAGIC) {
-        return Ok(stored.to_vec());
-    }
-    if stored.len() < DOCUMENT_MAGIC.len() + 12 + 16 {
-        return Err(AppError::Export("document ciphertext is truncated".into()));
-    }
-    let nonce = &stored[DOCUMENT_MAGIC.len()..DOCUMENT_MAGIC.len() + 12];
-    let ciphertext = &stored[DOCUMENT_MAGIC.len() + 12..];
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(key));
-    cipher
-        .decrypt(Nonce::from_slice(nonce), ciphertext)
-        .map_err(|_| {
-            AppError::Export("document decryption failed: wrong key or tampered file".into())
-        })
-}
-
-fn encrypt_legacy_documents(dir: &Path, key: &[u8; 32]) -> AppResult<()> {
-    let entries = std::fs::read_dir(dir)
-        .map_err(|error| AppError::Export(format!("read documents directory: {error}")))?;
-    for entry in entries {
-        let entry =
-            entry.map_err(|error| AppError::Export(format!("read document entry: {error}")))?;
-        let path = entry.path();
-        if !path.is_file() {
-            continue;
-        }
-        let mut handle = std::fs::File::open(&path)
-            .map_err(|error| AppError::Export(format!("open document: {error}")))?;
-        let mut magic = [0u8; 4];
-        if handle.read_exact(&mut magic).is_ok() && &magic == DOCUMENT_MAGIC {
-            continue;
-        }
-        drop(handle);
-        let stored = std::fs::read(&path)
-            .map_err(|error| AppError::Export(format!("read document: {error}")))?;
-        let encrypted = encrypt_document(key, &stored)?;
-        let staging = path.with_extension("enc-tmp");
-        std::fs::write(&staging, &encrypted)
-            .map_err(|error| AppError::Export(format!("write document: {error}")))?;
-        std::fs::rename(&staging, &path)
-            .map_err(|error| AppError::Export(format!("replace document: {error}")))?;
-    }
-    Ok(())
 }
 
 /// True when a database exists and is encrypted. Used by the shell to show the
@@ -325,11 +258,40 @@ pub fn recover_encrypted_database(
             message: "the recovery key must be 64 hexadecimal characters".into(),
         });
     }
-    let mut service = AppService::open_encrypted(db_path, key)?;
+    // A sealed rotation journal is authoritative and must be finished before
+    // normal recovery; it may span two key generations.
+    let key =
+        hragents_store::rotation::resume(data_dir, db_path)?.unwrap_or_else(|| key.to_owned());
+    let mut service = AppService::open_encrypted(db_path, &key)?;
     service.login(username, password)?;
-    hragents_store::keyfile::write_key(data_dir, key)?;
+    hragents_store::keyfile::write_key(data_dir, &key)?;
     service.record_recovery_event()?;
     Ok(service)
+}
+
+fn encrypt_legacy_documents(dir: &Path, key: &[u8; 32]) -> AppResult<()> {
+    let entries = std::fs::read_dir(dir)
+        .map_err(|error| AppError::Export(format!("read documents directory: {error}")))?;
+    for entry in entries {
+        let entry =
+            entry.map_err(|error| AppError::Export(format!("read document entry: {error}")))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let stored = std::fs::read(&path)
+            .map_err(|error| AppError::Export(format!("read document: {error}")))?;
+        if document_crypto::is_encrypted(&stored) {
+            continue;
+        }
+        let encrypted = document_crypto::encrypt(key, &stored)?;
+        let staging = path.with_extension("enc-tmp");
+        std::fs::write(&staging, &encrypted)
+            .map_err(|error| AppError::Export(format!("write document: {error}")))?;
+        std::fs::rename(&staging, &path)
+            .map_err(|error| AppError::Export(format!("replace document: {error}")))?;
+    }
+    Ok(())
 }
 
 impl AppService {
@@ -353,7 +315,7 @@ impl AppService {
             .join("documents");
         std::fs::create_dir_all(&documents_dir)
             .map_err(|error| AppError::Export(error.to_string()))?;
-        let document_key = passphrase.map(document_key);
+        let document_key = passphrase.map(document_crypto::derive_key);
         if let Some(key) = &document_key {
             encrypt_legacy_documents(&documents_dir, key)?;
         }
@@ -361,6 +323,7 @@ impl AppService {
             store,
             documents_dir,
             document_key,
+            previous_document_key: None,
             database_key: passphrase.map(str::to_owned),
             auth: AuthService::default(),
             session: None,
@@ -377,6 +340,7 @@ impl AppService {
             store: Store::open_in_memory()?,
             documents_dir,
             document_key: None,
+            previous_document_key: None,
             database_key: None,
             auth: AuthService::default(),
             session: None,
@@ -604,6 +568,54 @@ impl AppService {
             UtcInstant::now(),
         )?;
         Ok(())
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    /// Full audited key rotation: rekey SQLCipher, re-encrypt every document,
+    /// and atomically swap the key file. A sealed journal makes an interrupted
+    /// rotation resumable on the next launch.
+    pub fn rotate_database_key(&mut self, password: &str) -> AppResult<String> {
+        self.reauth(password)?;
+        let old_key = self.database_key.clone().ok_or(AppError::Setup {
+            code: "E_NOT_ENCRYPTED",
+            message: "this database is not encrypted".into(),
+        })?;
+        let new_key = hragents_store::keyfile::generate_key()?;
+        let old_document = self
+            .document_key
+            .unwrap_or_else(|| document_crypto::derive_key(&old_key));
+        let new_document = document_crypto::derive_key(&new_key);
+        let data_dir = self
+            .documents_dir
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+
+        self.store.checkpoint()?;
+        hragents_store::rotation::begin(&data_dir, self.store.path(), &old_key, &new_key)?;
+        self.store.rekey(&new_key)?;
+        self.database_key = Some(new_key.clone());
+        self.document_key = Some(new_document);
+        self.previous_document_key = Some(old_document);
+        let rotated = hragents_store::rotation::rotate_documents(
+            &self.documents_dir,
+            Some(&old_document),
+            &new_document,
+        )?;
+        hragents_store::keyfile::write_key(&data_dir, &new_key)?;
+        self.previous_document_key = None;
+
+        let operator_id = self.require_active()?.operator_id.to_string();
+        self.append_audit(
+            "security.key_rotated",
+            "operator",
+            &operator_id,
+            serde_json::json!({"documents_reencrypted": rotated, "reauth": true}),
+            UtcInstant::now(),
+        )?;
+        hragents_store::rotation::finish(&data_dir)?;
+        Ok(new_key)
     }
 
     pub fn record_recovery_event(&mut self) -> AppResult<()> {
@@ -844,7 +856,7 @@ impl AppService {
         let stored_name = format!("{id}{extension}");
         let path = self.documents_dir.join(&stored_name);
         let on_disk = match &self.document_key {
-            Some(key) => encrypt_document(key, &bytes)?,
+            Some(key) => document_crypto::encrypt(key, &bytes)?,
             None => bytes.clone(),
         };
         std::fs::write(&path, &on_disk)
@@ -901,7 +913,13 @@ impl AppService {
         let stored = std::fs::read(&path)
             .map_err(|error| AppError::Export(format!("read document: {error}")))?;
         let bytes = match &self.document_key {
-            Some(key) => decrypt_document(key, &stored)?,
+            Some(current) => match document_crypto::decrypt(current, &stored) {
+                Ok(bytes) => bytes,
+                Err(error) => match &self.previous_document_key {
+                    Some(previous) => document_crypto::decrypt(previous, &stored)?,
+                    None => return Err(error.into()),
+                },
+            },
             None => stored,
         };
         self.append_audit(
@@ -3099,6 +3117,66 @@ mod tests {
         let hits = service.search("Ayu").unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].kind, "employee");
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn key_rotation_rekeys_database_and_documents() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("hragents.db");
+        let document_id = {
+            let mut plain = AppService::open(&db).unwrap();
+            plain
+                .setup_first_run(SetupInput {
+                    company_name: "Nusantara Labs".into(),
+                    operator_name: "Rina".into(),
+                    username: "rina".into(),
+                    password: "correct horse battery staple".into(),
+                })
+                .unwrap();
+            plain
+                .upload_document(
+                    DocumentOwnerType::Company,
+                    "company",
+                    "secret.txt",
+                    "text/plain",
+                    b"rotation secret".to_vec(),
+                )
+                .unwrap()
+                .id
+        };
+        let old_key = unlock_encrypted_database(dir.path(), &db).unwrap();
+        let mut service = AppService::open_encrypted(&db, &old_key).unwrap();
+        service
+            .login("rina", "correct horse battery staple")
+            .unwrap();
+        assert!(service.rotate_database_key("wrong password").is_err());
+        let new_key = service
+            .rotate_database_key("correct horse battery staple")
+            .unwrap();
+        assert_ne!(new_key, old_key);
+        assert_eq!(
+            hragents_store::keyfile::read_key(&dir.path().join("hragents.key")).unwrap(),
+            new_key
+        );
+        assert!(!hragents_store::rotation::journal_path(dir.path()).exists());
+        assert!(!dir.path().join("hragents.db.pre-rotate").exists());
+        assert!(AppService::open_encrypted(&db, &old_key).is_err());
+
+        drop(service);
+        let mut reopened = AppService::open_encrypted(&db, &new_key).unwrap();
+        reopened
+            .login("rina", "correct horse battery staple")
+            .unwrap();
+        let (_, bytes) = reopened.read_document(document_id).unwrap();
+        assert_eq!(bytes, b"rotation secret");
+        assert!(
+            reopened
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "security.key_rotated")
+        );
     }
 
     #[cfg(feature = "sqlcipher")]
