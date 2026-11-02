@@ -49,7 +49,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Tauri 2.12 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
 | Single-instance guard | **Done** | `tauri-plugin-single-instance` focuses the running window |
 | Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
-| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 5.97 MiB** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 6.00 MiB** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
 | Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
 | Five-surface React UI + login/lock | **Done; screens code-split** | `rust/apps/desktop/ui` |
 | UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
@@ -72,7 +72,15 @@ cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
 
 cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl transplant)
-  11 passed, including encrypted reopen and wrong-key rejection
+  14 passed, including encrypted reopen and wrong-key rejection
+
+NSIS (free edition, unsigned, per-user)
+  HRAgents_0.1.0_x64-setup.exe, 6,288,118 bytes (6.00 MiB)
+  SHA-256 b8fdacfc8e2e536264ca7438707ba96f677275047a40b2a0a28a3d0e15e02a5a
+  built binary launches; a second launch exits 0 while the first keeps running
+
+uv run python scripts/check.py (Python oracle gate, unchanged runtime)
+  2234 passed, 5 skipped, coverage 92.41%, invariants ok
 
 cargo test -p hragents-ipc --release payroll_1000 -- --ignored --nocapture
   1000 lines, ~12.7 ms (budget 2 s)
