@@ -46,6 +46,7 @@ actually prove, and what is still open. It is updated at every merge.
 | SQLCipher database encryption | **Enabled in the desktop build** | `Store::open_encrypted`, `apps/desktop` enables the feature |
 | Per-install key | **32 random bytes; DPAPI-wrapped on Windows, mode 0600 elsewhere** | `hragents-store/src/keyfile.rs` |
 | Recovery-key export | **Reauth + password gated, audited, no key in audit payload** | `AppService::recovery_key` |
+| Pre-login recovery screen | **Accepts the 64-hex key, verifies the DB + operator, rewraps, audits** | `screens/Recovery.tsx`, `recover_encrypted_database` |
 | Key rewrap / recovery | **Rewrap the same key for the current OS user; CLI `rewrap` for another machine** | `AppService::rewrap_install_key`, CLI |
 | Full backup set | **ZIP: DB + documents + key + SHA-256 manifest; restore verifies every hash** | `hragents-ipc/src/backup_set.rs` |
 | Plaintext → encrypted migration | **In place, verified, plaintext copy removed** | `Store::encrypt_plaintext_in_place` |
@@ -57,7 +58,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Tauri 2.12 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
 | Single-instance guard | **Done** | `tauri-plugin-single-instance` focuses the running window |
 | Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
-| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.18 MiB with SQLCipher + recovery UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.19 MiB with SQLCipher + recovery UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
 | Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
 | Five-surface React UI + login/lock | **Done; screens code-split** | `rust/apps/desktop/ui` |
 | UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
@@ -84,13 +85,13 @@ cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl
   plaintext-to-encrypted migration, encrypted backup round-trip, and key rewrap
 
 cargo test -p hragents-ipc --features sqlcipher
-  25 passed, 1 ignored; the encryption test covers:
+  26 passed, 1 ignored; the encryption/recovery tests cover:
   plaintext DB + document -> key file -> encrypted reopen -> login ->
   encrypted document read -> encrypted backup -> reopen backup
 
 NSIS (free edition, unsigned, per-user, SQLCipher)
-  HRAgents_0.1.0_x64-setup.exe, 7,530,477 bytes (7.18 MiB)
-  SHA-256 db2ee5c65c252fc33143fb053bc7a772dbe39dd0c32fdf27d1483f96bf204577
+  HRAgents_0.1.0_x64-setup.exe, 7,538,460 bytes (7.19 MiB)
+  SHA-256 81ba907378cd1908aa63386bb7bc9e2b3dfa4508ad4b08bcbd3459e7e0de64d7
   built binary launches; a second launch exits 0 while the first keeps running
 
 live upgrade of the real local database (not a fixture):
@@ -103,6 +104,8 @@ live upgrade of the real local database (not a fixture):
 
 recovery and full-set CLI drill:
   recovery key export: wrong password rejected; correct password returns 64-hex; audited
+  pre-login recovery: key file deleted -> recover_with_key -> login + key rewrapped +
+  "security.recovered" audit entry; wrong key leaves the key file absent
   rewrap: same key, new OS-protected hragents.key; database still verifies encrypted: yes
   backup-set: 684,968 bytes, members manifest.json + hragents.db + hragents.key
   restore-set: 0 documents, 0 audit entries, verify encrypted: yes
@@ -124,8 +127,8 @@ cargo run -p hragents-cli -- verify <copy of a real v1 database>
                                 offboarding_plans.final_pay_run_id
 
 UI build (initial bundle, five screens lazy-loaded):
-  index  325.46 kB / 98.20 kB gzip
-  Hire    35.33 kB, People 27.57 kB, Pay 14.53 kB, Settings 9.93 kB, Ask 7.09 kB
+  index  330.37 kB / 99.23 kB gzip
+  Hire    35.34 kB, People 27.57 kB, Pay 14.57 kB, Settings 13.24 kB, Ask 7.09 kB
   (before split: single 436.50 kB / 119.89 kB gzip initial)
 
 Playwright, 1024x700 and 1440x900 browser preview:
@@ -169,11 +172,8 @@ remain open until the missing evidence exists.
 2. **Parity breadth** — the merge and population σ are parity-tested; the
    4-dimension rubric extraction itself is not. BPJS/THR/final payroll need a
    Python-generated corpus before the sen-level claim covers them.
-3. **Pre-login recovery screen** — recovery works by exporting the key and using
-   the CLI `rewrap` on another machine; there is no in-app "paste recovery key"
-   screen before login yet.
-4. **Key rotation** — rewrap re-protects the same key. If the recovery key itself
-   leaks, there is no audited data rekey operation yet.
+3. **Key rotation** — recovery/rewrap re-protect the same key. If the recovery key
+   itself leaks, there is no audited full data-rekey operation yet.
 5. **Payslip view** — payroll exports a review packet; there is no per-employee
    payslip screen yet.
 6. **Python removal** — deferred to the release cut by the migration plan.
@@ -186,8 +186,7 @@ remain open until the missing evidence exists.
 
 ## 4. Next tasks, in order
 
-1. Add a pre-login "recover this installation" screen that accepts the 64-hex key.
-2. Add an audited full key-rotation path for a leaked recovery key.
+1. Add an audited full key-rotation path for a leaked recovery key.
 3. Generate the full BPJS/THR/final payroll parity corpus and add a payslip view.
 4. Add extraction-level scoring parity (4 dimensions) against the Python oracle.
 5. Exercise the provider adapter with a recorded replay in CI; keep the live test ignored.

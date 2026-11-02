@@ -7,6 +7,7 @@ export interface AppInfo {
   company: string | null;
   setup_required: boolean;
   role: Role;
+  recovery_required: boolean;
 }
 
 export interface SessionView {

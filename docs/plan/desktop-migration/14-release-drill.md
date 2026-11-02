@@ -76,11 +76,14 @@ Tauri cannot downgrade in place (§05). Rehearse the supported path:
   (audited). On another machine:
 
   1. Recover the complete set: `hragents-cli restore-set <archive> <data-dir> --key <recovery-key>`
-  2. Re-protect the key for that OS user: `hragents-cli rewrap <data-dir> --key <recovery-key>`
-  3. Launch the app; sign in normally.
+  2. Launch the app. With no usable key file it opens the **Recover this
+     installation** screen.
+  3. Enter the 64-hex key, operator username, and password. The app verifies the
+     database and login, rewraps the key for that OS user, and writes
+     `security.recovered` to the audit chain.
+  4. `hragents-cli rewrap` remains the headless/fallback path.
 
-  The CLI is a release tool, not part of the GUI installer. Losing the key means
-  losing the data; the UI says so.
+  Losing the key means losing the data; the UI says so.
 - [x] **Full backup set.** Settings/CLI produce a `.hrbackup` ZIP with the
   encrypted database, encrypted documents, key file, and a SHA-256 manifest.
   `restore-set` verifies every hash and the audit count before swapping.

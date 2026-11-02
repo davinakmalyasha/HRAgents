@@ -52,6 +52,10 @@ pub fn unlock_key_for(data_dir: &Path, db_path: &Path) -> StoreResult<String> {
     create_key(&path)
 }
 
+pub fn is_valid_key(value: &str) -> bool {
+    value.len() == KEY_LEN * 2 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 /// Write (or rewrap) the install key with the current OS user's protection.
 /// The staging file is renamed over the old key only after a successful write.
 pub fn write_key(data_dir: &Path, key: &str) -> StoreResult<()> {

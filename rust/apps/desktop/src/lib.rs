@@ -16,6 +16,7 @@ use hragents_ipc::{
     PayrollView, RecordLeaveInput, SearchHit, SessionView, SetupInput, TodayView,
 };
 use serde::Serialize;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use tauri::{Manager, State};
@@ -27,32 +28,49 @@ use compliance_commands::*;
 mod hiring_commands;
 use hiring_commands::*;
 
+type ServiceSlot = Arc<Mutex<Option<AppService>>>;
+
 pub(crate) struct AppState {
-    service: Arc<Mutex<AppService>>,
+    service: ServiceSlot,
+    data_dir: PathBuf,
+    db_path: PathBuf,
 }
 
 /// Shared handle that lets the background scheduler drive the same
 /// single-connection AppService the commands use. Jobs run under the
 /// unlocked operator session when one exists; when the app is locked they
 /// fail fast and log, never blocking the loop.
-struct SharedBackend(Arc<Mutex<AppService>>);
+struct SharedBackend(ServiceSlot);
+
+impl SharedBackend {
+    fn with<T>(
+        &mut self,
+        action: impl FnOnce(&mut AppService) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let mut guard = self.0.lock().map_err(|_| "state is poisoned".to_owned())?;
+        let service = guard
+            .as_mut()
+            .ok_or_else(|| "database is locked for recovery".to_owned())?;
+        action(service)
+    }
+}
 
 impl hragents_ipc::scheduler::JobBackend for SharedBackend {
     fn run_retention_sweep(&mut self) -> Result<usize, String> {
-        self.0
-            .lock()
-            .map_err(|_| "state is poisoned".to_owned())?
-            .retention_sweep(hragents_core::time::BusinessDate::today())
-            .map(|due| due.len())
-            .map_err(|error| error.to_string())
+        self.with(|service| {
+            service
+                .retention_sweep(hragents_core::time::BusinessDate::today())
+                .map(|due| due.len())
+                .map_err(|error| error.to_string())
+        })
     }
 
     fn run_offer_sweep(&mut self) -> Result<usize, String> {
-        self.0
-            .lock()
-            .map_err(|_| "state is poisoned".to_owned())?
-            .sweep_expired_offers(hragents_core::time::BusinessDate::today())
-            .map_err(|error| error.to_string())
+        self.with(|service| {
+            service
+                .sweep_expired_offers(hragents_core::time::BusinessDate::today())
+                .map_err(|error| error.to_string())
+        })
     }
 
     fn run_backup(&mut self) -> Result<u64, String> {
@@ -60,43 +78,37 @@ impl hragents_ipc::scheduler::JobBackend for SharedBackend {
     }
 
     fn run_backup_to(&mut self, dest: &std::path::Path) -> Result<u64, String> {
-        self.0
-            .lock()
-            .map_err(|_| "state is poisoned".to_owned())?
-            .backup(dest)
-            .map_err(|error| error.to_string())
+        self.with(|service| service.backup(dest).map_err(|error| error.to_string()))
     }
 
     fn run_reminders(&mut self) -> Result<usize, String> {
-        self.0
-            .lock()
-            .map_err(|_| "state is poisoned".to_owned())?
-            .reminders()
-            .map(|items| items.len())
-            .map_err(|error| error.to_string())
+        self.with(|service| {
+            service
+                .reminders()
+                .map(|items| items.len())
+                .map_err(|error| error.to_string())
+        })
     }
 
     fn run_outbox(&mut self) -> Result<usize, String> {
-        self.0
-            .lock()
-            .map_err(|_| "state is poisoned".to_owned())?
-            .outbox_pending()
-            .map(|items| items.len())
-            .map_err(|error| error.to_string())
+        self.with(|service| {
+            service
+                .outbox_pending()
+                .map(|items| items.len())
+                .map_err(|error| error.to_string())
+        })
     }
 
     fn run_inbox_poll(&mut self) -> Result<usize, String> {
-        self.0
-            .lock()
-            .map_err(|_| "state is poisoned".to_owned())?
-            .poll_replies()
-            .map_err(|error| error.to_string())
+        self.with(|service| service.poll_replies().map_err(|error| error.to_string()))
     }
 
     fn verify_audit(&self) -> Result<usize, String> {
-        self.0
-            .lock()
-            .map_err(|_| "state is poisoned".to_owned())?
+        let mut guard = self.0.lock().map_err(|_| "state is poisoned".to_owned())?;
+        let service = guard
+            .as_mut()
+            .ok_or_else(|| "database is locked for recovery".to_owned())?;
+        service
             .audit_verify()
             .map(|verification| verification.entries)
             .map_err(|error| error.to_string())
@@ -132,7 +144,11 @@ pub(crate) fn with_service<T>(
         code: "E_STATE".into(),
         message: "state is poisoned".into(),
     })?;
-    action(&mut guard).map_err(Into::into)
+    let service = guard.as_mut().ok_or_else(|| CommandError {
+        code: "E_RECOVERY_REQUIRED".into(),
+        message: "the database is locked; recover it with the recovery key".into(),
+    })?;
+    action(service).map_err(Into::into)
 }
 
 pub(crate) fn parse_id<T: FromStr>(raw: &str) -> CmdResult<T>
@@ -152,19 +168,62 @@ struct AppInfo {
     company: Option<String>,
     setup_required: bool,
     role: &'static str,
+    recovery_required: bool,
 }
 
 #[tauri::command]
 fn app_info(state: State<'_, AppState>) -> CmdResult<AppInfo> {
-    with_service(&state, |service| {
-        Ok(AppInfo {
+    let mut guard = state.service.lock().map_err(|_| CommandError {
+        code: "E_STATE".into(),
+        message: "state is poisoned".into(),
+    })?;
+    match guard.as_mut() {
+        Some(service) => Ok(AppInfo {
             name: "HRAgents",
             version: env!("CARGO_PKG_VERSION"),
             company: service.company_name()?,
             setup_required: service.setup_required()?,
             role: "hr_operator",
-        })
-    })
+            recovery_required: false,
+        }),
+        None => Ok(AppInfo {
+            name: "HRAgents",
+            version: env!("CARGO_PKG_VERSION"),
+            company: None,
+            setup_required: false,
+            role: "hr_operator",
+            recovery_required: true,
+        }),
+    }
+}
+
+#[tauri::command]
+fn recover_with_key(
+    state: State<'_, AppState>,
+    key: String,
+    username: String,
+    password: String,
+) -> CmdResult<SessionView> {
+    let mut guard = state.service.lock().map_err(|_| CommandError {
+        code: "E_STATE".into(),
+        message: "state is poisoned".into(),
+    })?;
+    if guard.is_some() {
+        return Err(CommandError {
+            code: "E_ALREADY_OPEN".into(),
+            message: "the database is already open".into(),
+        });
+    }
+    let service = hragents_ipc::recover_encrypted_database(
+        &state.data_dir,
+        &state.db_path,
+        &key,
+        &username,
+        &password,
+    )?;
+    let session = service.current_session()?;
+    *guard = Some(service);
+    Ok(session)
 }
 
 #[tauri::command]
@@ -688,15 +747,30 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("hragents.db");
             // The shell always opens SQLCipher. A legacy plaintext file is
-            // converted in place, and a missing key fails closed instead of
-            // silently creating a new one.
-            let key = hragents_ipc::unlock_encrypted_database(&data_dir, &db_path)
-                .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
-            let service = AppService::open_encrypted(&db_path, &key)
-                .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
-            let service = Arc::new(Mutex::new(service));
+            // converted in place. If the database is encrypted but its key is
+            // missing or wrong, keep the window alive and let the operator
+            // recover with the exported recovery key instead of aborting.
+            let initial = match hragents_ipc::unlock_encrypted_database(&data_dir, &db_path) {
+                Ok(key) => Some(
+                    AppService::open_encrypted(&db_path, &key)
+                        .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?,
+                ),
+                Err(error) => {
+                    let recoverable =
+                        hragents_ipc::database_needs_recovery(&db_path).unwrap_or(false);
+                    if recoverable {
+                        eprintln!("HRAgents recovery required: {error}");
+                        None
+                    } else {
+                        return Err(Box::<dyn std::error::Error>::from(error.to_string()));
+                    }
+                }
+            };
+            let service: ServiceSlot = Arc::new(Mutex::new(initial));
             app.manage(AppState {
                 service: Arc::clone(&service),
+                data_dir: data_dir.clone(),
+                db_path: db_path.clone(),
             });
             // Background jobs: retention sweep, offer-expiry sweep, daily
             // backup, audit verification. Read-only until an operator unlocks;
@@ -721,6 +795,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_info,
+            recover_with_key,
             setup_first_run,
             login,
             logout,

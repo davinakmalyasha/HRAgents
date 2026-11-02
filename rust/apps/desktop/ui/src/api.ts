@@ -132,6 +132,7 @@ const idr = (rupiah: number) => rupiah * 100;
 
 interface MockState {
   setupRequired: boolean;
+  recoveryRequired: boolean;
   company: string;
   session: SessionView | null;
   employees: Employee[];
@@ -228,8 +229,12 @@ function makeAudit(seq: number, action: string, subject: string, title: string):
   };
 }
 
+const forceRecovery =
+  !tauriAvailable && new URLSearchParams(window.location.search).has("recover");
+
 const state: MockState = {
   setupRequired: false,
+  recoveryRequired: forceRecovery,
   company: "Nusantara Labs",
   session: {
     operator_id: "mock-operator",
@@ -727,11 +732,13 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
         company: state.company,
         setup_required: state.setupRequired,
         role: "hr_operator",
+        recovery_required: state.recoveryRequired,
       } satisfies AppInfo as T;
     case "setup_first_run": {
       const input = args.input as { company_name: string; operator_name: string; password: string };
       state.company = input.company_name;
       state.setupRequired = false;
+      state.recoveryRequired = false;
       state.session = {
         operator_id: "mock-operator",
         display_name: input.operator_name,
@@ -743,8 +750,29 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       };
       return sessionView() as T;
     }
+    case "recover_with_key": {
+      const key = String(args.key ?? "").trim();
+      if (!/^[0-9a-f]{64}$/i.test(key)) {
+        throw { code: "E_RECOVERY_KEY", message: "The recovery key must be 64 hexadecimal characters." };
+      }
+      if (!String(args.username ?? "").trim() || !String(args.password ?? "")) {
+        throw { code: "E_UNAUTHENTICATED", message: "Username and password are required." };
+      }
+      state.recoveryRequired = false;
+      state.session = {
+        operator_id: "mock-operator",
+        display_name: "Rina",
+        role: "hr_operator",
+        started_at: now(),
+        last_activity_at: now(),
+        locked: false,
+        reauth_fresh: true,
+      };
+      return sessionView() as T;
+    }
     case "login": {
       if (!(args.password as string)) throw { code: "E_UNAUTHENTICATED", message: "Password required" };
+      state.recoveryRequired = false;
       state.session = {
         operator_id: "mock-operator",
         display_name: "Rina",

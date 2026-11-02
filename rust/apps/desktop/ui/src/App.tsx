@@ -18,6 +18,7 @@ import type { AppInfo, SearchHit, SessionView, TodayView } from "./types";
 import type { Surface } from "./nav";
 import { Login } from "./screens/Login";
 import { Today } from "./screens/Today";
+import { Recovery } from "./screens/Recovery";
 import { Avatar, ErrorBox, Field, Modal } from "./components/ui";
 
 // Landing screens stay in the main bundle; the rest load on first visit.
@@ -139,6 +140,20 @@ export function App() {
 
   if (info.isLoading) {
     return <div className="empty" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>Opening HRAgents…</div>;
+  }
+
+  if (info.data?.recovery_required) {
+    return (
+      <Recovery
+        onRecovered={(recovered) => {
+          queryClient.setQueryData(["session"], recovered);
+          queryClient.setQueryData<AppInfo>(["app-info"], (current) =>
+            current ? { ...current, recovery_required: false } : current,
+          );
+          void queryClient.invalidateQueries({ queryKey: ["today"] });
+        }}
+      />
+    );
   }
 
   if (!session.data) {

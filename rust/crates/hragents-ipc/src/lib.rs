@@ -298,6 +298,40 @@ fn encrypt_legacy_documents(dir: &Path, key: &[u8; 32]) -> AppResult<()> {
     Ok(())
 }
 
+/// True when a database exists and is encrypted. Used by the shell to show the
+/// recovery screen instead of aborting when the key file is missing or wrong.
+#[cfg(feature = "sqlcipher")]
+pub fn database_needs_recovery(db_path: &Path) -> AppResult<bool> {
+    if !db_path.exists() {
+        return Ok(false);
+    }
+    Ok(!hragents_store::keyfile::is_plaintext_sqlite(db_path)?)
+}
+
+/// Open an existing encrypted database with a recovery key, verify the
+/// operator password, rewrap the key for the current OS user, and audit the
+/// recovery. Returns a logged-in service.
+#[cfg(feature = "sqlcipher")]
+pub fn recover_encrypted_database(
+    data_dir: &Path,
+    db_path: &Path,
+    key: &str,
+    username: &str,
+    password: &str,
+) -> AppResult<AppService> {
+    if !hragents_store::keyfile::is_valid_key(key) {
+        return Err(AppError::Setup {
+            code: "E_RECOVERY_KEY",
+            message: "the recovery key must be 64 hexadecimal characters".into(),
+        });
+    }
+    let mut service = AppService::open_encrypted(db_path, key)?;
+    service.login(username, password)?;
+    hragents_store::keyfile::write_key(data_dir, key)?;
+    service.record_recovery_event()?;
+    Ok(service)
+}
+
 impl AppService {
     pub fn open(path: impl AsRef<Path>) -> AppResult<Self> {
         let path = path.as_ref();
@@ -567,6 +601,18 @@ impl AppService {
             "operator",
             &operator_id,
             serde_json::json!({"wrapper": "os-user"}),
+            UtcInstant::now(),
+        )?;
+        Ok(())
+    }
+
+    pub fn record_recovery_event(&mut self) -> AppResult<()> {
+        let operator_id = self.require_active()?.operator_id.to_string();
+        self.append_audit(
+            "security.recovered",
+            "operator",
+            &operator_id,
+            serde_json::json!({"method": "recovery_key", "rewrapped": true}),
             UtcInstant::now(),
         )?;
         Ok(())
@@ -3053,6 +3099,68 @@ mod tests {
         let hits = service.search("Ayu").unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].kind, "employee");
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn recovery_key_reopens_rewraps_and_audits() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("hragents.db");
+        {
+            let mut plain = AppService::open(&db).unwrap();
+            plain
+                .setup_first_run(SetupInput {
+                    company_name: "Nusantara Labs".into(),
+                    operator_name: "Rina".into(),
+                    username: "rina".into(),
+                    password: "correct horse battery staple".into(),
+                })
+                .unwrap();
+        }
+        assert!(
+            !database_needs_recovery(&db).unwrap(),
+            "plaintext is not a recovery case"
+        );
+        let key = unlock_encrypted_database(dir.path(), &db).unwrap();
+        assert!(database_needs_recovery(&db).unwrap());
+        let key_file = dir.path().join("hragents.key");
+        std::fs::remove_file(&key_file).unwrap();
+        assert!(!key_file.exists());
+
+        let mut recovered = recover_encrypted_database(
+            dir.path(),
+            &db,
+            &key,
+            "rina",
+            "correct horse battery staple",
+        )
+        .unwrap();
+        assert_eq!(recovered.current_session().unwrap().display_name, "Rina");
+        assert_eq!(hragents_store::keyfile::read_key(&key_file).unwrap(), key);
+        assert!(
+            recovered
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "security.recovered")
+        );
+
+        std::fs::remove_file(&key_file).unwrap();
+        assert!(
+            recover_encrypted_database(
+                dir.path(),
+                &db,
+                &"0".repeat(64),
+                "rina",
+                "correct horse battery staple",
+            )
+            .is_err()
+        );
+        assert!(!key_file.exists(), "a wrong key must not be persisted");
+        assert!(
+            recover_encrypted_database(dir.path(), &db, "short", "rina", "x").is_err(),
+            "a malformed recovery key must be rejected"
+        );
     }
 
     #[cfg(feature = "sqlcipher")]
