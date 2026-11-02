@@ -42,7 +42,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Audit export (JSON) | **Done (IPC + Tauri + UI)** | `export_audit` in `hragents-ipc`, Settings screen |
 | SQLite schema v1 (47 tables + 5 FTS5) | **Done** | `hragents-store/migrations/0001_init.sql` |
 | Migrations, WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
-| SQLCipher feature + reopen/wrong-key test | **Code done; CI job added; local Windows build blocked** | `hragents-store` feature `sqlcipher` |
+| SQLCipher feature + reopen/wrong-key test | **Done locally and in CI** | `hragents-store` feature `sqlcipher` |
 | Typed application services (no Tauri dependency) | **Done** | `hragents-ipc/src/lib.rs` |
 | CLI demo / verify / backup | **Done** | `hragents-cli/src/main.rs` |
 | Tauri 2.12.5 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
@@ -89,6 +89,9 @@ hragents-cli demo ...
 cargo test -p hragents-ipc --release payroll_1000 -- --ignored --nocapture
   payroll_1000: 1000 lines, elapsed 12.69ms (budget 2s)
 
+cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl Maketext transplant, exact MSYS2_ENV_CONV_EXCL)
+  11 passed, including encrypted_database_reopens_with_the_key_and_rejects_a_wrong_one
+
 cargo test -p hragents-core --test payroll_parity
   bpjs/overtime/THR/absence all match Python to the sen (4 passed)
 
@@ -130,10 +133,14 @@ missing evidence above exists.
    no streaming UI yet. The offline extractor stays the default.
 2. **CV ingestion and document preview** — bytes are hashed and metadata stored, but
    no extractor or viewer yet.
-3. **SQLCipher local verification** — the feature, `open_encrypted`, and the
-   reopen/wrong-key test exist. The Windows GNU build failed in OpenSSL's Perl
-   configure (`Locale::Maketext::Simple` missing); the Ubuntu CI job is the evidence
-   path. A release build must run it before G0 is closed.
+3. **SQLCipher release gate** — the feature, `open_encrypted`, and the
+   reopen/wrong-key test pass locally on Windows GNU and in the Ubuntu CI job.
+   Local recipe (Git-Bash perl is stripped): transplant Strawberry Perl's
+   `Locale::Maketext*`, `ExtUtils/*`, `Pod/*` to /tmp/perllib, export
+   `PERL5LIB=/tmp/perllib` with the EXACT `MSYS2_ENV_CONV_EXCL=PERL5LIB`
+   (a trailing space breaks the token match and re-mangles the path), and put
+   a `make.exe` (mingw32-make copy) on PATH. A release build must still run
+   the sqlcipher suite before G0 is closed.
 4. **Packaged installer, code signing, updater** — `cargo build` works; distribution
    does not exist yet.
 5. **XLSX payroll export, payslips, 1,000-employee benchmark** — engine only.
