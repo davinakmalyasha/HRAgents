@@ -25,6 +25,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("restore") => restore(&args[1..]),
         Some("rewrap") => rewrap(&args[1..]),
         Some("backup-set") => backup_set(&args[1..]),
+        Some("bench") => bench(&args[1..]),
         Some("restore-set") => restore_set(&args[1..]),
         Some("--version") | Some("-V") => {
             println!("hragents {}", env!("CARGO_PKG_VERSION"));
@@ -41,6 +42,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "  hragents-cli restore <backup-path> <db-path> [--force] [--key <key> | --key-file <path>]"
             );
+            println!("  hragents-cli bench <db-path> [employees]");
             println!("  hragents-cli backup-set <db-path> <output.hrbackup> [--key <key>]");
             println!(
                 "  hragents-cli restore-set <archive.hrbackup> <data-dir> [--key <recovery-key>]"
@@ -297,6 +299,120 @@ fn backup(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         _ => store.backup_to(&output)?,
     };
     println!("backup: {size} bytes at {}", output.display());
+    Ok(())
+}
+
+fn bench(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    use std::hint::black_box;
+    use std::time::Instant;
+
+    let db = positional(args, 0)?;
+    let employees: usize = args
+        .iter()
+        .filter(|arg| !arg.starts_with("--"))
+        .nth(1)
+        .unwrap_or(&"1000".to_owned())
+        .parse()?;
+    if db.exists() {
+        std::fs::remove_file(&db)?;
+    }
+    let data_dir = db.parent().unwrap_or_else(|| Path::new("."));
+    let key = hragents_store::keyfile::generate_key()?;
+    hragents_store::keyfile::write_key(data_dir, &key)?;
+    let started = Instant::now();
+    let mut service = AppService::open_encrypted(&db, &key)?;
+    service.setup_first_run(SetupInput {
+        company_name: "Benchmark HR".into(),
+        operator_name: "Bench Operator".into(),
+        username: "bench".into(),
+        password: "correct horse battery staple".into(),
+    })?;
+    for index in 0..employees {
+        service.create_employee(CreateEmployeeInput {
+            employee_no: format!("E-{index:05}"),
+            full_name: format!("Employee {index:05}"),
+            job_title: if index % 3 == 0 {
+                "Engineer".into()
+            } else {
+                "Analyst".into()
+            },
+            org_unit: if index % 2 == 0 {
+                "Product".into()
+            } else {
+                "Operations".into()
+            },
+            hire_date: BusinessDate::parse("2024-01-15")?,
+            email: Some(format!("employee{index}@example.test")),
+            phone: None,
+            ptkp_status: Some("TK/1".into()),
+            dependents: (index % 4) as u8,
+            jkk_risk_class: Some(((index % 5) + 1) as u8),
+            bank_name: None,
+            bank_account: None,
+        })?;
+    }
+    println!(
+        "seeded {employees} employees in {:.0} ms (encrypted)",
+        started.elapsed().as_secs_f64() * 1000.0
+    );
+
+    fn median_ms(mut run: impl FnMut(), iterations: usize) -> f64 {
+        run();
+        let mut samples = Vec::with_capacity(iterations);
+        for _ in 0..iterations {
+            let started = Instant::now();
+            run();
+            samples.push(started.elapsed().as_secs_f64() * 1000.0);
+        }
+        samples.sort_by(|left, right| left.total_cmp(right));
+        samples[samples.len() / 2]
+    }
+
+    println!(
+        "today:       {:.2} ms",
+        median_ms(
+            || {
+                black_box(service.today().unwrap());
+            },
+            7
+        )
+    );
+    println!(
+        "reminders:   {:.2} ms",
+        median_ms(
+            || {
+                black_box(service.reminders().unwrap());
+            },
+            7
+        )
+    );
+    println!(
+        "search:      {:.2} ms",
+        median_ms(
+            || {
+                black_box(service.search("Employee 00500").unwrap());
+            },
+            7
+        )
+    );
+    println!(
+        "employees:   {:.2} ms",
+        median_ms(
+            || {
+                black_box(service.list_employees().unwrap());
+            },
+            7
+        )
+    );
+    println!(
+        "payroll runs:{:.2} ms",
+        median_ms(
+            || {
+                black_box(service.payroll_runs().unwrap());
+            },
+            7
+        )
+    );
     Ok(())
 }
 

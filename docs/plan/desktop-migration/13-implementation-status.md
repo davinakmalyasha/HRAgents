@@ -39,6 +39,8 @@ actually prove, and what is still open. It is updated at every merge.
 | Read-only per-employee payslip | **Done: reconciled line, employer contributions, audited view** | `AppService::payslip`, `PaysScreen` modal |
 | Full payroll parity corpus | **Done: monthly (all components), THR, final wage component, BPJS, overtime, PPh 21, absence, 1,000 lines** | `parity/fixtures/payroll_*.json`, `payroll_parity.rs` |
 | 4-dimension scoring parity | **Done: 11 cases across run counts, weights, ties, sigma flags** | `scoring_dimensions.json`, `python_parity.rs` |
+| Provider replay | **Done: captured 3-run response sequence, no network, CI step** | `hragents-agents/tests/provider_replay.rs` |
+| Release profile (1,000 employees) | **Done: query medians + packaged first paint** | `hragents-cli bench`, 2026-11-03 run |
 | Growth cycles, review forms, goals | **Done across core/store/IPC/UI** | `hragents-core/src/growth.rs` |
 | Offboarding checklist + final-pay gate | **Done across core/store/IPC/UI** | `hragents-core/src/offboarding.rs` |
 | Document requests + vault upload/preview/verify | **Done** | `hragents-core/src/documents.rs`, `screens/Documents.tsx` |
@@ -74,12 +76,13 @@ actually prove, and what is still open. It is updated at every merge.
 ```text
 cargo test --workspace --exclude hragents-desktop
   hragents-agents  16 passed, 1 ignored (live provider)
+  provider_replay   1 passed (recorded, no network)
   hragents-core    67 passed
   payroll_parity    8 passed
   python_parity     6 passed
   hragents-ipc     25 passed, 1 ignored (release benchmark)
   hragents-store   18 passed (includes key-file and document-crypto tests)
-  total           140 passed, 2 ignored
+  total           141 passed, 2 ignored
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
@@ -95,8 +98,8 @@ cargo test -p hragents-ipc --features sqlcipher
   encrypted document read -> encrypted backup -> reopen backup
 
 NSIS (free edition, unsigned, per-user, SQLCipher)
-  HRAgents_0.1.0_x64-setup.exe, 7,552,917 bytes (7.20 MiB)
-  SHA-256 213e357ce8ea4d803b2909059cc26bc649e92e18ff1fe22bfb6f33bd781c4fae
+  HRAgents_0.1.0_x64-setup.exe, 7,553,267 bytes (7.20 MiB)
+  SHA-256 27c03f24f52ddd69b1e6a6c977859266396cadd2afef3b913590a5363192a218
   built binary launches; a second launch exits 0 while the first keeps running
 
 live upgrade of the real local database (not a fixture):
@@ -132,6 +135,22 @@ scoring parity (four dimensions):
   all dimension means, overall, sigma, and inconsistency flags match Python
   this corpus caught a rounding mismatch: Rust rounded dimension means before
   the weighted overall; Python uses unrounded means and rounds once
+
+provider replay:
+  recorded 3-run OpenAI-compatible response sequence (one fenced)
+  four dimensions parsed, evidence deduplicated, sigma > 0, merged score
+  matches the fixture; CI runs it without a key or network
+
+release profile, 1,000 encrypted employees, Windows GNU, 8 logical cores:
+  seed                         913 ms
+  today                        2.58 ms
+  reminders                    2.96 ms
+  search                       0.81 ms
+  list employees               2.49 ms
+  payroll runs                 0.01 ms
+  packaged desktop first paint 1,642 ms (window handle 2,137 ms cold)
+  (first-paint budget is 500 ms; WebView2 cold start dominates, not the DB.
+   The live data directory was restored and still verifies encrypted.)
   packaged app with hragents.key temporarily removed: UI Automation reads
   "Recover this installation", the 64-hex hint, username/password fields, and
   "Recover and sign in"; the DB still verifies encrypted after the key returns
@@ -177,7 +196,7 @@ the same gates; it is a review surface, not a second implementation.
 |---|---|---|
 | **G0** shell + DB + login | Packaged build, encrypted DB, login/lock/unlock/re-auth, audit after restart, no listening port | **Pass on the dev slice.** Shell, per-user install, login/lock/re-auth, audit-after-restart, and no-listening-port are proven. The app opens SQLCipher with a DPAPI-protected per-install key, converts a legacy plaintext DB in place, and stores documents and backups encrypted; a wrong key fails closed. |
 | **G1** employee/onboarding | Employee created, plan completed, audited receipt, parity fixture, Python not invoked | **Pass on the dev slice.** Covered by IPC tests and CLI demo. |
-| **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction (TXT/PDF/DOCX), 4-dimension score/σ parity, evidence, gate, rejection, scheduling, offers, messaging, and candidate-safe feedback pass core/store/IPC/Tauri/UI tests. A live provider key is optional and untested. |
+| **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction (TXT/PDF/DOCX), recorded provider replay, 4-dimension score/σ parity, evidence, gate, rejection, scheduling, offers, messaging, and candidate-safe feedback pass core/store/IPC/Tauri/UI tests. A live provider key is optional and untested. |
 | **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export; payslip | **Pass on the dev slice.** Monthly, THR, BPJS, overtime, PPh 21, and absence cases match the Python oracle to the sen, including a deterministic 1,000-line run. Python does not model severance or leave payout; Rust matches its final wage component and tests the additive extension separately. Tables gate, anomalies, sign-off, immutability, XLSX export, and payslips are covered. |
 | **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval pass core/store/IPC/Tauri/UI tests. |
 | **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started by design.** The migration plan forbids removing Python until the first release cut; the free edition changes distribution, not the parity contract. |
@@ -195,9 +214,9 @@ missing evidence exists.
 
 ## 3. What is deliberately still missing
 
-1. **Provider live key + streaming** — the `rig` adapter, recorded replay fixtures,
-   and the ignored live test exist; no production key is configured and there is
-   no streaming UI. The offline extractor stays the default.
+1. **Provider live key + streaming** — the `rig` adapter and recorded replay are
+   tested; no production key is configured and there is no streaming UI. The
+   offline extractor stays the default.
 2. **Python removal** — deferred to the release cut by the migration plan.
 3. **Import from the existing Postgres product** — not implemented.
 4. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
@@ -208,10 +227,10 @@ missing evidence exists.
 
 ## 4. Next tasks, in order
 
-1. Exercise the provider adapter with a recorded replay in CI; keep the live test ignored.
-2. Profile the packaged build on a 1,000-employee database; check Today/reminders
-   query counts stay constant after the index migration.
-3. Run the pilot entry checklist in `15-pilot.md`.
+1. Reduce packaged first paint: profile WebView2 cold start and defer non-critical
+   shell work; the current 1.64 s is above the 500 ms aspiration.
+2. Run the pilot entry checklist in `15-pilot.md` with a real HR operator.
+3. Decide the live-provider path (key, streaming, cost); offline remains default.
 4. At the release cut: freeze the corpus, remove Python from the runtime, and run G5.
 
 ---

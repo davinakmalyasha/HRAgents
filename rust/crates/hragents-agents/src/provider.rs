@@ -11,6 +11,7 @@ use super::{AgentError, ExtractionResult};
 use hragents_core::hiring::{Dimension, Evidence, RunScores};
 use hragents_core::ids::DocumentId;
 use serde::{Deserialize, Serialize};
+use std::cell::Cell;
 use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -64,6 +65,8 @@ pub trait LlmClient {
 pub struct ReplayLlmClient {
     responses: HashMap<String, String>,
     fallback: Option<String>,
+    sequence: Vec<String>,
+    cursor: Cell<usize>,
 }
 
 impl ReplayLlmClient {
@@ -81,10 +84,22 @@ impl ReplayLlmClient {
         self.fallback = Some(response.to_owned());
         self
     }
+
+    /// Serve responses in order, cycling when the extraction runs out. This is
+    /// how recorded provider variance is replayed without a network.
+    pub fn with_sequence(mut self, responses: impl IntoIterator<Item = String>) -> Self {
+        self.sequence = responses.into_iter().collect();
+        self
+    }
 }
 
 impl LlmClient for ReplayLlmClient {
     fn complete(&self, _system: &str, user: &str) -> Result<String, AgentError> {
+        if !self.sequence.is_empty() {
+            let index = self.cursor.get();
+            self.cursor.set(index + 1);
+            return Ok(self.sequence[index % self.sequence.len()].clone());
+        }
         for (needle, response) in &self.responses {
             if user.contains(needle) {
                 return Ok(response.clone());

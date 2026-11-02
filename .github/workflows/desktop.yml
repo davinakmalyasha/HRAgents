@@ -38,6 +38,8 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
+      - name: Provider replay (recorded, no network)
+        run: cargo test -p hragents-agents --test provider_replay
       - name: Tests and parity fixtures
         run: cargo test --workspace --exclude hragents-desktop
       - name: Tauri shell compiles
