@@ -16,10 +16,11 @@ import type {
   PayrollInput,
   PayrollRun,
   PayrollView,
+  PayslipView,
   RateTable,
   SessionView,
 } from "../types";
-import { ErrorBox, Field, Modal, StatusPill } from "../components/ui";
+import { ErrorBox, Field, Modal, StatusPill, errorMessage } from "../components/ui";
 
 export function Pay({ session }: { session: SessionView }) {
   const queryClient = useQueryClient();
@@ -281,6 +282,7 @@ function RunDetail({
   busy: boolean;
 }) {
   const blocking = run.anomalies.filter((anomaly) => anomaly.severity === "error").length;
+  const [payslipFor, setPayslipFor] = useState<string | null>(null);
   return (
     <>
       <div className="card-pad" style={{ borderBottom: "1px solid var(--line)" }}>
@@ -349,6 +351,7 @@ function RunDetail({
               <th scope="col" className="num">PPh 21</th>
               <th scope="col" className="num">Deductions</th>
               <th scope="col" className="num">Net</th>
+              <th scope="col" className="num">Payslip</th>
             </tr>
           </thead>
           <tbody>
@@ -367,6 +370,15 @@ function RunDetail({
                 <td className="num">{formatIdr(line.pph21)}</td>
                 <td className="num">{formatIdr(line.total_deductions)}</td>
                 <td className="num" style={{ fontWeight: 650 }}>{formatIdr(line.net)}</td>
+                <td className="num">
+                  <button
+                    className="btn ghost sm"
+                    onClick={() => setPayslipFor(line.employee_id)}
+                    aria-label={`View payslip for ${line.employee_name}`}
+                  >
+                    View
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -378,7 +390,146 @@ function RunDetail({
           <ShieldCheck size={13} /> No payment execution. Export is a review packet for payroll/finance.
         </span>
       </div>
+
+      {payslipFor ? (
+        <PayslipModal
+          runId={run.id}
+          employeeId={payslipFor}
+          onClose={() => setPayslipFor(null)}
+        />
+      ) : null}
     </>
+  );
+}
+
+function PayslipModal({
+  runId,
+  employeeId,
+  onClose,
+}: {
+  runId: string;
+  employeeId: string;
+  onClose: () => void;
+}) {
+  const payslip = useQuery({
+    queryKey: ["payslip", runId, employeeId],
+    queryFn: () => command<PayslipView>("payslip", { run_id: runId, employee_id: employeeId }),
+  });
+  const data = payslip.data;
+  return (
+    <Modal
+      title="Payslip"
+      subtitle={data ? `${data.kind} · ${data.period.slice(0, 7)} · read-only` : "Loading payroll line…"}
+      onClose={onClose}
+      wide
+    >
+      {payslip.isLoading ? <div className="empty">Loading payslip…</div> : null}
+      {payslip.isError ? <ErrorBox>{errorMessage(payslip.error)}</ErrorBox> : null}
+      {data ? (
+        <div className="grid" style={{ gap: 16 }}>
+          <div className="row" style={{ alignItems: "flex-start", gap: 12 }}>
+            <div>
+              <div className="small faint">{data.company ?? "Company"}</div>
+              <div style={{ fontSize: 19, fontWeight: 650, letterSpacing: "-0.02em" }}>
+                {data.employee_name}
+              </div>
+              <div className="small muted">
+                {[data.employee_no, data.job_title].filter(Boolean).join(" · ") || "Employee"}
+              </div>
+            </div>
+            <div style={{ marginLeft: "auto", textAlign: "right" }}>
+              <StatusPill
+                tone={data.status === "approved" ? "ok" : data.status === "computed" ? "info" : "neutral"}
+                label={data.status}
+              />
+              <div className="small faint" style={{ marginTop: 4 }}>
+                {data.kind} · {data.period.slice(0, 7)}
+              </div>
+            </div>
+          </div>
+
+          <PayslipSection title="Earnings" items={data.earnings} total={data.gross} totalLabel="Gross pay" />
+          <PayslipSection
+            title="Employee deductions"
+            items={data.deductions}
+            total={data.total_deductions}
+            totalLabel="Total deductions"
+          />
+
+          <div className="row" style={{ borderTop: "1px solid var(--line)", paddingTop: 12, justifyContent: "space-between" }}>
+            <div style={{ fontWeight: 650 }}>Take-home pay</div>
+            <div style={{ fontWeight: 700, fontSize: 18 }}>{formatIdr(data.net)}</div>
+          </div>
+
+          <div>
+            <div className="small faint" style={{ marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 10.5 }}>
+              Employer contributions (not deducted)
+            </div>
+            {data.employer_contributions.length === 0 ? (
+              <div className="small muted">No employer contributions on this line.</div>
+            ) : (
+              data.employer_contributions.map((item) => (
+                <div className="row small" key={item.label} style={{ justifyContent: "space-between", padding: "3px 0" }}>
+                  <span className="muted">{item.label}</span>
+                  <span className="mono">{formatIdr(item.amount)}</span>
+                </div>
+              ))
+            )}
+            <div className="row small" style={{ justifyContent: "space-between", borderTop: "1px solid var(--line)", marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
+              <span>Employer cost</span>
+              <span className="mono">{formatIdr(data.employer_cost)}</span>
+            </div>
+          </div>
+
+          {data.notes.length > 0 ? (
+            <div>
+              <div className="small faint" style={{ marginBottom: 4 }}>Notes</div>
+              {data.notes.map((note) => (
+                <div className="small muted" key={note}>· {note}</div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="small faint">
+            Reconciled from the stored payroll line. Read-only; this app never executes a payment.
+          </div>
+        </div>
+      ) : null}
+    </Modal>
+  );
+}
+
+function PayslipSection({
+  title,
+  items,
+  total,
+  totalLabel,
+}: {
+  title: string;
+  items: { label: string; amount: number }[];
+  total: number;
+  totalLabel: string;
+}) {
+  return (
+    <div>
+      <div className="small faint" style={{ marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 10.5 }}>
+        {title}
+      </div>
+      {items.length === 0 ? (
+        <div className="small muted">None on this line.</div>
+      ) : (
+        items.map((item) => (
+          <div className="row small" key={item.label} style={{ justifyContent: "space-between", padding: "3px 0" }}>
+            <span className="muted">{item.label}</span>
+            <span className="mono">{formatIdr(item.amount)}</span>
+          </div>
+        ))
+      )}
+      <div className="row small" style={{ justifyContent: "space-between", borderTop: "1px solid var(--line)", marginTop: 6, paddingTop: 6, fontWeight: 600 }}>
+        <span>{totalLabel}</span>
+        <span className="mono">{formatIdr(total)}</span>
+      </div>
+    </div>
   );
 }
 

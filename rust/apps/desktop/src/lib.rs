@@ -13,7 +13,7 @@ use hragents_core::people::{Document, DocumentOwnerType, Employee, OnboardingPla
 use hragents_core::time::BusinessDate;
 use hragents_ipc::{
     AppError, AppService, CreateEmployeeInput, EvaluationView, ImportCandidateInput, LeaveView,
-    PayrollView, RecordLeaveInput, SearchHit, SessionView, SetupInput, TodayView,
+    PayrollView, PayslipView, RecordLeaveInput, SearchHit, SessionView, SetupInput, TodayView,
 };
 use serde::Serialize;
 use std::path::PathBuf;
@@ -584,6 +584,17 @@ fn payroll_run(state: State<'_, AppState>, run_id: String) -> CmdResult<PayrollR
 }
 
 #[tauri::command]
+fn payslip(
+    state: State<'_, AppState>,
+    run_id: String,
+    employee_id: String,
+) -> CmdResult<PayslipView> {
+    let run_id: PayrollRunId = parse_id(&run_id)?;
+    let employee_id: EmployeeId = parse_id(&employee_id)?;
+    with_service(&state, |service| service.payslip(run_id, employee_id))
+}
+
+#[tauri::command]
 fn reminders(state: State<'_, AppState>) -> CmdResult<Vec<hragents_core::reminders::Reminder>> {
     with_service(&state, |service| service.reminders())
 }
@@ -904,6 +915,7 @@ pub fn run() {
             export_payroll,
             payroll_runs,
             payroll_run,
+            payslip,
             list_approvals,
             reminders,
             outbox_pending,

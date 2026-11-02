@@ -178,6 +178,32 @@ pub struct PayrollView {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayslipItem {
+    pub label: String,
+    pub amount: Money,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PayslipView {
+    pub run_id: PayrollRunId,
+    pub kind: PayrollKind,
+    pub period: BusinessDate,
+    pub status: hragents_core::payroll::RunStatus,
+    pub company: Option<String>,
+    pub employee_name: String,
+    pub employee_no: Option<String>,
+    pub job_title: Option<String>,
+    pub earnings: Vec<PayslipItem>,
+    pub deductions: Vec<PayslipItem>,
+    pub employer_contributions: Vec<PayslipItem>,
+    pub gross: Money,
+    pub total_deductions: Money,
+    pub net: Money,
+    pub employer_cost: Money,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodayView {
     pub approvals: Vec<ApprovalRequest>,
     pub open_onboarding: Vec<String>,
@@ -1478,6 +1504,90 @@ impl AppService {
         Ok(self.store.payroll_run(id)?)
     }
 
+    /// Read-only payslip for one employee on one run. Reconciled through
+    /// `PayrollLine::check_invariants`; viewing is audited without amounts.
+    pub fn payslip(
+        &mut self,
+        run_id: PayrollRunId,
+        employee_id: EmployeeId,
+    ) -> AppResult<PayslipView> {
+        self.session.as_ref().ok_or(AppError::Unauthenticated)?;
+        let run = self.store.payroll_run(run_id)?;
+        let line = run
+            .lines
+            .iter()
+            .find(|line| line.employee_id == employee_id)
+            .ok_or_else(|| {
+                AppError::Domain(DomainError::validation(
+                    "E_PAYSLIP_NOT_FOUND",
+                    "that employee has no line in this payroll run",
+                ))
+            })?;
+        line.check_invariants()?;
+        let employee = match self.store.employee(employee_id) {
+            Ok(employee) => Some(employee),
+            Err(StoreError::NotFound { .. }) => None,
+            Err(error) => return Err(error.into()),
+        };
+        let item = |label: &str, amount: Money| PayslipItem {
+            label: label.to_owned(),
+            amount,
+        };
+        let mut earnings = vec![
+            item("Base salary", line.base_salary),
+            item("Allowances", line.allowances),
+            item("Overtime", line.overtime_pay),
+            item("Bonus", line.bonus),
+            item("Severance", line.severance_pay),
+            item("Leave payout", line.leave_payout),
+        ];
+        earnings.retain(|item| !item.amount.is_zero());
+        let mut deductions = vec![
+            item("BPJS Kesehatan", line.bpjs_kesehatan_employee),
+            item("BPJS JHT", line.bpjs_jht_employee),
+            item("BPJS JP", line.bpjs_jp_employee),
+            item("PPh 21", line.pph21),
+            item("Other deductions", line.other_deductions),
+        ];
+        deductions.retain(|item| !item.amount.is_zero());
+        let mut employer_contributions = vec![
+            item("BPJS Kesehatan", line.bpjs_kesehatan_employer),
+            item("BPJS JHT", line.bpjs_jht_employer),
+            item("BPJS JP", line.bpjs_jp_employer),
+            item("BPJS JKK", line.bpjs_jkk_employer),
+            item("BPJS JKM", line.bpjs_jkm_employer),
+        ];
+        employer_contributions.retain(|item| !item.amount.is_zero());
+        self.require_active()?;
+        self.append_audit(
+            "payslip.viewed",
+            "payroll_run",
+            &run.id.to_string(),
+            serde_json::json!({"employee_id": employee_id.to_string()}),
+            UtcInstant::now(),
+        )?;
+        Ok(PayslipView {
+            run_id: run.id,
+            kind: run.kind,
+            period: run.period,
+            status: run.status,
+            company: self.store.company_name()?,
+            employee_name: line.employee_name.clone(),
+            employee_no: employee
+                .as_ref()
+                .map(|employee| employee.employee_no.clone()),
+            job_title: employee.as_ref().map(|employee| employee.job_title.clone()),
+            earnings,
+            deductions,
+            employer_contributions,
+            gross: line.gross,
+            total_deductions: line.total_deductions,
+            net: line.net,
+            employer_cost: line.employer_cost,
+            notes: line.notes.clone(),
+        })
+    }
+
     /// Write the review packet an HR operator hands to payroll/finance. This is
     /// an export, never a payment instruction: no bank file, no transfer, no
     /// gateway. Amounts are written as numeric rupiah with two decimals so a
@@ -2452,6 +2562,64 @@ mod tests {
         let decided = service.decide_leave(view.request.id, true, "").unwrap();
         assert_eq!(decided.balance.used_x2, 4);
         assert_eq!(decided.balance.pending_x2, 0);
+    }
+
+    #[test]
+    fn payslip_reconciles_line_and_rejects_unknown_employee() {
+        let mut service = service();
+        let employee = service.create_employee(employee_input()).unwrap();
+        service
+            .seed_demo_rate_tables(BusinessDate::parse("2026-01-01").unwrap())
+            .unwrap();
+        let mut input = PayrollInput::new(
+            employee.id,
+            employee.full_name.clone(),
+            Money::from_rupiah(10_000_000).unwrap(),
+        );
+        input.fixed_allowances = Money::from_rupiah(2_000_000).unwrap();
+        input.service_months = 30;
+        let view = service
+            .compute_payroll(
+                PayrollKind::Monthly,
+                BusinessDate::parse("2026-11-01").unwrap(),
+                vec![input],
+            )
+            .unwrap();
+        let payslip = service.payslip(view.run.id, employee.id).unwrap();
+        assert_eq!(payslip.company.as_deref(), Some("Nusantara Labs"));
+        assert_eq!(payslip.employee_no.as_deref(), Some("E-001"));
+        assert_eq!(payslip.job_title.as_deref(), Some("Engineer"));
+        assert_eq!(payslip.net, view.run.lines[0].net);
+        assert_eq!(
+            Money::sum(payslip.earnings.iter().map(|item| item.amount)).unwrap(),
+            payslip.gross
+        );
+        assert_eq!(
+            Money::sum(payslip.deductions.iter().map(|item| item.amount)).unwrap(),
+            payslip.total_deductions
+        );
+        assert_eq!(
+            Money::sum(
+                payslip
+                    .employer_contributions
+                    .iter()
+                    .map(|item| item.amount)
+            )
+            .unwrap(),
+            payslip.employer_cost
+        );
+        assert_eq!(
+            payslip.gross.checked_sub(payslip.total_deductions).unwrap(),
+            payslip.net
+        );
+        assert!(
+            service
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "payslip.viewed")
+        );
+        assert!(service.payslip(view.run.id, EmployeeId::new()).is_err());
     }
 
     #[test]

@@ -2027,6 +2027,56 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       ];
       return hits as T;
     }
+    case "payslip": {
+      requireSession();
+      const run = state.payroll.find((item) => item.id === String(args.run_id));
+      const line = run?.lines.find((item) => item.employee_id === String(args.employee_id));
+      if (!run || !line) {
+        throw { code: "E_PAYSLIP_NOT_FOUND", message: "Payslip line not found" };
+      }
+      const employee = state.employees.find((item) => item.id === line.employee_id);
+      const items = (entries: [string, number][]) =>
+        entries
+          .filter(([, amount]) => amount !== 0)
+          .map(([label, amount]) => ({ label, amount }));
+      return {
+        run_id: run.id,
+        kind: run.kind,
+        period: run.period,
+        status: run.status,
+        company: state.company,
+        employee_name: line.employee_name,
+        employee_no: employee?.employee_no ?? null,
+        job_title: employee?.job_title ?? null,
+        earnings: items([
+          ["Base salary", line.base_salary],
+          ["Allowances", line.allowances],
+          ["Overtime", line.overtime_pay],
+          ["Bonus", line.bonus],
+          ["Severance", line.severance_pay],
+          ["Leave payout", line.leave_payout],
+        ]),
+        deductions: items([
+          ["BPJS Kesehatan", line.bpjs_kesehatan_employee],
+          ["BPJS JHT", line.bpjs_jht_employee],
+          ["BPJS JP", line.bpjs_jp_employee],
+          ["PPh 21", line.pph21],
+          ["Other deductions", line.other_deductions],
+        ]),
+        employer_contributions: items([
+          ["BPJS Kesehatan", line.bpjs_kesehatan_employer],
+          ["BPJS JHT", line.bpjs_jht_employer],
+          ["BPJS JP", line.bpjs_jp_employer],
+          ["BPJS JKK", line.bpjs_jkk_employer],
+          ["BPJS JKM", line.bpjs_jkm_employer],
+        ]),
+        gross: line.gross,
+        total_deductions: line.total_deductions,
+        net: line.net,
+        employer_cost: line.employer_cost,
+        notes: line.notes,
+      } as T;
+    }
     case "backup":
       requireSession();
       return 622592 as T;

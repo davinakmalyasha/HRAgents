@@ -322,6 +322,30 @@ export interface PayrollTotals {
   pph21: Money;
 }
 
+export interface PayslipItem {
+  label: string;
+  amount: Money;
+}
+
+export interface PayslipView {
+  run_id: string;
+  kind: "monthly" | "thr" | "final" | "adjustment";
+  period: string;
+  status: "draft" | "computed" | "approved" | "cancelled" | "superseded";
+  company: string | null;
+  employee_name: string;
+  employee_no: string | null;
+  job_title: string | null;
+  earnings: PayslipItem[];
+  deductions: PayslipItem[];
+  employer_contributions: PayslipItem[];
+  gross: Money;
+  total_deductions: Money;
+  net: Money;
+  employer_cost: Money;
+  notes: string[];
+}
+
 export interface PayrollRun {
   id: string;
   kind: "monthly" | "thr" | "final" | "adjustment";

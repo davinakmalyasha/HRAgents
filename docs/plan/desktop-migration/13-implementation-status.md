@@ -36,6 +36,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Pilot plan + restore-drill runbook | **Done** | `15-pilot.md`, `16-restore-drill.md` |
 | Parity corpus freeze | **Done** | `parity/FROZEN.md` |
 | Payroll review packet (XLSX) | **Done** | `hragents-ipc/src/lib.rs` export |
+| Read-only per-employee payslip | **Done: reconciled line, employer contributions, audited view** | `AppService::payslip`, `PaysScreen` modal |
 | Growth cycles, review forms, goals | **Done across core/store/IPC/UI** | `hragents-core/src/growth.rs` |
 | Offboarding checklist + final-pay gate | **Done across core/store/IPC/UI** | `hragents-core/src/offboarding.rs` |
 | Document requests + vault upload/preview/verify | **Done** | `hragents-core/src/documents.rs`, `screens/Documents.tsx` |
@@ -59,7 +60,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Tauri 2.12 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
 | Single-instance guard | **Done** | `tauri-plugin-single-instance` focuses the running window |
 | Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
-| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.20 MiB with SQLCipher + recovery/rotation UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.20 MiB with SQLCipher + payslip UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
 | Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
 | Five-surface React UI + login/lock | **Done; screens code-split** | `rust/apps/desktop/ui` |
 | UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
@@ -74,9 +75,9 @@ cargo test --workspace --exclude hragents-desktop
   hragents-core    67 passed
   payroll_parity    4 passed
   python_parity     5 passed
-  hragents-ipc     24 passed, 1 ignored (release benchmark)
+  hragents-ipc     25 passed, 1 ignored (release benchmark)
   hragents-store   18 passed (includes key-file and document-crypto tests)
-  total           134 passed, 2 ignored
+  total           135 passed, 2 ignored
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
@@ -87,13 +88,13 @@ cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl
   full rotation, and both crash-resume scenarios
 
 cargo test -p hragents-ipc --features sqlcipher
-  27 passed, 1 ignored; the encryption/recovery tests cover:
+  28 passed, 1 ignored; the encryption/recovery tests cover:
   plaintext DB + document -> key file -> encrypted reopen -> login ->
   encrypted document read -> encrypted backup -> reopen backup
 
 NSIS (free edition, unsigned, per-user, SQLCipher)
-  HRAgents_0.1.0_x64-setup.exe, 7,548,314 bytes (7.20 MiB)
-  SHA-256 c22e1541424a6f675ddbbe82e8c4f93f77fe7fc0170ac1fe8ca97d0d6139bb93
+  HRAgents_0.1.0_x64-setup.exe, 7,554,372 bytes (7.20 MiB)
+  SHA-256 c6f5aaa3491539b29a81cb59239129cd1aae1716a8b61c60a5fe21fe4451188e
   built binary launches; a second launch exits 0 while the first keeps running
 
 live upgrade of the real local database (not a fixture):
@@ -111,6 +112,8 @@ recovery and full-set CLI drill:
   key rotation: old key fails, new key opens, document re-encrypted, audited
   interrupted rotation: DB rekeyed + documents old + key old -> resume finishes;
   corrupted rekey -> pre-rotation backup restored and rekeyed
+  payslip: earnings/deductions/employer shares reconcile to the stored line;
+  unknown employee rejected; payslip.viewed audited
   packaged app with hragents.key temporarily removed: UI Automation reads
   "Recover this installation", the 64-hex hint, username/password fields, and
   "Recover and sign in"; the DB still verifies encrypted after the key returns
@@ -135,7 +138,7 @@ cargo run -p hragents-cli -- verify <copy of a real v1 database>
                                 offboarding_plans.final_pay_run_id
 
 UI build (initial bundle, five screens lazy-loaded):
-  index  330.44 kB / 99.26 kB gzip
+  index  331.60 kB / 99.59 kB gzip
   Hire    35.34 kB, People 27.57 kB, Pay 14.57 kB, Settings 13.24 kB, Ask 7.09 kB
   (before split: single 436.50 kB / 119.89 kB gzip initial)
 
@@ -157,7 +160,7 @@ the same gates; it is a review surface, not a second implementation.
 | **G0** shell + DB + login | Packaged build, encrypted DB, login/lock/unlock/re-auth, audit after restart, no listening port | **Pass on the dev slice.** Shell, per-user install, login/lock/re-auth, audit-after-restart, and no-listening-port are proven. The app opens SQLCipher with a DPAPI-protected per-install key, converts a legacy plaintext DB in place, and stores documents and backups encrypted; a wrong key fails closed. |
 | **G1** employee/onboarding | Employee created, plan completed, audited receipt, parity fixture, Python not invoked | **Pass on the dev slice.** Covered by IPC tests and CLI demo. |
 | **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction (TXT/PDF/DOCX), score, σ, evidence, gate, rejection, scheduling, offers, messaging, and candidate-safe feedback pass core/store/IPC/Tauri/UI tests. A live provider key is optional and untested. |
-| **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export | **Partial.** Engine, tables gate, anomalies, sign-off, immutability, 1,000-line benchmark, and XLSX export exist. Full BPJS/THR/final parity corpus and a payslip view are still missing. |
+| **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export; payslip | **Partial.** Engine, tables gate, anomalies, sign-off, immutability, 1,000-line benchmark, XLSX export, and read-only payslips exist. The full BPJS/THR/final parity corpus is still missing. |
 | **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval pass core/store/IPC/Tauri/UI tests. |
 | **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started by design.** The migration plan forbids removing Python until the first release cut; the free edition changes distribution, not the parity contract. |
 | **G6** installable free build + recovery | Per-user installer, backup/restore drill, rollback, no paid dependency | **Pass for the free edition.** NSIS installs per-user without admin, data survives uninstall, backup/restore drill is green, audit exports, and nothing requires a certificate, paid account, hosted update server, or telemetry. Commercial signing/notarization is a future paid-distribution decision, not a gate. Pilot remains a human step. |
@@ -180,19 +183,17 @@ remain open until the missing evidence exists.
 2. **Parity breadth** — the merge and population σ are parity-tested; the
    4-dimension rubric extraction itself is not. BPJS/THR/final payroll need a
    Python-generated corpus before the sen-level claim covers them.
-3. **Payslip view** — payroll exports a review packet; there is no per-employee
-   payslip screen yet.
-4. **Python removal** — deferred to the release cut by the migration plan.
-5. **Import from the existing Postgres product** — not implemented.
-6. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
+3. **Python removal** — deferred to the release cut by the migration plan.
+4. **Import from the existing Postgres product** — not implemented.
+5. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
    signed auto-update feed are out of scope for this free edition.
-7. **Pilot** — needs real companies and a named human reviewer.
+6. **Pilot** — needs real companies and a named human reviewer.
 
 ---
 
 ## 4. Next tasks, in order
 
-1. Generate the full BPJS/THR/final payroll parity corpus and add a payslip view.
+1. Generate the full BPJS/THR/final payroll parity corpus.
 2. Add extraction-level scoring parity (4 dimensions) against the Python oracle.
 3. Exercise the provider adapter with a recorded replay in CI; keep the live test ignored.
 4. Profile the packaged build on a 1,000-employee database; check Today/reminders
