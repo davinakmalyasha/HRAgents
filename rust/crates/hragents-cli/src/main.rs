@@ -314,7 +314,7 @@ fn bench(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(&"1000".to_owned())
         .parse()?;
     if db.exists() {
-        std::fs::remove_file(&db)?;
+        return Err("bench refuses an existing database; choose a new path".into());
     }
     let data_dir = db.parent().unwrap_or_else(|| Path::new("."));
     let key = hragents_store::keyfile::generate_key()?;
