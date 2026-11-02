@@ -551,3 +551,79 @@ export interface FeedbackReport {
   growth_areas: string[];
   created_at: string;
 }
+
+export type RetentionAction = "purge" | "anonymize" | "archive";
+
+export interface RetentionPolicy {
+  id: string;
+  record_type: string;
+  retention_months: number;
+  action: RetentionAction;
+  legal_basis: string;
+  active: boolean;
+}
+
+export interface RetentionHold {
+  id: string;
+  subject_type: "candidate" | "employee";
+  subject_id: string;
+  reason: string;
+  until: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface RetentionDueItem {
+  record_type: string;
+  subject_type: string;
+  subject_id: string;
+  subject_name: string;
+  record_created: string;
+  due_on: string;
+  action: string;
+  blocked_by_hold: boolean;
+}
+
+export type ErasureStatus = "pending" | "approved" | "rejected" | "completed" | "cancelled";
+
+export interface ErasureRequest {
+  id: string;
+  subject_type: "candidate" | "employee";
+  subject_id: string;
+  reason: string;
+  status: ErasureStatus;
+  requested_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  executed_at: string | null;
+  retained: string[];
+}
+
+export type BreachSeverity = "low" | "medium" | "high" | "critical";
+export type BreachStatus = "open" | "contained" | "notified" | "closed";
+
+export interface BreachIncident {
+  id: string;
+  title: string;
+  description: string;
+  severity: BreachSeverity;
+  status: BreachStatus;
+  discovered_at: string;
+  contained_at: string | null;
+  notified_at: string | null;
+  steps: string[];
+  owner: string;
+}
+
+export interface ConsentRecord {
+  id: string;
+  subject_type: "candidate" | "employee";
+  subject_id: string;
+  purpose: string;
+  state: "pending" | "granted" | "withdrawn" | "expired";
+  source: string;
+  granted_at: string | null;
+  withdrawn_at: string | null;
+  expires_on: string | null;
+  note: string | null;
+}

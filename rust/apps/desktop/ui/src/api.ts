@@ -27,8 +27,14 @@ import type {
   ReviewAssignment,
   ReviewCycle,
   Goal,
+  BreachIncident,
+  ConsentRecord,
   DocumentRequest,
+  ErasureRequest,
   PayrollInput,
+  RetentionDueItem,
+  RetentionHold,
+  RetentionPolicy,
   PayrollRun,
   PayrollView,
   SearchHit,
@@ -135,6 +141,10 @@ interface MockState {
   offers: Offer[];
   messages: CandidateMessage[];
   feedback: FeedbackReport[];
+  retentionPolicies: RetentionPolicy[];
+  retentionHolds: RetentionHold[];
+  erasureRequests: ErasureRequest[];
+  breaches: BreachIncident[];
 }
 
 const ayuId = uuid();
@@ -450,6 +460,26 @@ const state: MockState = {
   offers: [],
   messages: [],
   feedback: [],
+  retentionPolicies: [
+    { id: "retention-candidate", record_type: "candidate", retention_months: 24, action: "purge", legal_basis: "consent", active: true },
+    { id: "retention-payroll_run", record_type: "payroll_run", retention_months: 120, action: "archive", legal_basis: "statutory", active: true },
+  ],
+  retentionHolds: [],
+  erasureRequests: [],
+  breaches: [
+    {
+      id: "breach-1",
+      title: "Lost laptop",
+      description: "HR laptop left in a taxi; disk is encrypted.",
+      severity: "medium",
+      status: "open",
+      discovered_at: now(),
+      contained_at: null,
+      notified_at: null,
+      steps: [],
+      owner: "mock-operator",
+    },
+  ],
   documentRequests: [
     {
       id: "docreq-1",
@@ -1413,6 +1443,211 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       requireSession();
       return (state.feedback.find((item) => item.application_id === String(args.application_id)) ??
         null) as T;
+
+    case "seed_retention_policies":
+      requireSession();
+      return [...state.retentionPolicies] as T;
+    case "list_retention_policies":
+      requireSession();
+      return [...state.retentionPolicies] as T;
+    case "create_retention_hold": {
+      requireSession();
+      const hold: RetentionHold = {
+        id: uuid(),
+        subject_type: String(args.subject_type) as RetentionHold["subject_type"],
+        subject_id: String(args.subject_id),
+        reason: String(args.reason),
+        until: (args.until as string | null) ?? null,
+        created_by: "mock-operator",
+        created_at: now(),
+      };
+      state.retentionHolds.unshift(hold);
+      return hold as T;
+    }
+    case "release_retention_hold":
+      requireSession();
+      state.retentionHolds = state.retentionHolds.filter((item) => item.id !== String(args.hold_id));
+      return undefined as T;
+    case "list_retention_holds":
+      requireSession();
+      return [...state.retentionHolds] as T;
+    case "retention_sweep": {
+      requireSession();
+      const today = String(args.today ?? new Date().toISOString().slice(0, 10));
+      const policy = state.retentionPolicies.find((item) => item.record_type === "candidate");
+      if (!policy) return [] as T;
+      const cutoff = new Date(today);
+      cutoff.setMonth(cutoff.getMonth() - policy.retention_months);
+      const items: RetentionDueItem[] = state.candidates
+        .filter((candidate) => new Date(candidate.created_at) <= cutoff)
+        .map((candidate) => ({
+          record_type: "candidate",
+          subject_type: "candidate",
+          subject_id: candidate.id,
+          subject_name: candidate.full_name,
+          record_created: candidate.created_at.slice(0, 10),
+          due_on: today,
+          action: policy.action,
+          blocked_by_hold: state.retentionHolds.some(
+            (hold) => hold.subject_id === candidate.id,
+          ),
+        }));
+      return items as T;
+    }
+    case "create_erasure_request": {
+      requireSession();
+      const request: ErasureRequest = {
+        id: uuid(),
+        subject_type: String(args.subject_type) as ErasureRequest["subject_type"],
+        subject_id: String(args.subject_id),
+        reason: String(args.reason),
+        status: "pending",
+        requested_at: now(),
+        decided_by: null,
+        decided_at: null,
+        executed_at: null,
+        retained: [],
+      };
+      state.erasureRequests.unshift(request);
+      return request as T;
+    }
+    case "approve_erasure": {
+      requireSession();
+      const request = state.erasureRequests.find((item) => item.id === String(args.request_id));
+      if (!request) throw { code: "E_NOT_FOUND", message: "Erasure request not found" };
+      request.status = "approved";
+      request.decided_by = "mock-operator";
+      request.decided_at = now();
+      return request as T;
+    }
+    case "reject_erasure": {
+      requireSession();
+      const request = state.erasureRequests.find((item) => item.id === String(args.request_id));
+      if (!request) throw { code: "E_NOT_FOUND", message: "Erasure request not found" };
+      request.status = "rejected";
+      request.decided_by = "mock-operator";
+      request.decided_at = now();
+      return request as T;
+    }
+    case "execute_erasure": {
+      requireSession();
+      const request = state.erasureRequests.find((item) => item.id === String(args.request_id));
+      if (!request) throw { code: "E_NOT_FOUND", message: "Erasure request not found" };
+      const blocked = state.retentionHolds.some((hold) => hold.subject_id === request.subject_id);
+      if (blocked) throw { code: "E_RETENTION_HOLD", message: "A retention hold blocks erasure" };
+      request.status = "completed";
+      request.executed_at = now();
+      request.retained = ["audit_log", "payroll_runs"];
+      if (request.subject_type === "candidate") {
+        state.candidates = state.candidates.filter((item) => item.id !== request.subject_id);
+        state.applications = state.applications.filter((item) => item.candidate_id !== request.subject_id);
+      }
+      return request as T;
+    }
+    case "list_erasure_requests":
+      requireSession();
+      return [...state.erasureRequests] as T;
+    case "erasure_blockers":
+      requireSession();
+      return state.retentionHolds.filter((hold) => hold.subject_id === String(args.subject_id)) as T;
+    case "grant_consent": {
+      requireSession();
+      const consent: ConsentRecord = {
+        id: uuid(),
+        subject_type: String(args.subject_type) as ConsentRecord["subject_type"],
+        subject_id: String(args.subject_id),
+        purpose: String(args.purpose),
+        state: "granted",
+        source: String(args.source),
+        granted_at: now(),
+        withdrawn_at: null,
+        expires_on: null,
+        note: null,
+      };
+      const candidate = state.candidates.find((item) => item.id === String(args.subject_id));
+      if (candidate) candidate.consent = "granted";
+      return consent as T;
+    }
+    case "withdraw_consent": {
+      requireSession();
+      const candidate = state.candidates.find((item) => item.id === String(args.subject_id));
+      if (candidate) candidate.consent = "withdrawn";
+      const consent: ConsentRecord = {
+        id: uuid(),
+        subject_type: String(args.subject_type) as ConsentRecord["subject_type"],
+        subject_id: String(args.subject_id),
+        purpose: "recruitment",
+        state: "withdrawn",
+        source: "operator",
+        granted_at: null,
+        withdrawn_at: now(),
+        expires_on: null,
+        note: String(args.reason),
+      };
+      return consent as T;
+    }
+    case "consent_for": {
+      requireSession();
+      const candidate = state.candidates.find((item) => item.id === String(args.subject_id));
+      if (!candidate) return null as T;
+      const consent: ConsentRecord = {
+        id: "consent-mock",
+        subject_type: String(args.subject_type) as ConsentRecord["subject_type"],
+        subject_id: String(args.subject_id),
+        purpose: "recruitment",
+        state: candidate.consent,
+        source: "application form",
+        granted_at: now(),
+        withdrawn_at: null,
+        expires_on: null,
+        note: null,
+      };
+      return consent as T;
+    }
+    case "report_breach": {
+      requireSession();
+      const breach: BreachIncident = {
+        id: uuid(),
+        title: String(args.title),
+        description: String(args.description),
+        severity: args.severity as BreachIncident["severity"],
+        status: "open",
+        discovered_at: now(),
+        contained_at: null,
+        notified_at: null,
+        steps: [],
+        owner: "mock-operator",
+      };
+      state.breaches.unshift(breach);
+      return breach as T;
+    }
+    case "contain_breach": {
+      requireSession();
+      const breach = state.breaches.find((item) => item.id === String(args.breach_id));
+      if (!breach) throw { code: "E_NOT_FOUND", message: "Breach not found" };
+      breach.status = "contained";
+      breach.contained_at = now();
+      breach.steps.push(String(args.step));
+      return breach as T;
+    }
+    case "mark_breach_notified": {
+      requireSession();
+      const breach = state.breaches.find((item) => item.id === String(args.breach_id));
+      if (!breach) throw { code: "E_NOT_FOUND", message: "Breach not found" };
+      breach.status = "notified";
+      breach.notified_at = now();
+      return breach as T;
+    }
+    case "close_breach": {
+      requireSession();
+      const breach = state.breaches.find((item) => item.id === String(args.breach_id));
+      if (!breach) throw { code: "E_NOT_FOUND", message: "Breach not found" };
+      breach.status = "closed";
+      return breach as T;
+    }
+    case "list_breaches":
+      requireSession();
+      return [...state.breaches] as T;
     case "create_leave_type": {
       requireSession();
       const leaveType: LeaveType = {

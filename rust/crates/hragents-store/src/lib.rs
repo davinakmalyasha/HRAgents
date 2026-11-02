@@ -2552,6 +2552,339 @@ impl Store {
     }
 
     // ------------------------------------------------------------------
+    // Compliance: retention, erasure, breach
+    // ------------------------------------------------------------------
+
+    pub fn save_retention_policy(
+        &mut self,
+        policy: &hragents_core::compliance::RetentionPolicy,
+    ) -> StoreResult<()> {
+        use hragents_core::compliance::RetentionAction;
+        let action = match policy.action {
+            RetentionAction::Purge => "purge",
+            RetentionAction::Anonymize => "anonymize",
+            RetentionAction::Archive => "archive",
+        };
+        self.conn.execute(
+            "INSERT INTO retention_policies (id, record_type, retention_months, action, legal_basis, active)
+             VALUES (?1,?2,?3,?4,?5,?6)
+             ON CONFLICT(id) DO UPDATE SET record_type=excluded.record_type,
+                retention_months=excluded.retention_months, action=excluded.action,
+                legal_basis=excluded.legal_basis, active=excluded.active",
+            params![
+                policy.id,
+                policy.record_type,
+                policy.retention_months,
+                action,
+                policy.legal_basis,
+                i64::from(policy.active),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_retention_policies(
+        &self,
+    ) -> StoreResult<Vec<hragents_core::compliance::RetentionPolicy>> {
+        use hragents_core::compliance::{RetentionAction, RetentionPolicy};
+        let mut statement = self.conn.prepare(
+            "SELECT id, record_type, retention_months, action, legal_basis, active
+             FROM retention_policies ORDER BY record_type",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let action = match row.get::<_, String>(3)?.as_str() {
+                "anonymize" => RetentionAction::Anonymize,
+                "archive" => RetentionAction::Archive,
+                _ => RetentionAction::Purge,
+            };
+            Ok(RetentionPolicy {
+                id: row.get(0)?,
+                record_type: row.get(1)?,
+                retention_months: row.get(2)?,
+                action,
+                legal_basis: row.get(4)?,
+                active: row.get::<_, i64>(5)? != 0,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn save_retention_hold(
+        &mut self,
+        hold: &hragents_core::compliance::RetentionHold,
+    ) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO retention_holds (id, subject_type, subject_id, reason, until, created_by, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7)
+             ON CONFLICT(id) DO UPDATE SET reason=excluded.reason, until=excluded.until",
+            params![
+                hold.id,
+                subject_type(hold.subject_type),
+                hold.subject_id,
+                hold.reason,
+                hold.until.map(|date| date.to_string()),
+                hold.created_by.to_string(),
+                hold.created_at.millis(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_retention_holds(
+        &self,
+    ) -> StoreResult<Vec<hragents_core::compliance::RetentionHold>> {
+        let mut statement = self.conn.prepare(
+            "SELECT id, subject_type, subject_id, reason, until, created_by, created_at
+             FROM retention_holds ORDER BY created_at DESC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(hragents_core::compliance::RetentionHold {
+                id: row.get(0)?,
+                subject_type: parse_subject_type(&row.get::<_, String>(1)?)?,
+                subject_id: row.get(2)?,
+                reason: row.get(3)?,
+                until: row
+                    .get::<_, Option<String>>(4)?
+                    .as_deref()
+                    .map(parse_date)
+                    .transpose()?,
+                created_by: parse_id(&row.get::<_, String>(5)?, "operator")?,
+                created_at: instant(row.get(6)?)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn delete_retention_hold(&mut self, id: &str) -> StoreResult<()> {
+        self.conn
+            .execute("DELETE FROM retention_holds WHERE id = ?1", params![id])?;
+        Ok(())
+    }
+
+    pub fn save_erasure_request(
+        &mut self,
+        request: &hragents_core::compliance::ErasureRequest,
+    ) -> StoreResult<()> {
+        use hragents_core::compliance::ErasureStatus;
+        let status = match request.status {
+            ErasureStatus::Pending => "pending",
+            ErasureStatus::Approved => "approved",
+            ErasureStatus::Rejected => "rejected",
+            ErasureStatus::Completed => "completed",
+            ErasureStatus::Cancelled => "cancelled",
+        };
+        self.conn.execute(
+            "INSERT INTO erasure_requests
+             (id, subject_type, subject_id, reason, status, requested_at,
+              decided_by, decided_at, executed_at, retained_json)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
+             ON CONFLICT(id) DO UPDATE SET status=excluded.status,
+                decided_by=excluded.decided_by, decided_at=excluded.decided_at,
+                executed_at=excluded.executed_at, retained_json=excluded.retained_json",
+            params![
+                request.id.to_string(),
+                subject_type(request.subject_type),
+                request.subject_id,
+                request.reason,
+                status,
+                request.requested_at.millis(),
+                request.decided_by.map(|id| id.to_string()),
+                request.decided_at.map(|instant| instant.millis()),
+                request.executed_at.map(|instant| instant.millis()),
+                serde_json::to_string(&request.retained)?,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_erasure_requests(
+        &self,
+    ) -> StoreResult<Vec<hragents_core::compliance::ErasureRequest>> {
+        use hragents_core::compliance::{ErasureRequest, ErasureStatus};
+        let mut statement = self.conn.prepare(
+            "SELECT id, subject_type, subject_id, reason, status, requested_at,
+                    decided_by, decided_at, executed_at, retained_json
+             FROM erasure_requests ORDER BY requested_at DESC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let status = match row.get::<_, String>(4)?.as_str() {
+                "approved" => ErasureStatus::Approved,
+                "rejected" => ErasureStatus::Rejected,
+                "completed" => ErasureStatus::Completed,
+                "cancelled" => ErasureStatus::Cancelled,
+                _ => ErasureStatus::Pending,
+            };
+            Ok(ErasureRequest {
+                id: parse_id(&row.get::<_, String>(0)?, "erasure_request")?,
+                subject_type: parse_subject_type(&row.get::<_, String>(1)?)?,
+                subject_id: row.get(2)?,
+                reason: row.get(3)?,
+                status,
+                requested_at: instant(row.get(5)?)?,
+                decided_by: row
+                    .get::<_, Option<String>>(6)?
+                    .as_deref()
+                    .map(|raw| parse_id::<OperatorId>(raw, "operator"))
+                    .transpose()?,
+                decided_at: row.get::<_, Option<i64>>(7)?.map(instant).transpose()?,
+                executed_at: row.get::<_, Option<i64>>(8)?.map(instant).transpose()?,
+                retained: serde_json::from_str(&row.get::<_, String>(9)?).map_err(json_err)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// Execute an approved erasure: delete/purge the subject's personal data.
+    /// Audit rows and payroll records survive by design. Returns the plan of
+    /// what was purged vs retained.
+    pub fn execute_erasure(
+        &mut self,
+        request: &mut hragents_core::compliance::ErasureRequest,
+        hold: Option<&hragents_core::compliance::RetentionHold>,
+    ) -> StoreResult<hragents_core::compliance::ErasurePlan> {
+        use hragents_core::compliance::SubjectType;
+        let today = BusinessDate::today();
+        let now = UtcInstant::now();
+        let plan = request
+            .execute(OperatorId::new(), hold, today, now)
+            .map_err(StoreError::Domain)?;
+        match request.subject_type {
+            SubjectType::Candidate => {
+                let _: CandidateId = request
+                    .subject_id
+                    .parse()
+                    .map_err(|_| StoreError::Corrupt("invalid candidate id".into()))?;
+                // Purge order respects FKs: documents/links, messages, feedback, then candidate.
+                let documents: Vec<String> = self
+                    .conn
+                    .prepare("SELECT document_id FROM candidate_documents WHERE candidate_id = ?1")?
+                    .query_map(params![request.subject_id], |row| row.get(0))?
+                    .collect::<Result<Vec<_>, _>>()?;
+                self.conn.execute(
+                    "DELETE FROM candidate_documents WHERE candidate_id = ?1",
+                    params![request.subject_id],
+                )?;
+                for document_id in &documents {
+                    self.conn
+                        .execute("DELETE FROM documents WHERE id = ?1", params![document_id])?;
+                }
+                self.conn.execute(
+                    "DELETE FROM candidate_communications WHERE candidate_id = ?1",
+                    params![request.subject_id],
+                )?;
+                self.conn.execute(
+                    "DELETE FROM feedback_reports WHERE application_id IN
+                     (SELECT id FROM applications WHERE candidate_id = ?1)",
+                    params![request.subject_id],
+                )?;
+                self.conn.execute(
+                    "DELETE FROM evaluations WHERE application_id IN
+                     (SELECT id FROM applications WHERE candidate_id = ?1)",
+                    params![request.subject_id],
+                )?;
+                self.conn.execute(
+                    "DELETE FROM applications WHERE candidate_id = ?1",
+                    params![request.subject_id],
+                )?;
+                self.conn.execute(
+                    "DELETE FROM candidates WHERE id = ?1",
+                    params![request.subject_id],
+                )?;
+            }
+            SubjectType::Employee => {
+                // Employees keep their row (payroll history is statutory), but
+                // contact and identity details are cleared.
+                self.conn.execute(
+                    "UPDATE employees SET email = NULL, phone = NULL, preferred_name = NULL,
+                     birth_date = NULL, npwp = NULL, bank_name = NULL, bank_account = NULL,
+                     bpjs_kesehatan_no = NULL, bpjs_ketenagakerjaan_no = NULL,
+                     updated_at = ?1 WHERE id = ?2",
+                    params![now.millis(), request.subject_id],
+                )?;
+            }
+        }
+        self.save_erasure_request(request)?;
+        Ok(plan)
+    }
+
+    pub fn save_breach(
+        &mut self,
+        incident: &hragents_core::compliance::BreachIncident,
+    ) -> StoreResult<()> {
+        use hragents_core::compliance::{BreachSeverity, BreachStatus};
+        let severity = match incident.severity {
+            BreachSeverity::Low => "low",
+            BreachSeverity::Medium => "medium",
+            BreachSeverity::High => "high",
+            BreachSeverity::Critical => "critical",
+        };
+        let status = match incident.status {
+            BreachStatus::Open => "open",
+            BreachStatus::Contained => "contained",
+            BreachStatus::Notified => "notified",
+            BreachStatus::Closed => "closed",
+        };
+        self.conn.execute(
+            "INSERT INTO breach_incidents
+             (id, title, description, severity, status, discovered_at,
+              contained_at, notified_at, steps_json, owner)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
+             ON CONFLICT(id) DO UPDATE SET status=excluded.status,
+                contained_at=excluded.contained_at, notified_at=excluded.notified_at,
+                steps_json=excluded.steps_json",
+            params![
+                incident.id,
+                incident.title,
+                incident.description,
+                severity,
+                status,
+                incident.discovered_at.millis(),
+                incident.contained_at.map(|instant| instant.millis()),
+                incident.notified_at.map(|instant| instant.millis()),
+                serde_json::to_string(&incident.steps)?,
+                incident.owner.to_string(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_breaches(&self) -> StoreResult<Vec<hragents_core::compliance::BreachIncident>> {
+        use hragents_core::compliance::{BreachIncident, BreachSeverity, BreachStatus};
+        let mut statement = self.conn.prepare(
+            "SELECT id, title, description, severity, status, discovered_at,
+                    contained_at, notified_at, steps_json, owner
+             FROM breach_incidents ORDER BY discovered_at DESC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            let severity = match row.get::<_, String>(3)?.as_str() {
+                "medium" => BreachSeverity::Medium,
+                "high" => BreachSeverity::High,
+                "critical" => BreachSeverity::Critical,
+                _ => BreachSeverity::Low,
+            };
+            let status = match row.get::<_, String>(4)?.as_str() {
+                "contained" => BreachStatus::Contained,
+                "notified" => BreachStatus::Notified,
+                "closed" => BreachStatus::Closed,
+                _ => BreachStatus::Open,
+            };
+            Ok(BreachIncident {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                description: row.get(2)?,
+                severity,
+                status,
+                discovered_at: instant(row.get(5)?)?,
+                contained_at: row.get::<_, Option<i64>>(6)?.map(instant).transpose()?,
+                notified_at: row.get::<_, Option<i64>>(7)?.map(instant).transpose()?,
+                steps: serde_json::from_str(&row.get::<_, String>(8)?).map_err(json_err)?,
+                owner: parse_id(&row.get::<_, String>(9)?, "operator")?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    // ------------------------------------------------------------------
     // Backup and integrity
     // ------------------------------------------------------------------
 

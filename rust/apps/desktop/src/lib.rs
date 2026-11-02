@@ -22,6 +22,8 @@ use tauri::{Manager, State};
 
 mod growth_commands;
 use growth_commands::*;
+mod compliance_commands;
+use compliance_commands::*;
 mod hiring_commands;
 use hiring_commands::*;
 
@@ -606,6 +608,26 @@ pub fn run() {
             list_messages,
             generate_feedback,
             feedback_for,
+            seed_retention_policies,
+            list_retention_policies,
+            create_retention_hold,
+            release_retention_hold,
+            list_retention_holds,
+            retention_sweep,
+            create_erasure_request,
+            grant_consent,
+            withdraw_consent,
+            consent_for,
+            approve_erasure,
+            reject_erasure,
+            execute_erasure,
+            list_erasure_requests,
+            erasure_blockers,
+            report_breach,
+            contain_breach,
+            mark_breach_notified,
+            close_breach,
+            list_breaches,
             create_document_request,
             list_document_requests,
             attach_document_request,

@@ -27,8 +27,11 @@ use hragents_core::policy::PolicyCorpus;
 use hragents_core::time::{BusinessDate, UtcInstant};
 use hragents_store::{Store, StoreError};
 
+mod compliance_services;
 mod growth_services;
 mod hiring_services;
+
+pub use compliance_services::RetentionDueItem;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -2226,6 +2229,111 @@ mod tests {
                 .iter()
                 .any(|entry| entry.action == "payroll.exported")
         );
+    }
+
+    #[test]
+    fn compliance_retention_erasure_breach() {
+        use hragents_core::compliance::{BreachSeverity, SubjectType};
+        let mut service = service();
+        let policies = service.seed_retention_policies().unwrap();
+        assert!(policies.len() >= 5);
+
+        // A candidate created today is not yet due.
+        let job = service.create_job("Backend Engineer", "Product").unwrap();
+        let (candidate, _application) = service
+            .import_candidate(ImportCandidateInput {
+                full_name: "Eko Saputra".into(),
+                email: None,
+                phone: None,
+                source: "Referral".into(),
+                headline: None,
+                job_id: job.id,
+                consent: ConsentStatus::Granted,
+                document: None,
+            })
+            .unwrap();
+        let sweep = service.retention_sweep(BusinessDate::today()).unwrap();
+        assert!(
+            sweep
+                .iter()
+                .all(|item| item.subject_id != candidate.id.to_string()),
+            "a fresh candidate must not be due"
+        );
+
+        // Erasure: request -> approve (reauth) -> execute purges the candidate.
+        let request = service
+            .create_erasure_request(
+                SubjectType::Candidate,
+                &candidate.id.to_string(),
+                "candidate exercised their right to erasure",
+            )
+            .unwrap();
+        assert!(service.execute_erasure(request.id).is_err());
+        service.reauth("correct horse battery staple").unwrap();
+        let approved = service.approve_erasure(request.id).unwrap();
+        assert_eq!(format!("{:?}", approved.status), "Approved");
+        service.reauth("correct horse battery staple").unwrap();
+        let completed = service.execute_erasure(request.id).unwrap();
+        assert_eq!(format!("{:?}", completed.status), "Completed");
+        assert!(service.candidate(candidate.id).is_err());
+
+        // A hold blocks execution.
+        let (candidate2, _application2) = service
+            .import_candidate(ImportCandidateInput {
+                full_name: "Fitri Dewi".into(),
+                email: None,
+                phone: None,
+                source: "Referral".into(),
+                headline: None,
+                job_id: job.id,
+                consent: ConsentStatus::Granted,
+                document: None,
+            })
+            .unwrap();
+        service
+            .create_retention_hold(
+                SubjectType::Candidate,
+                &candidate2.id.to_string(),
+                "tax audit",
+                None,
+            )
+            .unwrap();
+        let request2 = service
+            .create_erasure_request(
+                SubjectType::Candidate,
+                &candidate2.id.to_string(),
+                "candidate exercised their right to erasure",
+            )
+            .unwrap();
+        service.reauth("correct horse battery staple").unwrap();
+        service.approve_erasure(request2.id).unwrap();
+        service.reauth("correct horse battery staple").unwrap();
+        assert!(service.execute_erasure(request2.id).is_err());
+        assert_eq!(
+            service
+                .erasure_blockers(&candidate2.id.to_string())
+                .unwrap()
+                .len(),
+            1
+        );
+
+        // Breach: report -> contain -> notify -> close.
+        let breach = service
+            .report_breach(
+                "Lost laptop",
+                "HR laptop left in a taxi; disk is encrypted",
+                BreachSeverity::Medium,
+            )
+            .unwrap();
+        let contained = service
+            .contain_breach(&breach.id, "Remotely locked the device and rotated keys")
+            .unwrap();
+        assert_eq!(format!("{:?}", contained.status), "Contained");
+        let notified = service.mark_breach_notified(&breach.id).unwrap();
+        assert_eq!(format!("{:?}", notified.status), "Notified");
+        let closed = service.close_breach(&breach.id).unwrap();
+        assert_eq!(format!("{:?}", closed.status), "Closed");
+        assert_eq!(service.list_breaches().unwrap().len(), 1);
     }
 
     #[test]

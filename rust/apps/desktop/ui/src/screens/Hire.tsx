@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { command, formatDate, shortRef } from "../api";
 import { DocumentVault } from "./Documents";
+import { ConsentLine } from "./Compliance";
 import { FeedbackSection, MessageSection, OfferSection, ScheduleSection } from "./HireWorkflow";
 import type {
   Application,
@@ -240,7 +241,10 @@ export function Hire({ session }: { session: SessionView }) {
               </div>
               <div className="card-pad detail-grid">
                 <Fact k="Source" v={candidate.source} />
-                <Fact k="Consent" v={candidate.consent} />
+                <div className="fact">
+                  <div className="k">Consent</div>
+                  <div className="v"><ConsentLine candidateId={candidate.id} consent={candidate.consent} /></div>
+                </div>
                 <Fact k="Candidate ref" v={shortRef(candidate.id, "C")} />
                 <Fact k="Documents" v={`${candidate.document_ids.length} attached`} />
               </div>

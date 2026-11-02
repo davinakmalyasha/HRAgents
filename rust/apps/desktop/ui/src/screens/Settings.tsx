@@ -13,10 +13,12 @@ import {
 import { command, formatDateTime, isDesktop } from "../api";
 import type { AuditVerification, OperatorView, RateTable, SessionView } from "../types";
 import { ErrorBox, Field, StatusPill } from "../components/ui";
+import { ComplianceSection } from "./Compliance";
 
 export function Settings({ session }: { session: SessionView }) {
   const [verifyResult, setVerifyResult] = useState<AuditVerification | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [complianceError, setComplianceError] = useState<string | null>(null);
   const [backupPath, setBackupPath] = useState("hragents-backup.db");
   const [exportPath, setExportPath] = useState("audit-export.json");
   const [exportResult, setExportResult] = useState<string | null>(null);
@@ -245,6 +247,15 @@ export function Settings({ session }: { session: SessionView }) {
           </section>
         </aside>
       </div>
+
+      <div className="page-head" style={{ marginTop: 26 }}>
+        <div>
+          <h1 style={{ fontSize: 20 }}>Compliance</h1>
+          <p>Retention, erasure, and breach response. Nothing here sends data anywhere.</p>
+        </div>
+      </div>
+      {complianceError ? <ErrorBox>{complianceError}</ErrorBox> : null}
+      <ComplianceSection onError={setComplianceError} />
     </>
   );
 }
