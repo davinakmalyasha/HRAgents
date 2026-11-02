@@ -25,6 +25,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             args.next().map(PathBuf::from),
             args.next().map(PathBuf::from),
         ),
+        Some("restore") => restore(
+            args.next().map(PathBuf::from),
+            args.next().map(PathBuf::from),
+            args.next().as_deref() == Some("--force"),
+        ),
         Some("--version") | Some("-V") => {
             println!("hragents {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -35,6 +40,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!("  hragents-cli demo [db-path]");
             println!("  hragents-cli verify <db-path>");
             println!("  hragents-cli backup <db-path> <output-path>");
+            println!("  hragents-cli restore <backup-path> <db-path> [--force]");
+            println!("    verify-first; refuse to overwrite a newer live DB without --force;");
+            println!("    snapshot live DB to <db-path>.pre-restore-<epoch> before swap");
             Ok(())
         }
     }
@@ -232,7 +240,78 @@ fn backup(
     let output = output.ok_or("backup requires an output path")?;
     let store = hragents_store::Store::open(&path)?;
     let size = store.backup_to(&output)?;
-    println!("backup: {} bytes at {}", size, output.display());
+    println!("backup: {size} bytes at {}", output.display());
+    Ok(())
+}
+
+/// Restore a verified backup over a live path.
+///
+/// Contract (mirrors 16-restore-drill): verify the backup's integrity and
+/// audit chain first and fail closed; refuse to overwrite a live DB that is
+/// newer than the backup unless `--force`; snapshot the live DB aside before
+/// swapping; copy via temp file + atomic rename; re-open and re-verify.
+fn restore(
+    backup_path: Option<PathBuf>,
+    target: Option<PathBuf>,
+    force: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let backup_path = backup_path.ok_or("restore requires a backup path")?;
+    let target = target.ok_or("restore requires a database path")?;
+    if !backup_path.exists() {
+        return Err(format!("backup not found: {}", backup_path.display()).into());
+    }
+
+    // 1. Verify first, on the backup itself. Fail closed.
+    let backup_store = hragents_store::Store::open(&backup_path)?;
+    if backup_store.integrity_check()? != "ok" {
+        return Err("refusing restore: backup integrity_check failed".into());
+    }
+    let verification = backup_store.verify_audit()?;
+    let backup_entries = verification.entries;
+    drop(backup_store);
+
+    // 2. Refuse to overwrite a newer live DB without --force; snapshot the
+    // live DB aside before touching it in every case.
+    if target.exists() {
+        let live_mtime = std::fs::metadata(&target)?.modified()?;
+        let backup_mtime = std::fs::metadata(&backup_path)?.modified()?;
+        if live_mtime > backup_mtime && !force {
+            return Err(format!(
+                "refusing restore: live DB {} is newer than the backup; re-run with --force",
+                target.display()
+            )
+            .into());
+        }
+        // Snapshot the live DB aside before touching it.
+        let epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs())
+            .unwrap_or(0);
+        let snapshot = target.with_extension(format!("pre-restore-{epoch}"));
+        std::fs::copy(&target, &snapshot)?;
+        println!("live DB snapshotted at {}", snapshot.display());
+    }
+
+    // 3. Copy via temp file + atomic rename, then re-open and re-verify.
+    if let Some(parent) = target.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)?;
+    }
+    let staging = target.with_extension("restore-staging");
+    std::fs::copy(&backup_path, &staging)?;
+    std::fs::rename(&staging, &target)?;
+    let restored = hragents_store::Store::open(&target)?;
+    if restored.integrity_check()? != "ok" {
+        return Err("restore failed: restored DB integrity_check failed".into());
+    }
+    let after = restored.verify_audit()?;
+    if after.entries != backup_entries {
+        return Err("restore failed: audit entry count changed during copy".into());
+    }
+    println!(
+        "restore: {} audit entries verified at {}",
+        after.entries,
+        target.display()
+    );
     Ok(())
 }
 

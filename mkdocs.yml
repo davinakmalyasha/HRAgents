@@ -115,6 +115,9 @@ nav:
       - Risks: plan/desktop-migration/11-risks.md
       - Impact: plan/desktop-migration/12-impact.md
       - Implementation status: plan/desktop-migration/13-implementation-status.md
+      - Release drill: plan/desktop-migration/14-release-drill.md
+      - Pilot plan: plan/desktop-migration/15-pilot.md
+      - Restore drill: plan/desktop-migration/16-restore-drill.md
       - Master build plan: plan/master-build-plan.md
       - Remaining work: plan/remaining-work.md
       - Problem statement: plan/problem-statement.md

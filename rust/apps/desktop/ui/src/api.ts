@@ -31,6 +31,7 @@ import type {
   ConsentRecord,
   DocumentRequest,
   ErasureRequest,
+  Reminder,
   PayrollInput,
   RetentionDueItem,
   RetentionHold,
@@ -308,7 +309,7 @@ const state: MockState = {
       subject_id: payrollId,
       status: "open",
       priority: "urgent",
-      due_on: new Date().toISOString().slice(0, 10),
+      due_on: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
       requested_by: "mock-operator",
       created_at: now(),
       decided_by: null,
@@ -458,7 +459,21 @@ const state: MockState = {
   offboarding: {},
   schedules: [],
   offers: [],
-  messages: [],
+  messages: [
+    {
+      id: "message-queued-1",
+      candidate_id: candidateId,
+      application_id: applicationId,
+      kind: "interview",
+      channel: "email",
+      subject: "Next steps for your application",
+      body: "Hi Dimas Pratama, we would like to invite you to the next step.",
+      status: "queued",
+      direction: "outbound",
+      created_at: now(),
+      sent_at: null,
+    },
+  ],
   feedback: [],
   retentionPolicies: [
     { id: "retention-candidate", record_type: "candidate", retention_months: 24, action: "purge", legal_basis: "consent", active: true },
@@ -1904,6 +1919,32 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       if (!run) throw { code: "E_NOT_FOUND", message: "Payroll run not found" };
       return run as T;
     }
+    case "reminders": {
+      requireSession();
+      const blessed: Reminder[] = [];
+      for (const approval of state.approvals) {
+        if (approval.status === "open" && approval.due_on && approval.due_on < new Date().toISOString().slice(0, 10)) {
+          blessed.push({
+            kind: "approval_overdue",
+            title: `Overdue: ${approval.title}`,
+            detail: approval.summary,
+            due_on: approval.due_on,
+            severity: "urgent",
+            subject_type: "approval",
+            subject_id: approval.id,
+          });
+        }
+      }
+      return blessed as T;
+    }
+    case "outbox_pending":
+      requireSession();
+      return state.messages.filter(
+        (item) => item.status === "queued" && item.direction === "outbound",
+      ) as T;
+    case "poll_replies":
+      requireSession();
+      throw { code: "E_IMAP_NOT_CONFIGURED", message: "inbound mail polling is not configured; record replies manually" };
     case "list_approvals":
       requireSession();
       return (

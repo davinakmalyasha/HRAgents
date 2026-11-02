@@ -2884,6 +2884,72 @@ impl Store {
         Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
+    pub fn list_contracts(&self) -> StoreResult<Vec<Contract>> {
+        let mut statement = self.conn.prepare(
+            "SELECT id, employee_id, kind, start_date, end_date, status, document_id, created_at
+             FROM contracts ORDER BY end_date IS NULL, end_date",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(Contract {
+                id: parse_id(&row.get::<_, String>(0)?, "contract")?,
+                employee_id: parse_id(&row.get::<_, String>(1)?, "employee")?,
+                kind: parse_contract_kind(&row.get::<_, String>(2)?)?,
+                start_date: parse_date(&row.get::<_, String>(3)?)?,
+                end_date: row
+                    .get::<_, Option<String>>(4)?
+                    .as_deref()
+                    .map(parse_date)
+                    .transpose()?,
+                status: parse_contract_status(&row.get::<_, String>(5)?)?,
+                document_id: row
+                    .get::<_, Option<String>>(6)?
+                    .as_deref()
+                    .map(|raw| parse_id::<DocumentId>(raw, "document"))
+                    .transpose()?,
+                created_at: instant(row.get(7)?)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// Documents with an expiry on or before `limit` (pending or verified).
+    /// Used by the retention sweep and expiry reminders.
+    pub fn expiring_documents(&self, limit: BusinessDate) -> StoreResult<Vec<(Document, String)>> {
+        let mut statement = self.conn.prepare(
+            "SELECT id, owner_type, owner_id, filename, mime_type, sha256, size_bytes, status,
+                    expires_on, uploaded_at, verified_at, verified_by, rejection_reason, tags_json
+             FROM documents
+             WHERE expires_on IS NOT NULL AND expires_on <= ?1
+             ORDER BY expires_on",
+        )?;
+        let rows = statement.query_map(params![limit.to_string()], |row| {
+            Ok((
+                Document {
+                    id: parse_id(&row.get::<_, String>(0)?, "document")?,
+                    owner_type: parse_owner_type(&row.get::<_, String>(1)?)?,
+                    owner_id: row.get(2)?,
+                    filename: row.get(3)?,
+                    mime_type: row.get(4)?,
+                    sha256: row.get(5)?,
+                    size_bytes: row.get(6)?,
+                    status: parse_document_status(&row.get::<_, String>(7)?)?,
+                    expires_on: row
+                        .get::<_, Option<String>>(8)?
+                        .as_deref()
+                        .map(parse_date)
+                        .transpose()?,
+                    uploaded_at: instant(row.get(9)?)?,
+                    verified_at: row.get::<_, Option<i64>>(10)?.map(instant).transpose()?,
+                    verified_by: row.get(11)?,
+                    rejection_reason: row.get(12)?,
+                    tags: serde_json::from_str(&row.get::<_, String>(13)?).map_err(json_err)?,
+                },
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
     // ------------------------------------------------------------------
     // Backup and integrity
     // ------------------------------------------------------------------

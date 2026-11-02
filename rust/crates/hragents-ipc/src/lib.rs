@@ -1459,6 +1459,92 @@ impl AppService {
         })
     }
 
+    pub fn reminders(&self) -> AppResult<Vec<hragents_core::reminders::Reminder>> {
+        self.session.as_ref().ok_or(AppError::Unauthenticated)?;
+        let today = BusinessDate::today();
+        let approvals = self.store.list_approvals(true)?;
+        let employees = self.store.list_employees()?;
+        let mut onboarding = Vec::new();
+        for employee in &employees {
+            if let Some(plan) = self.store.onboarding_plan_for(employee.id)? {
+                onboarding.push((employee.full_name.clone(), plan));
+            }
+        }
+        let contracts = self.store.list_contracts()?;
+        let documents = self
+            .store
+            .expiring_documents(today.add_days(30))?
+            .into_iter()
+            .map(|(document, _owner_id)| {
+                let owner = employees
+                    .iter()
+                    .find(|employee| employee.id.to_string() == document.owner_id)
+                    .map(|employee| employee.full_name.clone())
+                    .unwrap_or_else(|| document.owner_id.clone());
+                (
+                    owner,
+                    document.filename,
+                    document.expires_on.unwrap_or(today),
+                )
+            })
+            .collect::<Vec<_>>();
+        let offers = self.store.list_offers(None)?;
+        let mut leave_requests = Vec::new();
+        for request in self.store.list_leave_requests(None)? {
+            let name = employees
+                .iter()
+                .find(|employee| employee.id == request.employee_id)
+                .map(|employee| employee.full_name.clone())
+                .unwrap_or_default();
+            leave_requests.push((request, name));
+        }
+        Ok(hragents_core::reminders::collect(
+            today,
+            UtcInstant::now(),
+            &approvals,
+            &onboarding,
+            &contracts,
+            &documents,
+            &offers,
+            &leave_requests,
+        ))
+    }
+
+    /// Messages queued but not yet sent: no transport is configured in this
+    /// edition, so the sweep reports what waits for manual send instead of
+    /// silently dropping it. A future transport will dispatch from this list.
+    pub fn outbox_pending(&self) -> AppResult<Vec<hragents_core::hiring_comms::CandidateMessage>> {
+        self.session.as_ref().ok_or(AppError::Unauthenticated)?;
+        Ok(self
+            .store
+            .list_messages(None)?
+            .into_iter()
+            .filter(|message| {
+                message.status == hragents_core::hiring_comms::MessageStatus::Queued
+                    && message.direction == hragents_core::hiring_comms::MessageDirection::Outbound
+            })
+            .collect())
+    }
+
+    /// Inbound reply polling. Returns how many replies were recorded, or a
+    /// clear error when IMAP is not configured. Polling needs operator mail
+    /// credentials; until then replies are recorded manually.
+    pub fn poll_replies(&mut self) -> AppResult<usize> {
+        self.require_active()?;
+        let configured: bool = self
+            .store
+            .setting("imap.configured")?
+            .and_then(|value| value.as_bool())
+            .unwrap_or(false);
+        if !configured {
+            return Err(AppError::Domain(DomainError::validation(
+                "E_IMAP_NOT_CONFIGURED",
+                "inbound mail polling is not configured; record replies manually",
+            )));
+        }
+        Ok(0)
+    }
+
     pub fn list_approvals(&self, open_only: bool) -> AppResult<Vec<ApprovalRequest>> {
         self.session.as_ref().ok_or(AppError::Unauthenticated)?;
         Ok(self.store.list_approvals(open_only)?)
@@ -2703,6 +2789,68 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn reminders_surface_overdue_and_outbox_lists_queued() {
+        use hragents_core::approvals::{ApprovalKind, ApprovalRequest};
+        let mut service = service();
+        let employee = service.create_employee(employee_input()).unwrap();
+        let mut approval = ApprovalRequest::new(
+            ApprovalKind::Document,
+            "Verify KTP",
+            "stale",
+            "document",
+            "d1",
+            UtcInstant::now(),
+        );
+        approval.due_on = Some(BusinessDate::parse("2026-10-01").unwrap());
+        service.create_approval(approval).unwrap();
+        let reminders = service.reminders().unwrap();
+        assert!(reminders.iter().any(|item| item.kind == "approval_overdue"));
+
+        let job = service.create_job("Backend Engineer", "Product").unwrap();
+        let (candidate, application) = service
+            .import_candidate(ImportCandidateInput {
+                full_name: "Wulan Sari".into(),
+                email: None,
+                phone: None,
+                source: "Referral".into(),
+                headline: None,
+                job_id: job.id,
+                consent: ConsentStatus::Granted,
+                document: None,
+            })
+            .unwrap();
+        assert!(service.outbox_pending().unwrap().is_empty());
+        let message = service
+            .draft_message(
+                candidate.id,
+                Some(application.id),
+                hragents_core::hiring_comms::MessageKind::Interview,
+                hragents_core::hiring_comms::MessageChannel::Email,
+                Some("Interview".into()),
+                "We would like to invite you to interview next week.",
+            )
+            .unwrap();
+        service.reauth("correct horse battery staple").unwrap();
+        service.queue_message(message.id).unwrap();
+        let pending = service.outbox_pending().unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].id, message.id);
+        let _ = employee;
+    }
+
+    #[test]
+    fn poll_replies_is_explicit_when_unconfigured() {
+        let mut service = service();
+        assert!(matches!(
+            service.poll_replies(),
+            Err(AppError::Domain(DomainError::Validation {
+                code: "E_IMAP_NOT_CONFIGURED",
+                ..
+            }))
+        ));
     }
 
     #[test]

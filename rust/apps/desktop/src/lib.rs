@@ -67,6 +67,32 @@ impl hragents_ipc::scheduler::JobBackend for SharedBackend {
             .map_err(|error| error.to_string())
     }
 
+    fn run_reminders(&mut self) -> Result<usize, String> {
+        self.0
+            .lock()
+            .map_err(|_| "state is poisoned".to_owned())?
+            .reminders()
+            .map(|items| items.len())
+            .map_err(|error| error.to_string())
+    }
+
+    fn run_outbox(&mut self) -> Result<usize, String> {
+        self.0
+            .lock()
+            .map_err(|_| "state is poisoned".to_owned())?
+            .outbox_pending()
+            .map(|items| items.len())
+            .map_err(|error| error.to_string())
+    }
+
+    fn run_inbox_poll(&mut self) -> Result<usize, String> {
+        self.0
+            .lock()
+            .map_err(|_| "state is poisoned".to_owned())?
+            .poll_replies()
+            .map_err(|error| error.to_string())
+    }
+
     fn verify_audit(&self) -> Result<usize, String> {
         self.0
             .lock()
@@ -481,6 +507,23 @@ fn payroll_run(state: State<'_, AppState>, run_id: String) -> CmdResult<PayrollR
 }
 
 #[tauri::command]
+fn reminders(state: State<'_, AppState>) -> CmdResult<Vec<hragents_core::reminders::Reminder>> {
+    with_service(&state, |service| service.reminders())
+}
+
+#[tauri::command]
+fn outbox_pending(
+    state: State<'_, AppState>,
+) -> CmdResult<Vec<hragents_core::hiring_comms::CandidateMessage>> {
+    with_service(&state, |service| service.outbox_pending())
+}
+
+#[tauri::command]
+fn poll_replies(state: State<'_, AppState>) -> CmdResult<usize> {
+    with_service(&state, |service| service.poll_replies())
+}
+
+#[tauri::command]
 fn list_approvals(state: State<'_, AppState>, open_only: bool) -> CmdResult<Vec<ApprovalRequest>> {
     with_service(&state, |service| service.list_approvals(open_only))
 }
@@ -746,6 +789,9 @@ pub fn run() {
             payroll_runs,
             payroll_run,
             list_approvals,
+            reminders,
+            outbox_pending,
+            poll_replies,
             audit_verify,
             audit_recent,
             export_audit,

@@ -1,9 +1,10 @@
 //! In-process background job scheduler for the single-operator desktop.
 //!
-//! There is no external queue: one Tokio task owns three [`tokio::time`] intervals
-//! (retention sweep, offer sweep, backup + audit verification) and drives a
-//! [`JobBackend`]. A failing job is logged and the loop continues; signalling
-//! `true` on the shutdown channel (see [`shutdown_trigger`]) stops the loop.
+//! There is no external queue: one Tokio task owns [`tokio::time`] intervals
+//! (retention sweep, offer sweep, reminders, outbox, backup + audit
+//! verification) and drives a [`JobBackend`]. A failing job is logged and
+//! the loop continues; signalling `true` on the shutdown channel (see
+//! [`shutdown_trigger`]) stops the loop.
 //!
 //! [`AppService`] is adapted via [`JobBackend`] rather than shared directly, so
 //! the Tauri command layer keeps exclusive ownership of its instance and hands
@@ -36,6 +37,14 @@ pub trait JobBackend: Send {
         let _ = dest;
         self.run_backup()
     }
+    /// Compute due reminders; returns how many are due. Read-only.
+    fn run_reminders(&mut self) -> Result<usize, String>;
+    /// Report queued outbound messages waiting for manual send; returns count.
+    /// Dispatch itself needs a configured transport, so the sweep never sends.
+    fn run_outbox(&mut self) -> Result<usize, String>;
+    /// Poll inbound replies. Returns newly recorded replies, or an error naming
+    /// the missing configuration (e.g. IMAP not configured).
+    fn run_inbox_poll(&mut self) -> Result<usize, String>;
 }
 
 impl JobBackend for AppService {
@@ -58,6 +67,22 @@ impl JobBackend for AppService {
         self.backup(dest).map_err(|error| error.to_string())
     }
 
+    fn run_reminders(&mut self) -> Result<usize, String> {
+        self.reminders()
+            .map(|items| items.len())
+            .map_err(|error| error.to_string())
+    }
+
+    fn run_outbox(&mut self) -> Result<usize, String> {
+        self.outbox_pending()
+            .map(|items| items.len())
+            .map_err(|error| error.to_string())
+    }
+
+    fn run_inbox_poll(&mut self) -> Result<usize, String> {
+        self.poll_replies().map_err(|error| error.to_string())
+    }
+
     fn verify_audit(&self) -> Result<usize, String> {
         self.audit_verify()
             .map(|verification| verification.entries)
@@ -74,6 +99,12 @@ pub struct SchedulerConfig {
     pub offer_sweep_interval_secs: u64,
     /// Seconds between backup ticks.
     pub backup_interval_secs: u64,
+    /// Seconds between reminder computations.
+    pub reminder_interval_secs: u64,
+    /// Seconds between outbox sweeps.
+    pub outbox_interval_secs: u64,
+    /// Seconds between inbox polls.
+    pub inbox_interval_secs: u64,
     /// When `None`, the backup job (file write) is skipped.
     pub backup_dir: Option<PathBuf>,
 }
@@ -84,6 +115,9 @@ impl Default for SchedulerConfig {
             retention_interval_secs: 6 * 60 * 60,
             offer_sweep_interval_secs: 60 * 60,
             backup_interval_secs: 24 * 60 * 60,
+            reminder_interval_secs: 15 * 60,
+            outbox_interval_secs: 5 * 60,
+            inbox_interval_secs: 15 * 60,
             backup_dir: None,
         }
     }
@@ -157,7 +191,17 @@ async fn run_loop(
     let mut retention = tokio::time::interval(interval_duration(config.retention_interval_secs));
     let mut offers = tokio::time::interval(interval_duration(config.offer_sweep_interval_secs));
     let mut backup = tokio::time::interval(interval_duration(config.backup_interval_secs));
-    for tick in [&mut retention, &mut offers, &mut backup] {
+    let mut reminders = tokio::time::interval(interval_duration(config.reminder_interval_secs));
+    let mut outbox = tokio::time::interval(interval_duration(config.outbox_interval_secs));
+    let mut inbox = tokio::time::interval(interval_duration(config.inbox_interval_secs));
+    for tick in [
+        &mut retention,
+        &mut offers,
+        &mut backup,
+        &mut reminders,
+        &mut outbox,
+        &mut inbox,
+    ] {
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     }
     loop {
@@ -179,6 +223,27 @@ async fn run_loop(
                 match backend.run_offer_sweep() {
                     Ok(expired) => eprintln!("[scheduler] offer_sweep: {expired} expired"),
                     Err(error) => eprintln!("[scheduler] offer_sweep failed: {error}"),
+                }
+            }
+            _ = reminders.tick() => {
+                let mut backend = backend.lock().await;
+                match backend.run_reminders() {
+                    Ok(due) => eprintln!("[scheduler] reminders: {due} due"),
+                    Err(error) => eprintln!("[scheduler] reminders failed: {error}"),
+                }
+            }
+            _ = outbox.tick() => {
+                let mut backend = backend.lock().await;
+                match backend.run_outbox() {
+                    Ok(pending) => eprintln!("[scheduler] outbox: {pending} waiting for manual send"),
+                    Err(error) => eprintln!("[scheduler] outbox failed: {error}"),
+                }
+            }
+            _ = inbox.tick() => {
+                let mut backend = backend.lock().await;
+                match backend.run_inbox_poll() {
+                    Ok(new) => eprintln!("[scheduler] inbox: {new} new replies"),
+                    Err(error) => eprintln!("[scheduler] inbox poll skipped: {error}"),
                 }
             }
             _ = backup.tick() => {
@@ -220,6 +285,9 @@ mod tests {
         offer_calls: Arc<AtomicUsize>,
         backup_calls: Arc<AtomicUsize>,
         verify_calls: Arc<AtomicUsize>,
+        reminder_calls: Arc<AtomicUsize>,
+        outbox_calls: Arc<AtomicUsize>,
+        inbox_calls: Arc<AtomicUsize>,
         retention_failures: AtomicUsize,
     }
 
@@ -230,16 +298,22 @@ mod tests {
                 offer_calls: Arc::new(AtomicUsize::new(0)),
                 backup_calls: Arc::new(AtomicUsize::new(0)),
                 verify_calls: Arc::new(AtomicUsize::new(0)),
+                reminder_calls: Arc::new(AtomicUsize::new(0)),
+                outbox_calls: Arc::new(AtomicUsize::new(0)),
+                inbox_calls: Arc::new(AtomicUsize::new(0)),
                 retention_failures: AtomicUsize::new(0),
             }
         }
 
-        fn counts(&self) -> (usize, usize, usize, usize) {
+        fn counts(&self) -> (usize, usize, usize, usize, usize, usize, usize) {
             (
                 self.retention_calls.load(Ordering::SeqCst),
                 self.offer_calls.load(Ordering::SeqCst),
                 self.backup_calls.load(Ordering::SeqCst),
                 self.verify_calls.load(Ordering::SeqCst),
+                self.reminder_calls.load(Ordering::SeqCst),
+                self.outbox_calls.load(Ordering::SeqCst),
+                self.inbox_calls.load(Ordering::SeqCst),
             )
         }
     }
@@ -268,6 +342,21 @@ mod tests {
             self.verify_calls.fetch_add(1, Ordering::SeqCst);
             Ok(7)
         }
+
+        fn run_reminders(&mut self) -> Result<usize, String> {
+            self.reminder_calls.fetch_add(1, Ordering::SeqCst);
+            Ok(1)
+        }
+
+        fn run_outbox(&mut self) -> Result<usize, String> {
+            self.outbox_calls.fetch_add(1, Ordering::SeqCst);
+            Ok(2)
+        }
+
+        fn run_inbox_poll(&mut self) -> Result<usize, String> {
+            self.inbox_calls.fetch_add(1, Ordering::SeqCst);
+            Err("imap not configured".to_owned())
+        }
     }
 
     fn test_config() -> SchedulerConfig {
@@ -275,6 +364,9 @@ mod tests {
             retention_interval_secs: 0,
             offer_sweep_interval_secs: 0,
             backup_interval_secs: 0,
+            reminder_interval_secs: 0,
+            outbox_interval_secs: 0,
+            inbox_interval_secs: 0,
             backup_dir: Some(std::env::temp_dir()),
         }
     }
@@ -295,6 +387,9 @@ mod tests {
         assert_eq!(config.retention_interval_secs, 6 * 60 * 60);
         assert_eq!(config.offer_sweep_interval_secs, 60 * 60);
         assert_eq!(config.backup_interval_secs, 24 * 60 * 60);
+        assert_eq!(config.reminder_interval_secs, 15 * 60);
+        assert_eq!(config.outbox_interval_secs, 5 * 60);
+        assert_eq!(config.inbox_interval_secs, 15 * 60);
         assert!(config.backup_dir.is_none());
     }
 
@@ -308,8 +403,15 @@ mod tests {
             let guard = counts.try_lock();
             match guard {
                 Ok(backend) => {
-                    let (retention, offers, backup, verify) = backend.counts();
-                    retention >= 2 && offers >= 2 && backup >= 2 && verify >= 1
+                    let (retention, offers, backup, verify, reminders, outbox, inbox) =
+                        backend.counts();
+                    retention >= 2
+                        && offers >= 2
+                        && backup >= 2
+                        && verify >= 1
+                        && reminders >= 2
+                        && outbox >= 2
+                        && inbox >= 1
                 }
                 Err(_) => false,
             }
@@ -356,7 +458,7 @@ mod tests {
         .await;
         wait_until("other jobs kept ticking", || {
             counts.try_lock().is_ok_and(|backend| {
-                let (_, offers, backup, _) = backend.counts();
+                let (_, offers, backup, _, _, _, _) = backend.counts();
                 offers >= 1 && backup >= 1
             })
         })
@@ -375,13 +477,13 @@ mod tests {
         let _scheduler = Scheduler::spawn(backend, config, rx);
         wait_until("sweeps ticking without backup_dir", || {
             counts.try_lock().is_ok_and(|backend| {
-                let (retention, offers, _, _) = backend.counts();
+                let (retention, offers, _, _, _, _, _) = backend.counts();
                 retention >= 2 && offers >= 2
             })
         })
         .await;
         tokio::time::sleep(Duration::from_millis(50)).await;
-        let (_, _, backup, verify) = counts.lock().await.counts();
+        let (_, _, backup, verify, _, _, _) = counts.lock().await.counts();
         assert_eq!(backup, 0);
         assert!(verify >= 1);
     }

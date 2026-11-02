@@ -61,6 +61,9 @@ this desktop edition.
 | 11 | [`11-risks.md`](11-risks.md) | Risk register, open decisions, non-goals |
 | 12 | [`12-impact.md`](12-impact.md) | Positioning, demo, metrics, pilot |
 | 13 | [`13-implementation-status.md`](13-implementation-status.md) | What is actually built, gate status, evidence, next tasks |
+| 14 | [`14-release-drill.md`](14-release-drill.md) | Signing status, clean-VM checklist, backup/restore + rollback rehearsal |
+| 15 | [`15-pilot.md`](15-pilot.md) | Six-week pilot plan, entry/exit criteria, metrics, support runbook |
+| 16 | [`16-restore-drill.md`](16-restore-drill.md) | Backup/restore drill procedure, failure injection, sign-off |
 
 The executive summary is [`../massive-polishment.md`](../massive-polishment.md).
 

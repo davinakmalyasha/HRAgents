@@ -30,6 +30,10 @@ actually prove, and what is still open. It is updated at every merge.
 | Provider-backed extraction (`rig` 0.46) | **Done (ReplayClient tested, live test ignored)** | `hragents-agents/src/provider.rs` |
 | File-based scoring (upload → parse → score) | **Done (IPC + Tauri + UI)** | `extract_and_evaluate` |
 | Background scheduler (retention/offer/backup/audit) | **Done, wired in Tauri setup** | `hragents-ipc/src/scheduler.rs` |
+| Reminders (overdue/stalled/expiring) + outbox sweep | **Done, scheduler + Today UI** | `hragents-core/src/reminders.rs` |
+| Inbox poll (IMAP-gated explicit error) | **Done (config-gated)** | IPC `poll_replies` |
+| CLI restore with verify-first/refuse-newer/snapshot/atomic swap | **Done, drill-proven** | `hragents-cli restore` |
+| Pilot plan + restore-drill runbook | **Done** | `15-pilot.md`, `16-restore-drill.md` |
 | Parity corpus freeze | **Done** | `parity/FROZEN.md` |
 | Payroll review packet (XLSX) | **Done** | `hragents-ipc/src/lib.rs` export |
 | Growth cycles, review forms, goals | **Core + store + IPC + UI** | `hragents-core/src/growth.rs` |
@@ -56,7 +60,7 @@ cargo test --workspace --exclude hragents-desktop
   payroll_parity   4 passed
   hragents-store  10 passed
   hragents-ipc    22 passed (1 release benchmark ignored)
-  total          119 passed (2 ignored: live provider + release bench)
+  total          126 passed (2 ignored: live provider + release bench)
 
 uv run python scripts/check.py (Python oracle gate)
   2234 passed, 5 skipped, coverage 92.41%, invariants ok

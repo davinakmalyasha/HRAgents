@@ -215,6 +215,18 @@ export interface AuditVerification {
   head_hash: string | null;
 }
 
+export type ReminderSeverity = "urgent" | "warning" | "info";
+
+export interface Reminder {
+  kind: string;
+  title: string;
+  detail: string;
+  due_on: string | null;
+  severity: ReminderSeverity;
+  subject_type: string;
+  subject_id: string;
+}
+
 export interface TodayView {
   approvals: ApprovalRequest[];
   open_onboarding: string[];

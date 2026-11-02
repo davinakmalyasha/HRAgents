@@ -9,7 +9,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { command, formatDate, formatDateTime, formatDays } from "../api";
-import type { SessionView, TodayView } from "../types";
+import type { CandidateMessage, Reminder, SessionView, TodayView } from "../types";
 import type { Surface } from "../nav";
 import { Avatar, EmptyState, StatusPill } from "../components/ui";
 
@@ -28,9 +28,13 @@ export function Today({
   onNavigate: (surface: Surface) => void;
 }) {
   const today = useQuery({ queryKey: ["today"], queryFn: () => command<TodayView>("today") });
+  const reminders = useQuery({ queryKey: ["reminders"], queryFn: () => command<Reminder[]>("reminders") });
+  const outbox = useQuery({ queryKey: ["outbox"], queryFn: () => command<CandidateMessage[]>("outbox_pending") });
   const data = today.data;
   const approvals = data?.approvals ?? [];
   const payrollApproval = approvals.find((approval) => approval.kind === "payroll_sign_off");
+  const reminderList = reminders.data ?? [];
+  const outboxList = outbox.data ?? [];
 
   return (
     <>
@@ -159,6 +163,45 @@ export function Today({
         </div>
 
         <aside className="grid" style={{ alignContent: "start" }}>
+          {(reminderList.length > 0 || outboxList.length > 0) && (
+            <section className="card">
+              <div className="card-head">
+                <h2>Needs attention</h2>
+                <span className={`pill ${reminderList.some((item) => item.severity === "urgent") ? "bad" : "warn"}`}>
+                  {reminderList.length + outboxList.length}
+                </span>
+              </div>
+              {reminderList.map((item) => (
+                <div className="list-row" key={`${item.kind}-${item.subject_id}`}>
+                  <span className={`icon-box ${item.severity === "urgent" ? "urgent" : item.severity === "warning" ? "warn" : ""}`}>
+                    <span style={{ fontWeight: 700, fontSize: 12 }}>!</span>
+                  </span>
+                  <div className="grow">
+                    <div className="title">{item.title}</div>
+                    <div className="meta">{item.detail}</div>
+                  </div>
+                  <StatusPill
+                    tone={item.severity === "urgent" ? "bad" : item.severity === "warning" ? "warn" : "neutral"}
+                    label={item.severity}
+                  />
+                </div>
+              ))}
+              {outboxList.map((item) => (
+                <div className="list-row" key={item.id}>
+                  <span className="icon-box warn">
+                    <span style={{ fontWeight: 700, fontSize: 12 }}>✉</span>
+                  </span>
+                  <div className="grow">
+                    <div className="title">Waiting to send: {item.kind}</div>
+                    <div className="meta">{item.subject ?? item.body.slice(0, 80)} · {item.channel}</div>
+                  </div>
+                  <button className="btn sm" onClick={() => onNavigate("hire")}>
+                    Open case
+                  </button>
+                </div>
+              ))}
+            </section>
+          )}
           <section className="card">
             <div className="card-head">
               <h2>Audit receipts</h2>

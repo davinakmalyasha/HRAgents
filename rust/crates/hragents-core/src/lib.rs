@@ -22,6 +22,7 @@ pub mod password;
 pub mod payroll;
 pub mod people;
 pub mod policy;
+pub mod reminders;
 pub mod time;
 
 pub use error::{DomainError, DomainResult};
