@@ -70,7 +70,7 @@ output, payroll timestamps). A target with no recorded evidence counts as missed
 
 ## 5. Data-handling rules
 
-- The company HR data is a **local encrypted database on the HR laptop only**.
+- The company HR data is a **local database on the HR laptop only**. Encryption at rest is a P0 blocker before this pilot begins; the current free build is plaintext and Settings says so.
   There is no SaaS tenant and no server copy.
 - The **recovery key is printed on paper** at setup, filed by the operator, and
   never sent over the support channel.

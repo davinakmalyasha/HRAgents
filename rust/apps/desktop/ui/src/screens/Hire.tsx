@@ -168,7 +168,7 @@ export function Hire({ session }: { session: SessionView }) {
             <div className="small faint">Open jobs</div>
             <div className="row" style={{ flexWrap: "wrap", gap: 6, marginTop: 6 }}>
               {(jobs.data ?? []).map((job) => (
-                <span className="pill info" key={job.id}>{job.title}</span>
+                <span className="pill" key={job.id}>{job.title}</span>
               ))}
             </div>
           </div>
@@ -347,7 +347,7 @@ function EvaluationPanel({ evaluation }: { evaluation: Evaluation }) {
               <span style={{ fontWeight: 600 }}>{key.replaceAll("_", " ")}</span>
               <span className="muted">{(value / 100).toFixed(1)}%</span>
             </div>
-            <ScoreBar value={value} tone={value >= 6000 ? "ok" : "warn"} />
+            <ScoreBar value={value} />
           </div>
         ))}
       </div>
@@ -366,13 +366,13 @@ function EvaluationPanel({ evaluation }: { evaluation: Evaluation }) {
                 key={`${item.dimension}-${item.quote}`}
                 style={{
                   margin: 0,
-                  borderLeft: "3px solid var(--accent)",
-                  background: "var(--accent-soft)",
+                  borderLeft: "3px solid var(--line-strong)",
+                  background: "var(--surface-muted)",
                   borderRadius: "0 8px 8px 0",
                   padding: "9px 12px",
                 }}
               >
-                <div className="small" style={{ color: "var(--accent-ink)", fontWeight: 600 }}>
+                <div className="small" style={{ color: "var(--ink-soft)", fontWeight: 600 }}>
                   {item.dimension} · page {item.page ?? "—"} · confidence {(item.confidence_bp / 100).toFixed(0)}%
                 </div>
                 <div style={{ marginTop: 3 }}>“{item.quote}”</div>
@@ -381,8 +381,8 @@ function EvaluationPanel({ evaluation }: { evaluation: Evaluation }) {
           </div>
         )}
         {evaluation.flags.length > 0 ? (
-          <div className="small" style={{ marginTop: 8, color: "var(--warning)" }}>
-            Flags: {evaluation.flags.join(", ")}
+          <div className="row small" style={{ marginTop: 8, gap: 6, color: "var(--warning)" }}>
+            <ShieldAlert size={13} /> Flags: {evaluation.flags.join(", ")}
           </div>
         ) : null}
       </div>

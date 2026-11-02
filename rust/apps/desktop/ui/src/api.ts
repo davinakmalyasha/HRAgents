@@ -73,6 +73,21 @@ export function formatDays(x2: number): string {
   return `${x2 / 2} day${x2 === 2 ? "" : "s"}`;
 }
 
+// The host may be UTC while the business day is Asia/Jakarta. Date defaults in
+// forms and screens must use the business calendar, never the host clock.
+export function businessToday(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+export function businessMonthStart(): string {
+  return `${businessToday().slice(0, 7)}-01`;
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);

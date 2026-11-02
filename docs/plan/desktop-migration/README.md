@@ -1,6 +1,6 @@
 # HRAgents Desktop — Rust + Tauri + SQLite Migration
 
-**Status:** draft for implementation · **Branch:** `plan/desktop-rust-migration` · **Date:** 2026-11-01
+**Status:** implemented, in polish · **Branch:** `plan/desktop-rust-migration` · **Date:** 2026-11-02
 
 This folder is the complete migration and polish plan for turning HRAgents from a
 Python/FastAPI + React web application into a **desktop-first, single-operator HR
@@ -28,8 +28,8 @@ HR person do repetitive, exhausting work.
 | Shell | Tauri **2.12.x** (latest stable 2.x; Tauri 3 is not stable) |
 | UI | React **19.3.1** + Vite **8.3.5** + TypeScript **7.0.2** + Tailwind **4.3.3** |
 | Backend | Rust **1.99.1**, in-process with Tauri; no Python at runtime |
-| Database | SQLite **3.54.1**, one file per company, WAL, FTS5; the current 55 tables (54 tenant-scoped) become a single-company schema |
-| IPC | Tauri commands via `tauri-specta`; no localhost HTTP server |
+| Database | SQLite **3.54.1**, one file per company, WAL, FTS5; 47 single-company tables (5 FTS5 indexes) |
+| IPC | Direct Tauri commands with typed TS wrappers; no localhost HTTP server. `tauri-specta` is the planned drift-killer once the command surface freezes. |
 | AI | Rust-native agent layer (`rig` 0.46.x or latest stable) |
 | Network | Only LLM, SMTP/IMAP, WhatsApp links/API, calendar ICS; no inbound webhooks |
 | Distribution | **Free edition:** unsigned per-user Windows installer (no admin, no certificate, no paid account); macOS build optional. Auto-update disabled by design. |
@@ -125,22 +125,22 @@ Pin exact versions in `Cargo.lock`, `package-lock.json`, and the Tauri config. R
 | TypeScript | 7.0.2 | Latest stable; check ESLint/TS plugin compatibility |
 | Tailwind CSS | 4.3.3 | CSS-first config |
 | TanStack Query | 5.x | Latest 5.x |
-| Zustand | 5.x | Latest 5.x |
-| react-router | 8.x | Latest 8.x |
-| i18next / react-i18next | 26.x / 17.x | Latest compatible pair |
+| Zustand | — | Not used: TanStack Query plus local state is enough for one window |
+| react-router | — | Removed: five surfaces are local state, not URLs |
+| i18next / react-i18next | — | Not used: English-only cockpit, copy lives in components |
 | Axum | 0.8.x | Only for the optional server edition |
-| SQLx | 0.9.x | Only if the SQLite access layer chooses SQLx over rusqlite |
+| SQLx | — | Not used: rusqlite was chosen for synchronous single-connection access |
 | `rig` | 0.46.x | Rust LLM agents/providers |
-| `tauri-specta` | 2.x | Typed IPC bindings |
+| `tauri-specta` | 2.x (planned) | Typed IPC bindings; adopt once the command surface freezes |
 | `tokio` | 1.x | Async runtime for network/jobs |
 | `serde` / `schemars` | 1.x | Serialization and structured-output schemas |
 | `argon2` | latest 0.5.x | Password hashing |
 | `sha2` | 0.10.x | Audit chain |
-| `rust_decimal` | 1.x | Only if integer-rupiah is not sufficient |
+| `rust_decimal` | — | Not used: integer sen covers every amount exactly |
 | `rust_xlsxwriter` | latest | Payroll/export packets |
-| `lettre` / `async-imap` | latest | Email send/poll |
-| `icalendar` | latest | ICS calendar |
-| `sqlite-vec` | latest | Vector search, if used |
+| `lettre` / `async-imap` | — | Not yet: send/poll stay manual, so no mail credentials are required |
+| `icalendar` | — | Not yet: interview slots are proposed in-app |
+| `sqlite-vec` | — | Not used: FTS5 plus keyword retrieval is sufficient offline |
 
 Tauri 3 is explicitly **not** used. If a stable Tauri 3 ships during the project,
 upgrade only after the desktop shell is isolated behind a version-pinned adapter and

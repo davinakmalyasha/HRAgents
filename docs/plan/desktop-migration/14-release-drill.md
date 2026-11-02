@@ -2,10 +2,11 @@
 
 **Status:** draft · **Gate:** 6 candidate · **Date:** 2026-11-02
 
-Gate 6 (per `09-sequence.md`) is the signed, installable release candidate at
-week 32 and the public release at week 38. This document is the rehearsal
-script: clean-VM install, backup/restore drill, rollback rehearsal, and the
-honest signing/notarization status. Nothing here claims Gate 6 is passed.
+Gate 6 (per `09-sequence.md`) is the installable free-edition release candidate.
+This document is the rehearsal script: clean-machine install, backup/restore
+drill, rollback rehearsal, and the honest signing status. The free-edition pass
+is recorded in `13-implementation-status.md`; this checklist is what a clean
+machine still has to prove.
 
 ## 1. Signing status — free edition: none, by design
 
@@ -64,9 +65,15 @@ Tauri cannot downgrade in place (§05). Rehearse the supported path:
 
 ## 5. What blocks Gate 6
 
-- [ ] Enroll signing: Authenticode (Azure Trusted Signing or OV) + Apple Developer ID; generate the updater minisign keypair in an HSM with dual control; pin the real pubkey (rotation drill per §05 risk table).
-- [ ] (Future paid track only) Host a signed `latest.json` with staged rollout if the product is ever distributed widely. Not required for the free edition.
-- [ ] Prove bad-signature rejection and staged-rollout bucketing (`SHA-256(device_id + version)`).
-- [ ] Run this drill green on all three OS targets with installer ≤35 MB and all performance budgets green.
-- [ ] Confirm diagnostic bundles (`.hrdiag`) contain no PII/secrets (fixture test) before any crash-report upload is enabled.
+- [x] **Signing is not a blocker for the free edition.** No certificate, paid
+  account, hosted update server, or telemetry is required. The future paid track
+  is documented in §1b and is not part of this gate.
+- [ ] **Encryption at rest.** The current build opens a plaintext SQLite file.
+  Generate and protect a per-install key, open through SQLCipher, migrate the
+  existing file, and prove backup/restore round-trips before any real employee
+  data lands on a laptop.
+- [ ] Run this drill green on a clean Windows 11 machine (install, first run,
+  second-instance focus, backup/restore, uninstall-keeps-data).
+- [ ] Confirm diagnostic bundles (`.hrdiag`) contain no PII/secrets (fixture test)
+  before any crash-report upload is enabled.
 - [ ] Legal/licensing review (Phase 5 exit dependency per `09-sequence.md`).

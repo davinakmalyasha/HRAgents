@@ -11,7 +11,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
-import { command, formatDate, formatDays } from "../api";
+import { businessToday, command, formatDate, formatDays } from "../api";
 import type {
   Employee,
   LeaveBalance,
@@ -319,8 +319,8 @@ function OnboardingTab({
 function LeaveTab({ employee, onError }: { employee: Employee; onError: (error: string | null) => void }) {
   const queryClient = useQueryClient();
   const [days, setDays] = useState("2");
-  const [start, setStart] = useState(new Date().toISOString().slice(0, 10));
-  const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
+  const [start, setStart] = useState(businessToday());
+  const [end, setEnd] = useState(businessToday());
   const [reason, setReason] = useState("");
   const [leaveTypeId, setLeaveTypeId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -522,7 +522,7 @@ function CreateEmployeeDialog({
   const [title, setTitle] = useState("");
   const [unit, setUnit] = useState("Product");
   const [email, setEmail] = useState("");
-  const [hireDate, setHireDate] = useState(new Date().toISOString().slice(0, 10));
+  const [hireDate, setHireDate] = useState(businessToday());
   const [dependents, setDependents] = useState("0");
   const [jkk, setJkk] = useState("1");
   const [bankName, setBankName] = useState("BCA");

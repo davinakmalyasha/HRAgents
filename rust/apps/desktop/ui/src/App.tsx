@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useDeferredValue, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Briefcase,
@@ -17,12 +18,22 @@ import type { AppInfo, SearchHit, SessionView, TodayView } from "./types";
 import type { Surface } from "./nav";
 import { Login } from "./screens/Login";
 import { Today } from "./screens/Today";
-import { Hire } from "./screens/Hire";
-import { People } from "./screens/People";
-import { Pay } from "./screens/Pay";
-import { Ask } from "./screens/Ask";
-import { Settings } from "./screens/Settings";
-import { Avatar, ErrorBox, Field } from "./components/ui";
+import { Avatar, ErrorBox, Field, Modal } from "./components/ui";
+
+// Landing screens stay in the main bundle; the rest load on first visit.
+const Hire = lazy(() => import("./screens/Hire").then((module) => ({ default: module.Hire })));
+const People = lazy(() => import("./screens/People").then((module) => ({ default: module.People })));
+const Pay = lazy(() => import("./screens/Pay").then((module) => ({ default: module.Pay })));
+const Ask = lazy(() => import("./screens/Ask").then((module) => ({ default: module.Ask })));
+const Settings = lazy(() => import("./screens/Settings").then((module) => ({ default: module.Settings })));
+
+const PRELOAD: Partial<Record<Surface, () => void>> = {
+  hire: () => void import("./screens/Hire"),
+  people: () => void import("./screens/People"),
+  pay: () => void import("./screens/Pay"),
+  ask: () => void import("./screens/Ask"),
+  settings: () => void import("./screens/Settings"),
+};
 
 const NAV: { id: Surface; label: string; icon: typeof Sun }[] = [
   { id: "today", label: "Today", icon: Sun },
@@ -38,6 +49,8 @@ export function App() {
   const [surface, setSurface] = useState<Surface>("today");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const gPrefix = useRef<number | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const info = useQuery({ queryKey: ["app-info"], queryFn: () => command<AppInfo>("app_info") });
@@ -45,24 +58,36 @@ export function App() {
     queryKey: ["session"],
     queryFn: () => command<SessionView>("current_session"),
     retry: false,
+    // The backend enforces a 10-minute idle lock; poll so the UI actually
+    // shows the lock screen instead of waiting for the next failed command.
+    refetchInterval: 60_000,
   });
   const today = useQuery({
     queryKey: ["today"],
     queryFn: () => command<TodayView>("today"),
     enabled: Boolean(session.data) && !session.data?.locked,
   });
+  const deferredSearch = useDeferredValue(search);
   const results = useQuery({
-    queryKey: ["search", search],
-    queryFn: () => command<SearchHit[]>("search", { query: search }),
-    enabled: search.trim().length > 1 && Boolean(session.data),
+    queryKey: ["search", deferredSearch],
+    queryFn: () => command<SearchHit[]>("search", { query: deferredSearch }),
+    enabled: deferredSearch.trim().length > 1 && Boolean(session.data),
   });
 
   useEffect(() => {
+    function inEditable(target: EventTarget | null): boolean {
+      const element = target as HTMLElement | null;
+      if (!element) return false;
+      const tag = element.tagName?.toLowerCase() ?? "";
+      return tag === "input" || tag === "textarea" || tag === "select" || element.isContentEditable;
+    }
+
     function onKey(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         searchRef.current?.focus();
         setSearchOpen(true);
+        return;
       }
       if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "l") {
         event.preventDefault();
@@ -70,6 +95,41 @@ export function App() {
           void command("lock").then(() => {
             void queryClient.invalidateQueries({ queryKey: ["session"] });
           });
+        }
+        return;
+      }
+      if (inEditable(event.target)) return;
+      if (event.key === "/") {
+        event.preventDefault();
+        searchRef.current?.focus();
+        setSearchOpen(true);
+        return;
+      }
+      if (event.key === "?") {
+        event.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
+      if (event.key.toLowerCase() === "g") {
+        gPrefix.current = Date.now();
+        return;
+      }
+      if (gPrefix.current !== null && Date.now() - gPrefix.current < 1200) {
+        gPrefix.current = null;
+        const destination: Record<string, Surface> = {
+          t: "today",
+          h: "hire",
+          p: "people",
+          y: "pay",
+          a: "ask",
+          s: "settings",
+        };
+        const next = destination[event.key.toLowerCase()];
+        if (next) {
+          event.preventDefault();
+          setSurface(next);
+          setSearchOpen(false);
+          setSearch("");
         }
       }
     }
@@ -111,6 +171,7 @@ export function App() {
 
   return (
     <div className="app">
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <aside className="rail">
         <div className="brand">
           <span className="brand-mark">HR</span>
@@ -126,6 +187,10 @@ export function App() {
               key={id}
               className={`nav-item ${surface === id ? "active" : ""}`}
               onClick={() => navigate(id)}
+              aria-label={label}
+              title={label}
+              onMouseEnter={() => PRELOAD[id]?.()}
+              onFocus={() => PRELOAD[id]?.()}
               aria-current={surface === id ? "page" : undefined}
             >
               <Icon size={17} strokeWidth={1.9} />
@@ -167,7 +232,7 @@ export function App() {
         </div>
       </aside>
 
-      <main className="main">
+      <main className="main" id="main-content" tabIndex={-1}>
         <header className="topbar">
           <div className="search">
             <Search size={15} className="search-icon" />
@@ -179,6 +244,14 @@ export function App() {
                 setSearchOpen(true);
               }}
               onFocus={() => setSearchOpen(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setSearchOpen(false);
+                  setSearch("");
+                  event.currentTarget.blur();
+                }
+              }}
               placeholder="Search people, candidates, documents…"
               aria-label="Global search"
             />
@@ -210,19 +283,51 @@ export function App() {
           {!isDesktop ? <span className="preview-badge">Browser preview · demo data</span> : null}
           <div className="topbar-actions">
             <span className="pill ok"><ShieldCheck size={11} /> audited</span>
+            <button className="btn ghost sm" onClick={() => setShortcutsOpen(true)} aria-label="Keyboard shortcuts">
+              <span className="kbd">?</span> shortcuts
+            </button>
             <span className="small faint">Ctrl+Shift+L to lock</span>
           </div>
         </header>
 
         <div className="content" onClick={() => setSearchOpen(false)}>
-          {surface === "today" ? <Today session={session.data} onNavigate={navigate} /> : null}
-          {surface === "hire" ? <Hire session={session.data} /> : null}
-          {surface === "people" ? <People /> : null}
-          {surface === "pay" ? <Pay session={session.data} /> : null}
-          {surface === "ask" ? <Ask onNavigate={navigate} /> : null}
-          {surface === "settings" ? <Settings session={session.data} /> : null}
+          <Suspense fallback={<div className="empty">Loading…</div>}>
+            {surface === "today" ? <Today session={session.data} onNavigate={navigate} /> : null}
+            {surface === "hire" ? <Hire session={session.data} /> : null}
+            {surface === "people" ? <People /> : null}
+            {surface === "pay" ? <Pay session={session.data} /> : null}
+            {surface === "ask" ? <Ask onNavigate={navigate} /> : null}
+            {surface === "settings" ? <Settings session={session.data} /> : null}
+          </Suspense>
         </div>
       </main>
+
+      {shortcutsOpen ? (
+        <Modal
+          title="Keyboard shortcuts"
+          subtitle="Press ? anywhere outside a text field to reopen this list."
+          onClose={() => setShortcutsOpen(false)}
+        >
+          <div className="grid" style={{ gap: 14 }}>
+            <ShortcutGroup title="Search">
+              <Shortcut keys="Ctrl K" label="Focus search" />
+              <Shortcut keys="/" label="Focus search" />
+            </ShortcutGroup>
+            <ShortcutGroup title="Navigate">
+              <Shortcut keys="G then T" label="Go to Today" />
+              <Shortcut keys="G then H" label="Go to Hire" />
+              <Shortcut keys="G then P" label="Go to People" />
+              <Shortcut keys="G then Y" label="Go to Pay" />
+              <Shortcut keys="G then A" label="Go to Ask" />
+              <Shortcut keys="G then S" label="Go to Settings" />
+            </ShortcutGroup>
+            <ShortcutGroup title="Session">
+              <Shortcut keys="Ctrl Shift L" label="Lock the app" />
+              <Shortcut keys="Esc" label="Close a dialog" />
+            </ShortcutGroup>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }
@@ -267,6 +372,26 @@ function LockScreen({ session, onUnlocked }: { session: SessionView; onUnlocked:
           Unlock needs the password. Biometrics can satisfy re-auth for a fresh action, never unlock the database.
         </div>
       </form>
+    </div>
+  );
+}
+
+function Shortcut({ keys, label }: { keys: string; label: string }) {
+  return (
+    <div className="row" style={{ justifyContent: "space-between", gap: 10 }}>
+      <span className="small">{label}</span>
+      <span className="kbd">{keys}</span>
+    </div>
+  );
+}
+
+function ShortcutGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="grid" style={{ gap: 6 }}>
+      <div className="small faint" style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 10.5 }}>
+        {title}
+      </div>
+      {children}
     </div>
   );
 }

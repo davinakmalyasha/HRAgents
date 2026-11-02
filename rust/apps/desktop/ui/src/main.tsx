@@ -9,6 +9,9 @@ const queryClient = new QueryClient({
     queries: {
       retry: false,
       refetchOnWindowFocus: false,
+      // Local SQLite reads are fast, but switching surfaces should reuse the
+      // last snapshot instead of re-running every IPC query on each visit.
+      staleTime: 10_000,
     },
   },
 });

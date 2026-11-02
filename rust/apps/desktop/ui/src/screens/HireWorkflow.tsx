@@ -83,7 +83,7 @@ export function ScheduleSection({
     <div>
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ fontWeight: 620 }}>
-          Interviews <span className="pill info">{list.length}</span>
+          Interviews <span className="pill">{list.length}</span>
         </div>
         <button className="btn sm" disabled={busy} onClick={() => setOpen(true)}>
           <CalendarDays size={13} /> Propose slots
@@ -127,7 +127,7 @@ export function ScheduleSection({
                       </button>
                     ) : null}
                     {proposal.status === "confirmed" && proposal.confirmed_index === index ? (
-                      <span className="pill ok">confirmed</span>
+                      <StatusPill tone="ok" label="confirmed" />
                     ) : null}
                   </div>
                 ))}
@@ -298,7 +298,7 @@ export function OfferSection({
     <div>
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ fontWeight: 620 }}>
-          Offers <span className="pill info">{list.length}</span>
+          Offers <span className="pill">{list.length}</span>
         </div>
         <button className="btn sm" disabled={busy} onClick={() => setOpen(true)}>
           <WalletIcon size={13} /> New offer
@@ -567,7 +567,7 @@ export function MessageSection({
     <div>
       <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
         <div style={{ fontWeight: 620 }}>
-          Messages <span className="pill info">{list.length}</span>
+          Messages <span className="pill">{list.length}</span>
         </div>
         <button className="btn sm" disabled={busy} onClick={() => setOpen(true)}>
           <Mail size={13} /> Draft message

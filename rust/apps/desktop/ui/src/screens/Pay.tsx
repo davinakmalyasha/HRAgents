@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   Wallet,
 } from "lucide-react";
-import { command, formatIdr } from "../api";
+import { businessMonthStart, command, formatIdr } from "../api";
 import type {
   Employee,
   PayrollInput,
@@ -28,7 +28,7 @@ export function Pay({ session }: { session: SessionView }) {
   const [baseSalary, setBaseSalary] = useState("10000000");
   const [allowances, setAllowances] = useState("2000000");
   const [serviceMonths, setServiceMonths] = useState("30");
-  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7) + "-01");
+  const [period, setPeriod] = useState(businessMonthStart());
   const [kind, setKind] = useState<PayrollRun["kind"]>("monthly");
   const [approveOpen, setApproveOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -343,12 +343,12 @@ function RunDetail({
         <table className="table">
           <thead>
             <tr>
-              <th>Employee</th>
-              <th className="num">Gross</th>
-              <th className="num">BPJS</th>
-              <th className="num">PPh 21</th>
-              <th className="num">Deductions</th>
-              <th className="num">Net</th>
+              <th scope="col">Employee</th>
+              <th scope="col" className="num">Gross</th>
+              <th scope="col" className="num">BPJS</th>
+              <th scope="col" className="num">PPh 21</th>
+              <th scope="col" className="num">Deductions</th>
+              <th scope="col" className="num">Net</th>
             </tr>
           </thead>
           <tbody>
@@ -512,7 +512,11 @@ function ExportDialog({ run, onClose }: { run: PayrollRun; onClose: () => void }
         <Field label="Destination path" hint="Absolute path on this machine. In browser preview the file is simulated.">
           <input value={path} onChange={(event) => setPath(event.target.value)} autoFocus />
         </Field>
-        {result ? <div className="small" style={{ color: "var(--success)" }}>{result}</div> : null}
+        {result ? (
+          <div className="row small" style={{ gap: 6, color: "var(--success)" }}>
+            <CheckCircle2 size={13} /> {result}
+          </div>
+        ) : null}
         {error ? <ErrorBox>{error}</ErrorBox> : null}
       </form>
     </Modal>

@@ -653,6 +653,15 @@ fn _types(_: JobId, _: Evidence, _: Rubric, _: RunScores) {}
 
 pub fn run() {
     tauri::Builder::default()
+        // One process owns the database and scheduler. A second launch focuses
+        // the running window instead of opening a second connection.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(|app| {
             let data_dir = app
                 .path()

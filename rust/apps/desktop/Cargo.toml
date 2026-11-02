@@ -15,11 +15,11 @@ tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
 tauri = { version = "2.12", features = [] }
+tauri-plugin-single-instance = "2"
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 base64.workspace = true
 hragents-core = { path = "../../crates/hragents-core" }
 hragents-agents = { path = "../../crates/hragents-agents" }
-hragents-store = { path = "../../crates/hragents-store" }
 hragents-ipc = { path = "../../crates/hragents-ipc" }

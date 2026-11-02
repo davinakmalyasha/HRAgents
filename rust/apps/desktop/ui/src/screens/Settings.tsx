@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  AlertTriangle,
   Building2,
   CheckCircle2,
   Database,
@@ -63,7 +64,7 @@ export function Settings({ session }: { session: SessionView }) {
           <p>Company, operators, statutory tables, backup, and the audit chain.</p>
         </div>
         <div className="page-actions">
-          <span className="pill info"><Lock size={11} /> local-only install</span>
+          <span className="pill"><Lock size={11} /> local-only install</span>
         </div>
       </div>
 
@@ -202,7 +203,7 @@ export function Settings({ session }: { session: SessionView }) {
             ) : (
               <table className="table">
                 <thead>
-                  <tr><th>Kind</th><th>Effective</th><th>Status</th></tr>
+                  <tr><th scope="col">Kind</th><th scope="col">Effective</th><th scope="col">Status</th></tr>
                 </thead>
                 <tbody>
                   {(tables.data ?? []).map((table) => (
@@ -225,7 +226,16 @@ export function Settings({ session }: { session: SessionView }) {
               <SecurityRow label="No payment execution" enabled />
               <SecurityRow label="No employee/manager logins" enabled />
               <SecurityRow label="No telemetry by default" enabled />
-              <SecurityRow label="SQLCipher at rest" enabled={isDesktop} note={isDesktop ? "release feature" : "preview"} />
+              <SecurityRow label="SQLCipher at rest" enabled={false} note="not enabled in this build" />
+            </div>
+            <div className="notice" style={{ marginTop: 10 }}>
+              <AlertTriangle size={15} />
+              <div>
+                This free build stores a plaintext SQLite file in your user profile. Keep the
+                laptop's disk encrypted (BitLocker or FileVault) and store backups somewhere access
+                is controlled. Encrypted-at-rest storage is the next security task, not a claim of
+                this build.
+              </div>
             </div>
           </section>
 

@@ -76,7 +76,7 @@ export function GrowthTab({
       <div>
         <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
           <div style={{ fontWeight: 620 }}>Review cycles</div>
-          <span className="pill info">{(cycles.data ?? []).length} cycle(s)</span>
+          <span className="pill">{(cycles.data ?? []).length} cycle(s)</span>
         </div>
         {(cycles.data ?? []).length === 0 ? (
           <div className="small muted">No review cycle yet. Create one to assign reviewers.</div>

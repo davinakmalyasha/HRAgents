@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Plus, ShieldCheck } from "lucide-react";
-import { command, formatDateTime } from "../api";
+import { businessToday, command, formatDateTime } from "../api";
 import type {
   BreachIncident,
   ErasureRequest,
@@ -34,7 +34,7 @@ export function ComplianceSection({ onError }: { onError: (error: string | null)
     queryKey: ["retention-sweep"],
     queryFn: () =>
       command<RetentionDueItem[]>("retention_sweep", {
-        today: new Date().toISOString().slice(0, 10),
+        today: businessToday(),
       }),
   });
   const holds = useQuery({
@@ -111,7 +111,7 @@ export function ComplianceSection({ onError }: { onError: (error: string | null)
         ) : (
           <table className="table">
             <thead>
-              <tr><th>Record</th><th>Keep</th><th>Then</th><th>Basis</th></tr>
+              <tr><th scope="col">Record</th><th scope="col">Keep</th><th scope="col">Then</th><th scope="col">Basis</th></tr>
             </thead>
             <tbody>
               {(policies.data ?? []).map((policy) => (

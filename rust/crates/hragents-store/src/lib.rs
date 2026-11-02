@@ -34,11 +34,13 @@ use hragents_core::people::{
 };
 use hragents_core::time::{BusinessDate, UtcInstant};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const SCHEMA: &str = include_str!("../migrations/0001_init.sql");
-const SCHEMA_VERSION: i64 = 1;
+const INDEXES: &str = include_str!("../migrations/0002_indexes.sql");
+const SCHEMA_VERSION: i64 = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -67,6 +69,17 @@ impl From<hragents_core::money::MoneyError> for StoreError {
 }
 
 pub type StoreResult<T> = Result<T, StoreError>;
+
+fn column_exists(tx: &rusqlite::Transaction<'_>, table: &str, column: &str) -> StoreResult<bool> {
+    let mut statement = tx.prepare(&format!("PRAGMA table_info({table})"))?;
+    let mut rows = statement.query([])?;
+    while let Some(row) = rows.next()? {
+        if row.get::<_, String>(1)? == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
 
 #[derive(Debug)]
 pub struct Store {
@@ -144,7 +157,7 @@ impl Store {
     }
 
     pub fn migrate(&mut self) -> StoreResult<()> {
-        let version: i64 = self
+        let mut version: i64 = self
             .conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))?;
         if version > SCHEMA_VERSION {
@@ -159,10 +172,49 @@ impl Store {
             tx.execute_batch(SCHEMA)?;
             let now = UtcInstant::now().millis();
             tx.execute(
-                "INSERT INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
-                params![SCHEMA_VERSION, now],
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (1, ?1)",
+                params![now],
             )?;
-            tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+            tx.pragma_update(None, "user_version", 1)?;
+            tx.commit()?;
+            version = 1;
+        }
+        if version < 2 {
+            let tx = self
+                .conn
+                .transaction_with_behavior(TransactionBehavior::Immediate)?;
+            // Version 1 shipped during development with a slightly smaller
+            // growth/offboarding schema while still reporting user_version 1.
+            // Add the missing columns before indexing them so real databases
+            // upgrade in place instead of failing on first launch.
+            for (table, column, declaration) in [
+                ("growth_assignments", "reviewer_email", "TEXT"),
+                (
+                    "growth_assignments",
+                    "created_at",
+                    "INTEGER NOT NULL DEFAULT 0",
+                ),
+                ("growth_assignments", "sent_at", "INTEGER"),
+                ("growth_assignments", "submitted_at", "INTEGER"),
+                ("offboarding_plans", "final_pay_run_id", "TEXT"),
+            ] {
+                if !column_exists(&tx, table, column)? {
+                    tx.execute_batch(&format!(
+                        "ALTER TABLE {table} ADD COLUMN {column} {declaration}"
+                    ))?;
+                }
+            }
+            let now = UtcInstant::now().millis();
+            tx.execute(
+                "UPDATE growth_assignments SET created_at = ?1 WHERE created_at = 0",
+                params![now],
+            )?;
+            tx.execute_batch(INDEXES)?;
+            tx.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (2, ?1)",
+                params![now],
+            )?;
+            tx.pragma_update(None, "user_version", 2)?;
             tx.commit()?;
         }
         Ok(())
@@ -429,6 +481,48 @@ impl Store {
                 entry_hash: row.9,
             });
         }
+        Ok(entries)
+    }
+
+    /// The newest `limit` audit entries, returned oldest-first. Today's
+    /// receipt list must not load the whole chain as the log grows.
+    pub fn audit_recent(&self, limit: usize) -> StoreResult<Vec<AuditEntry>> {
+        let mut statement = self.conn.prepare(
+            "SELECT seq, entry_id, created_at, actor_json, action, subject_type, subject_id,
+                    payload_json, prev_hash, entry_hash
+             FROM audit_log ORDER BY seq DESC LIMIT ?1",
+        )?;
+        let rows = statement.query_map(params![limit as i64], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, Option<String>>(8)?,
+                row.get::<_, String>(9)?,
+            ))
+        })?;
+        let mut entries = Vec::new();
+        for row in rows {
+            let row = row?;
+            entries.push(AuditEntry {
+                seq: row.0,
+                entry_id: parse_id(&row.1, "audit_entry")?,
+                created_at: instant(row.2)?,
+                actor: serde_json::from_str(&row.3).map_err(json_err)?,
+                action: row.4,
+                subject_type: row.5,
+                subject_id: row.6,
+                payload: serde_json::from_str(&row.7).map_err(json_err)?,
+                prev_hash: row.8,
+                entry_hash: row.9,
+            });
+        }
+        entries.reverse();
         Ok(entries)
     }
 
@@ -716,6 +810,94 @@ impl Store {
             created_at: instant(created_at)?,
             completed_at: completed_at.map(instant).transpose()?,
         }))
+    }
+
+    /// Every plan with its steps, in two queries. Screens that need plan status
+    /// for all employees (Today, reminders) must not query once per employee.
+    pub fn list_onboarding_plans(&self) -> StoreResult<Vec<OnboardingPlan>> {
+        let mut plans_statement = self.conn.prepare(
+            "SELECT id, employee_id, template_name, status, created_at, completed_at
+             FROM onboarding_plans ORDER BY created_at DESC",
+        )?;
+        let plan_rows = plans_statement.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, Option<i64>>(5)?,
+            ))
+        })?;
+        let mut plans = Vec::new();
+        for row in plan_rows {
+            let (id, employee_id, template_name, status, created_at, completed_at) = row?;
+            plans.push(OnboardingPlan {
+                id: parse_id(&id, "onboarding_plan")?,
+                employee_id: parse_id(&employee_id, "employee")?,
+                template_name,
+                status: parse_onboarding_status(&status)?,
+                steps: Vec::new(),
+                created_at: instant(created_at)?,
+                completed_at: completed_at.map(instant).transpose()?,
+            });
+        }
+        if plans.is_empty() {
+            return Ok(plans);
+        }
+
+        let mut steps_statement = self.conn.prepare(
+            "SELECT plan_id, step_key, title, category, required, status, due_date,
+                    completed_at, completed_by, document_request_id, notes
+             FROM onboarding_steps ORDER BY plan_id, position",
+        )?;
+        let step_rows = steps_statement.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, Option<i64>>(7)?,
+                row.get::<_, Option<String>>(8)?,
+                row.get::<_, Option<String>>(9)?,
+                row.get::<_, Option<String>>(10)?,
+            ))
+        })?;
+        let mut by_plan: HashMap<String, Vec<OnboardingStep>> = HashMap::new();
+        for row in step_rows {
+            let (
+                plan_id,
+                key,
+                title,
+                category,
+                required,
+                status,
+                due_date,
+                completed_at,
+                completed_by,
+                document_request_id,
+                notes,
+            ) = row?;
+            by_plan.entry(plan_id).or_default().push(OnboardingStep {
+                key,
+                title,
+                category,
+                required: required != 0,
+                status: parse_step_status(&status)?,
+                due_date: due_date.as_deref().map(parse_date).transpose()?,
+                completed_at: completed_at.map(instant).transpose()?,
+                completed_by,
+                document_request_id,
+                notes,
+            });
+        }
+        for plan in &mut plans {
+            plan.steps = by_plan.remove(&plan.id.to_string()).unwrap_or_default();
+        }
+        Ok(plans)
     }
 
     // ------------------------------------------------------------------
@@ -3368,9 +3550,132 @@ mod tests {
     #[test]
     fn schema_migrates_and_reports_version() {
         let store = store();
-        assert_eq!(store.schema_version().unwrap(), 1);
+        assert_eq!(store.schema_version().unwrap(), 2);
         assert_eq!(store.integrity_check().unwrap(), "ok");
         assert_eq!(store.query_count("employees").unwrap(), 0);
+    }
+
+    #[test]
+    fn hot_path_indexes_exist() {
+        let store = store();
+        let mut statement = store
+            .conn
+            .prepare("SELECT name FROM sqlite_master WHERE type = 'index'")
+            .unwrap();
+        let names = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        for expected in [
+            "onboarding_plans_employee_status_idx",
+            "offers_application_idx",
+            "candidate_comms_application_idx",
+            "offboarding_plans_employee_idx",
+            "goals_employee_idx",
+            "chat_messages_conversation_idx",
+        ] {
+            assert!(names.iter().any(|name| name == expected), "{expected}");
+        }
+    }
+
+    #[test]
+    fn foreign_key_lookups_use_indexes() {
+        let store = store();
+        let plan = |sql: &str| {
+            let mut statement = store
+                .conn
+                .prepare(&format!("EXPLAIN QUERY PLAN {sql}"))
+                .unwrap();
+            statement
+                .query_map([], |row| row.get::<_, String>(3))
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+                .join(" | ")
+        };
+        for sql in [
+            "SELECT id FROM offers WHERE application_id = 'a'",
+            "SELECT id FROM goals WHERE employee_id = 'e'",
+            "SELECT id FROM chat_messages WHERE conversation_id = 'c'",
+            "SELECT id FROM offboarding_plans WHERE employee_id = 'e'",
+        ] {
+            let detail = plan(sql);
+            assert!(detail.contains("INDEX"), "{sql} -> {detail}");
+            assert!(!detail.contains("SCAN"), "{sql} -> {detail}");
+        }
+    }
+
+    #[test]
+    fn legacy_v1_schema_gains_missing_columns_on_upgrade() {
+        let mut store = store();
+        // Reproduce the v1 shape that shipped during development: it reported
+        // user_version 1 without these columns, so the index migration failed.
+        store
+            .conn
+            .execute_batch(
+                "DROP INDEX IF EXISTS growth_assignments_cycle_idx;
+                 ALTER TABLE growth_assignments DROP COLUMN reviewer_email;
+                 ALTER TABLE growth_assignments DROP COLUMN created_at;
+                 ALTER TABLE growth_assignments DROP COLUMN sent_at;
+                 ALTER TABLE growth_assignments DROP COLUMN submitted_at;
+                 ALTER TABLE offboarding_plans DROP COLUMN final_pay_run_id;
+                 DELETE FROM schema_migrations WHERE version = 2;
+                 PRAGMA user_version = 1;",
+            )
+            .unwrap();
+        assert_eq!(store.schema_version().unwrap(), 1);
+        store.migrate().unwrap();
+        assert_eq!(store.schema_version().unwrap(), 2);
+        for (table, column) in [
+            ("growth_assignments", "reviewer_email"),
+            ("growth_assignments", "created_at"),
+            ("growth_assignments", "sent_at"),
+            ("growth_assignments", "submitted_at"),
+            ("offboarding_plans", "final_pay_run_id"),
+        ] {
+            let exists = {
+                let mut statement = store
+                    .conn
+                    .prepare(&format!("PRAGMA table_info({table})"))
+                    .unwrap();
+                let mut rows = statement.query([]).unwrap();
+                let mut found = false;
+                while let Some(row) = rows.next().unwrap() {
+                    if row.get::<_, String>(1).unwrap() == column {
+                        found = true;
+                        break;
+                    }
+                }
+                found
+            };
+            assert!(exists, "{table}.{column} was not restored");
+        }
+        assert_eq!(store.integrity_check().unwrap(), "ok");
+    }
+
+    #[test]
+    fn list_onboarding_plans_matches_single_lookup() {
+        let mut store = store();
+        let employee = employee(&store);
+        store.save_employee(&employee).unwrap();
+        let plan = OnboardingPlan::start(
+            employee.id,
+            "Standard",
+            vec![
+                OnboardingStep::new("contract", "Sign contract", "documents"),
+                OnboardingStep::new("laptop", "Issue laptop", "assets"),
+            ],
+            now(),
+        )
+        .unwrap();
+        store.save_onboarding_plan(&plan).unwrap();
+        let plans = store.list_onboarding_plans().unwrap();
+        assert_eq!(plans.len(), 1);
+        let single = store.onboarding_plan_for(employee.id).unwrap().unwrap();
+        assert_eq!(plans[0].id, single.id);
+        assert_eq!(plans[0].steps.len(), single.steps.len());
+        assert_eq!(plans[0].progress(), single.progress());
     }
 
     #[test]
@@ -3476,6 +3781,12 @@ mod tests {
         let verification = store.verify_audit().unwrap();
         assert_eq!(verification.entries, 2);
         assert_eq!(store.audit_head().unwrap(), verification.head_hash);
+        let recent = store.audit_recent(1).unwrap();
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].action, "employee.updated");
+        let both = store.audit_recent(10).unwrap();
+        assert_eq!(both.len(), 2);
+        assert_eq!(both[0].action, "employee.created");
         // Tamper with the persisted payload directly and verify detection.
         store
             .execute_batch(

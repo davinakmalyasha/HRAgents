@@ -1,6 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Circle, Info, X } from "lucide-react";
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export function errorMessage(error: unknown): string {
   if (typeof error === "object" && error && "message" in error) {
@@ -30,8 +33,9 @@ export function StatusPill({
   label: string;
 }) {
   const Icon = tone === "ok" ? CheckCircle2 : tone === "warn" ? AlertTriangle : tone === "bad" ? AlertTriangle : tone === "info" ? Info : Circle;
+  const neutral = tone === "neutral" || tone === "info";
   return (
-    <span className={`pill ${tone === "neutral" ? "" : tone}`}>
+    <span className={`pill ${neutral ? "" : tone}`}>
       <Icon size={11} strokeWidth={2.4} aria-hidden />
       {label}
     </span>
@@ -51,8 +55,10 @@ export function Field({
 }) {
   return (
     <div className={`field ${span ? "span-2" : ""}`}>
-      <label>{label}</label>
-      {children}
+      <label>
+        <span className="field-label">{label}</span>
+        {children}
+      </label>
       {hint ? <span className="hint">{hint}</span> : null}
     </div>
   );
@@ -73,30 +79,80 @@ export function Modal({
   footer?: ReactNode;
   wide?: boolean;
 }) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Captured during render, before the effect moves focus into the dialog.
+  const restoreRef = useRef<Element | null>(document.activeElement);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
+    const dialog = dialogRef.current;
+    const initial =
+      dialog?.querySelector<HTMLElement>("[data-autofocus]") ??
+      dialog?.querySelector<HTMLElement>(
+        "input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+      ) ??
+      dialog?.querySelector<HTMLElement>(FOCUSABLE);
+    (initial ?? dialog)?.focus();
+
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const items = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (element) => element.offsetParent !== null,
+      );
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
+
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      const target = restoreRef.current as HTMLElement | null;
+      if (target?.isConnected) target.focus();
+    };
+  }, []);
+
   return (
     <div
       className="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="modal" style={wide ? { width: "min(760px, 100%)" } : undefined}>
+      <div
+        className="modal"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        style={wide ? { width: "min(760px, 100%)" } : undefined}
+      >
         <div className="modal-head">
           <div>
-            <h2>{title}</h2>
+            <h2 id={titleId}>{title}</h2>
             {subtitle ? <div className="small muted">{subtitle}</div> : null}
           </div>
-          <button className="btn ghost sm" style={{ marginLeft: "auto" }} onClick={onClose} aria-label="Close">
+          <button
+            className="btn ghost sm"
+            style={{ marginLeft: "auto" }}
+            onClick={onClose}
+            aria-label="Close dialog"
+          >
             <X size={16} />
           </button>
         </div>
@@ -122,14 +178,25 @@ export function EmptyState({ title, body }: { title: string; body: string }) {
 export function ScoreBar({ value, tone = "" }: { value: number; tone?: "" | "ok" | "warn" | "bad" }) {
   const pct = Math.max(0, Math.min(100, value / 100));
   return (
-    <div className={`bar ${tone}`} aria-label={`Score ${pct.toFixed(1)} percent`}>
+    <div
+      className={`bar ${tone}`}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(pct)}
+      aria-valuetext={`${pct.toFixed(1)} percent`}
+    >
       <span style={{ width: `${pct}%` }} />
     </div>
   );
 }
 
 export function ErrorBox({ children }: { children: ReactNode }) {
-  return <div className="error-text">{children}</div>;
+  return (
+    <div className="error-text" role="alert">
+      {children}
+    </div>
+  );
 }
 
 export function Notice({ children }: { children: ReactNode }) {

@@ -1,6 +1,6 @@
 # 13 — Implementation Status
 
-**Snapshot:** 2026-11-01 · **Branch:** `plan/desktop-rust-migration` · **Scope:** first vertical slice
+**Snapshot:** 2026-11-02 · **Branch:** `plan/desktop-rust-migration` · **Edition:** free (unsigned, no account, no telemetry)
 
 This file is evidence, not a plan. It records what now exists, what the gates can
 actually prove, and what is still open. It is updated at every merge.
@@ -17,38 +17,42 @@ actually prove, and what is still open. It is updated at every merge.
 | Business timezone (`Asia/Jakarta`) | **Done** | `hragents-core/src/time.rs` |
 | Typed IDs with human short refs | **Done** | `hragents-core/src/ids.rs` |
 | SHA-256 append-only audit chain | **Done, parity-tested** | `hragents-core/src/audit.rs` |
-| Argon2id password + session lock/re-auth | **Done** | `hragents-core/src/{password,auth}.rs` |
+| Argon2id password + session lock/re-auth | **Done; UI polls for idle lock** | `hragents-core/src/{password,auth}.rs`, `App.tsx` |
 | Deterministic evaluation merge + policy gate | **Done** | `hragents-core/src/hiring.rs` |
 | People, contracts, documents, onboarding | **Done** | `hragents-core/src/people.rs` |
 | Leave balances and decisions | **Done** | `hragents-core/src/leave.rs` |
 | Payroll monthly/THR/final, BPJS, PPh 21, overtime | **Done, PPh 21 parity-tested** | `hragents-core/src/payroll.rs` |
 | Approvals/Today ordering | **Done** | `hragents-core/src/approvals.rs` |
-| Consent, retention, erasure, breach | **Core done; UI partial** | `hragents-core/src/compliance.rs` |
+| Consent, retention, erasure, breach | **Done across core/store/IPC/UI** | `hragents-core/src/compliance.rs` |
 | Policy retrieval with citations | **Done (keyword fallback)** | `hragents-core/src/policy.rs` |
 | Deterministic extractor + agent contracts | **Done (offline keyword extractor)** | `hragents-agents/src/lib.rs` |
 | Document text extraction (TXT/PDF/DOCX) | **Done, fixture-tested** | `hragents-agents/src/documents_text.rs` |
 | Provider-backed extraction (`rig` 0.46) | **Done (ReplayClient tested, live test ignored)** | `hragents-agents/src/provider.rs` |
 | File-based scoring (upload → parse → score) | **Done (IPC + Tauri + UI)** | `extract_and_evaluate` |
-| Background scheduler (retention/offer/backup/audit) | **Done, wired in Tauri setup** | `hragents-ipc/src/scheduler.rs` |
+| Background scheduler (retention/offer/backup/audit/outbox) | **Done, wired in Tauri setup** | `hragents-ipc/src/scheduler.rs` |
 | Reminders (overdue/stalled/expiring) + outbox sweep | **Done, scheduler + Today UI** | `hragents-core/src/reminders.rs` |
 | Inbox poll (IMAP-gated explicit error) | **Done (config-gated)** | IPC `poll_replies` |
 | CLI restore with verify-first/refuse-newer/snapshot/atomic swap | **Done, drill-proven** | `hragents-cli restore` |
 | Pilot plan + restore-drill runbook | **Done** | `15-pilot.md`, `16-restore-drill.md` |
 | Parity corpus freeze | **Done** | `parity/FROZEN.md` |
 | Payroll review packet (XLSX) | **Done** | `hragents-ipc/src/lib.rs` export |
-| Growth cycles, review forms, goals | **Core + store + IPC + UI** | `hragents-core/src/growth.rs` |
-| Offboarding checklist + final-pay gate | **Core + store + IPC + UI** | `hragents-core/src/offboarding.rs` |
-| Document requests + vault upload/preview/verify | **Core + store + IPC + Tauri + UI** | `hragents-core/src/documents.rs`, `screens/Documents.tsx` |
-| Audit export (JSON) | **Done (IPC + Tauri + UI)** | `export_audit` in `hragents-ipc`, Settings screen |
-| SQLite schema v1 (47 tables + 5 FTS5) | **Done** | `hragents-store/migrations/0001_init.sql` |
-| Migrations, WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
-| SQLCipher feature + reopen/wrong-key test | **Done locally and in CI** | `hragents-store` feature `sqlcipher` |
+| Growth cycles, review forms, goals | **Done across core/store/IPC/UI** | `hragents-core/src/growth.rs` |
+| Offboarding checklist + final-pay gate | **Done across core/store/IPC/UI** | `hragents-core/src/offboarding.rs` |
+| Document requests + vault upload/preview/verify | **Done** | `hragents-core/src/documents.rs`, `screens/Documents.tsx` |
+| Audit export (JSON) | **Done** | `export_audit`, Settings screen |
+| SQLite schema v2 (47 tables, 5 FTS5, 37 named indexes) | **Done; v1 databases upgrade in place** | `hragents-store/migrations/{0001_init,0002_indexes}.sql` |
+| N+1 removal on Today/reminders | **Done** | `list_onboarding_plans` (two queries, not one per employee) |
+| WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
+| SQLCipher feature + reopen/wrong-key test | **Tested as an optional feature; NOT enabled in the installed build** | `hragents-store` feature `sqlcipher` |
 | Typed application services (no Tauri dependency) | **Done** | `hragents-ipc/src/lib.rs` |
-| CLI demo / verify / backup | **Done** | `hragents-cli/src/main.rs` |
-| Tauri 2.12.5 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
-| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 5.97 MiB, SHA-256 verified** | `target/.../bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
-| Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. Upgrade = install a newer build. | Settings → Updates explains it |
-| Five-surface React UI + login/lock | **Done** | `rust/apps/desktop/ui` |
+| CLI demo / verify / backup / restore | **Done** | `hragents-cli/src/main.rs` |
+| Tauri 2.12 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
+| Single-instance guard | **Done** | `tauri-plugin-single-instance` focuses the running window |
+| Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 5.97 MiB** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
+| Five-surface React UI + login/lock | **Done; screens code-split** | `rust/apps/desktop/ui` |
+| UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
 | Python parity export + golden tests | **Done (money, audit, PPh 21, scoring merge)** | `scripts/parity_export.py`, `parity/fixtures` |
 | CI for Rust, UI, and fixture regeneration | **Done** | `.github/workflows/desktop.yml` |
 
@@ -56,55 +60,45 @@ actually prove, and what is still open. It is updated at every merge.
 
 ```text
 cargo test --workspace --exclude hragents-desktop
-  hragents-agents  16 passed
-  hragents-core   62 passed
-  python_parity    5 passed
-  payroll_parity   4 passed
-  hragents-store  10 passed
-  hragents-ipc    22 passed (1 release benchmark ignored)
-  total          126 passed (2 ignored: live provider + release bench)
-
-uv run python scripts/check.py (Python oracle gate)
-  2234 passed, 5 skipped, coverage 92.41%, invariants ok
+  hragents-agents  16 passed, 1 ignored (live provider)
+  hragents-core    67 passed
+  payroll_parity    4 passed
+  python_parity     5 passed
+  hragents-ipc     24 passed, 1 ignored (release benchmark)
+  hragents-store   14 passed
+  total           130 passed, 2 ignored
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
 
-cargo build -p hragents-desktop
-  Finished (Tauri 2.12.5 binary)
-
-tauri build --bundles nsis (throwaway minisign key, unsigned Authenticode)
-  beforeBuildCommand fixed: hooks run inside ui/, `npm run build` (was `npm --prefix ui run build`)
-  HRAgents_0.1.0_x64-setup.exe, 5.97 MiB, SHA-256 62b16780...80bed1
-  HRAgents_0.1.0_x64-setup.exe.sig, 420 bytes, minisign, verified format
-  updater latest.json NOT produced locally (needs --bundles updater + hosted endpoint)
-  NSIS installer NOT executed (perMachine install needs admin elevation)
-
-hragents-cli demo ...
-  login, employee, onboarding, evaluation 81.0% + gated rejection,
-  leave 2 days, payroll gross Rp12.000.000 net Rp11.520.000,
-  audit 16 entries, backup verified, search 1 hit
+cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl transplant)
+  11 passed, including encrypted reopen and wrong-key rejection
 
 cargo test -p hragents-ipc --release payroll_1000 -- --ignored --nocapture
-  payroll_1000: 1000 lines, elapsed 12.69ms (budget 2s)
+  1000 lines, ~12.7 ms (budget 2 s)
 
-cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl Maketext transplant, exact MSYS2_ENV_CONV_EXCL)
-  11 passed, including encrypted_database_reopens_with_the_key_and_rejects_a_wrong_one
+cargo run -p hragents-cli -- verify <copy of a real v1 database>
+  ok: 0 audit entries, head (empty)
+  integrity: ok
+  PRAGMA user_version: 1 -> 2
+  schema_migrations: (1,), (2,)
+  index objects: 71 -> 88 (37 named; the rest are implicit PK/UNIQUE indexes)
+  missing legacy columns added: growth_assignments.reviewer_email/created_at/sent_at/submitted_at,
+                                offboarding_plans.final_pay_run_id
 
-cargo test -p hragents-core --test payroll_parity
-  bpjs/overtime/THR/absence all match Python to the sen (4 passed)
+UI build (initial bundle, five screens lazy-loaded):
+  index  325.46 kB / 98.20 kB gzip
+  Hire    35.33 kB, People 27.57 kB, Pay 14.53 kB, Settings 9.93 kB, Ask 7.09 kB
+  (before split: single 436.50 kB / 119.89 kB gzip initial)
 
-payroll XLSX export test
-  summary + lines sheet written, audit row payroll.exported
-
-tauri app launch
-  %LOCALAPPDATA%\com.hragents.desktop\hragents.db created
-  integrity_check = ok
+Playwright, 1024x700 and 1440x900 browser preview:
+  Today, Hire, People, Pay, Ask, Settings rendered; keyboard ? opens the grouped
+  shortcut dialog; Esc closes it and restores focus; g-t/g-h/g-p/g-y/g-a/g-s
+  navigate; skip link is first in tab order; reduced-motion and focus rings present.
 ```
 
-The browser preview (`npm run dev`) was exercised with Playwright across all five
-surfaces: Today, Hire case file + gated rejection, People onboarding + leave,
-Pay compute + password sign-off, Ask citations, Settings audit verification.
+The browser preview (`npm run dev`) uses the same typed command names as Tauri and
+the same gates; it is a review surface, not a second implementation.
 
 ---
 
@@ -112,16 +106,16 @@ Pay compute + password sign-off, Ask citations, Settings audit verification.
 
 | Gate | Proof required | Status |
 |---|---|---|
-| **G0** shell + DB + login | Packaged build, encrypted DB, login/lock/unlock/re-auth, audit after restart, no listening port | **Pass on the dev slice.** Unsigned NSIS bundle installs/starts (5.97 MiB); SQLCipher encrypted DB opens and verifies locally and in CI; login/lock/unlock/re-auth/logout all tested; audit verifies after restart; no listening port. Production signing is a G6 item, not a G0 item. |
+| **G0** shell + DB + login | Packaged build, encrypted DB, login/lock/unlock/re-auth, audit after restart, no listening port | **Partial.** Shell, per-user install, login/lock/re-auth, audit-after-restart, and no-listening-port are proven. **The shipped build opens a plaintext SQLite file:** SQLCipher passes its own reopen/wrong-key test, but it is not wired into the app or its key management. Data-at-rest is the first open security item. |
 | **G1** employee/onboarding | Employee created, plan completed, audited receipt, parity fixture, Python not invoked | **Pass on the dev slice.** Covered by IPC tests and CLI demo. |
-| **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction, score, σ, evidence, gate, rejection, scheduling (propose/confirm), offers (draft→approve→send→accept, re-auth gate), messaging (draft→queue→sent, re-auth gate, inbound replies), and candidate-safe feedback all pass core/store/IPC/Tauri/UI tests. PDF/DOCX parsing and a provider-backed (`rig`) extractor are not ported. |
-| **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export | **Partial.** Engine, tables gate, anomalies, sign-off, immutability, 1,000-line benchmark (12.7 ms), and XLSX export exist. Full BPJS/THR/final parity corpus still missing. |
-| **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval all pass core/store/IPC/Tauri/UI tests. |
-| **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started.** Python remains the reference implementation. |
-| **G6** signed installer/update/backup | Signed installer, notarized macOS, staged updater, restore drill, rollback | **Not started.** Backup/restore and integrity check exist; signing and updater do not. |
+| **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction (TXT/PDF/DOCX), score, σ, evidence, gate, rejection, scheduling, offers, messaging, and candidate-safe feedback pass core/store/IPC/Tauri/UI tests. A live provider key is optional and untested. |
+| **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export | **Partial.** Engine, tables gate, anomalies, sign-off, immutability, 1,000-line benchmark, and XLSX export exist. Full BPJS/THR/final parity corpus and a payslip view are still missing. |
+| **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval pass core/store/IPC/Tauri/UI tests. |
+| **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started by design.** The migration plan forbids removing Python until the first release cut; the free edition changes distribution, not the parity contract. |
+| **G6** installable free build + recovery | Per-user installer, backup/restore drill, rollback, no paid dependency | **Pass for the free edition.** NSIS installs per-user without admin, data survives uninstall, backup/restore drill is green, audit exports, and nothing requires a certificate, paid account, hosted update server, or telemetry. Commercial signing/notarization is a future paid-distribution decision, not a gate. Pilot remains a human step. |
 
-A gate is not opened by a green unit test. G0, G2, G3, and G4 remain open until the
-missing evidence above exists.
+A gate is not opened by a green unit test. G3's parity breadth, G5, and the pilot
+remain open until the missing evidence exists.
 
 ---
 
@@ -129,52 +123,57 @@ missing evidence above exists.
 
 1. **Provider live key + streaming** — the `rig` adapter, recorded replay fixtures,
    and the ignored live test exist; no production key is configured and there is
-   no streaming UI yet. The offline extractor stays the default.
-2. **CV ingestion and document preview** — bytes are hashed and metadata stored, but
-   no extractor or viewer yet.
-3. **SQLCipher release gate** — the feature, `open_encrypted`, and the
-   reopen/wrong-key test pass locally on Windows GNU and in the Ubuntu CI job.
-   Local recipe (Git-Bash perl is stripped): transplant Strawberry Perl's
-   `Locale::Maketext*`, `ExtUtils/*`, `Pod/*` to /tmp/perllib, export
-   `PERL5LIB=/tmp/perllib` with the EXACT `MSYS2_ENV_CONV_EXCL=PERL5LIB`
-   (a trailing space breaks the token match and re-mangles the path), and put
-   a `make.exe` (mingw32-make copy) on PATH. A release build must still run
-   the sqlcipher suite before G0 is closed.
-4. **Packaged installer, code signing, updater** — `cargo build` works; distribution
-   does not exist yet.
-5. **XLSX payroll export, payslips, 1,000-employee benchmark** — engine only.
-6. **Scheduling, offers, candidate messaging, feedback PDF** — core models exist;
-   workflows and UI are not ported.
-7. **Scheduler follow-ups** — retention/offer/backup/audit jobs run in-process on a
-   shared session (they idle while the app is locked); IMAP polling, the outbox,
-   and reminder notifications are still manual actions, not jobs.
-8. **Scheduling/offers/messaging** — done (core + store + IPC + Tauri + UI);
-   PDF/DOCX parsing and the provider-backed extractor remain.
-8. **Scoring parity breadth** — the merge and population σ are parity-tested against
-   Python's `aggregate_runs`; the 4-dimension rubric extraction itself is not yet.
-9. **Payroll parity beyond PPh 21** — BPJS/THR/final need a Python-generated corpus.
-10. **Import from the existing Postgres product** — not implemented.
+   no streaming UI. The offline extractor stays the default.
+2. **Parity breadth** — the merge and population σ are parity-tested; the
+   4-dimension rubric extraction itself is not. BPJS/THR/final payroll need a
+   Python-generated corpus before the sen-level claim covers them.
+3. **Encryption at rest (P0 before real employee data)** — the installer opens a
+   plaintext SQLite file. SQLCipher and its wrong-key test exist, but the app needs
+   key generation/storage, an encrypted-open path, plaintext-to-encrypted migration,
+   and encrypted backup/restore before this can be claimed. Settings now states the
+   gap instead of implying encryption.
+4. **Payslip view** — payroll exports a review packet; there is no per-employee
+   payslip screen yet.
+5. **Python removal** — deferred to the release cut by the migration plan.
+6. **Import from the existing Postgres product** — not implemented.
+7. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
+   signed auto-update feed are out of scope for this free edition.
+8. **Pilot** — needs real companies and a named human reviewer, and must not start
+   with plaintext employee data.
 
 ---
 
-## 4. Next ten tasks, in order
+## 4. Next tasks, in order
 
-1. Add SQLCipher behind a default release feature; rekey and reopen tests.
-2. Port CV extraction with `rig` 0.46 and a recorded offline provider; store raw
-   output hashes. (The deterministic extractor is the fallback.)
-3. Generate scoring and full payroll parity corpora from Python; make them
-   shrink-only.
-4. Implement document upload/preview and the document-request workflow.
-5. Implement scheduling, offers, and candidate communications.
-6. Add payroll XLSX export and payslip view; benchmark 1,000 lines.
-7. Wire document upload, preview, and the request/chase UI.
-8. Add audit export, retention sweep, and the erasure execution flow over IPC.
-9. Package: NSIS/MSI, signed updater manifest, clean-VM install + restore drill.
-10. Cut over: freeze corpus, delete Python from the runtime, run G5/G6.
+1. **Wire encryption**: generate a per-install key, store it with OS user protection,
+   open the database through SQLCipher, migrate the existing plaintext file, and
+   prove backup/restore round-trips. Do this before any pilot with real data.
+2. Generate the full BPJS/THR/final payroll parity corpus and add a payslip view.
+3. Add extraction-level scoring parity (4 dimensions) against the Python oracle.
+4. Exercise the provider adapter with a recorded replay in CI; keep the live test ignored.
+5. Profile the packaged build on a 1,000-employee database; check Today/reminders
+   query counts stay constant after the index migration.
+6. Run the pilot entry checklist in `15-pilot.md` only after encryption is wired.
+7. At the release cut: freeze the corpus, remove Python from the runtime, and run G5.
 
 ---
 
-## 5. How to run it now
+## 5. Replacement log — evaluated, not blindly swapped
+
+| Candidate | Decision | Why |
+|---|---|---|
+| `chrono` → `jiff` | **Keep chrono for now** | Date/time semantics are already isolated in `BusinessDate`/`UtcInstant`; jiff's better DST model only pays off if raw `chrono` types leak out. Revisit at the release cut. |
+| Base64 document IPC → raw `tauri::ipc::Response` | **Planned** | Base64 adds ~33% payload and an `atob` copy. The binary path needs blob-URL lifecycle work in the vault; document previews are small today, so it is not a release blocker. |
+| Custom DOCX extractor → `docx-rs` | **Keep custom** | Only text is needed; the current zip + XML walk is fixture-tested and avoids a large dependency with a different document model. |
+| `react-router` → none | **Removed** | The app switches five surfaces in local state; the dependency was unused. |
+| `tauri-specta` | **Planned** | Generating TS types from the Rust command surface removes hand-written drift, but the command surface must freeze first. |
+| Tailwind → plain CSS | **Keep Tailwind** | `theme.css` is the single token source; Tailwind supplies preflight only. Removing it would change resets across every screen for no runtime gain. |
+| `rusqlite` → `sqlx` | **Keep rusqlite** | One synchronous connection is the correct model for a one-window local app; SQLx's async pool buys nothing here. |
+| Zustand / i18next | **Not adopted** | TanStack Query + local state covers one window; the cockpit is English-only. |
+
+---
+
+## 6. How to run it now
 
 ```bash
 # Rust workspace

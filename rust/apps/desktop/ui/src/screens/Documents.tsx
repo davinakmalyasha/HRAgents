@@ -109,7 +109,7 @@ export function DocumentVault({
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div style={{ fontWeight: 620 }}>
           Documents · {ownerLabel}{" "}
-          <span className="pill info">{list.length}</span>
+          <span className="pill">{list.length}</span>
         </div>
         <div className="row" style={{ gap: 8 }}>
           <input
@@ -337,7 +337,7 @@ export function DocumentRequests({
     <div className="grid" style={{ gap: 12, marginTop: 18 }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <div style={{ fontWeight: 620 }}>
-          Document requests · {employeeName} <span className="pill info">{list.length}</span>
+          Document requests · {employeeName} <span className="pill">{list.length}</span>
         </div>
       </div>
       <form className="form-grid" onSubmit={create}>

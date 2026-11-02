@@ -88,7 +88,7 @@ export function Login({
       <main className="login-form-wrap">
         <form className="login-form" onSubmit={submit}>
           <div className="row" style={{ justifyContent: "space-between", marginBottom: 22 }}>
-            <span className="pill info">HR operator only</span>
+            <span className="pill">HR operator only</span>
             {!isDesktop ? <span className="preview-badge">Browser preview</span> : null}
           </div>
           <h1>{setupRequired ? "Set up this installation" : "Welcome back"}</h1>

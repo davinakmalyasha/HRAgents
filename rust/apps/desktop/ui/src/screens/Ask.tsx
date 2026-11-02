@@ -92,7 +92,7 @@ export function Ask({ onNavigate }: { onNavigate: (surface: Surface) => void }) 
           <p>Policy answers with citations, scoped to this company's local documents.</p>
         </div>
         <div className="page-actions">
-          <span className="pill info"><ShieldCheck size={11} /> read-only</span>
+          <span className="pill"><ShieldCheck size={11} /> read-only</span>
         </div>
       </div>
 
@@ -119,6 +119,23 @@ export function Ask({ onNavigate }: { onNavigate: (surface: Surface) => void }) 
                 ) : null}
               </div>
             ))}
+            {messages.length === 1 ? (
+              <div className="grid" style={{ gap: 8 }}>
+                <div className="small faint">Try one of these</div>
+                <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
+                  {SUGGESTIONS.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      className="btn sm"
+                      style={{ height: "auto", padding: "7px 10px", whiteSpace: "normal", textAlign: "left" }}
+                      onClick={() => ask(suggestion)}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
           <form
             className="chat-input"

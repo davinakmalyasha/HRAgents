@@ -35,7 +35,7 @@ pub mod scheduler;
 pub use compliance_services::RetentionDueItem;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
@@ -1425,23 +1425,23 @@ impl AppService {
         self.session.as_ref().ok_or(AppError::Unauthenticated)?;
         let approvals = self.store.list_approvals(true)?;
         let employees = self.store.list_employees()?;
+        let mut latest_plans = HashMap::new();
+        for plan in self.store.list_onboarding_plans()? {
+            latest_plans.entry(plan.employee_id).or_insert(plan);
+        }
         let mut open_onboarding = Vec::new();
         for employee in &employees {
-            if let Some(plan) = self.store.onboarding_plan_for(employee.id)?
+            if let Some(plan) = latest_plans.get(&employee.id)
                 && plan.status == hragents_core::people::OnboardingStatus::InProgress
             {
-                {
-                    let (done, total) = plan.progress();
-                    open_onboarding.push(format!(
-                        "{} — {} ({done}/{total})",
-                        employee.full_name, plan.template_name
-                    ));
-                }
+                let (done, total) = plan.progress();
+                open_onboarding.push(format!(
+                    "{} — {} ({done}/{total})",
+                    employee.full_name, plan.template_name
+                ));
             }
         }
-        let mut recent_audit = self.store.audit_entries()?;
-        recent_audit.reverse();
-        recent_audit.truncate(8);
+        let recent_audit = self.store.audit_recent(8)?;
         Ok(TodayView {
             approvals,
             open_onboarding,
@@ -1464,22 +1464,31 @@ impl AppService {
         let today = BusinessDate::today();
         let approvals = self.store.list_approvals(true)?;
         let employees = self.store.list_employees()?;
-        let mut onboarding = Vec::new();
-        for employee in &employees {
-            if let Some(plan) = self.store.onboarding_plan_for(employee.id)? {
-                onboarding.push((employee.full_name.clone(), plan));
-            }
+        let employee_names: HashMap<String, String> = employees
+            .iter()
+            .map(|employee| (employee.id.to_string(), employee.full_name.clone()))
+            .collect();
+        let mut latest_plans = HashMap::new();
+        for plan in self.store.list_onboarding_plans()? {
+            latest_plans.entry(plan.employee_id).or_insert(plan);
         }
+        let onboarding = employees
+            .iter()
+            .filter_map(|employee| {
+                latest_plans
+                    .get(&employee.id)
+                    .map(|plan| (employee.full_name.clone(), plan.clone()))
+            })
+            .collect::<Vec<_>>();
         let contracts = self.store.list_contracts()?;
         let documents = self
             .store
             .expiring_documents(today.add_days(30))?
             .into_iter()
             .map(|(document, _owner_id)| {
-                let owner = employees
-                    .iter()
-                    .find(|employee| employee.id.to_string() == document.owner_id)
-                    .map(|employee| employee.full_name.clone())
+                let owner = employee_names
+                    .get(&document.owner_id)
+                    .cloned()
                     .unwrap_or_else(|| document.owner_id.clone());
                 (
                     owner,
@@ -1491,10 +1500,9 @@ impl AppService {
         let offers = self.store.list_offers(None)?;
         let mut leave_requests = Vec::new();
         for request in self.store.list_leave_requests(None)? {
-            let name = employees
-                .iter()
-                .find(|employee| employee.id == request.employee_id)
-                .map(|employee| employee.full_name.clone())
+            let name = employee_names
+                .get(&request.employee_id.to_string())
+                .cloned()
                 .unwrap_or_default();
             leave_requests.push((request, name));
         }
@@ -1661,10 +1669,7 @@ impl AppService {
 
     pub fn audit_recent(&self, limit: usize) -> AppResult<Vec<AuditEntry>> {
         self.session.as_ref().ok_or(AppError::Unauthenticated)?;
-        let mut entries = self.store.audit_entries()?;
-        entries.reverse();
-        entries.truncate(limit);
-        Ok(entries)
+        Ok(self.store.audit_recent(limit)?)
     }
 
     /// Export the audit chain as JSON: every entry with its actor, payload hash,

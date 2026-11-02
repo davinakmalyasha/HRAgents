@@ -8,10 +8,10 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { command, formatDate, formatDateTime, formatDays } from "../api";
+import { businessToday, command, formatDate, formatDateTime, formatDays } from "../api";
 import type { CandidateMessage, Reminder, SessionView, TodayView } from "../types";
 import type { Surface } from "../nav";
-import { Avatar, EmptyState, StatusPill } from "../components/ui";
+import { Avatar, EmptyState, ErrorBox, StatusPill, errorMessage } from "../components/ui";
 
 function approvalIcon(kind: string) {
   if (kind === "payroll_sign_off") return Wallet;
@@ -36,6 +36,39 @@ export function Today({
   const reminderList = reminders.data ?? [];
   const outboxList = outbox.data ?? [];
 
+  if (today.isPending) {
+    return (
+      <div aria-busy="true" aria-label="Loading today">
+        <div className="page-head">
+          <div>
+            <h1>Today</h1>
+            <p className="faint">Loading your queue…</p>
+          </div>
+        </div>
+        <div className="grid kpis">
+          {[0, 1, 2, 3].map((key) => (
+            <div className="card skeleton" key={key} style={{ height: 96 }} />
+          ))}
+        </div>
+        <div className="grid two-col">
+          <div className="card skeleton" style={{ height: 260 }} />
+          <div className="card skeleton" style={{ height: 260 }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (today.isError) {
+    return (
+      <div className="grid" style={{ gap: 12 }}>
+        <ErrorBox>Could not load Today: {errorMessage(today.error)}</ErrorBox>
+        <button className="btn sm" style={{ width: "fit-content" }} onClick={() => void today.refetch()}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="page-head">
@@ -43,7 +76,7 @@ export function Today({
           <h1>Today</h1>
           <p>
             {session.display_name}, {approvals.length === 0 ? "nothing is waiting on you." : `${approvals.length} decision${approvals.length === 1 ? "" : "s"} need you.`}{" "}
-            <span className="faint">{formatDate(new Date().toISOString())}</span>
+            <span className="faint">{formatDate(businessToday())}</span>
           </p>
         </div>
         <div className="page-actions">
@@ -167,9 +200,7 @@ export function Today({
             <section className="card">
               <div className="card-head">
                 <h2>Needs attention</h2>
-                <span className={`pill ${reminderList.some((item) => item.severity === "urgent") ? "bad" : "warn"}`}>
-                  {reminderList.length + outboxList.length}
-                </span>
+                <span className="pill">{reminderList.length + outboxList.length}</span>
               </div>
               {reminderList.map((item) => (
                 <div className="list-row" key={`${item.kind}-${item.subject_id}`}>
@@ -205,7 +236,7 @@ export function Today({
           <section className="card">
             <div className="card-head">
               <h2>Audit receipts</h2>
-              <span className="pill ok">{data?.recent_audit.length ?? 0} recent</span>
+              <span className="pill">{data?.recent_audit.length ?? 0} recent</span>
             </div>
             <div className="card-pad">
               <div className="timeline">
@@ -236,9 +267,9 @@ export function Today({
                 <div style={{ fontWeight: 600 }}>Leave balance snapshot</div>
                 <div className="small muted">Ayu Lestari · 2026</div>
               </div>
-              <span className="pill info">{formatDays(20)}</span>
+              <span className="pill">{formatDays(20)}</span>
             </div>
-            <div className="bar ok" style={{ marginTop: 14 }}>
+            <div className="bar" style={{ marginTop: 14 }}>
               <span style={{ width: "83%" }} />
             </div>
             <div className="small muted" style={{ marginTop: 8 }}>
