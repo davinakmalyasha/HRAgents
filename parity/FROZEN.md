@@ -20,6 +20,7 @@ Hashes are of the LF-normalized files; the exporter writes `newline="\n"` so Win
 | payroll_pph21.json | `ac71e8d60995c0d3d57e6bd93aa5e4114aef8aa6424a8a29211b48956880d619` |
 | payroll_thr.json | `c629ec5eeda0877a927a89681a8542b67b164c836317a5b5bf4e205a52dfa8ea` |
 | payroll_thr_full.json | `15e56388204b7c10832e4438b69b24a131ffb00942e14cf14c338a5280cef410` |
+| scoring_dimensions.json | `74c91fb9718a2cbac52d0269d7d417771f7cb811ff19a273d5be1ebb37df58c9` |
 | scoring_aggregate.json | `ec99f798b6f1c2f8ebdfb1e2fc2549e82ce4f410e3a891bfbe3cef6645076b9a` |
 
 Regenerate: `uv run python scripts/parity_export.py parity/fixtures`

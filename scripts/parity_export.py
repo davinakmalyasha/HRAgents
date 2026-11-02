@@ -951,6 +951,204 @@ def payroll_1000_cases() -> dict[str, object]:
     }
 
 
+def scoring_dimension_cases() -> list[dict[str, object]]:
+    """Four-dimension aggregate parity across run counts, weights, and sigmas."""
+    from hr_agents.models.evaluation import (
+        ScoreDimension,
+        ScoreVector,
+        ScoringRun,
+        aggregate_runs,
+    )
+
+    dimensions = [
+        "technical_depth",
+        "stack_alignment",
+        "systems_literacy",
+        "verifiable_certifications",
+    ]
+    cases = [
+        (
+            "single_run",
+            {
+                "technical_depth": 4000,
+                "stack_alignment": 3000,
+                "systems_literacy": 2000,
+                "verifiable_certifications": 1000,
+            },
+            [[8000, 7000, 6000, 5000]],
+            500,
+        ),
+        (
+            "two_run_mixed",
+            {
+                "technical_depth": 4000,
+                "stack_alignment": 3000,
+                "systems_literacy": 2000,
+                "verifiable_certifications": 1000,
+            },
+            [[8100, 7200, 6300, 5400], [7900, 6800, 5700, 4600]],
+            500,
+        ),
+        (
+            "two_run_half_basis_point",
+            {
+                "technical_depth": 4000,
+                "stack_alignment": 3000,
+                "systems_literacy": 2000,
+                "verifiable_certifications": 1000,
+            },
+            [[8000, 7000, 6000, 5000], [8001, 7001, 6001, 5001]],
+            500,
+        ),
+        (
+            "three_run_odd",
+            {
+                "technical_depth": 4000,
+                "stack_alignment": 3000,
+                "systems_literacy": 2000,
+                "verifiable_certifications": 1000,
+            },
+            [
+                [8100, 7200, 6300, 5400],
+                [8000, 7100, 6200, 5300],
+                [7900, 7000, 6100, 5200],
+            ],
+            500,
+        ),
+        (
+            "five_run_varied",
+            {
+                "technical_depth": 4000,
+                "stack_alignment": 3000,
+                "systems_literacy": 2000,
+                "verifiable_certifications": 1000,
+            },
+            [
+                [8200, 7100, 6500, 5000],
+                [7800, 7300, 6100, 5600],
+                [8050, 7050, 6250, 5150],
+                [7950, 7150, 6350, 5250],
+                [8100, 7250, 6150, 5450],
+            ],
+            500,
+        ),
+        (
+            "seven_run_boundaries",
+            {
+                "technical_depth": 4000,
+                "stack_alignment": 3000,
+                "systems_literacy": 2000,
+                "verifiable_certifications": 1000,
+            },
+            [
+                [0, 10000, 0, 10000],
+                [10000, 0, 10000, 0],
+                [5000, 5000, 5000, 5000],
+                [6000, 4000, 6000, 4000],
+                [4000, 6000, 4000, 6000],
+                [7000, 3000, 7000, 3000],
+                [3000, 7000, 3000, 7000],
+            ],
+            1000,
+        ),
+        (
+            "equal_weights",
+            {
+                "technical_depth": 2500,
+                "stack_alignment": 2500,
+                "systems_literacy": 2500,
+                "verifiable_certifications": 2500,
+            },
+            [[8000, 7000, 6000, 5000], [7800, 7300, 6100, 5600]],
+            500,
+        ),
+        (
+            "weight_skew",
+            {
+                "technical_depth": 7000,
+                "stack_alignment": 2000,
+                "systems_literacy": 700,
+                "verifiable_certifications": 300,
+            },
+            [[9000, 5000, 7000, 3000], [8500, 5500, 6500, 3500]],
+            500,
+        ),
+        (
+            "technical_only_weight",
+            {
+                "technical_depth": 10000,
+                "stack_alignment": 0,
+                "systems_literacy": 0,
+                "verifiable_certifications": 0,
+            },
+            [[9000, 1000, 2000, 3000], [7000, 9000, 8000, 7000]],
+            500,
+        ),
+        (
+            "high_sigma",
+            {
+                "technical_depth": 4000,
+                "stack_alignment": 3000,
+                "systems_literacy": 2000,
+                "verifiable_certifications": 1000,
+            },
+            [[9000, 9000, 9000, 9000], [4000, 4000, 4000, 4000]],
+            500,
+        ),
+        (
+            "sigma_limit_zero",
+            {
+                "technical_depth": 5000,
+                "stack_alignment": 3000,
+                "systems_literacy": 1500,
+                "verifiable_certifications": 500,
+            },
+            [[8100, 7100, 6100, 5100], [7900, 6900, 5900, 4900]],
+            0,
+        ),
+    ]
+
+    out = []
+    for name, weights_bp, run_bp, sigma_limit in cases:
+        weights = {ScoreDimension(key): value / 10000 for key, value in weights_bp.items()}
+        runs = [
+            ScoringRun(
+                run_index=index,
+                extraction_id=uuid4(),
+                vector=ScoreVector(
+                    **{
+                        dimension: values[position] / 10000
+                        for position, dimension in enumerate(dimensions)
+                    }
+                ),
+            )
+            for index, values in enumerate(run_bp)
+        ]
+        mean, _stddev, weighted, sigma = aggregate_runs(runs, weights)
+        mean_mapping = mean.as_mapping()
+        overall_bp = round(weighted * 10000)
+        sigma_bp = round(sigma * 10000)
+        out.append(
+            {
+                "name": name,
+                "weights_bp": weights_bp,
+                "sigma_limit_bp": sigma_limit,
+                "runs": [
+                    {dimension: values[position] for position, dimension in enumerate(dimensions)}
+                    for values in run_bp
+                ],
+                "dimension_scores_bp": {
+                    dimension: round(mean_mapping[ScoreDimension(dimension)] * 10000)
+                    for dimension in dimensions
+                },
+                "overall_bp": overall_bp,
+                "sigma_bp": sigma_bp,
+                "inconsistent": sigma_bp > sigma_limit,
+            }
+        )
+    return out
+
+
 def main() -> int:
     output = Path(sys.argv[1] if len(sys.argv) > 1 else "parity/fixtures")
     output.mkdir(parents=True, exist_ok=True)
@@ -960,6 +1158,7 @@ def main() -> int:
         "audit_hashes.json": audit_cases(),
         "payroll_pph21.json": pph21_cases(),
         "scoring_aggregate.json": scoring_cases(),
+        "scoring_dimensions.json": scoring_dimension_cases(),
         "payroll_bpjs.json": bpjs_cases(),
         "payroll_overtime.json": overtime_cases(),
         "payroll_thr.json": thr_cases(),

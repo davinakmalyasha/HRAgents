@@ -1,0 +1,413 @@
+[
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 7000,
+      "systems_literacy": 6000,
+      "technical_depth": 8000,
+      "verifiable_certifications": 5000
+    },
+    "inconsistent": false,
+    "name": "single_run",
+    "overall_bp": 7000,
+    "runs": [
+      {
+        "stack_alignment": 7000,
+        "systems_literacy": 6000,
+        "technical_depth": 8000,
+        "verifiable_certifications": 5000
+      }
+    ],
+    "sigma_bp": 0,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 2000,
+      "technical_depth": 4000,
+      "verifiable_certifications": 1000
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 7000,
+      "systems_literacy": 6000,
+      "technical_depth": 8000,
+      "verifiable_certifications": 5000
+    },
+    "inconsistent": false,
+    "name": "two_run_mixed",
+    "overall_bp": 7000,
+    "runs": [
+      {
+        "stack_alignment": 7200,
+        "systems_literacy": 6300,
+        "technical_depth": 8100,
+        "verifiable_certifications": 5400
+      },
+      {
+        "stack_alignment": 6800,
+        "systems_literacy": 5700,
+        "technical_depth": 7900,
+        "verifiable_certifications": 4600
+      }
+    ],
+    "sigma_bp": 200,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 2000,
+      "technical_depth": 4000,
+      "verifiable_certifications": 1000
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 7000,
+      "systems_literacy": 6000,
+      "technical_depth": 8000,
+      "verifiable_certifications": 5000
+    },
+    "inconsistent": false,
+    "name": "two_run_half_basis_point",
+    "overall_bp": 7001,
+    "runs": [
+      {
+        "stack_alignment": 7000,
+        "systems_literacy": 6000,
+        "technical_depth": 8000,
+        "verifiable_certifications": 5000
+      },
+      {
+        "stack_alignment": 7001,
+        "systems_literacy": 6001,
+        "technical_depth": 8001,
+        "verifiable_certifications": 5001
+      }
+    ],
+    "sigma_bp": 0,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 2000,
+      "technical_depth": 4000,
+      "verifiable_certifications": 1000
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 7100,
+      "systems_literacy": 6200,
+      "technical_depth": 8000,
+      "verifiable_certifications": 5300
+    },
+    "inconsistent": false,
+    "name": "three_run_odd",
+    "overall_bp": 7100,
+    "runs": [
+      {
+        "stack_alignment": 7200,
+        "systems_literacy": 6300,
+        "technical_depth": 8100,
+        "verifiable_certifications": 5400
+      },
+      {
+        "stack_alignment": 7100,
+        "systems_literacy": 6200,
+        "technical_depth": 8000,
+        "verifiable_certifications": 5300
+      },
+      {
+        "stack_alignment": 7000,
+        "systems_literacy": 6100,
+        "technical_depth": 7900,
+        "verifiable_certifications": 5200
+      }
+    ],
+    "sigma_bp": 82,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 2000,
+      "technical_depth": 4000,
+      "verifiable_certifications": 1000
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 7170,
+      "systems_literacy": 6270,
+      "technical_depth": 8020,
+      "verifiable_certifications": 5290
+    },
+    "inconsistent": false,
+    "name": "five_run_varied",
+    "overall_bp": 7142,
+    "runs": [
+      {
+        "stack_alignment": 7100,
+        "systems_literacy": 6500,
+        "technical_depth": 8200,
+        "verifiable_certifications": 5000
+      },
+      {
+        "stack_alignment": 7300,
+        "systems_literacy": 6100,
+        "technical_depth": 7800,
+        "verifiable_certifications": 5600
+      },
+      {
+        "stack_alignment": 7050,
+        "systems_literacy": 6250,
+        "technical_depth": 8050,
+        "verifiable_certifications": 5150
+      },
+      {
+        "stack_alignment": 7150,
+        "systems_literacy": 6350,
+        "technical_depth": 7950,
+        "verifiable_certifications": 5250
+      },
+      {
+        "stack_alignment": 7250,
+        "systems_literacy": 6150,
+        "technical_depth": 8100,
+        "verifiable_certifications": 5450
+      }
+    ],
+    "sigma_bp": 49,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 2000,
+      "technical_depth": 4000,
+      "verifiable_certifications": 1000
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 5000,
+      "systems_literacy": 5000,
+      "technical_depth": 5000,
+      "verifiable_certifications": 5000
+    },
+    "inconsistent": false,
+    "name": "seven_run_boundaries",
+    "overall_bp": 5000,
+    "runs": [
+      {
+        "stack_alignment": 10000,
+        "systems_literacy": 0,
+        "technical_depth": 0,
+        "verifiable_certifications": 10000
+      },
+      {
+        "stack_alignment": 0,
+        "systems_literacy": 10000,
+        "technical_depth": 10000,
+        "verifiable_certifications": 0
+      },
+      {
+        "stack_alignment": 5000,
+        "systems_literacy": 5000,
+        "technical_depth": 5000,
+        "verifiable_certifications": 5000
+      },
+      {
+        "stack_alignment": 4000,
+        "systems_literacy": 6000,
+        "technical_depth": 6000,
+        "verifiable_certifications": 4000
+      },
+      {
+        "stack_alignment": 6000,
+        "systems_literacy": 4000,
+        "technical_depth": 4000,
+        "verifiable_certifications": 6000
+      },
+      {
+        "stack_alignment": 3000,
+        "systems_literacy": 7000,
+        "technical_depth": 7000,
+        "verifiable_certifications": 3000
+      },
+      {
+        "stack_alignment": 7000,
+        "systems_literacy": 3000,
+        "technical_depth": 3000,
+        "verifiable_certifications": 7000
+      }
+    ],
+    "sigma_bp": 586,
+    "sigma_limit_bp": 1000,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 2000,
+      "technical_depth": 4000,
+      "verifiable_certifications": 1000
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 7150,
+      "systems_literacy": 6050,
+      "technical_depth": 7900,
+      "verifiable_certifications": 5300
+    },
+    "inconsistent": false,
+    "name": "equal_weights",
+    "overall_bp": 6600,
+    "runs": [
+      {
+        "stack_alignment": 7000,
+        "systems_literacy": 6000,
+        "technical_depth": 8000,
+        "verifiable_certifications": 5000
+      },
+      {
+        "stack_alignment": 7300,
+        "systems_literacy": 6100,
+        "technical_depth": 7800,
+        "verifiable_certifications": 5600
+      }
+    ],
+    "sigma_bp": 100,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 2500,
+      "systems_literacy": 2500,
+      "technical_depth": 2500,
+      "verifiable_certifications": 2500
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 5250,
+      "systems_literacy": 6750,
+      "technical_depth": 8750,
+      "verifiable_certifications": 3250
+    },
+    "inconsistent": false,
+    "name": "weight_skew",
+    "overall_bp": 7745,
+    "runs": [
+      {
+        "stack_alignment": 5000,
+        "systems_literacy": 7000,
+        "technical_depth": 9000,
+        "verifiable_certifications": 3000
+      },
+      {
+        "stack_alignment": 5500,
+        "systems_literacy": 6500,
+        "technical_depth": 8500,
+        "verifiable_certifications": 3500
+      }
+    ],
+    "sigma_bp": 135,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 2000,
+      "systems_literacy": 700,
+      "technical_depth": 7000,
+      "verifiable_certifications": 300
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 5000,
+      "systems_literacy": 5000,
+      "technical_depth": 8000,
+      "verifiable_certifications": 5000
+    },
+    "inconsistent": true,
+    "name": "technical_only_weight",
+    "overall_bp": 8000,
+    "runs": [
+      {
+        "stack_alignment": 1000,
+        "systems_literacy": 2000,
+        "technical_depth": 9000,
+        "verifiable_certifications": 3000
+      },
+      {
+        "stack_alignment": 9000,
+        "systems_literacy": 8000,
+        "technical_depth": 7000,
+        "verifiable_certifications": 7000
+      }
+    ],
+    "sigma_bp": 1000,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 0,
+      "systems_literacy": 0,
+      "technical_depth": 10000,
+      "verifiable_certifications": 0
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 6500,
+      "systems_literacy": 6500,
+      "technical_depth": 6500,
+      "verifiable_certifications": 6500
+    },
+    "inconsistent": true,
+    "name": "high_sigma",
+    "overall_bp": 6500,
+    "runs": [
+      {
+        "stack_alignment": 9000,
+        "systems_literacy": 9000,
+        "technical_depth": 9000,
+        "verifiable_certifications": 9000
+      },
+      {
+        "stack_alignment": 4000,
+        "systems_literacy": 4000,
+        "technical_depth": 4000,
+        "verifiable_certifications": 4000
+      }
+    ],
+    "sigma_bp": 2500,
+    "sigma_limit_bp": 500,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 2000,
+      "technical_depth": 4000,
+      "verifiable_certifications": 1000
+    }
+  },
+  {
+    "dimension_scores_bp": {
+      "stack_alignment": 7000,
+      "systems_literacy": 6000,
+      "technical_depth": 8000,
+      "verifiable_certifications": 5000
+    },
+    "inconsistent": true,
+    "name": "sigma_limit_zero",
+    "overall_bp": 7250,
+    "runs": [
+      {
+        "stack_alignment": 7100,
+        "systems_literacy": 6100,
+        "technical_depth": 8100,
+        "verifiable_certifications": 5100
+      },
+      {
+        "stack_alignment": 6900,
+        "systems_literacy": 5900,
+        "technical_depth": 7900,
+        "verifiable_certifications": 4900
+      }
+    ],
+    "sigma_bp": 100,
+    "sigma_limit_bp": 0,
+    "weights_bp": {
+      "stack_alignment": 3000,
+      "systems_literacy": 1500,
+      "technical_depth": 5000,
+      "verifiable_certifications": 500
+    }
+  }
+]

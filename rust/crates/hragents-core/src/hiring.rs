@@ -331,6 +331,8 @@ impl Evaluation {
         }
 
         let mut dimension_scores = BTreeMap::new();
+        let mut mean_bp = BTreeMap::new();
+        let n = runs.len() as f64;
         for dimension in &rubric.dimensions {
             let mut values = Vec::with_capacity(runs.len());
             for run in runs {
@@ -348,24 +350,25 @@ impl Evaluation {
                 }
                 values.push(value);
             }
-            // Mean across runs, matching the Python oracle's aggregate_runs.
-            // Integer basis points keep it exact; round once, half away.
-            let total: i64 = values.iter().sum();
-            let n = i64::try_from(values.len()).unwrap_or(1);
-            let mean = if total >= 0 {
-                (total + n / 2) / n
-            } else {
-                (total - n / 2) / n
-            };
-            dimension_scores.insert(dimension.key.clone(), mean);
+            let mean = values.iter().map(|value| *value as f64).sum::<f64>() / n;
+            dimension_scores.insert(dimension.key.clone(), round_half_even(mean));
+            mean_bp.insert(dimension.key.clone(), mean);
         }
 
-        let overall_bp = weighted_score(rubric, &dimension_scores)?;
-        let per_run_totals: Vec<i64> = runs
+        // Python computes the weighted overall from the unrounded dimension
+        // means, then rounds once. Rounding each dimension first changes ties.
+        let weighted: f64 = rubric
+            .dimensions
             .iter()
-            .map(|run| weighted_score(rubric, &run.dimension_scores))
+            .map(|dimension| mean_bp[&dimension.key] * (dimension.weight_bp as f64 / 10_000.0))
+            .sum();
+        let overall_bp = round_half_even(weighted);
+
+        let per_run_totals: Vec<f64> = runs
+            .iter()
+            .map(|run| weighted_bp_f64(rubric, &run.dimension_scores))
             .collect::<DomainResult<_>>()?;
-        let sigma_bp = population_stddev(&per_run_totals);
+        let sigma_bp = round_half_even(population_stddev(&per_run_totals));
 
         let mut flags = Vec::new();
         if sigma_bp > rubric.sigma_limit_bp {
@@ -397,8 +400,8 @@ impl Evaluation {
     }
 }
 
-fn weighted_score(rubric: &Rubric, scores: &BTreeMap<String, i64>) -> DomainResult<i64> {
-    let mut total = 0_i64;
+fn weighted_bp_f64(rubric: &Rubric, scores: &BTreeMap<String, i64>) -> DomainResult<f64> {
+    let mut total = 0.0_f64;
     for dimension in &rubric.dimensions {
         let score = *scores.get(&dimension.key).ok_or_else(|| {
             DomainError::validation(
@@ -412,31 +415,41 @@ fn weighted_score(rubric: &Rubric, scores: &BTreeMap<String, i64>) -> DomainResu
                 format!("dimension {} is outside 0..=10000", dimension.key),
             ));
         }
-        total += score * dimension.weight_bp;
+        total += score as f64 * (dimension.weight_bp as f64 / 10_000.0);
     }
-    // Weights sum to 10000, so divide by 10000 with half-away-from-zero.
-    Ok((total + 5_000) / 10_000)
+    Ok(total)
 }
 
-fn population_stddev(values: &[i64]) -> i64 {
+fn population_stddev(values: &[f64]) -> f64 {
     if values.len() < 2 {
-        return 0;
+        return 0.0;
     }
-    // Python's statistics.pstdev is a float; compute in f64 and round once to
-    // the nearest basis point. The inputs are already integer scores, so this
-    // only affects the final representation, never a decision threshold beyond
-    // the rubric's own sigma limit.
     let n = values.len() as f64;
-    let mean = values.iter().map(|value| *value as f64).sum::<f64>() / n;
+    let mean = values.iter().sum::<f64>() / n;
     let variance = values
         .iter()
         .map(|value| {
-            let delta = *value as f64 - mean;
+            let delta = value - mean;
             delta * delta
         })
         .sum::<f64>()
         / n;
-    variance.sqrt().round() as i64
+    variance.sqrt()
+}
+
+fn round_half_even(value: f64) -> i64 {
+    let floor = value.floor();
+    let fraction = value - floor;
+    let rounded = if fraction < 0.5 {
+        floor
+    } else if fraction > 0.5 {
+        floor + 1.0
+    } else if (floor as i64) % 2 == 0 {
+        floor
+    } else {
+        floor + 1.0
+    };
+    rounded as i64
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]

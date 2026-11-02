@@ -199,6 +199,83 @@ struct ScoringCase {
     sigma_bp: i64,
 }
 
+#[derive(Deserialize)]
+struct ScoringDimensionCase {
+    name: String,
+    weights_bp: std::collections::BTreeMap<String, i64>,
+    sigma_limit_bp: i64,
+    runs: Vec<std::collections::BTreeMap<String, i64>>,
+    dimension_scores_bp: std::collections::BTreeMap<String, i64>,
+    overall_bp: i64,
+    sigma_bp: i64,
+    inconsistent: bool,
+}
+
+#[test]
+fn scoring_dimensions_match_python() {
+    let cases: Vec<ScoringDimensionCase> = serde_json::from_str(include_str!(
+        "../../../../parity/fixtures/scoring_dimensions.json"
+    ))
+    .unwrap();
+    assert_eq!(cases.len(), 11);
+    for case in &cases {
+        let rubric = Rubric {
+            id: "score-vector-v1".into(),
+            name: "Score vector parity".into(),
+            dimensions: case
+                .weights_bp
+                .iter()
+                .map(|(key, weight_bp)| Dimension {
+                    key: key.clone(),
+                    label: key.clone(),
+                    weight_bp: *weight_bp,
+                })
+                .collect(),
+            merit_floor_bp: 7_000,
+            sigma_limit_bp: case.sigma_limit_bp,
+        };
+        let runs: Vec<RunScores> = case
+            .runs
+            .iter()
+            .map(|scores| RunScores {
+                dimension_scores: scores.clone(),
+            })
+            .collect();
+        let evaluation = Evaluation::from_runs(
+            ApplicationId::new(),
+            &rubric,
+            &runs,
+            Vec::new(),
+            UtcInstant::from_millis(1_760_000_000_000).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            evaluation.dimension_scores, case.dimension_scores_bp,
+            "case {}: dimension means diverged",
+            case.name
+        );
+        assert_eq!(
+            evaluation.overall_bp, case.overall_bp,
+            "case {}: overall diverged",
+            case.name
+        );
+        assert_eq!(
+            evaluation.sigma_bp, case.sigma_bp,
+            "case {}: sigma diverged",
+            case.name
+        );
+        assert_eq!(
+            evaluation
+                .flags
+                .iter()
+                .any(|flag| flag == "inconsistent_extraction"),
+            case.inconsistent,
+            "case {}: inconsistency flag diverged",
+            case.name
+        );
+    }
+}
+
 #[test]
 fn scoring_aggregate_matches_python() {
     let case: ScoringCase = serde_json::from_str(include_str!(
