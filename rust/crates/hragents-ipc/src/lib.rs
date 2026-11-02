@@ -26,6 +26,8 @@ use hragents_core::people::{
 use hragents_core::policy::PolicyCorpus;
 use hragents_core::time::{BusinessDate, UtcInstant};
 use hragents_store::{Store, StoreError};
+
+mod growth_services;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -200,6 +202,7 @@ pub struct SearchHit {
 /// takes its actor from `self.session`; no command body can supply an actor.
 pub struct AppService {
     store: Store,
+    documents_dir: std::path::PathBuf,
     auth: AuthService,
     session: Option<Session>,
     operator: Option<Operator>,
@@ -207,8 +210,17 @@ pub struct AppService {
 
 impl AppService {
     pub fn open(path: impl AsRef<Path>) -> AppResult<Self> {
+        let path = path.as_ref();
+        let documents_dir = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("documents");
+        std::fs::create_dir_all(&documents_dir)
+            .map_err(|error| AppError::Export(error.to_string()))?;
         Ok(Self {
             store: Store::open(path)?,
+            documents_dir,
             auth: AuthService::default(),
             session: None,
             operator: None,
@@ -216,8 +228,13 @@ impl AppService {
     }
 
     pub fn open_in_memory() -> AppResult<Self> {
+        let documents_dir =
+            std::env::temp_dir().join(format!("hragents-docs-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&documents_dir)
+            .map_err(|error| AppError::Export(error.to_string()))?;
         Ok(Self {
             store: Store::open_in_memory()?,
+            documents_dir,
             auth: AuthService::default(),
             session: None,
             operator: None,
@@ -418,6 +435,29 @@ impl AppService {
             .actor())
     }
 
+    pub(crate) fn require_session_pub(&self) -> AppResult<&Session> {
+        self.session.as_ref().ok_or(AppError::Unauthenticated)
+    }
+
+    pub(crate) fn require_active_pub(&mut self) -> AppResult<&mut Session> {
+        self.require_active()
+    }
+
+    pub(crate) fn require_reauth_pub(&mut self) -> AppResult<&Session> {
+        self.require_reauth()
+    }
+
+    pub(crate) fn append_audit_pub(
+        &mut self,
+        action: &str,
+        subject_type: &str,
+        subject_id: &str,
+        payload: serde_json::Value,
+        now: UtcInstant,
+    ) -> AppResult<AuditEntry> {
+        self.append_audit(action, subject_type, subject_id, payload, now)
+    }
+
     fn append_audit(
         &mut self,
         action: &str,
@@ -545,6 +585,143 @@ impl AppService {
             now,
         )?;
         Ok(plan)
+    }
+
+    // ------------------------------------------------------------------
+    // Documents
+    // ------------------------------------------------------------------
+
+    pub fn upload_document(
+        &mut self,
+        owner_type: DocumentOwnerType,
+        owner_id: &str,
+        filename: &str,
+        mime_type: &str,
+        bytes: Vec<u8>,
+    ) -> AppResult<Document> {
+        let now = UtcInstant::now();
+        self.require_active()?;
+        if bytes.is_empty() {
+            return Err(AppError::Domain(DomainError::validation(
+                "E_DOCUMENT_EMPTY",
+                "the selected file is empty",
+            )));
+        }
+        if bytes.len() > 25 * 1024 * 1024 {
+            return Err(AppError::Domain(DomainError::validation(
+                "E_DOCUMENT_TOO_LARGE",
+                "documents are limited to 25 MB",
+            )));
+        }
+        match owner_type {
+            DocumentOwnerType::Employee => {
+                let employee_id: EmployeeId = owner_id.parse().map_err(|_| {
+                    AppError::Domain(DomainError::validation("E_OWNER", "invalid employee owner"))
+                })?;
+                self.store.employee(employee_id)?;
+            }
+            DocumentOwnerType::Candidate => {
+                let candidate_id: CandidateId = owner_id.parse().map_err(|_| {
+                    AppError::Domain(DomainError::validation(
+                        "E_OWNER",
+                        "invalid candidate owner",
+                    ))
+                })?;
+                self.store.candidate(candidate_id)?;
+            }
+            _ => {}
+        }
+        let safe_name = std::path::Path::new(filename)
+            .file_name()
+            .and_then(std::ffi::OsStr::to_str)
+            .filter(|name| !name.is_empty())
+            .unwrap_or("document");
+        let extension = std::path::Path::new(safe_name)
+            .extension()
+            .and_then(std::ffi::OsStr::to_str)
+            .map(|ext| format!(".{}", ext.to_lowercase()))
+            .unwrap_or_default();
+        let id = DocumentId::new();
+        let stored_name = format!("{id}{extension}");
+        let path = self.documents_dir.join(&stored_name);
+        std::fs::write(&path, &bytes)
+            .map_err(|error| AppError::Export(format!("write document: {error}")))?;
+        let document = Document {
+            id,
+            owner_type,
+            owner_id: owner_id.to_owned(),
+            filename: safe_name.to_owned(),
+            mime_type: mime_type.to_owned(),
+            sha256: hragents_core::audit::hex_sha256(&bytes),
+            size_bytes: bytes.len() as i64,
+            status: DocumentStatus::Pending,
+            expires_on: None,
+            uploaded_at: now,
+            verified_at: None,
+            verified_by: None,
+            rejection_reason: None,
+            tags: Vec::new(),
+        };
+        self.store
+            .save_document(&document, &path.display().to_string())?;
+        self.append_audit(
+            "document.uploaded",
+            "document",
+            &document.id.to_string(),
+            serde_json::json!({
+                "filename": document.filename,
+                "mime_type": document.mime_type,
+                "size_bytes": document.size_bytes,
+                "sha256": document.sha256,
+                "owner_type": format!("{owner_type:?}"),
+                "owner_id": owner_id,
+            }),
+            now,
+        )?;
+        Ok(document)
+    }
+
+    pub fn list_documents(
+        &self,
+        owner_type: DocumentOwnerType,
+        owner_id: &str,
+    ) -> AppResult<Vec<Document>> {
+        self.session.as_ref().ok_or(AppError::Unauthenticated)?;
+        Ok(self.store.list_documents(owner_type, owner_id)?)
+    }
+
+    pub fn read_document(&mut self, id: DocumentId) -> AppResult<(Document, Vec<u8>)> {
+        let now = UtcInstant::now();
+        self.require_active()?;
+        let document = self.store.document(id)?;
+        let path = self.store.document_path(id)?;
+        let bytes = std::fs::read(&path)
+            .map_err(|error| AppError::Export(format!("read document: {error}")))?;
+        self.append_audit(
+            "document.viewed",
+            "document",
+            &document.id.to_string(),
+            serde_json::json!({"filename": document.filename, "size_bytes": document.size_bytes}),
+            now,
+        )?;
+        Ok((document, bytes))
+    }
+
+    pub fn verify_document(&mut self, id: DocumentId) -> AppResult<Document> {
+        let now = UtcInstant::now();
+        let actor_name = self.require_active()?.operator_name.clone();
+        let mut document = self.store.document(id)?;
+        document.verify(actor_name, now)?;
+        let path = self.store.document_path(id)?;
+        self.store.save_document(&document, &path)?;
+        self.append_audit(
+            "document.verified",
+            "document",
+            &document.id.to_string(),
+            serde_json::json!({"filename": document.filename}),
+            now,
+        )?;
+        Ok(document)
     }
 
     // ------------------------------------------------------------------
@@ -2009,6 +2186,160 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|entry| entry.action == "payroll.exported")
+        );
+    }
+
+    #[test]
+    fn document_upload_preview_and_verify() {
+        let mut service = service();
+        let employee = service.create_employee(employee_input()).unwrap();
+        let document = service
+            .upload_document(
+                DocumentOwnerType::Employee,
+                &employee.id.to_string(),
+                "ktp.txt",
+                "text/plain",
+                b"KTP number 1234".to_vec(),
+            )
+            .unwrap();
+        assert_eq!(document.size_bytes, 15);
+        assert_eq!(document.status, DocumentStatus::Pending);
+        let documents = service
+            .list_documents(DocumentOwnerType::Employee, &employee.id.to_string())
+            .unwrap();
+        assert_eq!(documents.len(), 1);
+        let (viewed, bytes) = service.read_document(document.id).unwrap();
+        assert_eq!(viewed.filename, "ktp.txt");
+        assert_eq!(bytes, b"KTP number 1234");
+        let verified = service.verify_document(document.id).unwrap();
+        assert_eq!(verified.status, DocumentStatus::Verified);
+        let actions: Vec<String> = service
+            .audit_recent(20)
+            .unwrap()
+            .into_iter()
+            .map(|entry| entry.action)
+            .collect();
+        assert!(actions.contains(&"document.uploaded".to_owned()));
+        assert!(actions.contains(&"document.viewed".to_owned()));
+        assert!(actions.contains(&"document.verified".to_owned()));
+    }
+
+    #[test]
+    fn growth_cycle_assignments_and_goals() {
+        let mut service = service();
+        let employee = service.create_employee(employee_input()).unwrap();
+        let cycle = service
+            .create_review_cycle(
+                "2026 H2",
+                BusinessDate::parse("2026-07-01").unwrap(),
+                BusinessDate::parse("2026-12-31").unwrap(),
+            )
+            .unwrap();
+        let cycle = service.set_review_cycle_status(cycle.id, true).unwrap();
+        assert_eq!(format!("{:?}", cycle.status), "Active");
+        let assignment = service
+            .create_review_assignment(cycle.id, employee.id, "Ayu", None)
+            .unwrap();
+        service.send_review_assignment(assignment.id).unwrap();
+        let answers = BTreeMap::from([
+            (
+                "outcomes".to_owned(),
+                hragents_core::growth::ReviewAnswer {
+                    text: Some("Shipped the desktop migration".into()),
+                    ..Default::default()
+                },
+            ),
+            (
+                "collaboration".to_owned(),
+                hragents_core::growth::ReviewAnswer {
+                    rating: Some(4),
+                    ..Default::default()
+                },
+            ),
+        ]);
+        service
+            .submit_review_response(assignment.id, answers)
+            .unwrap();
+        let summarized = service.summarize_review(assignment.id).unwrap();
+        assert_eq!(format!("{:?}", summarized.status), "Summarized");
+        assert_eq!(
+            service
+                .list_review_assignments(Some(cycle.id))
+                .unwrap()
+                .len(),
+            1
+        );
+
+        let goal = service
+            .create_goal(employee.id, "Ship the desktop beta")
+            .unwrap();
+        let goal = service.update_goal_progress(goal.id, 4_000).unwrap();
+        assert_eq!(goal.progress_bp, 4_000);
+        assert_eq!(service.list_goals(Some(employee.id)).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn offboarding_requires_all_steps_and_final_pay() {
+        let mut service = service();
+        let employee = service.create_employee(employee_input()).unwrap();
+        let plan = service
+            .start_offboarding(employee.id, BusinessDate::parse("2026-12-31").unwrap())
+            .unwrap();
+        assert_eq!(plan.steps.len(), 5);
+        for key in ["handover", "assets", "access", "exit", "final_pay"] {
+            service.complete_offboarding_step(employee.id, key).unwrap();
+        }
+        assert!(service.finish_offboarding(employee.id).is_err());
+        service
+            .record_offboarding_final_pay(employee.id, PayrollRunId::new())
+            .unwrap();
+        let finished = service.finish_offboarding(employee.id).unwrap();
+        assert_eq!(format!("{:?}", finished.status), "Completed");
+    }
+
+    #[test]
+    fn document_request_lifecycle() {
+        let mut service = service();
+        let employee = service.create_employee(employee_input()).unwrap();
+        let request = service
+            .create_document_request(
+                employee.id,
+                "KTP",
+                Some(BusinessDate::parse("2026-11-10").unwrap()),
+            )
+            .unwrap();
+        let document = Document {
+            id: DocumentId::new(),
+            owner_type: DocumentOwnerType::Employee,
+            owner_id: employee.id.to_string(),
+            filename: "ktp.pdf".into(),
+            mime_type: "application/pdf".into(),
+            sha256: "a".repeat(64),
+            size_bytes: 1024,
+            status: DocumentStatus::Pending,
+            expires_on: None,
+            uploaded_at: UtcInstant::now(),
+            verified_at: None,
+            verified_by: None,
+            rejection_reason: None,
+            tags: vec![],
+        };
+        service
+            .store_mut()
+            .save_document(&document, "documents/ktp.pdf")
+            .unwrap();
+        let request = service
+            .attach_document_request(request.id, document.id)
+            .unwrap();
+        assert_eq!(format!("{:?}", request.status), "Uploaded");
+        let request = service.verify_document_request(request.id).unwrap();
+        assert_eq!(format!("{:?}", request.status), "Verified");
+        assert_eq!(
+            service
+                .list_document_requests(Some(employee.id))
+                .unwrap()
+                .len(),
+            1
         );
     }
 

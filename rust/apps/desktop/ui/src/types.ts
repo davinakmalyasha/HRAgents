@@ -376,3 +376,87 @@ export interface PayrollInput {
   leave_payout_per_day: Money;
   note: string | null;
 }
+
+
+export interface ReviewQuestion {
+  key: string;
+  prompt: string;
+  kind: "rating" | "text" | "yes_no";
+  required: boolean;
+}
+
+export interface ReviewForm {
+  questions: ReviewQuestion[];
+}
+
+export interface ReviewCycle {
+  id: string;
+  name: string;
+  status: "draft" | "active" | "closed";
+  starts_on: string;
+  ends_on: string;
+  created_at: string;
+}
+
+export interface ReviewAnswer {
+  rating: number | null;
+  text: string | null;
+  yes_no: boolean | null;
+}
+
+export interface ReviewAssignment {
+  id: string;
+  cycle_id: string;
+  employee_id: string;
+  reviewer_name: string;
+  reviewer_email: string | null;
+  status: "pending" | "sent" | "submitted" | "summarized";
+  form: ReviewForm;
+  response: Record<string, ReviewAnswer> | null;
+  created_at: string;
+  sent_at: string | null;
+  submitted_at: string | null;
+}
+
+export interface Goal {
+  id: string;
+  employee_id: string;
+  title: string;
+  status: "draft" | "active" | "completed" | "cancelled";
+  due_on: string | null;
+  progress_bp: number;
+  created_at: string;
+}
+
+export interface OffboardingStep {
+  key: string;
+  title: string;
+  owner: string;
+  required: boolean;
+  status: "pending" | "in_progress" | "done" | "skipped";
+  completed_at: string | null;
+  completed_by: string | null;
+  notes: string | null;
+}
+
+export interface OffboardingPlan {
+  id: string;
+  employee_id: string;
+  last_day: string;
+  status: "draft" | "in_progress" | "completed" | "cancelled";
+  steps: OffboardingStep[];
+  final_pay_run_id: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface DocumentRequest {
+  id: string;
+  employee_id: string;
+  document_type: string;
+  status: "requested" | "uploaded" | "verified" | "rejected" | "cancelled";
+  requested_at: string;
+  due_on: string | null;
+  document_id: string | null;
+  note: string | null;
+}

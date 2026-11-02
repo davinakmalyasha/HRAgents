@@ -21,8 +21,9 @@ import type {
   OnboardingPlan,
 } from "../types";
 import { Avatar, EmptyState, ErrorBox, Field, Modal, StatusPill } from "../components/ui";
+import { GrowthTab, OffboardingTab } from "./PeopleGrowth";
 
-type Tab = "overview" | "onboarding" | "leave";
+type Tab = "overview" | "onboarding" | "leave" | "growth" | "offboarding";
 
 export function People() {
   const queryClient = useQueryClient();
@@ -136,6 +137,8 @@ export function People() {
                   Onboarding {onboarding.data ? `(${onboarding.data.steps.filter((step) => step.status === "done").length}/${onboarding.data.steps.length})` : ""}
                 </button>
                 <button className={`tab ${tab === "leave" ? "active" : ""}`} onClick={() => setTab("leave")}>Leave</button>
+                <button className={`tab ${tab === "growth" ? "active" : ""}`} onClick={() => setTab("growth")}>Growth</button>
+                <button className={`tab ${tab === "offboarding" ? "active" : ""}`} onClick={() => setTab("offboarding")}>Offboarding</button>
               </div>
 
               <div className="card-pad">
@@ -152,6 +155,8 @@ export function People() {
                   />
                 ) : null}
                 {tab === "leave" ? <LeaveTab employee={active} onError={setError} /> : null}
+                {tab === "growth" ? <GrowthTab employee={active} onError={setError} /> : null}
+                {tab === "offboarding" ? <OffboardingTab employee={active} onError={setError} /> : null}
               </div>
             </>
           ) : (

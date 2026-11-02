@@ -27,6 +27,9 @@ actually prove, and what is still open. It is updated at every merge.
 | Policy retrieval with citations | **Done (keyword fallback)** | `hragents-core/src/policy.rs` |
 | Deterministic extractor + agent contracts | **Done (offline keyword extractor)** | `hragents-agents/src/lib.rs` |
 | Payroll review packet (XLSX) | **Done** | `hragents-ipc/src/lib.rs` export |
+| Growth cycles, review forms, goals | **Core + store + IPC + UI** | `hragents-core/src/growth.rs` |
+| Offboarding checklist + final-pay gate | **Core + store + IPC + UI** | `hragents-core/src/offboarding.rs` |
+| Document requests | **Core + store + IPC; upload UI pending** | `hragents-core/src/documents.rs` |
 | SQLite schema v1 (47 tables + 5 FTS5) | **Done** | `hragents-store/migrations/0001_init.sql` |
 | Migrations, WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
 | SQLCipher feature + reopen/wrong-key test | **Code done; CI job added; local Windows build blocked** | `hragents-store` feature `sqlcipher` |
@@ -42,11 +45,11 @@ actually prove, and what is still open. It is updated at every merge.
 ```text
 cargo test --workspace --exclude hragents-desktop
   hragents-agents  4 passed
-  hragents-core   45 passed
+  hragents-core   55 passed
   python_parity    5 passed
-  hragents-store   8 passed
-  hragents-ipc     8 passed (1 release benchmark ignored)
-  total           70 passed
+  hragents-store   9 passed
+  hragents-ipc    11 passed (1 release benchmark ignored)
+  total           84 passed
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
@@ -84,7 +87,7 @@ Pay compute + password sign-off, Ask citations, Settings audit verification.
 | **G1** employee/onboarding | Employee created, plan completed, audited receipt, parity fixture, Python not invoked | **Pass on the dev slice.** Covered by IPC tests and CLI demo. |
 | **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Partial.** Import, offline text extraction, score, σ, evidence, gate, and rejection pass. PDF/DOCX parsing and a provider-backed (`rig`) extractor are not ported. |
 | **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export | **Partial.** Engine, tables gate, anomalies, sign-off, immutability, 1,000-line benchmark (12.7 ms), and XLSX export exist. Full BPJS/THR/final parity corpus still missing. |
-| **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Partial.** Core consent/erasure/retention and policy retrieval exist; document-request workflow, audit export UI, and full compliance UI are not wired. |
+| **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Partial.** Leave, growth, offboarding, document-request lifecycle, consent/erasure/retention, and policy retrieval exist. Document upload/preview, audit export UI, and retention sweep are not wired. |
 | **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started.** Python remains the reference implementation. |
 | **G6** signed installer/update/backup | Signed installer, notarized macOS, staged updater, restore drill, rollback | **Not started.** Backup/restore and integrity check exist; signing and updater do not. |
 
@@ -109,7 +112,8 @@ missing evidence above exists.
 5. **XLSX payroll export, payslips, 1,000-employee benchmark** — engine only.
 6. **Scheduling, offers, candidate messaging, feedback PDF** — core models exist;
    workflows and UI are not ported.
-7. **Growth, offboarding, document requests** — tables exist; services/UI do not.
+7. **Document upload/preview** — document-request state and evidence references exist;
+   the file browser, PDF/DOCX parser, and preview pane do not.
 8. **Scoring parity breadth** — the merge and population σ are parity-tested against
    Python's `aggregate_runs`; the 4-dimension rubric extraction itself is not yet.
 9. **Payroll parity beyond PPh 21** — BPJS/THR/final need a Python-generated corpus.
@@ -127,7 +131,7 @@ missing evidence above exists.
 4. Implement document upload/preview and the document-request workflow.
 5. Implement scheduling, offers, and candidate communications.
 6. Add payroll XLSX export and payslip view; benchmark 1,000 lines.
-7. Wire growth and offboarding services and screens.
+7. Wire document upload, preview, and the request/chase UI.
 8. Add audit export, retention sweep, and the erasure execution flow over IPC.
 9. Package: NSIS/MSI, signed updater manifest, clean-VM install + restore drill.
 10. Cut over: freeze corpus, delete Python from the runtime, run G5/G6.

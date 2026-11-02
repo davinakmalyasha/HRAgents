@@ -82,3 +82,8 @@ id_type!(ErasureRequestId, "ER");
 id_type!(ContractId, "CT");
 id_type!(RateTableId, "RT");
 id_type!(SessionId, "S");
+id_type!(ReviewCycleId, "RC");
+id_type!(ReviewAssignmentId, "RA");
+id_type!(GoalId, "G");
+id_type!(OffboardingPlanId, "OFF");
+id_type!(DocumentRequestId, "DR");

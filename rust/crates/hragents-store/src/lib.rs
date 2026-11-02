@@ -10,13 +10,20 @@ use hragents_core::approvals::{ApprovalRequest, ApprovalStatus, Priority};
 use hragents_core::audit::{AuditActor, AuditChain, AuditEntry, AuditVerification};
 use hragents_core::auth::Operator;
 use hragents_core::compliance::{ConsentPurpose, ConsentRecord, ConsentState, SubjectType};
+use hragents_core::documents::{DocumentRequest, DocumentRequestStatus};
 use hragents_core::error::DomainError;
+use hragents_core::growth::{
+    AssignmentStatus, CycleStatus, Goal, GoalStatus, ReviewAnswer, ReviewAssignment, ReviewCycle,
+};
 use hragents_core::hiring::{
     Application, ApplicationStage, Candidate, ConsentStatus, Evaluation, Job, JobStatus,
 };
 use hragents_core::ids::*;
 use hragents_core::leave::{LeaveBalance, LeaveRequest, LeaveStatus, LeaveType};
 use hragents_core::money::Money;
+use hragents_core::offboarding::{
+    OffboardingPlan, OffboardingStatus, OffboardingStep, OffboardingStepStatus,
+};
 use hragents_core::payroll::{
     PayrollKind, PayrollLine, PayrollRun, PayrollTotals, RateEntry, RateTable, RateTableKind,
     RateTableSet, RunStatus,
@@ -778,6 +785,41 @@ impl Store {
             entity: "document",
             id: id.to_string(),
         })
+    }
+
+    pub fn list_documents(
+        &self,
+        kind: DocumentOwnerType,
+        owner_id: &str,
+    ) -> StoreResult<Vec<Document>> {
+        let mut statement = self.conn.prepare(
+            "SELECT id, owner_type, owner_id, filename, mime_type, sha256, size_bytes, status,
+                    expires_on, uploaded_at, verified_at, verified_by, rejection_reason, tags_json
+             FROM documents WHERE owner_type = ?1 AND owner_id = ?2 ORDER BY uploaded_at DESC",
+        )?;
+        let rows = statement.query_map(params![owner_type(kind), owner_id], |row| {
+            Ok(Document {
+                id: parse_id(&row.get::<_, String>(0)?, "document")?,
+                owner_type: parse_owner_type(&row.get::<_, String>(1)?)?,
+                owner_id: row.get(2)?,
+                filename: row.get(3)?,
+                mime_type: row.get(4)?,
+                sha256: row.get(5)?,
+                size_bytes: row.get(6)?,
+                status: parse_document_status(&row.get::<_, String>(7)?)?,
+                expires_on: row
+                    .get::<_, Option<String>>(8)?
+                    .as_deref()
+                    .map(parse_date)
+                    .transpose()?,
+                uploaded_at: instant(row.get(9)?)?,
+                verified_at: row.get::<_, Option<i64>>(10)?.map(instant).transpose()?,
+                verified_by: row.get(11)?,
+                rejection_reason: row.get(12)?,
+                tags: serde_json::from_str(&row.get::<_, String>(13)?).map_err(json_err)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
     }
 
     pub fn document_path(&self, id: DocumentId) -> StoreResult<String> {
@@ -1799,6 +1841,381 @@ impl Store {
     }
 
     // ------------------------------------------------------------------
+    // Growth
+    // ------------------------------------------------------------------
+
+    pub fn save_review_cycle(&mut self, cycle: &ReviewCycle) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO growth_cycles (id, name, status, starts_on, ends_on, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6)
+             ON CONFLICT(id) DO UPDATE SET name=excluded.name, status=excluded.status,
+                starts_on=excluded.starts_on, ends_on=excluded.ends_on",
+            params![
+                cycle.id.to_string(),
+                cycle.name,
+                cycle_status(cycle.status),
+                cycle.starts_on.to_string(),
+                cycle.ends_on.to_string(),
+                cycle.created_at.millis(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_review_cycles(&self) -> StoreResult<Vec<ReviewCycle>> {
+        let mut statement = self.conn.prepare(
+            "SELECT id, name, status, starts_on, ends_on, created_at
+             FROM growth_cycles ORDER BY starts_on DESC",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(ReviewCycle {
+                id: parse_id(&row.get::<_, String>(0)?, "review_cycle")?,
+                name: row.get(1)?,
+                status: parse_cycle_status(&row.get::<_, String>(2)?)?,
+                starts_on: parse_date(&row.get::<_, String>(3)?)?,
+                ends_on: parse_date(&row.get::<_, String>(4)?)?,
+                created_at: instant(row.get(5)?)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn save_review_assignment(&mut self, assignment: &ReviewAssignment) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO growth_assignments
+             (id, cycle_id, employee_id, reviewer_name, reviewer_email, status, form_json,
+              response_json, created_at, sent_at, submitted_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)
+             ON CONFLICT(id) DO UPDATE SET reviewer_name=excluded.reviewer_name,
+                reviewer_email=excluded.reviewer_email, status=excluded.status,
+                form_json=excluded.form_json, response_json=excluded.response_json,
+                sent_at=excluded.sent_at, submitted_at=excluded.submitted_at",
+            params![
+                assignment.id.to_string(),
+                assignment.cycle_id.to_string(),
+                assignment.employee_id.to_string(),
+                assignment.reviewer_name,
+                assignment.reviewer_email,
+                assignment_status(assignment.status),
+                serde_json::to_string(&assignment.form)?,
+                assignment
+                    .response
+                    .as_ref()
+                    .map(serde_json::to_string)
+                    .transpose()?,
+                assignment.created_at.millis(),
+                assignment.sent_at.map(|instant| instant.millis()),
+                assignment.submitted_at.map(|instant| instant.millis()),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_review_assignments(
+        &self,
+        cycle_id: Option<ReviewCycleId>,
+    ) -> StoreResult<Vec<ReviewAssignment>> {
+        let mut assignments = Vec::new();
+        let mut push = |row: &rusqlite::Row<'_>| -> rusqlite::Result<ReviewAssignment> {
+            Ok(ReviewAssignment {
+                id: parse_id(&row.get::<_, String>(0)?, "review_assignment")?,
+                cycle_id: parse_id(&row.get::<_, String>(1)?, "review_cycle")?,
+                employee_id: parse_id(&row.get::<_, String>(2)?, "employee")?,
+                reviewer_name: row.get(3)?,
+                reviewer_email: row.get(4)?,
+                status: parse_assignment_status(&row.get::<_, String>(5)?)?,
+                form: serde_json::from_str(&row.get::<_, String>(6)?).map_err(json_err)?,
+                response: row
+                    .get::<_, Option<String>>(7)?
+                    .map(|raw| {
+                        serde_json::from_str::<std::collections::BTreeMap<String, ReviewAnswer>>(
+                            &raw,
+                        )
+                    })
+                    .transpose()
+                    .map_err(json_err)?,
+                created_at: instant(row.get(8)?)?,
+                sent_at: row.get::<_, Option<i64>>(9)?.map(instant).transpose()?,
+                submitted_at: row.get::<_, Option<i64>>(10)?.map(instant).transpose()?,
+            })
+        };
+        match cycle_id {
+            Some(cycle_id) => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, cycle_id, employee_id, reviewer_name, reviewer_email, status,
+                            form_json, response_json, created_at, sent_at, submitted_at
+                     FROM growth_assignments WHERE cycle_id = ?1 ORDER BY created_at",
+                )?;
+                for row in statement.query_map(params![cycle_id.to_string()], &mut push)? {
+                    assignments.push(row?);
+                }
+            }
+            None => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, cycle_id, employee_id, reviewer_name, reviewer_email, status,
+                            form_json, response_json, created_at, sent_at, submitted_at
+                     FROM growth_assignments ORDER BY created_at",
+                )?;
+                for row in statement.query_map([], &mut push)? {
+                    assignments.push(row?);
+                }
+            }
+        }
+        Ok(assignments)
+    }
+
+    pub fn save_goal(&mut self, goal: &Goal) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO goals (id, employee_id, title, status, due_on, progress_bp, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7)
+             ON CONFLICT(id) DO UPDATE SET title=excluded.title, status=excluded.status,
+                due_on=excluded.due_on, progress_bp=excluded.progress_bp",
+            params![
+                goal.id.to_string(),
+                goal.employee_id.to_string(),
+                goal.title,
+                goal_status(goal.status),
+                goal.due_on.map(|date| date.to_string()),
+                goal.progress_bp,
+                goal.created_at.millis(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_goals(&self, employee_id: Option<EmployeeId>) -> StoreResult<Vec<Goal>> {
+        let mut goals = Vec::new();
+        let mut push = |row: &rusqlite::Row<'_>| -> rusqlite::Result<Goal> {
+            Ok(Goal {
+                id: parse_id(&row.get::<_, String>(0)?, "goal")?,
+                employee_id: parse_id(&row.get::<_, String>(1)?, "employee")?,
+                title: row.get(2)?,
+                status: parse_goal_status(&row.get::<_, String>(3)?)?,
+                due_on: row
+                    .get::<_, Option<String>>(4)?
+                    .as_deref()
+                    .map(parse_date)
+                    .transpose()?,
+                progress_bp: row.get(5)?,
+                created_at: instant(row.get(6)?)?,
+            })
+        };
+        match employee_id {
+            Some(employee_id) => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, employee_id, title, status, due_on, progress_bp, created_at
+                     FROM goals WHERE employee_id = ?1 ORDER BY created_at DESC",
+                )?;
+                for row in statement.query_map(params![employee_id.to_string()], &mut push)? {
+                    goals.push(row?);
+                }
+            }
+            None => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, employee_id, title, status, due_on, progress_bp, created_at
+                     FROM goals ORDER BY created_at DESC",
+                )?;
+                for row in statement.query_map([], &mut push)? {
+                    goals.push(row?);
+                }
+            }
+        }
+        Ok(goals)
+    }
+
+    // ------------------------------------------------------------------
+    // Offboarding
+    // ------------------------------------------------------------------
+
+    pub fn save_offboarding_plan(&mut self, plan: &OffboardingPlan) -> StoreResult<()> {
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        tx.execute(
+            "INSERT INTO offboarding_plans
+             (id, employee_id, status, last_day, final_pay_run_id, created_at, completed_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7)
+             ON CONFLICT(id) DO UPDATE SET status=excluded.status, last_day=excluded.last_day,
+                final_pay_run_id=excluded.final_pay_run_id, completed_at=excluded.completed_at",
+            params![
+                plan.id.to_string(),
+                plan.employee_id.to_string(),
+                offboarding_status(plan.status),
+                plan.last_day.to_string(),
+                plan.final_pay_run_id.map(|id| id.to_string()),
+                plan.created_at.millis(),
+                plan.completed_at.map(|instant| instant.millis()),
+            ],
+        )?;
+        for (position, step) in plan.steps.iter().enumerate() {
+            tx.execute(
+                "INSERT INTO offboarding_steps
+                 (plan_id, step_key, title, owner, status, completed_at, notes, position)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+                 ON CONFLICT(plan_id, step_key) DO UPDATE SET title=excluded.title,
+                    owner=excluded.owner, status=excluded.status, completed_at=excluded.completed_at,
+                    notes=excluded.notes, position=excluded.position",
+                params![
+                    plan.id.to_string(),
+                    step.key,
+                    step.title,
+                    step.owner,
+                    offboarding_step_status(step.status),
+                    step.completed_at.map(|instant| instant.millis()),
+                    step.notes,
+                    position as i64,
+                ],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn offboarding_plan_for(
+        &self,
+        employee_id: EmployeeId,
+    ) -> StoreResult<Option<OffboardingPlan>> {
+        let plan = self
+            .conn
+            .query_row(
+                "SELECT id, employee_id, status, last_day, final_pay_run_id, created_at, completed_at
+                 FROM offboarding_plans WHERE employee_id = ?1 ORDER BY created_at DESC LIMIT 1",
+                params![employee_id.to_string()],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                        row.get::<_, i64>(5)?,
+                        row.get::<_, Option<i64>>(6)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let Some((id, employee_id, status, last_day, final_pay_run_id, created_at, completed_at)) =
+            plan
+        else {
+            return Ok(None);
+        };
+        let mut statement = self.conn.prepare(
+            "SELECT step_key, title, owner, status, completed_at, notes
+             FROM offboarding_steps WHERE plan_id = ?1 ORDER BY position",
+        )?;
+        let rows = statement.query_map(params![id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, Option<i64>>(4)?,
+                row.get::<_, Option<String>>(5)?,
+            ))
+        })?;
+        let mut steps = Vec::new();
+        for row in rows {
+            let row = row?;
+            steps.push(OffboardingStep {
+                key: row.0,
+                title: row.1,
+                owner: row.2,
+                required: true,
+                status: parse_offboarding_step_status(&row.3)?,
+                completed_at: row.4.map(instant).transpose()?,
+                completed_by: None,
+                notes: row.5,
+            });
+        }
+        Ok(Some(OffboardingPlan {
+            id: parse_id(&id, "offboarding_plan")?,
+            employee_id: parse_id(&employee_id, "employee")?,
+            last_day: parse_date(&last_day)?,
+            status: parse_offboarding_status(&status)?,
+            steps,
+            final_pay_run_id: final_pay_run_id
+                .as_deref()
+                .map(|raw| parse_id::<PayrollRunId>(raw, "payroll_run"))
+                .transpose()?,
+            created_at: instant(created_at)?,
+            completed_at: completed_at.map(instant).transpose()?,
+        }))
+    }
+
+    // ------------------------------------------------------------------
+    // Document requests
+    // ------------------------------------------------------------------
+
+    pub fn save_document_request(&mut self, request: &DocumentRequest) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO document_requests
+             (id, employee_id, document_type, status, requested_at, due_on, document_id, note)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+             ON CONFLICT(id) DO UPDATE SET status=excluded.status, due_on=excluded.due_on,
+                document_id=excluded.document_id, note=excluded.note",
+            params![
+                request.id.to_string(),
+                request.employee_id.to_string(),
+                request.document_type,
+                document_request_status(request.status),
+                request.requested_at.millis(),
+                request.due_on.map(|date| date.to_string()),
+                request.document_id.map(|id| id.to_string()),
+                request.note,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_document_requests(
+        &self,
+        employee_id: Option<EmployeeId>,
+    ) -> StoreResult<Vec<DocumentRequest>> {
+        let mut requests = Vec::new();
+        let mut push = |row: &rusqlite::Row<'_>| -> rusqlite::Result<DocumentRequest> {
+            Ok(DocumentRequest {
+                id: parse_id(&row.get::<_, String>(0)?, "document_request")?,
+                employee_id: parse_id(&row.get::<_, String>(1)?, "employee")?,
+                document_type: row.get(2)?,
+                status: parse_document_request_status(&row.get::<_, String>(3)?)?,
+                requested_at: instant(row.get(4)?)?,
+                due_on: row
+                    .get::<_, Option<String>>(5)?
+                    .as_deref()
+                    .map(parse_date)
+                    .transpose()?,
+                document_id: row
+                    .get::<_, Option<String>>(6)?
+                    .as_deref()
+                    .map(|raw| parse_id::<DocumentId>(raw, "document"))
+                    .transpose()?,
+                note: row.get(7)?,
+            })
+        };
+        match employee_id {
+            Some(employee_id) => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, employee_id, document_type, status, requested_at, due_on, document_id, note
+                     FROM document_requests WHERE employee_id = ?1 ORDER BY requested_at DESC",
+                )?;
+                for row in statement.query_map(params![employee_id.to_string()], &mut push)? {
+                    requests.push(row?);
+                }
+            }
+            None => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, employee_id, document_type, status, requested_at, due_on, document_id, note
+                     FROM document_requests ORDER BY requested_at DESC",
+                )?;
+                for row in statement.query_map([], &mut push)? {
+                    requests.push(row?);
+                }
+            }
+        }
+        Ok(requests)
+    }
+
+    // ------------------------------------------------------------------
     // Backup and integrity
     // ------------------------------------------------------------------
 
@@ -2146,6 +2563,24 @@ enum_mapping!(subject_type, parse_subject_type, SubjectType,
 enum_mapping!(employment_status, parse_employment_status, EmploymentStatus,
     EmploymentStatus::Active => "active", EmploymentStatus::Probation => "probation",
     EmploymentStatus::Notice => "notice", EmploymentStatus::Exited => "exited");
+enum_mapping!(cycle_status, parse_cycle_status, CycleStatus,
+    CycleStatus::Draft => "draft", CycleStatus::Active => "active", CycleStatus::Closed => "closed");
+enum_mapping!(assignment_status, parse_assignment_status, AssignmentStatus,
+    AssignmentStatus::Pending => "pending", AssignmentStatus::Sent => "sent",
+    AssignmentStatus::Submitted => "submitted", AssignmentStatus::Summarized => "summarized");
+enum_mapping!(goal_status, parse_goal_status, GoalStatus,
+    GoalStatus::Draft => "draft", GoalStatus::Active => "active",
+    GoalStatus::Completed => "completed", GoalStatus::Cancelled => "cancelled");
+enum_mapping!(offboarding_status, parse_offboarding_status, OffboardingStatus,
+    OffboardingStatus::Draft => "draft", OffboardingStatus::InProgress => "in_progress",
+    OffboardingStatus::Completed => "completed", OffboardingStatus::Cancelled => "cancelled");
+enum_mapping!(offboarding_step_status, parse_offboarding_step_status, OffboardingStepStatus,
+    OffboardingStepStatus::Pending => "pending", OffboardingStepStatus::InProgress => "in_progress",
+    OffboardingStepStatus::Done => "done", OffboardingStepStatus::Skipped => "skipped");
+enum_mapping!(document_request_status, parse_document_request_status, DocumentRequestStatus,
+    DocumentRequestStatus::Requested => "requested", DocumentRequestStatus::Uploaded => "uploaded",
+    DocumentRequestStatus::Verified => "verified", DocumentRequestStatus::Rejected => "rejected",
+    DocumentRequestStatus::Cancelled => "cancelled");
 
 fn parse_rate_kind(raw: &str) -> StoreResult<RateTableKind> {
     Ok(match raw {
@@ -2168,6 +2603,9 @@ mod tests {
     use super::*;
     use hragents_core::audit::AuditActor;
     use hragents_core::auth::Operator;
+    use hragents_core::documents::DocumentRequest;
+    use hragents_core::growth::{Goal, ReviewAssignment, ReviewCycle, ReviewForm};
+    use hragents_core::offboarding::{OffboardingPlan, OffboardingStep};
     use hragents_core::password::hash_password;
     use hragents_core::payroll::Severity;
 
@@ -2332,6 +2770,69 @@ mod tests {
             Some("Nusantara Labs")
         );
         assert!(Store::open_encrypted(&path, "wrong key").is_err());
+    }
+
+    #[test]
+    fn growth_offboarding_and_document_requests_roundtrip() {
+        let mut store = store();
+        let employee = employee(&store);
+        store.save_employee(&employee).unwrap();
+
+        let cycle = ReviewCycle::new(
+            "2026 H2",
+            BusinessDate::parse("2026-07-01").unwrap(),
+            BusinessDate::parse("2026-12-31").unwrap(),
+            now(),
+        )
+        .unwrap();
+        store.save_review_cycle(&cycle).unwrap();
+        assert_eq!(store.list_review_cycles().unwrap().len(), 1);
+        let mut assignment =
+            ReviewAssignment::new(cycle.id, employee.id, "Ayu", ReviewForm::standard(), now())
+                .unwrap();
+        assignment.send(now()).unwrap();
+        store.save_review_assignment(&assignment).unwrap();
+        assert_eq!(
+            store.list_review_assignments(Some(cycle.id)).unwrap().len(),
+            1
+        );
+
+        let mut goal = Goal::new(employee.id, "Ship the desktop beta", now()).unwrap();
+        goal.activate().unwrap();
+        goal.set_progress(4_000).unwrap();
+        store.save_goal(&goal).unwrap();
+        assert_eq!(
+            store.list_goals(Some(employee.id)).unwrap()[0].progress_bp,
+            4_000
+        );
+
+        let mut plan = OffboardingPlan::start(
+            employee.id,
+            BusinessDate::parse("2026-12-31").unwrap(),
+            vec![OffboardingStep::new("assets", "Return laptop", "IT")],
+            now(),
+        )
+        .unwrap();
+        plan.complete_step("assets", "IT", now()).unwrap();
+        store.save_offboarding_plan(&plan).unwrap();
+        let loaded = store.offboarding_plan_for(employee.id).unwrap().unwrap();
+        assert_eq!(loaded.steps.len(), 1);
+
+        let request = DocumentRequest::new(
+            employee.id,
+            "KTP",
+            Some(BusinessDate::parse("2026-11-10").unwrap()),
+            now(),
+        )
+        .unwrap();
+        store.save_document_request(&request).unwrap();
+        assert_eq!(
+            store
+                .list_document_requests(Some(employee.id))
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]

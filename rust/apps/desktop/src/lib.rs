@@ -20,14 +20,17 @@ use std::str::FromStr;
 use std::sync::Mutex;
 use tauri::{Manager, State};
 
-struct AppState {
+mod growth_commands;
+use growth_commands::*;
+
+pub(crate) struct AppState {
     service: Mutex<AppService>,
 }
 
 #[derive(Debug, Serialize)]
-struct CommandError {
-    code: String,
-    message: String,
+pub(crate) struct CommandError {
+    pub(crate) code: String,
+    pub(crate) message: String,
 }
 
 impl From<AppError> for CommandError {
@@ -39,9 +42,9 @@ impl From<AppError> for CommandError {
     }
 }
 
-type CmdResult<T> = Result<T, CommandError>;
+pub(crate) type CmdResult<T> = Result<T, CommandError>;
 
-fn with_service<T>(
+pub(crate) fn with_service<T>(
     state: &State<'_, AppState>,
     action: impl FnOnce(&mut AppService) -> Result<T, AppError>,
 ) -> CmdResult<T> {
@@ -52,7 +55,7 @@ fn with_service<T>(
     action(&mut guard).map_err(Into::into)
 }
 
-fn parse_id<T: FromStr>(raw: &str) -> CmdResult<T>
+pub(crate) fn parse_id<T: FromStr>(raw: &str) -> CmdResult<T>
 where
     T::Err: std::fmt::Display,
 {
@@ -480,6 +483,27 @@ pub fn run() {
             create_leave_type,
             list_leave_types,
             list_leave_requests,
+            create_review_cycle,
+            list_review_cycles,
+            set_review_cycle_status,
+            create_review_assignment,
+            send_review_assignment,
+            submit_review_response,
+            summarize_review,
+            list_review_assignments,
+            create_goal,
+            update_goal_progress,
+            list_goals,
+            start_offboarding,
+            offboarding_for,
+            complete_offboarding_step,
+            record_offboarding_final_pay,
+            finish_offboarding,
+            create_document_request,
+            list_document_requests,
+            attach_document_request,
+            verify_document_request,
+            reject_document_request,
             leave_balances,
             list_operators,
             rate_tables,

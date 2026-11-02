@@ -498,9 +498,13 @@ CREATE TABLE growth_assignments (
     cycle_id       TEXT NOT NULL REFERENCES growth_cycles(id) ON DELETE CASCADE,
     employee_id    TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     reviewer_name  TEXT NOT NULL,
+    reviewer_email TEXT,
     status         TEXT NOT NULL CHECK (status IN ('pending','sent','submitted','summarized')),
     form_json      TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(form_json)),
-    response_json  TEXT CHECK (response_json IS NULL OR json_valid(response_json))
+    response_json  TEXT CHECK (response_json IS NULL OR json_valid(response_json)),
+    created_at     INTEGER NOT NULL,
+    sent_at        INTEGER,
+    submitted_at   INTEGER
 ) STRICT;
 
 CREATE TABLE goals (
@@ -518,6 +522,7 @@ CREATE TABLE offboarding_plans (
     employee_id  TEXT NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
     status       TEXT NOT NULL CHECK (status IN ('draft','in_progress','completed','cancelled')),
     last_day     TEXT NOT NULL,
+    final_pay_run_id TEXT,
     created_at   INTEGER NOT NULL,
     completed_at INTEGER
 ) STRICT;

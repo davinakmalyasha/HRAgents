@@ -14,7 +14,12 @@ import type {
   LeaveRequest,
   LeaveType,
   LeaveView,
+  OffboardingPlan,
   OnboardingPlan,
+  ReviewAssignment,
+  ReviewCycle,
+  Goal,
+  DocumentRequest,
   PayrollInput,
   PayrollRun,
   PayrollView,
@@ -112,6 +117,11 @@ interface MockState {
   leaveRequests: LeaveRequest[];
   payroll: PayrollRun[];
   ratesSeeded: boolean;
+  reviewCycles: ReviewCycle[];
+  reviewAssignments: ReviewAssignment[];
+  goals: Goal[];
+  offboarding: Record<string, OffboardingPlan>;
+  documentRequests: DocumentRequest[];
 }
 
 const ayuId = uuid();
@@ -347,6 +357,60 @@ const state: MockState = {
   leaveRequests: [],
   payroll: [],
   ratesSeeded: false,
+  reviewCycles: [
+    {
+      id: "cycle-2026-h2",
+      name: "2026 H2 review",
+      status: "active",
+      starts_on: "2026-07-01",
+      ends_on: "2026-12-31",
+      created_at: now(),
+    },
+  ],
+  reviewAssignments: [
+    {
+      id: "assignment-1",
+      cycle_id: "cycle-2026-h2",
+      employee_id: ayuId,
+      reviewer_name: "Budi Santoso",
+      reviewer_email: "budi@example.com",
+      status: "pending",
+      form: {
+        questions: [
+          { key: "outcomes", prompt: "What outcomes did this person deliver?", kind: "text", required: true },
+          { key: "collaboration", prompt: "How effectively did they collaborate?", kind: "rating", required: true },
+        ],
+      },
+      response: null,
+      created_at: now(),
+      sent_at: null,
+      submitted_at: null,
+    },
+  ],
+  goals: [
+    {
+      id: "goal-1",
+      employee_id: ayuId,
+      title: "Ship the desktop beta",
+      status: "active",
+      due_on: "2026-12-15",
+      progress_bp: 4_000,
+      created_at: now(),
+    },
+  ],
+  offboarding: {},
+  documentRequests: [
+    {
+      id: "docreq-1",
+      employee_id: ayuId,
+      document_type: "KTP",
+      status: "requested",
+      requested_at: now(),
+      due_on: "2026-11-10",
+      document_id: null,
+      note: null,
+    },
+  ],
 };
 
 state.onboarding[ayuId] = {
@@ -862,6 +926,198 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
           created_at: now(),
         },
       ] as T;
+    case "list_review_cycles":
+      requireSession();
+      return [...state.reviewCycles] as T;
+    case "create_review_cycle": {
+      requireSession();
+      const cycle: ReviewCycle = {
+        id: uuid(),
+        name: String(args.name),
+        status: "draft",
+        starts_on: String(args.starts_on),
+        ends_on: String(args.ends_on),
+        created_at: now(),
+      };
+      state.reviewCycles.unshift(cycle);
+      return cycle as T;
+    }
+    case "set_review_cycle_status": {
+      requireSession();
+      const cycle = state.reviewCycles.find((item) => item.id === String(args.cycle_id));
+      if (!cycle) throw { code: "E_NOT_FOUND", message: "Review cycle not found" };
+      cycle.status = args.activate ? "active" : "closed";
+      return cycle as T;
+    }
+    case "list_review_assignments": {
+      requireSession();
+      return state.reviewAssignments.filter(
+        (assignment) => !args.cycle_id || assignment.cycle_id === String(args.cycle_id),
+      ) as T;
+    }
+    case "create_review_assignment": {
+      requireSession();
+      const employee = findEmployee(String(args.employee_id));
+      const assignment: ReviewAssignment = {
+        id: uuid(),
+        cycle_id: String(args.cycle_id),
+        employee_id: employee.id,
+        reviewer_name: String(args.reviewer_name),
+        reviewer_email: null,
+        status: "pending",
+        form: (args.form as ReviewAssignment["form"]) ?? {
+          questions: [
+            { key: "outcomes", prompt: "What outcomes did this person deliver?", kind: "text", required: true },
+            { key: "collaboration", prompt: "How effectively did they collaborate?", kind: "rating", required: true },
+          ],
+        },
+        response: null,
+        created_at: now(),
+        sent_at: null,
+        submitted_at: null,
+      };
+      state.reviewAssignments.push(assignment);
+      return assignment as T;
+    }
+    case "send_review_assignment": {
+      requireSession();
+      const assignment = state.reviewAssignments.find((item) => item.id === String(args.assignment_id));
+      if (!assignment) throw { code: "E_NOT_FOUND", message: "Review assignment not found" };
+      assignment.status = "sent";
+      assignment.sent_at = now();
+      return assignment as T;
+    }
+    case "submit_review_response": {
+      requireSession();
+      const assignment = state.reviewAssignments.find((item) => item.id === String(args.assignment_id));
+      if (!assignment) throw { code: "E_NOT_FOUND", message: "Review assignment not found" };
+      assignment.status = "submitted";
+      assignment.submitted_at = now();
+      assignment.response = args.answers as ReviewAssignment["response"];
+      return assignment as T;
+    }
+    case "summarize_review": {
+      requireSession();
+      const assignment = state.reviewAssignments.find((item) => item.id === String(args.assignment_id));
+      if (!assignment) throw { code: "E_NOT_FOUND", message: "Review assignment not found" };
+      assignment.status = "summarized";
+      return assignment as T;
+    }
+    case "list_goals":
+      requireSession();
+      return state.goals.filter((goal) => !args.employee_id || goal.employee_id === String(args.employee_id)) as T;
+    case "create_goal": {
+      requireSession();
+      const goal: Goal = {
+        id: uuid(),
+        employee_id: String(args.employee_id),
+        title: String(args.title),
+        status: "active",
+        due_on: null,
+        progress_bp: 0,
+        created_at: now(),
+      };
+      state.goals.push(goal);
+      return goal as T;
+    }
+    case "update_goal_progress": {
+      requireSession();
+      const goal = state.goals.find((item) => item.id === String(args.goal_id));
+      if (!goal) throw { code: "E_NOT_FOUND", message: "Goal not found" };
+      goal.progress_bp = Number(args.progress_bp);
+      goal.status = goal.progress_bp >= 10000 ? "completed" : "active";
+      return goal as T;
+    }
+    case "start_offboarding": {
+      requireSession();
+      const employee = findEmployee(String(args.employee_id));
+      const plan: OffboardingPlan = {
+        id: uuid(),
+        employee_id: employee.id,
+        last_day: String(args.last_day),
+        status: "in_progress",
+        steps: [
+          ["handover", "Hand over projects and documents", "Manager"],
+          ["assets", "Return laptop, badges, and equipment", "IT"],
+          ["access", "Revoke accounts and access", "IT"],
+          ["exit", "Run the exit interview", "HR"],
+          ["final_pay", "Prepare the final payroll run", "HR"],
+        ].map(([key, title, owner]) => ({
+          key,
+          title,
+          owner,
+          required: true,
+          status: "pending" as const,
+          completed_at: null,
+          completed_by: null,
+          notes: null,
+        })),
+        final_pay_run_id: null,
+        created_at: now(),
+        completed_at: null,
+      };
+      state.offboarding[employee.id] = plan;
+      return plan as T;
+    }
+    case "offboarding_for":
+      requireSession();
+      return (state.offboarding[String(args.employee_id)] ?? null) as T;
+    case "complete_offboarding_step": {
+      requireSession();
+      const plan = state.offboarding[String(args.employee_id)];
+      if (!plan) throw { code: "E_NOT_FOUND", message: "Offboarding plan not found" };
+      const step = plan.steps.find((item) => item.key === String(args.step_key));
+      if (!step) throw { code: "E_NOT_FOUND", message: "Step not found" };
+      step.status = "done";
+      step.completed_at = now();
+      step.completed_by = "Rina";
+      return plan as T;
+    }
+    case "record_offboarding_final_pay": {
+      requireSession();
+      const plan = state.offboarding[String(args.employee_id)];
+      if (!plan) throw { code: "E_NOT_FOUND", message: "Offboarding plan not found" };
+      plan.final_pay_run_id = String(args.run_id);
+      return plan as T;
+    }
+    case "finish_offboarding": {
+      requireSession();
+      const plan = state.offboarding[String(args.employee_id)];
+      if (!plan) throw { code: "E_NOT_FOUND", message: "Offboarding plan not found" };
+      if (!plan.final_pay_run_id) {
+        throw { code: "E_FINAL_PAY_REQUIRED", message: "Record the final payroll run first" };
+      }
+      plan.status = "completed";
+      plan.completed_at = now();
+      return plan as T;
+    }
+    case "list_document_requests":
+      requireSession();
+      return state.documentRequests.filter(
+        (request) => !args.employee_id || request.employee_id === String(args.employee_id),
+      ) as T;
+    case "create_document_request": {
+      requireSession();
+      const request: DocumentRequest = {
+        id: uuid(),
+        employee_id: String(args.employee_id),
+        document_type: String(args.document_type),
+        status: "requested",
+        requested_at: now(),
+        due_on: (args.due_on as string) ?? null,
+        document_id: null,
+        note: null,
+      };
+      state.documentRequests.push(request);
+      return request as T;
+    }
+    case "verify_document_request": {
+      requireSession();
+      const request = state.documentRequests.find((item) => item.id === String(args.request_id));
+      if (!request) throw { code: "E_NOT_FOUND", message: "Document request not found" };
+      request.status = "verified";
+      return request as T;
+    }
     case "create_leave_type": {
       requireSession();
       const leaveType: LeaveType = {
