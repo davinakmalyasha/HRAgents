@@ -14,6 +14,7 @@ import { command, formatDateTime, isDesktop } from "../api";
 import type { AuditVerification, OperatorView, RateTable, SessionView } from "../types";
 import { ErrorBox, Field, StatusPill } from "../components/ui";
 import { ComplianceSection } from "./Compliance";
+import { check as checkUpdate } from "@tauri-apps/plugin-updater";
 
 export function Settings({ session }: { session: SessionView }) {
   const [verifyResult, setVerifyResult] = useState<AuditVerification | null>(null);
@@ -230,6 +231,15 @@ export function Settings({ session }: { session: SessionView }) {
           </section>
 
           <section className="card card-pad">
+            <div style={{ fontWeight: 620 }}>Updates</div>
+            <div className="small muted" style={{ marginTop: 4 }}>
+              Signed updates only. Until the update server is live, checks fail closed with a clear
+              message — the app never downgrades and never installs unsigned builds.
+            </div>
+            <UpdateChecker />
+          </section>
+
+          <section className="card card-pad">
             <div style={{ fontWeight: 620 }}>Session</div>
             <div className="small muted" style={{ marginTop: 6 }}>
               {session.display_name} · {session.role}
@@ -265,6 +275,51 @@ function Fact({ k, v }: { k: string; v: string }) {
     <div className="fact">
       <div className="k">{k}</div>
       <div className="v">{v}</div>
+    </div>
+  );
+}
+
+function UpdateChecker() {
+  const [state, setState] = useState<"idle" | "checking" | string>("idle");
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    setState("checking");
+    try {
+      if (!isDesktop) {
+        setState("Browser preview has no updater; install the signed desktop build to receive updates.");
+        return;
+      }
+      const update = await checkUpdate();
+      if (!update) {
+        setState("Up to date. No newer signed release was found.");
+        return;
+      }
+      setState(`Version ${update.version} found. Download, then restart the app to finish installing.`);
+      await update.downloadAndInstall();
+      setState(`Version ${update.version} installed. Restart the app to use it.`);
+    } catch (caught) {
+      setState(
+        typeof caught === "object" && caught && "message" in caught
+          ? `Update check failed closed: ${String((caught as { message: unknown }).message)}`
+          : `Update check failed closed: ${String(caught)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="row" style={{ marginTop: 8, gap: 8 }}>
+      <button className="btn sm" disabled={busy} onClick={run}>
+        {busy ? "Checking…" : "Check for updates"}
+      </button>
+      {state === "checking" ? (
+        <span className="small faint">Contacting the update server…</span>
+      ) : state !== "idle" ? (
+        <span className="small muted">{state}</span>
+      ) : null}
     </div>
   );
 }

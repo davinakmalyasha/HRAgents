@@ -46,6 +46,9 @@ actually prove, and what is still open. It is updated at every merge.
 | Typed application services (no Tauri dependency) | **Done** | `hragents-ipc/src/lib.rs` |
 | CLI demo / verify / backup | **Done** | `hragents-cli/src/main.rs` |
 | Tauri 2.12.5 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
+| NSIS installer (unsigned smoke, throwaway minisign key) | **Done locally: 5.97 MiB, SHA-256 verified** | `target/.../bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| Updater signing pipeline (keygen → sign → .sig) | **Done with throwaway key** | 420-byte minisign `.sig` beside the installer |
+| Updater JS client + fail-closed check UI | **Done** | `@tauri-apps/plugin-updater`, Settings → Updates |
 | Five-surface React UI + login/lock | **Done** | `rust/apps/desktop/ui` |
 | Python parity export + golden tests | **Done (money, audit, PPh 21, scoring merge)** | `scripts/parity_export.py`, `parity/fixtures` |
 | CI for Rust, UI, and fixture regeneration | **Done** | `.github/workflows/desktop.yml` |
@@ -70,6 +73,13 @@ cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
 
 cargo build -p hragents-desktop
   Finished (Tauri 2.12.5 binary)
+
+tauri build --bundles nsis (throwaway minisign key, unsigned Authenticode)
+  beforeBuildCommand fixed: hooks run inside ui/, `npm run build` (was `npm --prefix ui run build`)
+  HRAgents_0.1.0_x64-setup.exe, 5.97 MiB, SHA-256 62b16780...80bed1
+  HRAgents_0.1.0_x64-setup.exe.sig, 420 bytes, minisign, verified format
+  updater latest.json NOT produced locally (needs --bundles updater + hosted endpoint)
+  NSIS installer NOT executed (perMachine install needs admin elevation)
 
 hragents-cli demo ...
   login, employee, onboarding, evaluation 81.0% + gated rejection,
