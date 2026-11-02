@@ -724,7 +724,6 @@ pub fn compute_monthly_line(
         Some(table) if table.is_usable(on) => {
             match (monthly_hours(table), overtime_multipliers(table)) {
                 (Some(hours), Some((first_bp, rest_bp))) => {
-                    let hourly = wage.mul_ratio(1, hours)?;
                     let paid_num = i64::from(input.working_days) - i64::from(input.absence_days);
                     let days_worked = i64::max(
                         1,
@@ -734,9 +733,10 @@ pub fn compute_monthly_line(
                     );
                     let first_minutes = input.overtime_minutes.min(days_worked * 60);
                     let rest_minutes = input.overtime_minutes - first_minutes;
-                    let first = hourly.mul_ratio(first_bp * first_minutes, 10_000 * 60)?;
-                    let rest = hourly.mul_ratio(rest_bp * rest_minutes, 10_000 * 60)?;
-                    first.checked_add(rest)?
+                    // Round once at the end, like the Python oracle. Quantising
+                    // the hourly rate first shifts multi-hour lines by a few sen.
+                    let weighted = first_bp * first_minutes + rest_bp * rest_minutes;
+                    wage.mul_ratio(weighted, hours * 10_000 * 60)?
                 }
                 _ => {
                     anomalies.push(PayrollAnomaly::error(

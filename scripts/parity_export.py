@@ -578,6 +578,379 @@ def absence_cases() -> list[dict[str, object]]:
     return cases
 
 
+def _line_payload(line) -> dict[str, object]:
+    """Every PayrollLine component, in sen, for a full-line parity assertion."""
+    return {
+        "base_salary_sen": int(line.base_salary * 100),
+        "allowances_sen": int(line.allowances * 100),
+        "overtime_pay_sen": int(line.overtime_pay * 100),
+        "bonus_sen": int(line.bonus * 100),
+        "gross_sen": int(line.gross * 100),
+        "kes_employee_sen": int(line.bpjs_kesehatan_employee * 100),
+        "kes_employer_sen": int(line.bpjs_kesehatan_employer * 100),
+        "jht_employee_sen": int(line.bpjs_jht_employee * 100),
+        "jht_employer_sen": int(line.bpjs_jht_employer * 100),
+        "jp_employee_sen": int(line.bpjs_jp_employee * 100),
+        "jp_employer_sen": int(line.bpjs_jp_employer * 100),
+        "jkk_employer_sen": int(line.bpjs_jkk_employer * 100),
+        "jkm_employer_sen": int(line.bpjs_jkm_employer * 100),
+        "pph21_sen": int(line.pph21 * 100),
+        "other_deductions_sen": int(line.other_deductions * 100),
+        "total_deductions_sen": int(line.total_deductions * 100),
+        "net_sen": int(line.net * 100),
+        "employer_cost_sen": int(line.employer_cost * 100),
+        "thr_months": line.thr_months,
+        "notes": list(line.notes),
+    }
+
+
+def _parity_employee(*, dependents: int, jkk_risk_level: int, hire_date):
+    from hr_agents.models import Employee
+
+    return Employee(
+        full_name="Parity",
+        job_title="Staff",
+        jkk_risk_level=jkk_risk_level,
+        dependents=dependents,
+        hire_date=hire_date,
+    )
+
+
+def monthly_full_cases() -> list[dict[str, object]]:
+    """Monthly lines covering every component, absence, overtime, bonus, loans, JP cap."""
+    import datetime
+    from uuid import uuid4
+
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService
+
+    svc = object.__new__(PayrollService)
+    cases = [
+        {
+            "name": "plain_10m_2m",
+            "base": "10000000",
+            "fixed": "2000000",
+            "variable": "0",
+            "absence": 0,
+            "overtime_hours": 0.0,
+            "bonus": "0",
+            "other": "0",
+            "loan": "0",
+            "dependents": 1,
+            "jkk": 1,
+            "jp_cap": None,
+        },
+        {
+            "name": "mixed_allowances_bonus_loan_absence_overtime",
+            "base": "10000000",
+            "fixed": "1000000",
+            "variable": "500000",
+            "absence": 2,
+            "overtime_hours": 3.0,
+            "bonus": "1500000",
+            "other": "100000",
+            "loan": "50000",
+            "dependents": 2,
+            "jkk": 1,
+            "jp_cap": "10000000",
+        },
+        {
+            "name": "half_month_absence",
+            "base": "12000000",
+            "fixed": "0",
+            "variable": "0",
+            "absence": 11,
+            "overtime_hours": 0.0,
+            "bonus": "0",
+            "other": "0",
+            "loan": "0",
+            "dependents": 0,
+            "jkk": 1,
+            "jp_cap": None,
+        },
+        {
+            "name": "overtime_25h",
+            "base": "8650000",
+            "fixed": "0",
+            "variable": "0",
+            "absence": 0,
+            "overtime_hours": 25.0,
+            "bonus": "0",
+            "other": "0",
+            "loan": "0",
+            "dependents": 0,
+            "jkk": 1,
+            "jp_cap": None,
+        },
+        {
+            "name": "high_gross_with_ptkp",
+            "base": "80000000",
+            "fixed": "5000000",
+            "variable": "0",
+            "absence": 0,
+            "overtime_hours": 0.0,
+            "bonus": "10000000",
+            "other": "0",
+            "loan": "0",
+            "dependents": 1,
+            "jkk": 1,
+            "jp_cap": "10000000",
+        },
+        {
+            "name": "below_minimum_wage",
+            "base": "1000000",
+            "fixed": "0",
+            "variable": "0",
+            "absence": 0,
+            "overtime_hours": 0.0,
+            "bonus": "0",
+            "other": "0",
+            "loan": "0",
+            "dependents": 0,
+            "jkk": 1,
+            "jp_cap": None,
+        },
+    ]
+    out = []
+    for case in cases:
+        tables = _parity_base_tables(jp_cap=case["jp_cap"])
+        employee = _parity_employee(
+            dependents=case["dependents"],
+            jkk_risk_level=case["jkk"],
+            hire_date=datetime.date(2024, 1, 15),
+        )
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=m(case["base"]),
+            fixed_allowances=m(case["fixed"]),
+            variable_allowances=m(case["variable"]),
+            absence_days=float(case["absence"]),
+            overtime_hours=case["overtime_hours"],
+            bonus=m(case["bonus"]),
+            other_deductions=m(case["other"]),
+            loan_deduction=m(case["loan"]),
+        )
+        line, _ = svc._compute_line(payroll_input, employee, tables, working_days=22)
+        out.append(
+            {
+                "name": case["name"],
+                "base_salary": case["base"],
+                "fixed_allowances": case["fixed"],
+                "variable_allowances": case["variable"],
+                "working_days": 22,
+                "absence_days": case["absence"],
+                "overtime_minutes": int(case["overtime_hours"] * 60),
+                "bonus": case["bonus"],
+                "other_deductions": case["other"],
+                "loan_deduction": case["loan"],
+                "dependents": case["dependents"],
+                "jkk_risk_class": case["jkk"],
+                "jp_wage_cap": case["jp_cap"],
+                **_line_payload(line),
+            }
+        )
+    return out
+
+
+def thr_full_cases() -> list[dict[str, object]]:
+    """THR/proration with absences, deductions, loans, and notes."""
+    import datetime
+    from uuid import uuid4
+
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService
+
+    svc = object.__new__(PayrollService)
+    tables = _parity_thr_tables()
+    employee = _parity_employee(
+        dependents=0, jkk_risk_level=1, hire_date=datetime.date(2024, 1, 15)
+    )
+    cases = [
+        ("thr_6m_full", 6, 0, "0", "0", None),
+        ("thr_12m_full", 12, 0, "0", "0", None),
+        ("thr_30m_half_absent", 30, 11, "0", "0", None),
+        ("thr_100m_with_deductions", 100, 2, "100000", "50000", "service award"),
+    ]
+    out = []
+    for name, service_months, absence, other, loan, note in cases:
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=m("12000000"),
+            fixed_allowances=m("0"),
+            absence_days=float(absence),
+            service_months=service_months,
+            other_deductions=m(other),
+            loan_deduction=m(loan),
+            note=note,
+        )
+        line, _ = svc._compute_thr(payroll_input, employee, tables, working_days=22)
+        out.append(
+            {
+                "name": name,
+                "base_salary": "12000000",
+                "fixed_allowances": "0",
+                "working_days": 22,
+                "absence_days": absence,
+                "service_months": service_months,
+                "other_deductions": other,
+                "loan_deduction": loan,
+                "note": note,
+                **_line_payload(line),
+            }
+        )
+    return out
+
+
+def final_cases() -> list[dict[str, object]]:
+    """Python's FINAL line (monthly rules) plus Rust-only severance/leave inputs."""
+    import datetime
+    from uuid import uuid4
+
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService
+
+    svc = object.__new__(PayrollService)
+    cases = [
+        {
+            "name": "final_without_additions",
+            "base": "10000000",
+            "fixed": "2000000",
+            "absence": 0,
+            "service_months": 6,
+            "severance": "0",
+            "leave_days_x2": 0,
+            "leave_per_day": "0",
+        },
+        {
+            "name": "final_severance_and_leave",
+            "base": "10000000",
+            "fixed": "2000000",
+            "absence": 0,
+            "service_months": 30,
+            "severance": "5000000",
+            "leave_days_x2": 10,
+            "leave_per_day": "500000",
+        },
+        {
+            "name": "final_absence_severance_leave",
+            "base": "10000000",
+            "fixed": "1000000",
+            "absence": 2,
+            "service_months": 60,
+            "severance": "7500000",
+            "leave_days_x2": 6,
+            "leave_per_day": "400000",
+        },
+    ]
+    out = []
+    for case in cases:
+        tables = _parity_base_tables()
+        employee = _parity_employee(
+            dependents=1, jkk_risk_level=1, hire_date=datetime.date(2024, 1, 15)
+        )
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=m(case["base"]),
+            fixed_allowances=m(case["fixed"]),
+            absence_days=float(case["absence"]),
+        )
+        line, _ = svc._compute_line(payroll_input, employee, tables, working_days=22)
+        out.append(
+            {
+                "name": case["name"],
+                "base_salary": case["base"],
+                "fixed_allowances": case["fixed"],
+                "working_days": 22,
+                "absence_days": case["absence"],
+                "service_months": case["service_months"],
+                "severance_pay": case["severance"],
+                "unused_leave_days_x2": case["leave_days_x2"],
+                "leave_payout_per_day": case["leave_per_day"],
+                "dependents": 1,
+                "jkk_risk_class": 1,
+                "python_line": _line_payload(line),
+            }
+        )
+    return out
+
+
+def payroll_1000_cases() -> dict[str, object]:
+    """Deterministic 1,000-line run, compared line-by-line and in aggregate."""
+    import datetime
+
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService
+
+    svc = object.__new__(PayrollService)
+    employees = {
+        cap: _parity_employee(dependents=0, jkk_risk_level=1, hire_date=datetime.date(2024, 1, 15))
+        for cap in (None, "10000000")
+    }
+    tables = {cap: _parity_base_tables(jp_cap=cap) for cap in (None, "10000000")}
+    cases = []
+    for index in range(1_000):
+        base = 6_000_000 + (index % 20) * 3_750_000
+        fixed = 1_000_000 + (index % 5) * 100_000
+        variable = 250_000 if index % 4 == 0 else 0
+        absence = index % 4
+        overtime_hours = (index % 3) * 1.5
+        bonus = 500_000 if index % 7 == 0 else 0
+        other = 100_000 if index % 5 == 0 else 0
+        loan = 50_000 if index % 11 == 0 else 0
+        dependents = index % 3
+        cap = "10000000" if index % 2 == 0 else None
+        employee = employees[cap].model_copy(update={"dependents": dependents})
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=m(str(base)),
+            fixed_allowances=m(str(fixed)),
+            variable_allowances=m(str(variable)),
+            absence_days=float(absence),
+            overtime_hours=overtime_hours,
+            bonus=m(str(bonus)),
+            other_deductions=m(str(other)),
+            loan_deduction=m(str(loan)),
+        )
+        line, _ = svc._compute_line(payroll_input, employee, tables[cap], working_days=22)
+        cases.append(
+            {
+                "name": f"line_{index:04}",
+                "base_salary": str(base),
+                "fixed_allowances": str(fixed),
+                "variable_allowances": str(variable),
+                "working_days": 22,
+                "absence_days": absence,
+                "overtime_minutes": int(overtime_hours * 60),
+                "bonus": str(bonus),
+                "other_deductions": str(other),
+                "loan_deduction": str(loan),
+                "dependents": dependents,
+                "jkk_risk_class": 1,
+                "jp_wage_cap": cap,
+                **_line_payload(line),
+            }
+        )
+
+    def total(field: str) -> int:
+        return sum(int(case[field]) for case in cases)
+
+    return {
+        "employees": len(cases),
+        "totals": {
+            "gross_sen": total("gross_sen"),
+            "net_sen": total("net_sen"),
+            "employee_deductions_sen": total("total_deductions_sen"),
+            "employer_cost_sen": total("employer_cost_sen"),
+            "pph21_sen": total("pph21_sen"),
+        },
+        "cases": cases,
+    }
+
+
 def main() -> int:
     output = Path(sys.argv[1] if len(sys.argv) > 1 else "parity/fixtures")
     output.mkdir(parents=True, exist_ok=True)
@@ -591,10 +964,18 @@ def main() -> int:
         "payroll_overtime.json": overtime_cases(),
         "payroll_thr.json": thr_cases(),
         "payroll_absence.json": absence_cases(),
+        "payroll_monthly_full.json": monthly_full_cases(),
+        "payroll_thr_full.json": thr_full_cases(),
+        "payroll_final.json": final_cases(),
+        "payroll_1000.json": payroll_1000_cases(),
     }
     for name, payload in files.items():
         path = output / name
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         print(f"wrote {path}")
     return 0
 

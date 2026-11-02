@@ -9,7 +9,8 @@
 use hragents_core::ids::{EmployeeId, RateTableId};
 use hragents_core::money::Money;
 use hragents_core::payroll::{
-    RateEntry, RateTable, RateTableKind, RateTableSet, compute_monthly_line, compute_thr_line,
+    PayrollLine, RateEntry, RateTable, RateTableKind, RateTableSet, compute_final_line,
+    compute_monthly_line, compute_thr_line,
 };
 use hragents_core::people::Employee;
 use hragents_core::time::{BusinessDate, UtcInstant};
@@ -89,6 +90,80 @@ struct AbsenceCase {
     allowances_sen: i64,
     gross_sen: i64,
     net_sen: i64,
+}
+
+#[derive(Deserialize)]
+struct LineExpect {
+    base_salary_sen: i64,
+    allowances_sen: i64,
+    overtime_pay_sen: i64,
+    bonus_sen: i64,
+    gross_sen: i64,
+    kes_employee_sen: i64,
+    kes_employer_sen: i64,
+    jht_employee_sen: i64,
+    jht_employer_sen: i64,
+    jp_employee_sen: i64,
+    jp_employer_sen: i64,
+    jkk_employer_sen: i64,
+    jkm_employer_sen: i64,
+    pph21_sen: i64,
+    other_deductions_sen: i64,
+    total_deductions_sen: i64,
+    net_sen: i64,
+    employer_cost_sen: i64,
+    thr_months: i64,
+    notes: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct MonthlyFullCase {
+    name: String,
+    base_salary: String,
+    fixed_allowances: String,
+    variable_allowances: String,
+    working_days: u32,
+    absence_days: u32,
+    overtime_minutes: i64,
+    bonus: String,
+    other_deductions: String,
+    loan_deduction: String,
+    dependents: u8,
+    jkk_risk_class: u8,
+    jp_wage_cap: Option<String>,
+    #[serde(flatten)]
+    expected: LineExpect,
+}
+
+#[derive(Deserialize)]
+struct ThrFullCase {
+    name: String,
+    base_salary: String,
+    fixed_allowances: String,
+    working_days: u32,
+    absence_days: u32,
+    service_months: u32,
+    other_deductions: String,
+    loan_deduction: String,
+    note: Option<String>,
+    #[serde(flatten)]
+    expected: LineExpect,
+}
+
+#[derive(Deserialize)]
+struct FinalCase {
+    name: String,
+    base_salary: String,
+    fixed_allowances: String,
+    working_days: u32,
+    absence_days: u32,
+    service_months: u32,
+    severance_pay: String,
+    unused_leave_days_x2: i32,
+    leave_payout_per_day: String,
+    dependents: u8,
+    jkk_risk_class: u8,
+    python_line: LineExpect,
 }
 
 // ---------- table builders (mirror the export's illustrative values) ----------
@@ -306,6 +381,126 @@ fn monthly_input(
     input.overtime_minutes = overtime_minutes;
     input.service_months = service_months;
     input
+}
+
+fn compute_monthly_case(case: &MonthlyFullCase) -> PayrollLine {
+    let jp_cap = case
+        .jp_wage_cap
+        .as_deref()
+        .map(|cap| Money::parse(cap).unwrap());
+    let tables = monthly_tables(jp_cap);
+    let id = EmployeeId::new();
+    let mut input = monthly_input(
+        id,
+        &case.base_salary,
+        &case.fixed_allowances,
+        case.working_days,
+        case.absence_days,
+        case.overtime_minutes,
+        0,
+    );
+    input.variable_allowances = Money::parse(&case.variable_allowances).unwrap();
+    input.bonus = Money::parse(&case.bonus).unwrap();
+    input.other_deductions = Money::parse(&case.other_deductions).unwrap();
+    input.loan_deduction = Money::parse(&case.loan_deduction).unwrap();
+    let employee = employee_with(id, case.dependents, case.jkk_risk_class);
+    compute_monthly_line(&input, Some(&employee), &tables, day())
+        .unwrap()
+        .0
+}
+
+fn employee_with(id: EmployeeId, dependents: u8, jkk_risk_class: u8) -> Employee {
+    let mut employee = employee_for(id);
+    employee.dependents = dependents;
+    employee.jkk_risk_class = Some(jkk_risk_class);
+    employee
+}
+
+fn assert_line(computed: &PayrollLine, expected: &LineExpect, name: &str) {
+    let pairs = [
+        ("base", computed.base_salary.sen(), expected.base_salary_sen),
+        (
+            "allowances",
+            computed.allowances.sen(),
+            expected.allowances_sen,
+        ),
+        (
+            "overtime",
+            computed.overtime_pay.sen(),
+            expected.overtime_pay_sen,
+        ),
+        ("bonus", computed.bonus.sen(), expected.bonus_sen),
+        ("gross", computed.gross.sen(), expected.gross_sen),
+        (
+            "kes employee",
+            computed.bpjs_kesehatan_employee.sen(),
+            expected.kes_employee_sen,
+        ),
+        (
+            "kes employer",
+            computed.bpjs_kesehatan_employer.sen(),
+            expected.kes_employer_sen,
+        ),
+        (
+            "jht employee",
+            computed.bpjs_jht_employee.sen(),
+            expected.jht_employee_sen,
+        ),
+        (
+            "jht employer",
+            computed.bpjs_jht_employer.sen(),
+            expected.jht_employer_sen,
+        ),
+        (
+            "jp employee",
+            computed.bpjs_jp_employee.sen(),
+            expected.jp_employee_sen,
+        ),
+        (
+            "jp employer",
+            computed.bpjs_jp_employer.sen(),
+            expected.jp_employer_sen,
+        ),
+        (
+            "jkk employer",
+            computed.bpjs_jkk_employer.sen(),
+            expected.jkk_employer_sen,
+        ),
+        (
+            "jkm employer",
+            computed.bpjs_jkm_employer.sen(),
+            expected.jkm_employer_sen,
+        ),
+        ("pph21", computed.pph21.sen(), expected.pph21_sen),
+        (
+            "other deductions",
+            computed.other_deductions.sen(),
+            expected.other_deductions_sen,
+        ),
+        (
+            "total deductions",
+            computed.total_deductions.sen(),
+            expected.total_deductions_sen,
+        ),
+        ("net", computed.net.sen(), expected.net_sen),
+        (
+            "employer cost",
+            computed.employer_cost.sen(),
+            expected.employer_cost_sen,
+        ),
+    ];
+    for (label, actual, wanted) in pairs {
+        assert_eq!(actual, wanted, "case {name}: {label} diverged");
+    }
+    assert_eq!(
+        computed.thr_months_bp.unwrap_or(0) / 10_000,
+        expected.thr_months,
+        "case {name}: thr months diverged"
+    );
+    assert_eq!(
+        computed.notes, expected.notes,
+        "case {name}: notes diverged"
+    );
 }
 
 // ---------- tests ----------
@@ -542,4 +737,192 @@ fn absence_proration_matches_python() {
             case.name
         );
     }
+}
+
+#[test]
+fn monthly_full_matches_python() {
+    let cases: Vec<MonthlyFullCase> = serde_json::from_str(include_str!(
+        "../../../../parity/fixtures/payroll_monthly_full.json"
+    ))
+    .unwrap();
+    assert_eq!(cases.len(), 6);
+    for case in &cases {
+        let computed = compute_monthly_case(case);
+        assert_line(&computed, &case.expected, &case.name);
+    }
+}
+
+#[test]
+fn thr_full_matches_python() {
+    let cases: Vec<ThrFullCase> = serde_json::from_str(include_str!(
+        "../../../../parity/fixtures/payroll_thr_full.json"
+    ))
+    .unwrap();
+    assert_eq!(cases.len(), 4);
+    let tables = thr_tables();
+    for case in &cases {
+        let id = EmployeeId::new();
+        let mut input = monthly_input(
+            id,
+            &case.base_salary,
+            &case.fixed_allowances,
+            case.working_days,
+            case.absence_days,
+            0,
+            case.service_months,
+        );
+        input.other_deductions = Money::parse(&case.other_deductions).unwrap();
+        input.loan_deduction = Money::parse(&case.loan_deduction).unwrap();
+        input.note = case.note.clone();
+        let (computed, _) = compute_thr_line(&input, None, &tables, day()).unwrap();
+        assert_line(&computed, &case.expected, &case.name);
+    }
+}
+
+#[test]
+fn final_full_matches_python_wage_component_and_additions() {
+    let cases: Vec<FinalCase> = serde_json::from_str(include_str!(
+        "../../../../parity/fixtures/payroll_final.json"
+    ))
+    .unwrap();
+    assert_eq!(cases.len(), 3);
+    let tables = monthly_tables(None);
+    for case in &cases {
+        let id = EmployeeId::new();
+        let employee = employee_with(id, case.dependents, case.jkk_risk_class);
+        let build = |severance: Money, leave_days: i32, leave_per_day: Money| {
+            let mut input = monthly_input(
+                id,
+                &case.base_salary,
+                &case.fixed_allowances,
+                case.working_days,
+                case.absence_days,
+                0,
+                case.service_months,
+            );
+            input.severance_pay = severance;
+            input.unused_leave_days_x2 = leave_days;
+            input.leave_payout_per_day = leave_per_day;
+            input
+        };
+
+        // Python's FINAL line is the monthly line; with zero additions Rust must
+        // reproduce it exactly.
+        let (base_line, _) = compute_final_line(
+            &build(Money::ZERO, 0, Money::ZERO),
+            Some(&employee),
+            &tables,
+            day(),
+        )
+        .unwrap();
+        assert_line(
+            &base_line,
+            &case.python_line,
+            &format!("{} (wage)", case.name),
+        );
+
+        let severance = Money::parse(&case.severance_pay).unwrap();
+        let leave_per_day = Money::parse(&case.leave_payout_per_day).unwrap();
+        let input = build(severance, case.unused_leave_days_x2, leave_per_day);
+        let leave = leave_per_day
+            .mul_ratio(i64::from(case.unused_leave_days_x2), 2)
+            .unwrap();
+        let (computed, anomalies) =
+            compute_final_line(&input, Some(&employee), &tables, day()).unwrap();
+        assert_eq!(
+            computed.gross.sen(),
+            case.python_line.gross_sen + severance.sen() + leave.sen(),
+            "case {}: final gross must add severance and leave once",
+            case.name
+        );
+        assert_eq!(
+            computed.total_deductions.sen(),
+            case.python_line.total_deductions_sen,
+            "case {}: severance and leave must not change deductions",
+            case.name
+        );
+        assert_eq!(
+            computed.net.sen(),
+            computed.gross.sen() - computed.total_deductions.sen(),
+            "case {}: final net must reconcile",
+            case.name
+        );
+        assert_eq!(
+            computed.bpjs_kesehatan_employee.sen(),
+            case.python_line.kes_employee_sen
+        );
+        assert_eq!(
+            computed.bpjs_jht_employee.sen(),
+            case.python_line.jht_employee_sen
+        );
+        assert_eq!(
+            computed.bpjs_jp_employee.sen(),
+            case.python_line.jp_employee_sen
+        );
+        assert_eq!(computed.pph21.sen(), case.python_line.pph21_sen);
+        assert_eq!(computed.severance_pay.sen(), severance.sen());
+        assert_eq!(computed.leave_payout.sen(), leave.sen());
+        assert!(
+            anomalies
+                .iter()
+                .any(|anomaly| anomaly.code == "final_tax_review_required"),
+            "case {}: final tax review warning missing",
+            case.name
+        );
+        if severance.is_zero() && case.service_months >= 12 {
+            assert!(
+                anomalies
+                    .iter()
+                    .any(|anomaly| anomaly.code == "severance_not_entered"),
+                "case {}: missing severance warning",
+                case.name
+            );
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct Payroll1000Totals {
+    gross_sen: i64,
+    net_sen: i64,
+    employee_deductions_sen: i64,
+    employer_cost_sen: i64,
+    pph21_sen: i64,
+}
+
+#[derive(Deserialize)]
+struct Payroll1000 {
+    employees: usize,
+    totals: Payroll1000Totals,
+    cases: Vec<MonthlyFullCase>,
+}
+
+#[test]
+fn thousand_line_run_matches_python() {
+    let fixture: Payroll1000 = serde_json::from_str(include_str!(
+        "../../../../parity/fixtures/payroll_1000.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture.cases.len(), 1_000);
+    assert_eq!(fixture.employees, 1_000);
+
+    let mut gross = Money::ZERO;
+    let mut net = Money::ZERO;
+    let mut deductions = Money::ZERO;
+    let mut employer = Money::ZERO;
+    let mut pph21 = Money::ZERO;
+    for case in &fixture.cases {
+        let computed = compute_monthly_case(case);
+        assert_line(&computed, &case.expected, &case.name);
+        gross = gross.checked_add(computed.gross).unwrap();
+        net = net.checked_add(computed.net).unwrap();
+        deductions = deductions.checked_add(computed.total_deductions).unwrap();
+        employer = employer.checked_add(computed.employer_cost).unwrap();
+        pph21 = pph21.checked_add(computed.pph21).unwrap();
+    }
+    assert_eq!(gross.sen(), fixture.totals.gross_sen);
+    assert_eq!(net.sen(), fixture.totals.net_sen);
+    assert_eq!(deductions.sen(), fixture.totals.employee_deductions_sen);
+    assert_eq!(employer.sen(), fixture.totals.employer_cost_sen);
+    assert_eq!(pph21.sen(), fixture.totals.pph21_sen);
 }

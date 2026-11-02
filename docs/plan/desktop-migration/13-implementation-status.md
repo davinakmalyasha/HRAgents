@@ -1,6 +1,6 @@
 # 13 — Implementation Status
 
-**Snapshot:** 2026-11-02 · **Branch:** `plan/desktop-rust-migration` · **Edition:** free (unsigned, no account, no telemetry)
+**Snapshot:** 2026-11-03 · **Branch:** `plan/desktop-rust-migration` · **Edition:** free (unsigned, no account, no telemetry)
 
 This file is evidence, not a plan. It records what now exists, what the gates can
 actually prove, and what is still open. It is updated at every merge.
@@ -37,6 +37,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Parity corpus freeze | **Done** | `parity/FROZEN.md` |
 | Payroll review packet (XLSX) | **Done** | `hragents-ipc/src/lib.rs` export |
 | Read-only per-employee payslip | **Done: reconciled line, employer contributions, audited view** | `AppService::payslip`, `PaysScreen` modal |
+| Full payroll parity corpus | **Done: monthly (all components), THR, final wage component, BPJS, overtime, PPh 21, absence, 1,000 lines** | `parity/fixtures/payroll_*.json`, `payroll_parity.rs` |
 | Growth cycles, review forms, goals | **Done across core/store/IPC/UI** | `hragents-core/src/growth.rs` |
 | Offboarding checklist + final-pay gate | **Done across core/store/IPC/UI** | `hragents-core/src/offboarding.rs` |
 | Document requests + vault upload/preview/verify | **Done** | `hragents-core/src/documents.rs`, `screens/Documents.tsx` |
@@ -73,11 +74,11 @@ actually prove, and what is still open. It is updated at every merge.
 cargo test --workspace --exclude hragents-desktop
   hragents-agents  16 passed, 1 ignored (live provider)
   hragents-core    67 passed
-  payroll_parity    4 passed
+  payroll_parity    8 passed
   python_parity     5 passed
   hragents-ipc     25 passed, 1 ignored (release benchmark)
   hragents-store   18 passed (includes key-file and document-crypto tests)
-  total           135 passed, 2 ignored
+  total           139 passed, 2 ignored
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
@@ -93,8 +94,8 @@ cargo test -p hragents-ipc --features sqlcipher
   encrypted document read -> encrypted backup -> reopen backup
 
 NSIS (free edition, unsigned, per-user, SQLCipher)
-  HRAgents_0.1.0_x64-setup.exe, 7,554,372 bytes (7.20 MiB)
-  SHA-256 c6f5aaa3491539b29a81cb59239129cd1aae1716a8b61c60a5fe21fe4451188e
+  HRAgents_0.1.0_x64-setup.exe, 7,553,841 bytes (7.20 MiB)
+  SHA-256 f4111c9c6ef8f10d881f99e43cc9a122b4b75d40c4c62f4cbf0898512898571f
   built binary launches; a second launch exits 0 while the first keeps running
 
 live upgrade of the real local database (not a fixture):
@@ -114,6 +115,15 @@ recovery and full-set CLI drill:
   corrupted rekey -> pre-rotation backup restored and rekeyed
   payslip: earnings/deductions/employer shares reconcile to the stored line;
   unknown employee rejected; payslip.viewed audited
+
+payroll parity corpus (generated from the Python oracle, LF-frozen):
+  monthly_full: 6 cases x every line component
+  thr_full: 4 cases with absence, deductions, loans, notes
+  final: 3 cases; Python wage component matches exactly, Rust severance/leave
+         added once outside BPJS, tax-review warning asserted
+  1000 lines: all 1,000 lines and aggregate totals match Python to the sen
+  this corpus caught and fixed an overtime rounding bug (Rust quantised the
+  hourly rate before multiplying; now rounds once like the oracle)
   packaged app with hragents.key temporarily removed: UI Automation reads
   "Recover this installation", the 64-hex hint, username/password fields, and
   "Recover and sign in"; the DB still verifies encrypted after the key returns
@@ -160,7 +170,7 @@ the same gates; it is a review surface, not a second implementation.
 | **G0** shell + DB + login | Packaged build, encrypted DB, login/lock/unlock/re-auth, audit after restart, no listening port | **Pass on the dev slice.** Shell, per-user install, login/lock/re-auth, audit-after-restart, and no-listening-port are proven. The app opens SQLCipher with a DPAPI-protected per-install key, converts a legacy plaintext DB in place, and stores documents and backups encrypted; a wrong key fails closed. |
 | **G1** employee/onboarding | Employee created, plan completed, audited receipt, parity fixture, Python not invoked | **Pass on the dev slice.** Covered by IPC tests and CLI demo. |
 | **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction (TXT/PDF/DOCX), score, σ, evidence, gate, rejection, scheduling, offers, messaging, and candidate-safe feedback pass core/store/IPC/Tauri/UI tests. A live provider key is optional and untested. |
-| **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export; payslip | **Partial.** Engine, tables gate, anomalies, sign-off, immutability, 1,000-line benchmark, XLSX export, and read-only payslips exist. The full BPJS/THR/final parity corpus is still missing. |
+| **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export; payslip | **Pass on the dev slice.** Monthly, THR, BPJS, overtime, PPh 21, and absence cases match the Python oracle to the sen, including a deterministic 1,000-line run. Python does not model severance or leave payout; Rust matches its final wage component and tests the additive extension separately. Tables gate, anomalies, sign-off, immutability, XLSX export, and payslips are covered. |
 | **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval pass core/store/IPC/Tauri/UI tests. |
 | **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started by design.** The migration plan forbids removing Python until the first release cut; the free edition changes distribution, not the parity contract. |
 | **G6** installable free build + recovery | Per-user installer, backup/restore drill, rollback, no paid dependency | **Pass for the free edition.** NSIS installs per-user without admin, data survives uninstall, backup/restore drill is green, audit exports, and nothing requires a certificate, paid account, hosted update server, or telemetry. Commercial signing/notarization is a future paid-distribution decision, not a gate. Pilot remains a human step. |
@@ -170,8 +180,8 @@ backup without its key. It does not defend a process already running as the
 logged-in Windows user: DPAPI will unwrap the key for that user. OS login and
 full-disk encryption still matter, and the key file must be backed up separately.
 
-A gate is not opened by a green unit test. G3's parity breadth, G5, and the pilot
-remain open until the missing evidence exists.
+A gate is not opened by a green unit test. G5 and the pilot remain open until the
+missing evidence exists.
 
 ---
 
@@ -180,9 +190,8 @@ remain open until the missing evidence exists.
 1. **Provider live key + streaming** — the `rig` adapter, recorded replay fixtures,
    and the ignored live test exist; no production key is configured and there is
    no streaming UI. The offline extractor stays the default.
-2. **Parity breadth** — the merge and population σ are parity-tested; the
-   4-dimension rubric extraction itself is not. BPJS/THR/final payroll need a
-   Python-generated corpus before the sen-level claim covers them.
+2. **Scoring extraction parity** — the merge and population σ are parity-tested;
+   the 4-dimension rubric extraction itself is not yet.
 3. **Python removal** — deferred to the release cut by the migration plan.
 4. **Import from the existing Postgres product** — not implemented.
 5. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
