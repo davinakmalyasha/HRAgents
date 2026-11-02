@@ -32,10 +32,14 @@ mod growth_services;
 mod hiring_services;
 pub mod scheduler;
 
+use chacha20poly1305::aead::{Aead, KeyInit};
+use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 pub use compliance_services::RetentionDueItem;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
+use std::io::Read;
 use std::path::Path;
 
 #[derive(Debug, thiserror::Error)]
@@ -208,14 +212,104 @@ pub struct SearchHit {
 pub struct AppService {
     store: Store,
     documents_dir: std::path::PathBuf,
+    document_key: Option<[u8; 32]>,
     auth: AuthService,
     session: Option<Session>,
     operator: Option<Operator>,
 }
 
+/// Open the desktop database with SQLCipher, migrating a legacy plaintext
+/// file in place first. Returns the key so backups can use the same secret.
+#[cfg(feature = "sqlcipher")]
+pub fn unlock_encrypted_database(data_dir: &Path, db_path: &Path) -> AppResult<String> {
+    let key = hragents_store::keyfile::unlock_key_for(data_dir, db_path)?;
+    if db_path.exists() && hragents_store::keyfile::is_plaintext_sqlite(db_path)? {
+        Store::encrypt_plaintext_in_place(db_path, &key)?;
+    }
+    Ok(key)
+}
+
+const DOCUMENT_MAGIC: &[u8; 4] = b"HRD1";
+
+fn document_key(passphrase: &str) -> [u8; 32] {
+    Sha256::digest(passphrase.as_bytes()).into()
+}
+
+fn encrypt_document(key: &[u8; 32], bytes: &[u8]) -> AppResult<Vec<u8>> {
+    let cipher = ChaCha20Poly1305::new(Key::from_slice(key));
+    let mut nonce = [0u8; 12];
+    getrandom::fill(&mut nonce)
+        .map_err(|error| AppError::Export(format!("document nonce: {error}")))?;
+    let ciphertext = cipher
+        .encrypt(Nonce::from_slice(&nonce), bytes)
+        .map_err(|_| AppError::Export("encrypt document failed".into()))?;
+    let mut out = Vec::with_capacity(DOCUMENT_MAGIC.len() + nonce.len() + ciphertext.len());
+    out.extend_from_slice(DOCUMENT_MAGIC);
+    out.extend_from_slice(&nonce);
+    out.extend_from_slice(&ciphertext);
+    Ok(out)
+}
+
+fn decrypt_document(key: &[u8; 32], stored: &[u8]) -> AppResult<Vec<u8>> {
+    if !stored.starts_with(DOCUMENT_MAGIC) {
+        return Ok(stored.to_vec());
+    }
+    if stored.len() < DOCUMENT_MAGIC.len() + 12 + 16 {
+        return Err(AppError::Export("document ciphertext is truncated".into()));
+    }
+    let nonce = &stored[DOCUMENT_MAGIC.len()..DOCUMENT_MAGIC.len() + 12];
+    let ciphertext = &stored[DOCUMENT_MAGIC.len() + 12..];
+    let cipher = ChaCha20Poly1305::new(Key::from_slice(key));
+    cipher
+        .decrypt(Nonce::from_slice(nonce), ciphertext)
+        .map_err(|_| {
+            AppError::Export("document decryption failed: wrong key or tampered file".into())
+        })
+}
+
+fn encrypt_legacy_documents(dir: &Path, key: &[u8; 32]) -> AppResult<()> {
+    let entries = std::fs::read_dir(dir)
+        .map_err(|error| AppError::Export(format!("read documents directory: {error}")))?;
+    for entry in entries {
+        let entry =
+            entry.map_err(|error| AppError::Export(format!("read document entry: {error}")))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let mut handle = std::fs::File::open(&path)
+            .map_err(|error| AppError::Export(format!("open document: {error}")))?;
+        let mut magic = [0u8; 4];
+        if handle.read_exact(&mut magic).is_ok() && &magic == DOCUMENT_MAGIC {
+            continue;
+        }
+        drop(handle);
+        let stored = std::fs::read(&path)
+            .map_err(|error| AppError::Export(format!("read document: {error}")))?;
+        let encrypted = encrypt_document(key, &stored)?;
+        let staging = path.with_extension("enc-tmp");
+        std::fs::write(&staging, &encrypted)
+            .map_err(|error| AppError::Export(format!("write document: {error}")))?;
+        std::fs::rename(&staging, &path)
+            .map_err(|error| AppError::Export(format!("replace document: {error}")))?;
+    }
+    Ok(())
+}
+
 impl AppService {
     pub fn open(path: impl AsRef<Path>) -> AppResult<Self> {
         let path = path.as_ref();
+        Self::assemble(Store::open(path)?, path, None)
+    }
+
+    /// Open the app database through SQLCipher. The desktop shell always uses
+    /// this path; `open` remains for tests, demos, and the plain CLI.
+    pub fn open_encrypted(path: impl AsRef<Path>, key: &str) -> AppResult<Self> {
+        let path = path.as_ref();
+        Self::assemble(Store::open_encrypted(path, key)?, path, Some(key))
+    }
+
+    fn assemble(store: Store, path: &Path, passphrase: Option<&str>) -> AppResult<Self> {
         let documents_dir = path
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
@@ -223,9 +317,14 @@ impl AppService {
             .join("documents");
         std::fs::create_dir_all(&documents_dir)
             .map_err(|error| AppError::Export(error.to_string()))?;
+        let document_key = passphrase.map(document_key);
+        if let Some(key) = &document_key {
+            encrypt_legacy_documents(&documents_dir, key)?;
+        }
         Ok(Self {
-            store: Store::open(path)?,
+            store,
             documents_dir,
+            document_key,
             auth: AuthService::default(),
             session: None,
             operator: None,
@@ -240,6 +339,7 @@ impl AppService {
         Ok(Self {
             store: Store::open_in_memory()?,
             documents_dir,
+            document_key: None,
             auth: AuthService::default(),
             session: None,
             operator: None,
@@ -649,7 +749,11 @@ impl AppService {
         let id = DocumentId::new();
         let stored_name = format!("{id}{extension}");
         let path = self.documents_dir.join(&stored_name);
-        std::fs::write(&path, &bytes)
+        let on_disk = match &self.document_key {
+            Some(key) => encrypt_document(key, &bytes)?,
+            None => bytes.clone(),
+        };
+        std::fs::write(&path, &on_disk)
             .map_err(|error| AppError::Export(format!("write document: {error}")))?;
         let document = Document {
             id,
@@ -700,8 +804,12 @@ impl AppService {
         self.require_active()?;
         let document = self.store.document(id)?;
         let path = self.store.document_path(id)?;
-        let bytes = std::fs::read(&path)
+        let stored = std::fs::read(&path)
             .map_err(|error| AppError::Export(format!("read document: {error}")))?;
+        let bytes = match &self.document_key {
+            Some(key) => decrypt_document(key, &stored)?,
+            None => stored,
+        };
         self.append_audit(
             "document.viewed",
             "document",
@@ -2868,6 +2976,82 @@ mod tests {
         let hits = service.search("Ayu").unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].kind, "employee");
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn encrypted_app_database_migrates_and_reopens() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("hragents.db");
+        let document_id = {
+            let mut plain = AppService::open(&db).unwrap();
+            plain
+                .setup_first_run(SetupInput {
+                    company_name: "Nusantara Labs".into(),
+                    operator_name: "Rina".into(),
+                    username: "rina".into(),
+                    password: "correct horse battery staple".into(),
+                })
+                .unwrap();
+            plain
+                .upload_document(
+                    DocumentOwnerType::Company,
+                    "company",
+                    "note.txt",
+                    "text/plain",
+                    b"top secret legacy document".to_vec(),
+                )
+                .unwrap()
+                .id
+        };
+        assert!(hragents_store::keyfile::is_plaintext_sqlite(&db).unwrap());
+
+        let key = unlock_encrypted_database(dir.path(), &db).unwrap();
+        assert!(!hragents_store::keyfile::is_plaintext_sqlite(&db).unwrap());
+        assert_eq!(
+            unlock_encrypted_database(dir.path(), &db).unwrap(),
+            key,
+            "the same key file must be reused"
+        );
+
+        let mut service = AppService::open_encrypted(&db, &key).unwrap();
+        service
+            .login("rina", "correct horse battery staple")
+            .unwrap();
+        assert_eq!(
+            service.company_name().unwrap().as_deref(),
+            Some("Nusantara Labs")
+        );
+        assert_eq!(service.store().schema_version().unwrap(), 2);
+        assert!(AppService::open_encrypted(&db, "wrong key").is_err());
+
+        let document_path = service.store().document_path(document_id).unwrap();
+        let raw = std::fs::read(&document_path).unwrap();
+        assert!(
+            !raw.windows(b"top secret".len())
+                .any(|window| window == b"top secret"),
+            "legacy document was left in plaintext"
+        );
+        let (_, bytes) = service.read_document(document_id).unwrap();
+        assert_eq!(bytes, b"top secret legacy document");
+        let mut tampered = raw;
+        let last = tampered.len() - 1;
+        tampered[last] ^= 0x01;
+        std::fs::write(&document_path, tampered).unwrap();
+        assert!(
+            service.read_document(document_id).is_err(),
+            "tampered ciphertext must not decrypt"
+        );
+
+        let backup = dir.path().join("hragents-backup.db");
+        let size = service.backup(&backup).unwrap();
+        assert!(size > 0);
+        assert!(!hragents_store::keyfile::is_plaintext_sqlite(&backup).unwrap());
+        let restored = AppService::open_encrypted(&backup, &key).unwrap();
+        assert_eq!(
+            restored.company_name().unwrap().as_deref(),
+            Some("Nusantara Labs")
+        );
     }
 
     #[test]

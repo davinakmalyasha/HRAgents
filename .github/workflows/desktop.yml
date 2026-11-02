@@ -59,6 +59,7 @@ jobs:
           workspaces: rust
       - run: sudo apt-get update && sudo apt-get install -y build-essential perl
       - run: cargo test -p hragents-store --features sqlcipher
+      - run: cargo test -p hragents-ipc --features sqlcipher
 
   ui:
     name: Desktop UI typecheck and build

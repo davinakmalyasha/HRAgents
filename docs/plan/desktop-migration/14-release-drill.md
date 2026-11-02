@@ -40,7 +40,7 @@ Run on a fresh VM snapshot per OS (Windows 11 / 10 22H2, macOS 13+, Ubuntu
 
 - [ ] Installer size ≤35 MB (target 22–30 MB); no full WebView2 runtime payload.
 - [ ] Windows: WebView2 `embedBootstrapper` path — offline VM shows guidance, online VM downloads Evergreen.
-- [ ] First-run wizard works offline: language → company → first operator → recovery key → data location → demo data → providers (skip = offline mode).
+- [ ] First-run wizard works offline: language → company → first operator → key created → data location → demo data → providers (skip = offline mode). Note the key path on the final screen.
 - [ ] Data lands in the OS root only (`%LOCALAPPDATA%\HRAgents`, `~/Library/Application Support/com.hragents.desktop`, `~/.local/share/hragents`).
 - [ ] Second launch focuses the running instance and exits 0 (single-instance; no second DB writer).
 - [ ] Cold start ≤1.5 s, first paint ≤500 ms on 4-core/8 GB SSD reference.
@@ -48,7 +48,7 @@ Run on a fresh VM snapshot per OS (Windows 11 / 10 22H2, macOS 13+, Ubuntu
 
 ## 3. Backup / restore drill
 
-- [ ] Trigger each backup kind: first run, daily (keep 7), before update/restore/rekey/erasure, manual `.hrbackup` export.
+- [ ] Trigger each backup kind: first run, daily (keep 7), before update/restore/rekey/erasure, manual `.hrbackup` export. Every database backup is encrypted; copy the key and documents separately.
 - [ ] Verify at creation: `rusqlite::backup` copy integrity; sealed `.hrbackup` manifest (schema, counts, audit head, SHA-256).
 - [ ] Restore rehearsal (never merges): verify signature/hash/schema → password (+ recovery key if foreign) → snapshot current DB → restore to temp → verify audit → atomic swap → restart.
 - [ ] Confirm accounts and audit history survive restore; audit verifies after restart.
@@ -68,10 +68,13 @@ Tauri cannot downgrade in place (§05). Rehearse the supported path:
 - [x] **Signing is not a blocker for the free edition.** No certificate, paid
   account, hosted update server, or telemetry is required. The future paid track
   is documented in §1b and is not part of this gate.
-- [ ] **Encryption at rest.** The current build opens a plaintext SQLite file.
-  Generate and protect a per-install key, open through SQLCipher, migrate the
-  existing file, and prove backup/restore round-trips before any real employee
-  data lands on a laptop.
+- [x] **Encryption at rest.** SQLCipher is enabled in the desktop build with a
+  per-install key; Windows wraps it with DPAPI. A legacy plaintext database is
+  converted in place, documents use ChaCha20-Poly1305, and database backups use
+  SQLCipher export. A wrong key fails closed.
+- [ ] **Key recovery drill.** Copy `hragents.key` and the encrypted documents to a
+  second location, restore on the same Windows user, and confirm the DB opens.
+  Losing the key means losing the data; the UI and runbook must say this.
 - [ ] Run this drill green on a clean Windows 11 machine (install, first run,
   second-instance focus, backup/restore, uninstall-keeps-data).
 - [ ] Confirm diagnostic bundles (`.hrdiag`) contain no PII/secrets (fixture test)

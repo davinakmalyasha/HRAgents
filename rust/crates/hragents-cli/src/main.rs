@@ -17,19 +17,12 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut args = std::env::args().skip(1);
-    match args.next().as_deref() {
-        Some("demo") => demo(args.next().map(PathBuf::from)),
-        Some("verify") => verify(args.next().map(PathBuf::from)),
-        Some("backup") => backup(
-            args.next().map(PathBuf::from),
-            args.next().map(PathBuf::from),
-        ),
-        Some("restore") => restore(
-            args.next().map(PathBuf::from),
-            args.next().map(PathBuf::from),
-            args.next().as_deref() == Some("--force"),
-        ),
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match args.first().map(String::as_str) {
+        Some("demo") => demo(args.get(1).map(PathBuf::from)),
+        Some("verify") => verify(&args[1..]),
+        Some("backup") => backup(&args[1..]),
+        Some("restore") => restore(&args[1..]),
         Some("--version") | Some("-V") => {
             println!("hragents {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -38,14 +31,62 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!("hragents {}", env!("CARGO_PKG_VERSION"));
             println!("usage:");
             println!("  hragents-cli demo [db-path]");
-            println!("  hragents-cli verify <db-path>");
-            println!("  hragents-cli backup <db-path> <output-path>");
-            println!("  hragents-cli restore <backup-path> <db-path> [--force]");
+            println!("  hragents-cli verify <db-path> [--key <key> | --key-file <path>]");
+            println!(
+                "  hragents-cli backup <db-path> <output-path> [--key <key> | --key-file <path>]"
+            );
+            println!(
+                "  hragents-cli restore <backup-path> <db-path> [--force] [--key <key> | --key-file <path>]"
+            );
             println!("    verify-first; refuse to overwrite a newer live DB without --force;");
             println!("    snapshot live DB to <db-path>.pre-restore-<epoch> before swap");
+            println!(
+                "    encrypted databases need a SQLCipher build: cargo run -p hragents-cli --features sqlcipher"
+            );
             Ok(())
         }
     }
+}
+
+fn positional(args: &[String], index: usize) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    args.iter()
+        .filter(|arg| !arg.starts_with("--"))
+        .nth(index)
+        .map(PathBuf::from)
+        .ok_or_else(|| format!("missing argument {}", index + 1).into())
+}
+
+fn parse_key(args: &[String]) -> Result<Option<String>, Box<dyn std::error::Error>> {
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--key" => {
+                return args
+                    .get(index + 1)
+                    .cloned()
+                    .map(Some)
+                    .ok_or_else(|| "--key needs a value".into());
+            }
+            "--key-file" => {
+                let path = args.get(index + 1).ok_or("--key-file needs a path")?;
+                return Ok(Some(hragents_store::keyfile::read_key(
+                    std::path::Path::new(path),
+                )?));
+            }
+            _ => index += 1,
+        }
+    }
+    Ok(None)
+}
+
+fn open_store(
+    path: &std::path::Path,
+    key: Option<&str>,
+) -> Result<hragents_store::Store, Box<dyn std::error::Error>> {
+    Ok(match key {
+        Some(key) => hragents_store::Store::open_encrypted(path, key)?,
+        None => hragents_store::Store::open(path)?,
+    })
 }
 
 fn demo(path: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
@@ -219,9 +260,10 @@ fn demo(path: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn verify(path: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
-    let path = path.ok_or("verify requires a database path")?;
-    let store = hragents_store::Store::open(&path)?;
+fn verify(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let path = positional(args, 0)?;
+    let key = parse_key(args)?;
+    let store = open_store(&path, key.as_deref())?;
     let verification = store.verify_audit()?;
     println!(
         "ok: {} audit entries, head {}",
@@ -229,17 +271,22 @@ fn verify(path: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
         verification.head_hash.unwrap_or_else(|| "(empty)".into())
     );
     println!("integrity: {}", store.integrity_check()?);
+    println!(
+        "encrypted: {}",
+        if store.is_encrypted() { "yes" } else { "no" }
+    );
     Ok(())
 }
 
-fn backup(
-    path: Option<PathBuf>,
-    output: Option<PathBuf>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let path = path.ok_or("backup requires a database path")?;
-    let output = output.ok_or("backup requires an output path")?;
-    let store = hragents_store::Store::open(&path)?;
-    let size = store.backup_to(&output)?;
+fn backup(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let path = positional(args, 0)?;
+    let output = positional(args, 1)?;
+    let key = parse_key(args)?;
+    let store = open_store(&path, key.as_deref())?;
+    let size = match key.as_deref() {
+        Some(key) if !store.is_encrypted() => store.backup_to_key(&output, key)?,
+        _ => store.backup_to(&output)?,
+    };
     println!("backup: {size} bytes at {}", output.display());
     Ok(())
 }
@@ -250,19 +297,17 @@ fn backup(
 /// audit chain first and fail closed; refuse to overwrite a live DB that is
 /// newer than the backup unless `--force`; snapshot the live DB aside before
 /// swapping; copy via temp file + atomic rename; re-open and re-verify.
-fn restore(
-    backup_path: Option<PathBuf>,
-    target: Option<PathBuf>,
-    force: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let backup_path = backup_path.ok_or("restore requires a backup path")?;
-    let target = target.ok_or("restore requires a database path")?;
+fn restore(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let backup_path = positional(args, 0)?;
+    let target = positional(args, 1)?;
+    let force = args.iter().any(|arg| arg == "--force");
+    let key = parse_key(args)?;
     if !backup_path.exists() {
         return Err(format!("backup not found: {}", backup_path.display()).into());
     }
 
     // 1. Verify first, on the backup itself. Fail closed.
-    let backup_store = hragents_store::Store::open(&backup_path)?;
+    let backup_store = open_store(&backup_path, key.as_deref())?;
     if backup_store.integrity_check()? != "ok" {
         return Err("refusing restore: backup integrity_check failed".into());
     }
@@ -273,6 +318,9 @@ fn restore(
     // 2. Refuse to overwrite a newer live DB without --force; snapshot the
     // live DB aside before touching it in every case.
     if target.exists() {
+        // Flush any live WAL before snapshotting; a stale WAL must never be
+        // replayed over the restored file.
+        open_store(&target, key.as_deref())?.checkpoint()?;
         let live_mtime = std::fs::metadata(&target)?.modified()?;
         let backup_mtime = std::fs::metadata(&backup_path)?.modified()?;
         if live_mtime > backup_mtime && !force {
@@ -299,7 +347,13 @@ fn restore(
     let staging = target.with_extension("restore-staging");
     std::fs::copy(&backup_path, &staging)?;
     std::fs::rename(&staging, &target)?;
-    let restored = hragents_store::Store::open(&target)?;
+    for suffix in ["-wal", "-shm"] {
+        let sidecar = PathBuf::from(format!("{}{suffix}", target.display()));
+        if sidecar.exists() {
+            std::fs::remove_file(sidecar)?;
+        }
+    }
+    let restored = open_store(&target, key.as_deref())?;
     if restored.integrity_check()? != "ok" {
         return Err("restore failed: restored DB integrity_check failed".into());
     }

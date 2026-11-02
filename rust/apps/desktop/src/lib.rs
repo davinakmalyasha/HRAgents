@@ -668,7 +668,13 @@ pub fn run() {
                 .app_local_data_dir()
                 .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
             std::fs::create_dir_all(&data_dir)?;
-            let service = AppService::open(data_dir.join("hragents.db"))
+            let db_path = data_dir.join("hragents.db");
+            // The shell always opens SQLCipher. A legacy plaintext file is
+            // converted in place, and a missing key fails closed instead of
+            // silently creating a new one.
+            let key = hragents_ipc::unlock_encrypted_database(&data_dir, &db_path)
+                .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
+            let service = AppService::open_encrypted(&db_path, &key)
                 .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
             let service = Arc::new(Mutex::new(service));
             app.manage(AppState {

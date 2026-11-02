@@ -35,8 +35,11 @@ use hragents_core::people::{
 use hragents_core::time::{BusinessDate, UtcInstant};
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use std::collections::HashMap;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+pub mod keyfile;
 
 const SCHEMA: &str = include_str!("../migrations/0001_init.sql");
 const INDEXES: &str = include_str!("../migrations/0002_indexes.sql");
@@ -60,6 +63,8 @@ pub enum StoreError {
     Conflict { entity: &'static str, id: String },
     #[error("backup failed: {0}")]
     Backup(String),
+    #[error("key handling failed: {0}")]
+    Key(String),
 }
 
 impl From<hragents_core::money::MoneyError> for StoreError {
@@ -69,6 +74,35 @@ impl From<hragents_core::money::MoneyError> for StoreError {
 }
 
 pub type StoreResult<T> = Result<T, StoreError>;
+
+fn remove_if_exists(path: &Path) -> StoreResult<()> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(StoreError::Backup(format!(
+            "remove {}: {error}",
+            path.display()
+        ))),
+    }
+}
+
+fn is_raw_hex_key(key: &str) -> bool {
+    key.len() == 64 && key.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn sqlcipher_key_literal(key: &str) -> String {
+    if is_raw_hex_key(key) {
+        // Raw-key form skips PBKDF2 for the random 256-bit install key.
+        format!("\"x'{key}'\"")
+    } else {
+        format!("'{}'", key.replace('\'', "''"))
+    }
+}
+
+#[cfg(feature = "sqlcipher")]
+fn apply_key(conn: &Connection, key: &str) -> rusqlite::Result<()> {
+    conn.execute_batch(&format!("PRAGMA key = {};", sqlcipher_key_literal(key)))
+}
 
 fn column_exists(tx: &rusqlite::Transaction<'_>, table: &str, column: &str) -> StoreResult<bool> {
     let mut statement = tx.prepare(&format!("PRAGMA table_info({table})"))?;
@@ -85,6 +119,7 @@ fn column_exists(tx: &rusqlite::Transaction<'_>, table: &str, column: &str) -> S
 pub struct Store {
     conn: Connection,
     path: PathBuf,
+    key: Option<String>,
 }
 
 impl Store {
@@ -95,7 +130,11 @@ impl Store {
                 .map_err(|error| StoreError::Migration(format!("create {parent:?}: {error}")))?;
         }
         let conn = Connection::open(&path)?;
-        let mut store = Self { conn, path };
+        let mut store = Self {
+            conn,
+            path,
+            key: None,
+        };
         store.configure()?;
         store.migrate()?;
         Ok(store)
@@ -112,8 +151,12 @@ impl Store {
                 .map_err(|error| StoreError::Migration(format!("create {parent:?}: {error}")))?;
         }
         let conn = Connection::open(&path)?;
-        conn.pragma_update(None, "key", key)?;
-        let mut store = Self { conn, path };
+        apply_key(&conn, key)?;
+        let mut store = Self {
+            conn,
+            path,
+            key: Some(key.to_owned()),
+        };
         store.configure()?;
         store.migrate()?;
         Ok(store)
@@ -131,6 +174,7 @@ impl Store {
         let mut store = Self {
             conn,
             path: PathBuf::from(":memory:"),
+            key: None,
         };
         store.configure()?;
         store.migrate()?;
@@ -139,6 +183,10 @@ impl Store {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        self.key.is_some()
     }
 
     fn configure(&mut self) -> StoreResult<()> {
@@ -3137,11 +3185,31 @@ impl Store {
     // ------------------------------------------------------------------
 
     pub fn backup_to(&self, path: impl AsRef<Path>) -> StoreResult<u64> {
-        let path = path.as_ref();
+        self.backup_with_key(path.as_ref(), self.key.as_deref())
+    }
+
+    /// Write an encrypted copy even when the source is still plaintext.
+    pub fn backup_to_key(&self, path: impl AsRef<Path>, key: &str) -> StoreResult<u64> {
+        self.backup_with_key(path.as_ref(), Some(key))
+    }
+
+    fn backup_with_key(&self, path: &Path, key: Option<&str>) -> StoreResult<u64> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|error| StoreError::Backup(error.to_string()))?;
         }
+        match key {
+            // rusqlite's backup API refuses when a codec is involved. SQLCipher
+            // exports through ATTACH, so use that path for every encrypted copy.
+            Some(key) => self.export_encrypted(path, key)?,
+            None => self.copy_plaintext(path)?,
+        }
+        Ok(std::fs::metadata(path)
+            .map_err(|error| StoreError::Backup(error.to_string()))?
+            .len())
+    }
+
+    fn copy_plaintext(&self, path: &Path) -> StoreResult<()> {
         let mut destination =
             Connection::open(path).map_err(|error| StoreError::Backup(error.to_string()))?;
         {
@@ -3159,10 +3227,87 @@ impl Store {
                 "integrity check failed: {check}"
             )));
         }
-        drop(destination);
-        Ok(std::fs::metadata(path)
-            .map_err(|error| StoreError::Backup(error.to_string()))?
-            .len())
+        Ok(())
+    }
+
+    fn export_encrypted(&self, path: &Path, key: &str) -> StoreResult<()> {
+        remove_if_exists(path)?;
+        let escaped_path = path.display().to_string().replace('\'', "''");
+        self.conn
+            .execute_batch(&format!(
+                "ATTACH DATABASE '{escaped_path}' AS hrbackup KEY {};",
+                sqlcipher_key_literal(key)
+            ))
+            .map_err(|error| StoreError::Backup(format!("attach backup: {error}")))?;
+        let export = self
+            .conn
+            .execute_batch("SELECT sqlcipher_export('hrbackup');")
+            .and_then(|()| {
+                let version: i64 = self
+                    .conn
+                    .query_row("PRAGMA user_version", [], |row| row.get(0))?;
+                self.conn
+                    .execute_batch(&format!("PRAGMA hrbackup.user_version = {version};"))
+            })
+            .and_then(|()| self.conn.execute_batch("DETACH DATABASE hrbackup;"));
+        if let Err(error) = export {
+            let _ = self.conn.execute_batch("DETACH DATABASE hrbackup;");
+            return Err(StoreError::Backup(format!("export backup: {error}")));
+        }
+        let backup = Store::open_encrypted(path, key)?;
+        if backup.integrity_check()? != "ok" {
+            return Err(StoreError::Backup(
+                "encrypted backup failed its integrity check".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Convert a plaintext SQLite database to SQLCipher in place.
+    ///
+    /// The plaintext file is checkpointed, copied through the backup API into
+    /// an encrypted temporary file, verified with the key, and only then
+    /// swapped in. A failure leaves the original file untouched. The plaintext
+    /// WAL/SHM sidecars are removed after the swap.
+    #[cfg(feature = "sqlcipher")]
+    pub fn encrypt_plaintext_in_place(path: &Path, key: &str) -> StoreResult<()> {
+        if !keyfile::is_plaintext_sqlite(path)? {
+            return Err(StoreError::Key(format!(
+                "{} is not a plaintext SQLite database",
+                path.display()
+            )));
+        }
+        let source = Store::open(path)?;
+        source.checkpoint()?;
+        let tmp = path.with_extension("encrypting");
+        remove_if_exists(&tmp)?;
+        source.backup_with_key(&tmp, Some(key))?;
+        drop(source);
+
+        let check = Store::open_encrypted(&tmp, key)?;
+        if check.integrity_check()? != "ok" {
+            remove_if_exists(&tmp)?;
+            return Err(StoreError::Backup(
+                "encrypted copy failed its integrity check".into(),
+            ));
+        }
+        check.checkpoint()?;
+        drop(check);
+
+        let old = path.with_extension("plaintext-old");
+        remove_if_exists(&old)?;
+        std::fs::rename(path, &old)
+            .map_err(|error| StoreError::Backup(format!("stage plaintext: {error}")))?;
+        if let Err(error) = std::fs::rename(&tmp, path) {
+            let _ = std::fs::rename(&old, path);
+            return Err(StoreError::Backup(format!("install encrypted db: {error}")));
+        }
+        std::fs::remove_file(&old)
+            .map_err(|error| StoreError::Backup(format!("remove plaintext copy: {error}")))?;
+        for suffix in ["-wal", "-shm"] {
+            remove_if_exists(PathBuf::from(format!("{}{suffix}", path.display())).as_path())?;
+        }
+        Ok(())
     }
 
     pub fn integrity_check(&self) -> StoreResult<String> {
@@ -3816,6 +3961,73 @@ mod tests {
             Some("Nusantara Labs")
         );
         assert!(Store::open_encrypted(&path, "wrong key").is_err());
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn raw_hex_key_opens_without_a_passphrase_kdf() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hex-key.db");
+        let key = "0123456789abcdef".repeat(4);
+        assert_eq!(key.len(), 64);
+        {
+            let mut store = Store::open_encrypted(&path, &key).unwrap();
+            store
+                .set_company("Nusantara Labs", None, None, now())
+                .unwrap();
+        }
+        let reopened = Store::open_encrypted(&path, &key).unwrap();
+        assert_eq!(
+            reopened.company_name().unwrap().as_deref(),
+            Some("Nusantara Labs")
+        );
+        assert!(Store::open_encrypted(&path, &"f".repeat(64)).is_err());
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn plaintext_database_is_converted_in_place() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hragents.db");
+        {
+            let mut plain = Store::open(&path).unwrap();
+            plain
+                .set_company("Nusantara Labs", None, None, now())
+                .unwrap();
+        }
+        assert!(keyfile::is_plaintext_sqlite(&path).unwrap());
+        Store::encrypt_plaintext_in_place(&path, "installation key").unwrap();
+        assert!(!keyfile::is_plaintext_sqlite(&path).unwrap());
+        assert!(!path.with_extension("plaintext-old").exists());
+        let encrypted = Store::open_encrypted(&path, "installation key").unwrap();
+        assert_eq!(
+            encrypted.company_name().unwrap().as_deref(),
+            Some("Nusantara Labs")
+        );
+        assert!(Store::open_encrypted(&path, "wrong key").is_err());
+        assert!(Store::open(&path).is_err());
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn encrypted_backup_requires_the_same_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hragents.db");
+        let backup_path = dir.path().join("hragents-backup.db");
+        let mut store = Store::open_encrypted(&path, "installation key").unwrap();
+        store
+            .set_company("Nusantara Labs", None, None, now())
+            .unwrap();
+        let size = store.backup_to(&backup_path).unwrap();
+        assert!(size > 0);
+        assert!(!keyfile::is_plaintext_sqlite(&backup_path).unwrap());
+        assert!(Store::open(&backup_path).is_err());
+        let restored = Store::open_encrypted(&backup_path, "installation key").unwrap();
+        assert_eq!(
+            restored.company_name().unwrap().as_deref(),
+            Some("Nusantara Labs")
+        );
+        assert!(Store::open_encrypted(&backup_path, "wrong key").is_err());
     }
 
     #[test]

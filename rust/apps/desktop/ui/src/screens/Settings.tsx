@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   Building2,
   CheckCircle2,
   Database,
@@ -48,7 +47,7 @@ export function Settings({ session }: { session: SessionView }) {
     setBackupResult(null);
     try {
       const size = await command<number>("backup", { path: backupPath });
-      setBackupResult(`Verified backup written: ${(size / 1024).toFixed(0)} KB`);
+      setBackupResult(`Encrypted backup written: ${(size / 1024).toFixed(0)} KB. Copy hragents.key and the documents folder separately.`);
     } catch (caught) {
       setBackupResult(message(caught));
     } finally {
@@ -174,10 +173,10 @@ export function Settings({ session }: { session: SessionView }) {
             <div className="card-head">
               <HardDriveDownload size={15} />
               <h2>Backup</h2>
-              <span className="sub">SQLite backup API + integrity check</span>
+              <span className="sub">SQLCipher export + integrity check</span>
             </div>
             <div className="card-pad grid" style={{ gap: 10 }}>
-              <Field label="Backup path" hint={isDesktop ? "Absolute path on this machine." : "Browser preview does not write a file."}>
+              <Field label="Backup path" hint={isDesktop ? "Absolute path. The file is encrypted; keep the key and documents separate." : "Browser preview does not write a file."}>
                 <input value={backupPath} onChange={(event) => setBackupPath(event.target.value)} />
               </Field>
               <button className="btn" onClick={backup} disabled={busy || !backupPath}>
@@ -226,15 +225,28 @@ export function Settings({ session }: { session: SessionView }) {
               <SecurityRow label="No payment execution" enabled />
               <SecurityRow label="No employee/manager logins" enabled />
               <SecurityRow label="No telemetry by default" enabled />
-              <SecurityRow label="SQLCipher at rest" enabled={false} note="not enabled in this build" />
+              <SecurityRow
+                label="SQLCipher database at rest"
+                enabled={isDesktop}
+                note={isDesktop ? "on" : "browser preview"}
+              />
+              <SecurityRow
+                label="Encrypted documents + backups"
+                enabled={isDesktop}
+                note={isDesktop ? "ChaCha20-Poly1305" : "browser preview"}
+              />
+              <SecurityRow
+                label="Protected install key"
+                enabled={isDesktop}
+                note={isDesktop ? "DPAPI / mode 0600" : "browser preview"}
+              />
             </div>
             <div className="notice" style={{ marginTop: 10 }}>
-              <AlertTriangle size={15} />
+              <KeyRound size={15} />
               <div>
-                This free build stores a plaintext SQLite file in your user profile. Keep the
-                laptop's disk encrypted (BitLocker or FileVault) and store backups somewhere access
-                is controlled. Encrypted-at-rest storage is the next security task, not a claim of
-                this build.
+                The database, uploaded documents, and backups are encrypted with a per-install key.
+                Copy <span className="mono">hragents.key</span> somewhere safe and separate from the
+                database: without it, the data cannot be recovered — there is no back door.
               </div>
             </div>
           </section>

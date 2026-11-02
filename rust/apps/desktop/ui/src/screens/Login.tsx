@@ -81,7 +81,7 @@ export function Login({
           </div>
         </div>
         <div className="small" style={{ color: "var(--on-dark-muted)" }}>
-          Apache-2.0 · data stays on this machine
+          Apache-2.0 · data stays encrypted on this machine
         </div>
       </aside>
 
@@ -127,6 +127,17 @@ export function Login({
               required
             />
           </Field>
+
+          {setupRequired && isDesktop ? (
+            <div className="notice" style={{ marginTop: 10 }}>
+              <KeyRound size={15} />
+              <div>
+                Data is encrypted with a key stored on this machine as{" "}
+                <span className="mono">hragents.key</span>. Back it up somewhere separate after
+                setup: losing it means the data cannot be recovered.
+              </div>
+            </div>
+          ) : null}
 
           {error ? <ErrorBox>{error}</ErrorBox> : null}
 

@@ -12,3 +12,9 @@ hragents-store = { path = "../hragents-store" }
 hragents-ipc = { path = "../hragents-ipc" }
 chrono.workspace = true
 serde_json.workspace = true
+
+[features]
+default = []
+# `cargo run -p hragents-cli --features sqlcipher -- verify ...` can open the
+# encrypted database the desktop app creates.
+sqlcipher = ["hragents-store/sqlcipher"]

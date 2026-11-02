@@ -1,6 +1,6 @@
 name: release-desktop
 
-# Gate 6 preparation: signed desktop distribution track.
+# Gate 6 preparation: free, unsigned desktop distribution track.
 # Trigger: push a version tag like `desktop-v0.1.0`.
 # Tags are the release gate — no tag, no bundles, no draft release.
 

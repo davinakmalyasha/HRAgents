@@ -138,6 +138,9 @@ Pin exact versions in `Cargo.lock`, `package-lock.json`, and the Tauri config. R
 | `sha2` | 0.10.x | Audit chain |
 | `rust_decimal` | — | Not used: integer sen covers every amount exactly |
 | `rust_xlsxwriter` | latest | Payroll/export packets |
+| `rusqlite` + SQLCipher | 0.41 / 4.x | Encrypted local database |
+| `chacha20poly1305` | 0.10 | Encrypted uploaded documents |
+| `windows-sys` (DPAPI) | 0.59 | Key-file protection on Windows; mode 0600 elsewhere |
 | `lettre` / `async-imap` | — | Not yet: send/poll stay manual, so no mail credentials are required |
 | `icalendar` | — | Not yet: interview slots are proposed in-app |
 | `sqlite-vec` | — | Not used: FTS5 plus keyword retrieval is sufficient offline |
