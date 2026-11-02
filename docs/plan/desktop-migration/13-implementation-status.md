@@ -46,11 +46,12 @@ actually prove, and what is still open. It is updated at every merge.
 ```text
 cargo test --workspace --exclude hragents-desktop
   hragents-agents  4 passed
-  hragents-core   55 passed
+  hragents-core   62 passed
   python_parity    5 passed
-  hragents-store   9 passed
-  hragents-ipc    11 passed (1 release benchmark ignored)
-  total           84 passed
+  payroll_parity   4 passed
+  hragents-store  10 passed
+  hragents-ipc    14 passed (1 release benchmark ignored)
+  total           99 passed
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
@@ -89,7 +90,7 @@ Pay compute + password sign-off, Ask citations, Settings audit verification.
 |---|---|---|
 | **G0** shell + DB + login | Packaged build, encrypted DB, login/lock/unlock/re-auth, audit after restart, no listening port | **Partial.** Binary launches, DB opens, login/lock/audit code exists. SQLCipher is behind a feature with a CI job, but not locally verified (Windows Perl lacks `Locale::Maketext::Simple`); no signed installer. |
 | **G1** employee/onboarding | Employee created, plan completed, audited receipt, parity fixture, Python not invoked | **Pass on the dev slice.** Covered by IPC tests and CLI demo. |
-| **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Partial.** Import, offline text extraction, score, σ, evidence, gate, and rejection pass. PDF/DOCX parsing and a provider-backed (`rig`) extractor are not ported. |
+| **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction, score, σ, evidence, gate, rejection, scheduling (propose/confirm), offers (draft→approve→send→accept, re-auth gate), messaging (draft→queue→sent, re-auth gate, inbound replies), and candidate-safe feedback all pass core/store/IPC/Tauri/UI tests. PDF/DOCX parsing and a provider-backed (`rig`) extractor are not ported. |
 | **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export | **Partial.** Engine, tables gate, anomalies, sign-off, immutability, 1,000-line benchmark (12.7 ms), and XLSX export exist. Full BPJS/THR/final parity corpus still missing. |
 | **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Partial.** Leave, growth, offboarding, document upload/preview/verify, document-request lifecycle, consent/erasure/retention core, audit export, and policy retrieval exist. Retention sweep, erasure execution flow, and breach UI are not wired. |
 | **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started.** Python remains the reference implementation. |
@@ -118,8 +119,8 @@ missing evidence above exists.
    workflows and UI are not ported.
 7. **Retention sweep + erasure execution + breach UI** — core models exist; the
    scheduled sweep, the approve→execute flow over IPC, and the incident UI do not.
-8. **Scheduling, offers, candidate messaging** — core models exist; workflows and
-   UI are not ported.
+8. **Scheduling/offers/messaging** — done (core + store + IPC + Tauri + UI);
+   PDF/DOCX parsing and the provider-backed extractor remain.
 8. **Scoring parity breadth** — the merge and population σ are parity-tested against
    Python's `aggregate_runs`; the 4-dimension rubric extraction itself is not yet.
 9. **Payroll parity beyond PPh 21** — BPJS/THR/final need a Python-generated corpus.

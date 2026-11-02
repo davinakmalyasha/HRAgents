@@ -13,6 +13,7 @@ pub mod documents;
 pub mod error;
 pub mod growth;
 pub mod hiring;
+pub mod hiring_comms;
 pub mod ids;
 pub mod leave;
 pub mod money;

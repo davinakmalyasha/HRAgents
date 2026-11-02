@@ -15,8 +15,15 @@ import type {
   LeaveRequest,
   LeaveType,
   LeaveView,
+  CandidateMessage,
+  FeedbackReport,
+  InterviewSlot,
+  MessageChannel,
+  MessageKind,
   OffboardingPlan,
+  Offer,
   OnboardingPlan,
+  ScheduleProposal,
   ReviewAssignment,
   ReviewCycle,
   Goal,
@@ -124,6 +131,10 @@ interface MockState {
   goals: Goal[];
   offboarding: Record<string, OffboardingPlan>;
   documentRequests: DocumentRequest[];
+  schedules: ScheduleProposal[];
+  offers: Offer[];
+  messages: CandidateMessage[];
+  feedback: FeedbackReport[];
 }
 
 const ayuId = uuid();
@@ -435,6 +446,10 @@ const state: MockState = {
     },
   ],
   offboarding: {},
+  schedules: [],
+  offers: [],
+  messages: [],
+  feedback: [],
   documentRequests: [
     {
       id: "docreq-1",
@@ -1208,6 +1223,196 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
         makeAudit(state.audit.length, "audit.exported", "system", `${state.audit.length} entries`),
       );
       return 4096 as T;
+
+    case "propose_schedule": {
+      requireSession();
+      const slots = args.slots as InterviewSlot[];
+      const proposal: ScheduleProposal = {
+        id: uuid(),
+        application_id: String(args.application_id),
+        slots,
+        status: "proposed",
+        confirmed_index: null,
+        created_at: now(),
+        decided_at: null,
+      };
+      state.schedules.unshift(proposal);
+      return proposal as T;
+    }
+    case "confirm_schedule": {
+      requireSession();
+      const proposal = state.schedules.find((item) => item.id === String(args.proposal_id));
+      if (!proposal) throw { code: "E_NOT_FOUND", message: "Schedule proposal not found" };
+      proposal.status = "confirmed";
+      proposal.confirmed_index = Number(args.index);
+      return proposal as T;
+    }
+    case "decline_schedule": {
+      requireSession();
+      const proposal = state.schedules.find((item) => item.id === String(args.proposal_id));
+      if (!proposal) throw { code: "E_NOT_FOUND", message: "Schedule proposal not found" };
+      proposal.status = "declined";
+      return proposal as T;
+    }
+    case "list_schedule_proposals":
+      requireSession();
+      return state.schedules.filter(
+        (item) => !args.application_id || item.application_id === String(args.application_id),
+      ) as T;
+    case "create_offer": {
+      requireSession();
+      const offer: Offer = {
+        id: uuid(),
+        application_id: String(args.application_id),
+        position_title: String(args.position_title),
+        salary_sen: (args.salary_sen as number | null) ?? null,
+        start_date: (args.start_date as string | null) ?? null,
+        expires_on: (args.expires_on as string | null) ?? null,
+        status: "draft",
+        note: null,
+        created_at: now(),
+        decided_at: null,
+      };
+      state.offers.unshift(offer);
+      return offer as T;
+    }
+    case "approve_offer": {
+      requireSession();
+      const offer = state.offers.find((item) => item.id === String(args.offer_id));
+      if (!offer) throw { code: "E_NOT_FOUND", message: "Offer not found" };
+      offer.status = "approved";
+      return offer as T;
+    }
+    case "send_offer": {
+      requireSession();
+      const offer = state.offers.find((item) => item.id === String(args.offer_id));
+      if (!offer) throw { code: "E_NOT_FOUND", message: "Offer not found" };
+      offer.status = "sent";
+      return offer as T;
+    }
+    case "accept_offer": {
+      requireSession();
+      const offer = state.offers.find((item) => item.id === String(args.offer_id));
+      if (!offer) throw { code: "E_NOT_FOUND", message: "Offer not found" };
+      offer.status = "accepted";
+      const application = state.applications.find((item) => item.id === offer.application_id);
+      if (application) application.stage = "hired";
+      return offer as T;
+    }
+    case "decline_offer": {
+      requireSession();
+      const offer = state.offers.find((item) => item.id === String(args.offer_id));
+      if (!offer) throw { code: "E_NOT_FOUND", message: "Offer not found" };
+      offer.status = "declined";
+      offer.note = String(args.reason ?? "");
+      return offer as T;
+    }
+    case "sweep_expired_offers":
+      requireSession();
+      return 0 as T;
+    case "list_offers":
+      requireSession();
+      return state.offers.filter(
+        (item) => !args.application_id || item.application_id === String(args.application_id),
+      ) as T;
+    case "draft_message": {
+      requireSession();
+      const message: CandidateMessage = {
+        id: uuid(),
+        candidate_id: String(args.candidate_id),
+        application_id: (args.application_id as string | null) ?? null,
+        kind: args.kind as MessageKind,
+        channel: args.channel as MessageChannel,
+        subject: (args.subject as string | null) ?? null,
+        body: String(args.body),
+        status: "draft",
+        direction: "outbound",
+        created_at: now(),
+        sent_at: null,
+      };
+      state.messages.unshift(message);
+      return message as T;
+    }
+    case "queue_message": {
+      requireSession();
+      const message = state.messages.find((item) => item.id === String(args.message_id));
+      if (!message) throw { code: "E_NOT_FOUND", message: "Message not found" };
+      message.status = "queued";
+      return message as T;
+    }
+    case "mark_message_sent": {
+      requireSession();
+      const message = state.messages.find((item) => item.id === String(args.message_id));
+      if (!message) throw { code: "E_NOT_FOUND", message: "Message not found" };
+      message.status = "sent";
+      message.sent_at = now();
+      return message as T;
+    }
+    case "cancel_message": {
+      requireSession();
+      const message = state.messages.find((item) => item.id === String(args.message_id));
+      if (!message) throw { code: "E_NOT_FOUND", message: "Message not found" };
+      message.status = "cancelled";
+      return message as T;
+    }
+    case "record_inbound_reply": {
+      requireSession();
+      const message: CandidateMessage = {
+        id: uuid(),
+        candidate_id: String(args.candidate_id),
+        application_id: (args.application_id as string | null) ?? null,
+        kind: "update",
+        channel: "email",
+        subject: null,
+        body: String(args.body),
+        status: "sent",
+        direction: "inbound",
+        created_at: now(),
+        sent_at: now(),
+      };
+      state.messages.unshift(message);
+      return message as T;
+    }
+    case "list_messages":
+      requireSession();
+      return state.messages.filter(
+        (item) => !args.application_id || item.application_id === String(args.application_id),
+      ) as T;
+    case "generate_feedback": {
+      requireSession();
+      const application = state.applications.find((item) => item.id === String(args.application_id));
+      const candidate = state.candidates.find((item) => item.id === application?.candidate_id);
+      const evaluation = state.evaluations.find(
+        (item) => item.application_id === String(args.application_id),
+      );
+      const report: FeedbackReport = {
+        id: uuid(),
+        application_id: String(args.application_id),
+        candidate_name: candidate?.full_name ?? "Candidate",
+        job_title: "Backend Engineer",
+        summary: "Thank you for interviewing. Our review recognised your experience while noting continued growth as an area to develop.",
+        strengths: evaluation
+          ? Object.entries(evaluation.dimension_scores)
+              .filter(([, score]) => score >= 7000)
+              .map(([key]) => key.replaceAll("_", " "))
+          : [],
+        growth_areas: evaluation
+          ? Object.entries(evaluation.dimension_scores)
+              .filter(([, score]) => score < 6000)
+              .map(([key]) => key.replaceAll("_", " "))
+          : [],
+        created_at: now(),
+      };
+      state.feedback = state.feedback.filter(
+        (item) => item.application_id !== String(args.application_id),
+      );
+      state.feedback.push(report);
+      return report as T;
+    }
+    case "feedback_for":
+      requireSession();
+      return (state.feedback.find((item) => item.application_id === String(args.application_id)) ??
+        null) as T;
     case "create_leave_type": {
       requireSession();
       const leaveType: LeaveType = {

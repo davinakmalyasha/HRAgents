@@ -28,6 +28,7 @@ use hragents_core::time::{BusinessDate, UtcInstant};
 use hragents_store::{Store, StoreError};
 
 mod growth_services;
+mod hiring_services;
 use rust_xlsxwriter::{Format, Workbook};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -2224,6 +2225,116 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|entry| entry.action == "payroll.exported")
+        );
+    }
+
+    #[test]
+    fn hiring_comms_scheduling_offers_messages_feedback() {
+        use hragents_core::hiring_comms::{MessageChannel, MessageKind};
+        let mut service = service();
+        let job = service.create_job("Backend Engineer", "Product").unwrap();
+        let (candidate, application) = service
+            .import_candidate(ImportCandidateInput {
+                full_name: "Dimas Pratama".into(),
+                email: Some("dimas@example.com".into()),
+                phone: None,
+                source: "LinkedIn".into(),
+                headline: None,
+                job_id: job.id,
+                consent: ConsentStatus::Granted,
+                document: None,
+            })
+            .unwrap();
+        let slot = hragents_core::hiring_comms::InterviewSlot {
+            starts_at: UtcInstant::now().plus_seconds(86_400),
+            duration_minutes: 60,
+            mode: hragents_core::hiring_comms::SlotMode::Remote,
+            location: None,
+        };
+        let proposal = service
+            .propose_schedule(application.id, vec![slot])
+            .unwrap();
+        let confirmed = service.confirm_schedule(proposal.id, 0).unwrap();
+        assert_eq!(format!("{:?}", confirmed.status), "Confirmed");
+
+        let offer = service
+            .create_offer(
+                application.id,
+                "Backend Engineer",
+                Some(12_000_000 * 100),
+                Some(BusinessDate::parse("2026-12-01").unwrap()),
+                None,
+            )
+            .unwrap();
+        assert_eq!(format!("{:?}", offer.status), "Draft");
+        // Approval needs a fresh re-auth; the fixture session logged in recently.
+        service.reauth("correct horse battery staple").unwrap();
+        let offer = service.approve_offer(offer.id).unwrap();
+        let offer = service.send_offer(offer.id).unwrap();
+        assert_eq!(format!("{:?}", offer.status), "Sent");
+
+        let message = service
+            .draft_message(
+                candidate.id,
+                Some(application.id),
+                MessageKind::Interview,
+                MessageChannel::Email,
+                Some("Interview invitation".into()),
+                "We would like to invite you to interview next week.",
+            )
+            .unwrap();
+        service.reauth("correct horse battery staple").unwrap();
+        let queued = service.queue_message(message.id).unwrap();
+        assert_eq!(format!("{:?}", queued.status), "Queued");
+        let sent = service.mark_message_sent(message.id).unwrap();
+        assert_eq!(format!("{:?}", sent.status), "Sent");
+        let inbound = service
+            .record_inbound_reply(candidate.id, Some(application.id), "Thursday works for me.")
+            .unwrap();
+        assert_eq!(format!("{:?}", inbound.direction), "Inbound");
+
+        // Feedback needs an evaluation with evidence: evaluate from text.
+        let rubric = Rubric {
+            id: "backend-v1".into(),
+            name: "Backend".into(),
+            dimensions: vec![
+                Dimension {
+                    key: "skills".into(),
+                    label: "Skills".into(),
+                    weight_bp: 6_000,
+                },
+                Dimension {
+                    key: "impact".into(),
+                    label: "Impact".into(),
+                    weight_bp: 4_000,
+                },
+            ],
+            merit_floor_bp: 6_000,
+            sigma_limit_bp: 500,
+        };
+        service
+            .evaluate_from_text(
+                application.id,
+                "Built a Rust ingestion pipeline handling 2M events per day. Reduced p99 latency.",
+                rubric,
+            )
+            .unwrap();
+        let report = service.generate_feedback(application.id).unwrap();
+        assert!(!report.summary.is_empty());
+        assert!(service.feedback_for(application.id).unwrap().is_some());
+
+        let stored = service.list_offers(Some(application.id)).unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(
+            service.list_messages(Some(application.id)).unwrap().len(),
+            2
+        );
+        assert_eq!(
+            service
+                .list_schedule_proposals(Some(application.id))
+                .unwrap()
+                .len(),
+            1
         );
     }
 

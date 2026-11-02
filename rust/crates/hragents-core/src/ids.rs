@@ -87,3 +87,7 @@ id_type!(ReviewAssignmentId, "RA");
 id_type!(GoalId, "G");
 id_type!(OffboardingPlanId, "OFF");
 id_type!(DocumentRequestId, "DR");
+id_type!(ScheduleId, "SCH");
+id_type!(OfferId, "O");
+id_type!(MessageId, "M");
+id_type!(FeedbackId, "F");

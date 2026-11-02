@@ -40,5 +40,16 @@
         "installMode": "perMachine"
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://updates.hragents.id/stable/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "REPLACE_WITH_MINISIGN_PUBKEY_UNSET",
+      "windowsInstallMode": "passive"
+    }
   }
 }

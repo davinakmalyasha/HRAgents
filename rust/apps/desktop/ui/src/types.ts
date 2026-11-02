@@ -485,3 +485,69 @@ export interface DocumentBytes {
   base64: string;
   size_bytes: number;
 }
+
+export type SlotMode = "onsite" | "remote" | "phone";
+
+export interface InterviewSlot {
+  starts_at: string;
+  duration_minutes: number;
+  mode: SlotMode;
+  location: string | null;
+}
+
+export type ProposalStatus = "proposed" | "confirmed" | "declined" | "expired";
+
+export interface ScheduleProposal {
+  id: string;
+  application_id: string;
+  slots: InterviewSlot[];
+  status: ProposalStatus;
+  confirmed_index: number | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export type OfferStatus = "draft" | "approved" | "sent" | "accepted" | "declined" | "expired";
+
+export interface Offer {
+  id: string;
+  application_id: string;
+  position_title: string;
+  salary_sen: number | null;
+  start_date: string | null;
+  expires_on: string | null;
+  status: OfferStatus;
+  note: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+export type MessageKind = "rejection" | "offer" | "interview" | "update";
+export type MessageChannel = "email" | "whatsapp" | "phone" | "note";
+export type MessageStatus = "draft" | "queued" | "sent" | "cancelled";
+export type MessageDirection = "outbound" | "inbound";
+
+export interface CandidateMessage {
+  id: string;
+  candidate_id: string;
+  application_id: string | null;
+  kind: MessageKind;
+  channel: MessageChannel;
+  subject: string | null;
+  body: string;
+  status: MessageStatus;
+  direction: MessageDirection;
+  created_at: string;
+  sent_at: string | null;
+}
+
+export interface FeedbackReport {
+  id: string;
+  application_id: string;
+  candidate_name: string;
+  job_title: string;
+  summary: string;
+  strengths: string[];
+  growth_areas: string[];
+  created_at: string;
+}

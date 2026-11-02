@@ -2216,6 +2216,342 @@ impl Store {
     }
 
     // ------------------------------------------------------------------
+    // Hiring communications: scheduling, offers, messages, feedback
+    // ------------------------------------------------------------------
+
+    pub fn save_schedule_proposal(
+        &mut self,
+        proposal: &hragents_core::hiring_comms::ScheduleProposal,
+    ) -> StoreResult<()> {
+        use hragents_core::hiring_comms::ProposalStatus;
+        let status = match proposal.status {
+            ProposalStatus::Proposed => "proposed",
+            ProposalStatus::Confirmed => "confirmed",
+            ProposalStatus::Declined => "declined",
+            ProposalStatus::Expired => "expired",
+        };
+        self.conn.execute(
+            "INSERT INTO schedule_proposals (id, application_id, slots_json, status, created_at)
+             VALUES (?1,?2,?3,?4,?5)
+             ON CONFLICT(id) DO UPDATE SET slots_json=excluded.slots_json,
+                status=excluded.status",
+            params![
+                proposal.id.to_string(),
+                proposal.application_id.to_string(),
+                serde_json::to_string(&proposal.slots)?,
+                status,
+                proposal.created_at.millis(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_schedule_proposals(
+        &self,
+        application_id: Option<ApplicationId>,
+    ) -> StoreResult<Vec<hragents_core::hiring_comms::ScheduleProposal>> {
+        use hragents_core::hiring_comms::{InterviewSlot, ProposalStatus, ScheduleProposal};
+        let mut proposals = Vec::new();
+        let mut push = |row: &rusqlite::Row<'_>| -> rusqlite::Result<ScheduleProposal> {
+            let status = match row.get::<_, String>(3)?.as_str() {
+                "confirmed" => ProposalStatus::Confirmed,
+                "declined" => ProposalStatus::Declined,
+                "expired" => ProposalStatus::Expired,
+                _ => ProposalStatus::Proposed,
+            };
+            Ok(ScheduleProposal {
+                id: parse_id(&row.get::<_, String>(0)?, "schedule")?,
+                application_id: parse_id(&row.get::<_, String>(1)?, "application")?,
+                slots: serde_json::from_str::<Vec<InterviewSlot>>(&row.get::<_, String>(2)?)
+                    .map_err(json_err)?,
+                status,
+                confirmed_index: None,
+                created_at: instant(row.get(4)?)?,
+                decided_at: None,
+            })
+        };
+        match application_id {
+            Some(application_id) => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, application_id, slots_json, status, created_at
+                     FROM schedule_proposals WHERE application_id = ?1 ORDER BY created_at DESC",
+                )?;
+                for row in statement.query_map(params![application_id.to_string()], &mut push)? {
+                    proposals.push(row?);
+                }
+            }
+            None => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, application_id, slots_json, status, created_at
+                     FROM schedule_proposals ORDER BY created_at DESC",
+                )?;
+                for row in statement.query_map([], &mut push)? {
+                    proposals.push(row?);
+                }
+            }
+        }
+        Ok(proposals)
+    }
+
+    pub fn save_offer(&mut self, offer: &hragents_core::hiring_comms::Offer) -> StoreResult<()> {
+        use hragents_core::hiring_comms::OfferStatus;
+        let status = match offer.status {
+            OfferStatus::Draft => "draft",
+            OfferStatus::Approved => "approved",
+            OfferStatus::Sent => "sent",
+            OfferStatus::Accepted => "accepted",
+            OfferStatus::Declined => "declined",
+            OfferStatus::Expired => "expired",
+        };
+        self.conn.execute(
+            "INSERT INTO offers
+             (id, application_id, status, salary_sen, start_date, expires_on, created_at, decided_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+             ON CONFLICT(id) DO UPDATE SET status=excluded.status,
+                salary_sen=excluded.salary_sen, start_date=excluded.start_date,
+                expires_on=excluded.expires_on, decided_at=excluded.decided_at",
+            params![
+                offer.id.to_string(),
+                offer.application_id.to_string(),
+                status,
+                offer.salary_sen.map(|money| money.sen()),
+                offer.start_date.map(|date| date.to_string()),
+                offer.expires_on.map(|date| date.to_string()),
+                offer.created_at.millis(),
+                offer.decided_at.map(|instant| instant.millis()),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_offers(
+        &self,
+        application_id: Option<ApplicationId>,
+    ) -> StoreResult<Vec<hragents_core::hiring_comms::Offer>> {
+        use hragents_core::hiring_comms::{Offer, OfferStatus};
+        let mut offers = Vec::new();
+        let mut push = |row: &rusqlite::Row<'_>| -> rusqlite::Result<Offer> {
+            let status = match row.get::<_, String>(2)?.as_str() {
+                "approved" => OfferStatus::Approved,
+                "sent" => OfferStatus::Sent,
+                "accepted" => OfferStatus::Accepted,
+                "declined" => OfferStatus::Declined,
+                "expired" => OfferStatus::Expired,
+                _ => OfferStatus::Draft,
+            };
+            Ok(Offer {
+                id: parse_id(&row.get::<_, String>(0)?, "offer")?,
+                application_id: parse_id(&row.get::<_, String>(1)?, "application")?,
+                position_title: String::new(),
+                salary_sen: row.get::<_, Option<i64>>(3)?.map(Money::from_sen),
+                start_date: row
+                    .get::<_, Option<String>>(4)?
+                    .as_deref()
+                    .map(parse_date)
+                    .transpose()?,
+                expires_on: row
+                    .get::<_, Option<String>>(5)?
+                    .as_deref()
+                    .map(parse_date)
+                    .transpose()?,
+                status,
+                note: None,
+                created_at: instant(row.get(6)?)?,
+                decided_at: row.get::<_, Option<i64>>(7)?.map(instant).transpose()?,
+            })
+        };
+        match application_id {
+            Some(application_id) => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, application_id, status, salary_sen, start_date, expires_on,
+                            created_at, decided_at
+                     FROM offers WHERE application_id = ?1 ORDER BY created_at DESC",
+                )?;
+                for row in statement.query_map(params![application_id.to_string()], &mut push)? {
+                    offers.push(row?);
+                }
+            }
+            None => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, application_id, status, salary_sen, start_date, expires_on,
+                            created_at, decided_at
+                     FROM offers ORDER BY created_at DESC",
+                )?;
+                for row in statement.query_map([], &mut push)? {
+                    offers.push(row?);
+                }
+            }
+        }
+        Ok(offers)
+    }
+
+    pub fn save_message(
+        &mut self,
+        message: &hragents_core::hiring_comms::CandidateMessage,
+    ) -> StoreResult<()> {
+        use hragents_core::hiring_comms::{MessageChannel, MessageDirection, MessageStatus};
+        let channel = match message.channel {
+            MessageChannel::Email => "email",
+            MessageChannel::Whatsapp => "whatsapp",
+            MessageChannel::Phone => "phone",
+            MessageChannel::Note => "note",
+        };
+        let direction = match message.direction {
+            MessageDirection::Outbound => "outbound",
+            MessageDirection::Inbound => "inbound",
+        };
+        let status = match message.status {
+            MessageStatus::Draft => "draft",
+            MessageStatus::Queued => "queued",
+            MessageStatus::Sent => "sent",
+            MessageStatus::Cancelled => "cancelled",
+        };
+        self.conn.execute(
+            "INSERT INTO candidate_communications
+             (id, candidate_id, application_id, channel, direction, subject, body, status, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)
+             ON CONFLICT(id) DO UPDATE SET channel=excluded.channel, subject=excluded.subject,
+                body=excluded.body, status=excluded.status",
+            params![
+                message.id.to_string(),
+                message.candidate_id.to_string(),
+                message.application_id.map(|id| id.to_string()),
+                channel,
+                direction,
+                message.subject,
+                message.body,
+                status,
+                message.created_at.millis(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_messages(
+        &self,
+        application_id: Option<ApplicationId>,
+    ) -> StoreResult<Vec<hragents_core::hiring_comms::CandidateMessage>> {
+        use hragents_core::hiring_comms::{
+            CandidateMessage, MessageChannel, MessageDirection, MessageKind, MessageStatus,
+        };
+        let mut messages = Vec::new();
+        let mut push = |row: &rusqlite::Row<'_>| -> rusqlite::Result<CandidateMessage> {
+            let channel = match row.get::<_, String>(3)?.as_str() {
+                "whatsapp" => MessageChannel::Whatsapp,
+                "phone" => MessageChannel::Phone,
+                "note" => MessageChannel::Note,
+                _ => MessageChannel::Email,
+            };
+            let direction = match row.get::<_, String>(4)?.as_str() {
+                "inbound" => MessageDirection::Inbound,
+                _ => MessageDirection::Outbound,
+            };
+            let status = match row.get::<_, String>(7)?.as_str() {
+                "queued" => MessageStatus::Queued,
+                "sent" => MessageStatus::Sent,
+                "cancelled" => MessageStatus::Cancelled,
+                _ => MessageStatus::Draft,
+            };
+            Ok(CandidateMessage {
+                id: parse_id(&row.get::<_, String>(0)?, "message")?,
+                candidate_id: parse_id(&row.get::<_, String>(1)?, "candidate")?,
+                application_id: row
+                    .get::<_, Option<String>>(2)?
+                    .as_deref()
+                    .map(|raw| parse_id::<ApplicationId>(raw, "application"))
+                    .transpose()?,
+                kind: MessageKind::Update,
+                channel,
+                subject: row.get(5)?,
+                body: row.get(6)?,
+                status,
+                direction,
+                created_at: instant(row.get(8)?)?,
+                sent_at: None,
+            })
+        };
+        match application_id {
+            Some(application_id) => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, candidate_id, application_id, channel, direction, subject, body,
+                            status, created_at
+                     FROM candidate_communications WHERE application_id = ?1 ORDER BY created_at",
+                )?;
+                for row in statement.query_map(params![application_id.to_string()], &mut push)? {
+                    messages.push(row?);
+                }
+            }
+            None => {
+                let mut statement = self.conn.prepare(
+                    "SELECT id, candidate_id, application_id, channel, direction, subject, body,
+                            status, created_at
+                     FROM candidate_communications ORDER BY created_at DESC LIMIT 200",
+                )?;
+                for row in statement.query_map([], &mut push)? {
+                    messages.push(row?);
+                }
+            }
+        }
+        Ok(messages)
+    }
+
+    pub fn save_feedback(
+        &mut self,
+        report: &hragents_core::hiring_comms::FeedbackReport,
+    ) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO feedback_reports (id, application_id, body, created_at)
+             VALUES (?1,?2,?3,?4)
+             ON CONFLICT(id) DO UPDATE SET body=excluded.body",
+            params![
+                report.id.to_string(),
+                report.application_id.to_string(),
+                serde_json::to_string(report)?,
+                report.created_at.millis(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn feedback_for(
+        &self,
+        application_id: ApplicationId,
+    ) -> StoreResult<Option<hragents_core::hiring_comms::FeedbackReport>> {
+        use hragents_core::hiring_comms::FeedbackReport;
+        let row = self
+            .conn
+            .query_row(
+                "SELECT id, application_id, body, created_at
+                 FROM feedback_reports WHERE application_id = ?1 ORDER BY created_at DESC LIMIT 1",
+                params![application_id.to_string()],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let Some((id, application_id, body, created_at)) = row else {
+            return Ok(None);
+        };
+        let mut report: FeedbackReport = serde_json::from_str(&body).map_err(json_err)?;
+        // Backfill identity columns for rows written before they existed.
+        if report.id.to_string() != id {
+            report.id = parse_id(&id, "feedback")?;
+        }
+        if report.application_id.to_string() != application_id {
+            report.application_id = parse_id(&application_id, "application")?;
+        }
+        if report.created_at.millis() != created_at {
+            report.created_at = instant(created_at)?;
+        }
+        Ok(Some(report))
+    }
+
+    // ------------------------------------------------------------------
     // Backup and integrity
     // ------------------------------------------------------------------
 
@@ -2833,6 +3169,121 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn hiring_comms_roundtrip() {
+        use hragents_core::hiring_comms::{
+            CandidateMessage, FeedbackReport, InterviewSlot, MessageChannel, MessageKind, Offer,
+            ScheduleProposal, SlotMode,
+        };
+        use std::collections::BTreeMap;
+        let mut store = store();
+        let job = Job {
+            id: JobId::new(),
+            title: "Backend Engineer".into(),
+            org_unit: "Product".into(),
+            location: "Jakarta".into(),
+            employment_type: "full_time".into(),
+            status: JobStatus::Open,
+            openings: 1,
+            rubric_id: None,
+            created_at: now(),
+        };
+        store.save_job(&job).unwrap();
+        let candidate = Candidate {
+            id: CandidateId::new(),
+            full_name: "Dimas Pratama".into(),
+            email: None,
+            phone: None,
+            source: "test".into(),
+            headline: None,
+            location: None,
+            consent: ConsentStatus::Granted,
+            document_ids: Vec::new(),
+            created_at: now(),
+        };
+        store.save_candidate(&candidate).unwrap();
+        let application = Application {
+            id: ApplicationId::new(),
+            candidate_id: candidate.id,
+            job_id: job.id,
+            stage: ApplicationStage::Review,
+            priority: 0,
+            created_at: now(),
+            updated_at: now(),
+            rejection_reason: None,
+            rejected_by: None,
+        };
+        store.save_application(&application).unwrap();
+        let application_id = application.id;
+        let candidate_id = candidate.id;
+
+        let proposal = ScheduleProposal::propose(
+            application_id,
+            vec![InterviewSlot {
+                starts_at: now().plus_seconds(86_400),
+                duration_minutes: 60,
+                mode: SlotMode::Remote,
+                location: None,
+            }],
+            now(),
+        )
+        .unwrap();
+        store.save_schedule_proposal(&proposal).unwrap();
+        let loaded = store.list_schedule_proposals(Some(application_id)).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].slots.len(), 1);
+
+        let mut offer = Offer::draft(
+            application_id,
+            "Backend Engineer",
+            Some(Money::from_rupiah(12_000_000).unwrap()),
+            None,
+            None,
+            now(),
+        )
+        .unwrap();
+        offer.approve().unwrap();
+        offer.send().unwrap();
+        store.save_offer(&offer).unwrap();
+        let loaded = store.list_offers(Some(application_id)).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(
+            loaded[0].salary_sen,
+            Some(Money::from_rupiah(12_000_000).unwrap())
+        );
+
+        let mut message = CandidateMessage::draft(
+            candidate_id,
+            Some(application_id),
+            MessageKind::Interview,
+            MessageChannel::Email,
+            Some("Interview invitation".into()),
+            "We would like to invite you to interview next week.",
+            now(),
+        )
+        .unwrap();
+        message.queue().unwrap();
+        message.mark_sent(now()).unwrap();
+        store.save_message(&message).unwrap();
+        assert_eq!(store.list_messages(Some(application_id)).unwrap().len(), 1);
+
+        let report = FeedbackReport {
+            id: FeedbackId::new(),
+            application_id,
+            candidate_name: "Dimas".into(),
+            job_title: "Backend".into(),
+            summary: "Strong interview.".into(),
+            strengths: vec!["skills".into()],
+            growth_areas: vec![],
+            created_at: now(),
+        };
+        let _ = BTreeMap::<String, String>::new();
+        store.save_feedback(&report).unwrap();
+        let loaded = store.feedback_for(application_id).unwrap().unwrap();
+        assert_eq!(loaded.strengths, vec!["skills".to_owned()]);
+        assert!(loaded.summary.contains("Strong interview"));
     }
 
     #[test]

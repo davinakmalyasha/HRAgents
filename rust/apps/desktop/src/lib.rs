@@ -22,6 +22,8 @@ use tauri::{Manager, State};
 
 mod growth_commands;
 use growth_commands::*;
+mod hiring_commands;
+use hiring_commands::*;
 
 pub(crate) struct AppState {
     service: Mutex<AppService>,
@@ -585,6 +587,25 @@ pub fn run() {
             complete_offboarding_step,
             record_offboarding_final_pay,
             finish_offboarding,
+            propose_schedule,
+            confirm_schedule,
+            decline_schedule,
+            list_schedule_proposals,
+            create_offer,
+            approve_offer,
+            send_offer,
+            accept_offer,
+            decline_offer,
+            sweep_expired_offers,
+            list_offers,
+            draft_message,
+            queue_message,
+            mark_message_sent,
+            cancel_message,
+            record_inbound_reply,
+            list_messages,
+            generate_feedback,
+            feedback_for,
             create_document_request,
             list_document_requests,
             attach_document_request,

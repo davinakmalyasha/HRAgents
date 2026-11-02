@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { command, formatDate, shortRef } from "../api";
 import { DocumentVault } from "./Documents";
+import { FeedbackSection, MessageSection, OfferSection, ScheduleSection } from "./HireWorkflow";
 import type {
   Application,
   Candidate,
@@ -222,10 +223,10 @@ export function Hire({ session }: { session: SessionView }) {
                   >
                     <ShieldAlert size={15} /> Reject with reason
                   </button>
-                  <button className="btn" disabled title="Scheduling and offers arrive with the next slice">
+                  <button className="btn" onClick={() => document.getElementById("hire-schedule")?.scrollIntoView({ behavior: "smooth" })}>
                     Schedule interview
                   </button>
-                  <button className="btn" disabled title="Drafting and sending arrive with the agents slice">
+                  <button className="btn" onClick={() => document.getElementById("hire-messages")?.scrollIntoView({ behavior: "smooth" })}>
                     Draft message
                   </button>
                   <span className="small faint" style={{ marginLeft: "auto" }}>
@@ -242,6 +243,14 @@ export function Hire({ session }: { session: SessionView }) {
                 <Fact k="Consent" v={candidate.consent} />
                 <Fact k="Candidate ref" v={shortRef(candidate.id, "C")} />
                 <Fact k="Documents" v={`${candidate.document_ids.length} attached`} />
+              </div>
+              <div className="card-pad grid" id="hire-schedule" style={{ borderTop: "1px solid var(--line)", gap: 18 }}>
+                <ScheduleSection application={activeApplication} onError={setError} />
+                <OfferSection application={activeApplication} jobTitle={(jobs.data ?? []).find((job) => job.id === activeApplication.job_id)?.title ?? "Role"} onError={setError} />
+              </div>
+              <div className="card-pad grid" id="hire-messages" style={{ borderTop: "1px solid var(--line)", gap: 18 }}>
+                <MessageSection application={activeApplication} candidate={candidate} onError={setError} />
+                <FeedbackSection application={activeApplication} onError={setError} />
               </div>
               <div className="card-pad" style={{ borderTop: "1px solid var(--line)" }}>
                 <DocumentVault
