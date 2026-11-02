@@ -460,3 +460,28 @@ export interface DocumentRequest {
   document_id: string | null;
   note: string | null;
 }
+
+export type DocumentOwnerType = "employee" | "candidate" | "company" | "payroll_run";
+
+export interface Document {
+  id: string;
+  owner_type: DocumentOwnerType;
+  owner_id: string;
+  filename: string;
+  mime_type: string;
+  sha256: string;
+  size_bytes: number;
+  status: "pending" | "verified" | "rejected" | "expired";
+  expires_on: string | null;
+  uploaded_at: string;
+  verified_at: string | null;
+  verified_by: string | null;
+  rejection_reason: string | null;
+  tags: string[];
+}
+
+export interface DocumentBytes {
+  document: Document;
+  base64: string;
+  size_bytes: number;
+}

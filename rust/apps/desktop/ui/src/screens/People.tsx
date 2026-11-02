@@ -22,8 +22,9 @@ import type {
 } from "../types";
 import { Avatar, EmptyState, ErrorBox, Field, Modal, StatusPill } from "../components/ui";
 import { GrowthTab, OffboardingTab } from "./PeopleGrowth";
+import { DocumentRequests, DocumentVault } from "./Documents";
 
-type Tab = "overview" | "onboarding" | "leave" | "growth" | "offboarding";
+type Tab = "overview" | "onboarding" | "leave" | "growth" | "offboarding" | "documents";
 
 export function People() {
   const queryClient = useQueryClient();
@@ -139,6 +140,7 @@ export function People() {
                 <button className={`tab ${tab === "leave" ? "active" : ""}`} onClick={() => setTab("leave")}>Leave</button>
                 <button className={`tab ${tab === "growth" ? "active" : ""}`} onClick={() => setTab("growth")}>Growth</button>
                 <button className={`tab ${tab === "offboarding" ? "active" : ""}`} onClick={() => setTab("offboarding")}>Offboarding</button>
+                <button className={`tab ${tab === "documents" ? "active" : ""}`} onClick={() => setTab("documents")}>Documents</button>
               </div>
 
               <div className="card-pad">
@@ -157,6 +159,12 @@ export function People() {
                 {tab === "leave" ? <LeaveTab employee={active} onError={setError} /> : null}
                 {tab === "growth" ? <GrowthTab employee={active} onError={setError} /> : null}
                 {tab === "offboarding" ? <OffboardingTab employee={active} onError={setError} /> : null}
+                {tab === "documents" ? (
+                  <div className="grid" style={{ gap: 18 }}>
+                    <DocumentVault ownerType="employee" ownerId={active.id} ownerLabel={active.full_name} onError={setError} />
+                    <DocumentRequests employeeId={active.id} employeeName={active.full_name} onError={setError} />
+                  </div>
+                ) : null}
               </div>
             </>
           ) : (

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AppInfo,
+  Document,
   Application,
   ApprovalRequest,
   AuditEntry,
@@ -115,6 +116,7 @@ interface MockState {
   leaveTypes: LeaveType[];
   balances: LeaveBalance[];
   leaveRequests: LeaveRequest[];
+  documents: Document[];
   payroll: PayrollRun[];
   ratesSeeded: boolean;
   reviewCycles: ReviewCycle[];
@@ -355,6 +357,40 @@ const state: MockState = {
     },
   ],
   leaveRequests: [],
+  documents: [
+    {
+      id: "doc-ktp-ayu",
+      owner_type: "employee",
+      owner_id: ayuId,
+      filename: "KTP.pdf",
+      mime_type: "application/pdf",
+      sha256: "c".repeat(64),
+      size_bytes: 48210,
+      status: "verified",
+      expires_on: "2030-01-15",
+      uploaded_at: now(),
+      verified_at: now(),
+      verified_by: "Rina",
+      rejection_reason: null,
+      tags: ["identity"],
+    },
+    {
+      id: "doc-cv-dimas",
+      owner_type: "candidate",
+      owner_id: candidateId,
+      filename: "Dimas-Pratama-CV.pdf",
+      mime_type: "application/pdf",
+      sha256: "d".repeat(64),
+      size_bytes: 96500,
+      status: "pending",
+      expires_on: null,
+      uploaded_at: now(),
+      verified_at: null,
+      verified_by: null,
+      rejection_reason: null,
+      tags: ["cv"],
+    },
+  ],
   payroll: [],
   ratesSeeded: false,
   reviewCycles: [
@@ -1118,6 +1154,60 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       request.status = "verified";
       return request as T;
     }
+    case "upload_document": {
+      requireSession();
+      const document: Document = {
+        id: uuid(),
+        owner_type: String(args.owner_type) as Document["owner_type"],
+        owner_id: String(args.owner_id),
+        filename: String(args.filename),
+        mime_type: String(args.mime_type),
+        sha256: "e".repeat(64),
+        size_bytes: Math.max(1, String(args.base64 ?? "").length),
+        status: "pending",
+        expires_on: null,
+        uploaded_at: now(),
+        verified_at: null,
+        verified_by: null,
+        rejection_reason: null,
+        tags: [],
+      };
+      state.documents.unshift(document);
+      state.audit.push(makeAudit(state.audit.length, "document.uploaded", "document", document.filename));
+      return document as T;
+    }
+    case "list_documents":
+      requireSession();
+      return state.documents.filter(
+        (document) =>
+          document.owner_type === String(args.owner_type) && document.owner_id === String(args.owner_id),
+      ) as T;
+    case "read_document": {
+      requireSession();
+      const document = state.documents.find((item) => item.id === String(args.document_id));
+      if (!document) throw { code: "E_NOT_FOUND", message: "Document not found" };
+      const text = `HRAgents preview for ${document.filename} (${document.mime_type}, ${document.size_bytes} bytes). Full binary preview renders in the packaged app; this browser preview shows metadata and the audit trail.`;
+      const bytes = new TextEncoder().encode(text);
+      let binary = "";
+      bytes.forEach((byte) => (binary += String.fromCharCode(byte)));
+      return { document, base64: btoa(binary), size_bytes: bytes.length } as T;
+    }
+    case "verify_document": {
+      requireSession();
+      const document = state.documents.find((item) => item.id === String(args.document_id));
+      if (!document) throw { code: "E_NOT_FOUND", message: "Document not found" };
+      document.status = "verified";
+      document.verified_at = now();
+      document.verified_by = "Rina";
+      state.audit.push(makeAudit(state.audit.length, "document.verified", "document", document.filename));
+      return document as T;
+    }
+    case "export_audit":
+      requireSession();
+      state.audit.push(
+        makeAudit(state.audit.length, "audit.exported", "system", `${state.audit.length} entries`),
+      );
+      return 4096 as T;
     case "create_leave_type": {
       requireSession();
       const leaveType: LeaveType = {

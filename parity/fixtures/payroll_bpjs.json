@@ -1,0 +1,138 @@
+[
+  {
+    "lines": [
+      {
+        "absence_days": 0,
+        "base_salary": "12000000",
+        "employer_cost_sen": 122880000,
+        "fixed_allowances": "0",
+        "gross_sen": 1200000000,
+        "jht_employee_sen": 24000000,
+        "jht_employer_sen": 44400000,
+        "jkk_employer_sen": 2880000,
+        "jkm_employer_sen": 3600000,
+        "jp_employee_sen": 12000000,
+        "jp_employer_sen": 24000000,
+        "jp_wage_cap": null,
+        "kes_employee_sen": 12000000,
+        "kes_employer_sen": 48000000,
+        "name": "uncapped_12m",
+        "net_sen": 1152000000,
+        "overtime_hours": 0,
+        "working_days": 22
+      },
+      {
+        "absence_days": 0,
+        "base_salary": "12000000",
+        "employer_cost_sen": 118880000,
+        "fixed_allowances": "0",
+        "gross_sen": 1200000000,
+        "jht_employee_sen": 24000000,
+        "jht_employer_sen": 44400000,
+        "jkk_employer_sen": 2880000,
+        "jkm_employer_sen": 3600000,
+        "jp_employee_sen": 10000000,
+        "jp_employer_sen": 20000000,
+        "jp_wage_cap": "10000000",
+        "kes_employee_sen": 12000000,
+        "kes_employer_sen": 48000000,
+        "name": "capped_jp_10m",
+        "net_sen": 1154000000,
+        "overtime_hours": 0,
+        "working_days": 22
+      }
+    ],
+    "shares": [
+      {
+        "employee_share_percent": 1.0,
+        "employer": false,
+        "employer_share_percent": 4.0,
+        "name": "kes_employee",
+        "sen": 12000000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": 1.0,
+        "employer": true,
+        "employer_share_percent": 4.0,
+        "name": "kes_employer",
+        "sen": 48000000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": 2.0,
+        "employer": false,
+        "employer_share_percent": 3.7,
+        "name": "jht_employee",
+        "sen": 24000000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": 2.0,
+        "employer": true,
+        "employer_share_percent": 3.7,
+        "name": "jht_employer",
+        "sen": 44400000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": 1.0,
+        "employer": false,
+        "employer_share_percent": 2.0,
+        "name": "jp_employee",
+        "sen": 12000000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": 1.0,
+        "employer": true,
+        "employer_share_percent": 2.0,
+        "name": "jp_employer",
+        "sen": 24000000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": null,
+        "employer": true,
+        "employer_share_percent": 0.24,
+        "name": "jkk_employer",
+        "sen": 2880000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": null,
+        "employer": true,
+        "employer_share_percent": 0.3,
+        "name": "jkm_employer",
+        "sen": 3600000,
+        "wage": "12000000",
+        "wage_cap": null
+      },
+      {
+        "employee_share_percent": 1.0,
+        "employer": false,
+        "employer_share_percent": 2.0,
+        "name": "jp_capped_employee",
+        "sen": 10000000,
+        "wage": "12000000",
+        "wage_cap": "10000000"
+      },
+      {
+        "employee_share_percent": 1.0,
+        "employer": true,
+        "employer_share_percent": 2.0,
+        "name": "jp_capped_employer",
+        "sen": 20000000,
+        "wage": "12000000",
+        "wage_cap": "10000000"
+      }
+    ]
+  }
+]

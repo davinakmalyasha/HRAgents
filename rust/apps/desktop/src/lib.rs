@@ -5,11 +5,11 @@
 use hragents_core::approvals::ApprovalRequest;
 use hragents_core::hiring::{Application, Evidence, Rubric, RunScores};
 use hragents_core::ids::{
-    ApplicationId, EmployeeId, JobId, LeaveRequestId, LeaveTypeId, PayrollRunId,
+    ApplicationId, DocumentId, EmployeeId, JobId, LeaveRequestId, LeaveTypeId, PayrollRunId,
 };
 use hragents_core::leave::{LeaveBalance, LeaveType};
 use hragents_core::payroll::{PayrollInput, PayrollKind, PayrollRun};
-use hragents_core::people::{Employee, OnboardingPlan};
+use hragents_core::people::{Document, DocumentOwnerType, Employee, OnboardingPlan};
 use hragents_core::time::BusinessDate;
 use hragents_ipc::{
     AppError, AppService, CreateEmployeeInput, EvaluationView, ImportCandidateInput, LeaveView,
@@ -416,6 +416,92 @@ fn audit_recent(
     with_service(&state, |service| service.audit_recent(limit))
 }
 
+#[derive(Debug, Serialize)]
+struct DocumentBytes {
+    document: Document,
+    base64: String,
+    size_bytes: usize,
+}
+
+#[tauri::command]
+fn upload_document(
+    state: State<'_, AppState>,
+    owner_type: String,
+    owner_id: String,
+    filename: String,
+    mime_type: String,
+    base64: String,
+) -> CmdResult<Document> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&base64)
+        .map_err(|error| CommandError {
+            code: "E_DOCUMENT_ENCODING".into(),
+            message: format!("file content is not valid base64: {error}"),
+        })?;
+    let owner = match owner_type.as_str() {
+        "employee" => DocumentOwnerType::Employee,
+        "candidate" => DocumentOwnerType::Candidate,
+        "company" => DocumentOwnerType::Company,
+        "payroll_run" => DocumentOwnerType::PayrollRun,
+        other => {
+            return Err(CommandError {
+                code: "E_OWNER_TYPE".into(),
+                message: format!("unknown document owner type {other}"),
+            });
+        }
+    };
+    with_service(&state, |service| {
+        service.upload_document(owner, &owner_id, &filename, &mime_type, bytes)
+    })
+}
+
+#[tauri::command]
+fn list_documents(
+    state: State<'_, AppState>,
+    owner_type: String,
+    owner_id: String,
+) -> CmdResult<Vec<Document>> {
+    let owner = match owner_type.as_str() {
+        "employee" => DocumentOwnerType::Employee,
+        "candidate" => DocumentOwnerType::Candidate,
+        "company" => DocumentOwnerType::Company,
+        "payroll_run" => DocumentOwnerType::PayrollRun,
+        other => {
+            return Err(CommandError {
+                code: "E_OWNER_TYPE".into(),
+                message: format!("unknown document owner type {other}"),
+            });
+        }
+    };
+    with_service(&state, |service| service.list_documents(owner, &owner_id))
+}
+
+#[tauri::command]
+fn read_document(state: State<'_, AppState>, document_id: String) -> CmdResult<DocumentBytes> {
+    use base64::Engine;
+    let document_id: DocumentId = parse_id(&document_id)?;
+    with_service(&state, |service| {
+        let (document, bytes) = service.read_document(document_id)?;
+        Ok(DocumentBytes {
+            document,
+            base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+            size_bytes: bytes.len(),
+        })
+    })
+}
+
+#[tauri::command]
+fn verify_document(state: State<'_, AppState>, document_id: String) -> CmdResult<Document> {
+    let document_id: DocumentId = parse_id(&document_id)?;
+    with_service(&state, |service| service.verify_document(document_id))
+}
+
+#[tauri::command]
+fn export_audit(state: State<'_, AppState>, path: String, limit: Option<usize>) -> CmdResult<u64> {
+    with_service(&state, |service| service.export_audit(path, limit))
+}
+
 #[tauri::command]
 fn search(state: State<'_, AppState>, query: String) -> CmdResult<Vec<SearchHit>> {
     with_service(&state, |service| service.search(&query))
@@ -519,6 +605,11 @@ pub fn run() {
             list_approvals,
             audit_verify,
             audit_recent,
+            export_audit,
+            upload_document,
+            list_documents,
+            read_document,
+            verify_document,
             search,
             backup,
             evaluate_input_schema

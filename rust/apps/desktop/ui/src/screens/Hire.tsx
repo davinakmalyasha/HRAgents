@@ -12,6 +12,7 @@ import {
   Upload,
 } from "lucide-react";
 import { command, formatDate, shortRef } from "../api";
+import { DocumentVault } from "./Documents";
 import type {
   Application,
   Candidate,
@@ -241,6 +242,14 @@ export function Hire({ session }: { session: SessionView }) {
                 <Fact k="Consent" v={candidate.consent} />
                 <Fact k="Candidate ref" v={shortRef(candidate.id, "C")} />
                 <Fact k="Documents" v={`${candidate.document_ids.length} attached`} />
+              </div>
+              <div className="card-pad" style={{ borderTop: "1px solid var(--line)" }}>
+                <DocumentVault
+                  ownerType="candidate"
+                  ownerId={candidate.id}
+                  ownerLabel={candidate.full_name}
+                  onError={setError}
+                />
               </div>
             </>
           ) : (

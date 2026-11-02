@@ -222,6 +222,362 @@ def scoring_cases() -> dict[str, object]:
     }
 
 
+def _parity_verified_table(kind, entries):
+    """Verified table for parity export (illustrative values, operator-owned in prod)."""
+    from hr_agents.models.common import utc_now
+    from hr_agents.models.compensation import RateTable
+
+    table = RateTable(kind=kind, name=kind.value, entries=entries)
+    return table.model_copy(
+        update={
+            "verified": True,
+            "verified_by": "parity",
+            "verified_at": utc_now(),
+            "source_note": "parity fixture (illustrative)",
+        }
+    )
+
+
+def _parity_base_tables(*, jp_cap=None):
+    """Shared oracle tables: BPJS shares, overtime 173/1.5/2.0, PTKP, TER, minimum."""
+    from hr_agents.models.compensation import RateEntry, RateTableKind
+    from hr_agents.models.money import money as m
+
+    tables = {}
+    tables[RateTableKind.BPJS_KESEHATAN] = _parity_verified_table(
+        RateTableKind.BPJS_KESEHATAN,
+        [
+            RateEntry(
+                label="standard",
+                employee_share_percent=1.0,
+                employer_share_percent=4.0,
+            )
+        ],
+    )
+    tables[RateTableKind.BPJS_KETENAGAKERJAAN_JHT] = _parity_verified_table(
+        RateTableKind.BPJS_KETENAGAKERJAAN_JHT,
+        [
+            RateEntry(
+                key="normal",
+                label="normal",
+                employee_share_percent=2.0,
+                employer_share_percent=3.7,
+            )
+        ],
+    )
+    tables[RateTableKind.BPJS_KETENAGAKERJAAN_JP] = _parity_verified_table(
+        RateTableKind.BPJS_KETENAGAKERJAAN_JP,
+        [
+            RateEntry(
+                label="standard",
+                employee_share_percent=1.0,
+                employer_share_percent=2.0,
+                wage_cap=m(jp_cap) if jp_cap is not None else None,
+            )
+        ],
+    )
+    tables[RateTableKind.BPJS_JKK] = _parity_verified_table(
+        RateTableKind.BPJS_JKK,
+        [RateEntry(key="class_1", label="class I", employer_share_percent=0.24)],
+    )
+    tables[RateTableKind.BPJS_JKM] = _parity_verified_table(
+        RateTableKind.BPJS_JKM,
+        [RateEntry(label="standard", employer_share_percent=0.3)],
+    )
+    tables[RateTableKind.OVERTIME_PREMIUM] = _parity_verified_table(
+        RateTableKind.OVERTIME_PREMIUM,
+        [
+            RateEntry(key="monthly_hours", label="Monthly hours", hours_per_month=173.0),
+            RateEntry(key="first_hour", label="First hour each day", multiplier=1.5),
+            RateEntry(key="subsequent_hour", label="Subsequent hours", multiplier=2.0),
+        ],
+    )
+    tables[RateTableKind.PPH21_PTKP] = _parity_verified_table(
+        RateTableKind.PPH21_PTKP,
+        [
+            RateEntry(key="personal", label="Self", flat_amount=m("54000000")),
+            RateEntry(key="dependent", label="Per dependent", flat_amount=m("4500000")),
+        ],
+    )
+    tables[RateTableKind.PPH21_TER] = _parity_verified_table(
+        RateTableKind.PPH21_TER,
+        [
+            RateEntry(
+                label="0-10m",
+                lower_bound=m("0"),
+                upper_bound=m("10000000"),
+                employee_share_percent=0.5,
+            ),
+            RateEntry(
+                label="10m-100m",
+                lower_bound=m("10000000"),
+                upper_bound=m("100000000"),
+                employee_share_percent=1.0,
+            ),
+        ],
+    )
+    tables[RateTableKind.MINIMUM_WAGE] = _parity_verified_table(
+        RateTableKind.MINIMUM_WAGE,
+        [RateEntry(label="Regional minimum", flat_amount=m("2500000"))],
+    )
+    return tables
+
+
+def _parity_thr_tables():
+    from hr_agents.models.compensation import RateEntry, RateTableKind
+    from hr_agents.models.money import money as m  # noqa: F401 (kept for symmetry)
+
+    tables = _parity_base_tables()
+    tables[RateTableKind.THR_FORMULA] = _parity_verified_table(
+        RateTableKind.THR_FORMULA,
+        [
+            RateEntry(key="under_1y", label="Under 1 year", multiplier=1.0),
+            RateEntry(key="1y", label="1 to under 2 years", multiplier=2.0),
+            RateEntry(key="2y", label="2 to under 3 years", multiplier=3.0),
+            RateEntry(key="8y_plus", label="8 years and over", multiplier=10.0),
+        ],
+    )
+    return tables
+
+
+def bpjs_cases() -> list[dict[str, object]]:
+    """BPJS shares on a 12M wage, plus a JP-capped variant (oracle: _share)."""
+    import datetime
+    from uuid import uuid4
+
+    from hr_agents.models import Employee
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService, _share
+
+    wage = m("12000000")
+    # Direct _share oracle values (unit level, sen integers).
+    unit = [
+        ("kes", 1.0, 4.0, None, False),
+        ("kes", 1.0, 4.0, None, True),
+        ("jht", 2.0, 3.7, None, False),
+        ("jht", 2.0, 3.7, None, True),
+        ("jp", 1.0, 2.0, None, False),
+        ("jp", 1.0, 2.0, None, True),
+        ("jkk", None, 0.24, None, True),
+        ("jkm", None, 0.3, None, True),
+        ("jp_capped", 1.0, 2.0, "10000000", False),
+        ("jp_capped", 1.0, 2.0, "10000000", True),
+    ]
+    from hr_agents.models.compensation import RateEntry
+
+    shares = []
+    for name, emp, erg, cap, employer in unit:
+        entry = RateEntry(
+            label=name,
+            employee_share_percent=emp,
+            employer_share_percent=erg,
+            wage_cap=m(cap) if cap is not None else None,
+        )
+        amount = _share(entry, employer=employer, wage=wage)
+        shares.append(
+            {
+                "name": f"{name}_{'employer' if employer else 'employee'}",
+                "wage": "12000000",
+                "employee_share_percent": emp,
+                "employer_share_percent": erg,
+                "wage_cap": cap,
+                "employer": employer,
+                "sen": int(amount * 100),
+            }
+        )
+
+    # End-to-end line level via _compute_line (BPJS section of the oracle).
+    svc = object.__new__(PayrollService)
+    lines = []
+    for case_name, jp_cap in [("uncapped_12m", None), ("capped_jp_10m", "10000000")]:
+        tables = _parity_base_tables(jp_cap=jp_cap)
+        employee = Employee(
+            full_name="Parity",
+            job_title="Staff",
+            jkk_risk_level=1,
+            dependents=0,
+            hire_date=datetime.date(2024, 1, 15),
+        )
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=wage,
+            fixed_allowances=m("0"),
+        )
+        line, _ = svc._compute_line(payroll_input, employee, tables, working_days=22)
+        lines.append(
+            {
+                "name": case_name,
+                "base_salary": "12000000",
+                "fixed_allowances": "0",
+                "working_days": 22,
+                "absence_days": 0,
+                "overtime_hours": 0,
+                "jp_wage_cap": jp_cap,
+                "kes_employee_sen": int(line.bpjs_kesehatan_employee * 100),
+                "kes_employer_sen": int(line.bpjs_kesehatan_employer * 100),
+                "jht_employee_sen": int(line.bpjs_jht_employee * 100),
+                "jht_employer_sen": int(line.bpjs_jht_employer * 100),
+                "jp_employee_sen": int(line.bpjs_jp_employee * 100),
+                "jp_employer_sen": int(line.bpjs_jp_employer * 100),
+                "jkk_employer_sen": int(line.bpjs_jkk_employer * 100),
+                "jkm_employer_sen": int(line.bpjs_jkm_employer * 100),
+                "gross_sen": int(line.gross * 100),
+                "net_sen": int(line.net * 100),
+                "employer_cost_sen": int(line.employer_cost * 100),
+            }
+        )
+    return [{"shares": shares, "lines": lines}]
+
+
+def overtime_cases() -> list[dict[str, object]]:
+    """Overtime on an exact-hourly wage (8.65M / 173 = 50k/h). Oracle: _overtime_rules."""
+    import datetime
+    from uuid import uuid4
+
+    from hr_agents.models import Employee
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService, _overtime_rules
+
+    tables = _parity_base_tables()
+    from hr_agents.models.compensation import RateTableKind as _Kind
+
+    rules = _overtime_rules(tables[_Kind.OVERTIME_PREMIUM])
+    assert rules is not None
+    monthly_hours, first_mult, rest_mult = (str(rules[0]), str(rules[1]), str(rules[2]))
+
+    svc = object.__new__(PayrollService)
+    employee = Employee(
+        full_name="Parity",
+        job_title="Staff",
+        jkk_risk_level=1,
+        dependents=0,
+        hire_date=datetime.date(2024, 1, 15),
+    )
+    cases = []
+    for hours in [0, 1, 5, 25]:
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=m("8650000"),
+            fixed_allowances=m("0"),
+            overtime_hours=float(hours),
+        )
+        line, _ = svc._compute_line(payroll_input, employee, tables, working_days=22)
+        cases.append(
+            {
+                "name": f"ot_{hours}h",
+                "base_salary": "8650000",
+                "fixed_allowances": "0",
+                "working_days": 22,
+                "absence_days": 0,
+                "overtime_hours": hours,
+                "overtime_minutes": hours * 60,
+                "monthly_hours": monthly_hours,
+                "first_multiplier": first_mult,
+                "rest_multiplier": rest_mult,
+                "overtime_pay_sen": int(line.overtime_pay * 100),
+                "gross_sen": int(line.gross * 100),
+                "net_sen": int(line.net * 100),
+            }
+        )
+    return cases
+
+
+def thr_cases() -> list[dict[str, object]]:
+    """THR ladder under_1y/1y/2y/8y_plus on a 12M wage. Oracle: _thr_months_entitlement."""
+    import datetime
+    from uuid import uuid4
+
+    from hr_agents.models import Employee
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService, _thr_months_entitlement
+
+    tables = _parity_thr_tables()
+    from hr_agents.models.compensation import RateTableKind as _Kind
+
+    svc = object.__new__(PayrollService)
+    employee = Employee(
+        full_name="Parity",
+        job_title="Staff",
+        jkk_risk_level=1,
+        dependents=0,
+        hire_date=datetime.date(2024, 1, 15),
+    )
+    cases = []
+    for service_months in [6, 12, 30, 100]:
+        entitlement = _thr_months_entitlement(service_months, tables[_Kind.THR_FORMULA])
+        assert entitlement is not None
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=m("12000000"),
+            fixed_allowances=m("0"),
+            service_months=service_months,
+        )
+        line, _ = svc._compute_thr(payroll_input, employee, tables, working_days=22)
+        cases.append(
+            {
+                "name": f"thr_{service_months}m",
+                "base_salary": "12000000",
+                "fixed_allowances": "0",
+                "working_days": 22,
+                "absence_days": 0,
+                "service_months": service_months,
+                "entitlement_months": str(entitlement),
+                "thr_months": line.thr_months,
+                "thr_pay_sen": int(line.base_salary * 100),
+                "gross_sen": int(line.gross * 100),
+                "net_sen": int(line.net * 100),
+            }
+        )
+    return cases
+
+
+def absence_cases() -> list[dict[str, object]]:
+    """Proration on 10M base + 2M fixed over 22 working days. Oracle: _compute_line."""
+    import datetime
+    from uuid import uuid4
+
+    from hr_agents.models import Employee
+    from hr_agents.models.money import money as m
+    from hr_agents.models.payroll import PayrollInput
+    from hr_agents.services.payroll import PayrollService
+
+    tables = _parity_base_tables()
+    svc = object.__new__(PayrollService)
+    employee = Employee(
+        full_name="Parity",
+        job_title="Staff",
+        jkk_risk_level=1,
+        dependents=0,
+        hire_date=datetime.date(2024, 1, 15),
+    )
+    cases = []
+    for absence in [0, 2, 11, 22]:
+        payroll_input = PayrollInput(
+            employee_id=uuid4(),
+            base_salary=m("10000000"),
+            fixed_allowances=m("2000000"),
+            absence_days=float(absence),
+        )
+        line, _ = svc._compute_line(payroll_input, employee, tables, working_days=22)
+        cases.append(
+            {
+                "name": f"absence_{absence}",
+                "base_salary": "10000000",
+                "fixed_allowances": "2000000",
+                "working_days": 22,
+                "absence_days": absence,
+                "base_paid_sen": int(line.base_salary * 100),
+                "allowances_sen": int(line.allowances * 100),
+                "gross_sen": int(line.gross * 100),
+                "net_sen": int(line.net * 100),
+            }
+        )
+    return cases
+
+
 def main() -> int:
     output = Path(sys.argv[1] if len(sys.argv) > 1 else "parity/fixtures")
     output.mkdir(parents=True, exist_ok=True)
@@ -231,6 +587,10 @@ def main() -> int:
         "audit_hashes.json": audit_cases(),
         "payroll_pph21.json": pph21_cases(),
         "scoring_aggregate.json": scoring_cases(),
+        "payroll_bpjs.json": bpjs_cases(),
+        "payroll_overtime.json": overtime_cases(),
+        "payroll_thr.json": thr_cases(),
+        "payroll_absence.json": absence_cases(),
     }
     for name, payload in files.items():
         path = output / name

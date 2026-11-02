@@ -1576,6 +1576,44 @@ impl AppService {
         Ok(entries)
     }
 
+    /// Export the audit chain as JSON: every entry with its actor, payload hash,
+    /// and chain links, plus a verification summary. The export itself is
+    /// audited. Verification of the file after restore is the compliance proof.
+    pub fn export_audit(&mut self, path: impl AsRef<Path>, limit: Option<usize>) -> AppResult<u64> {
+        let now = UtcInstant::now();
+        self.require_active()?;
+        let path = path.as_ref();
+        if let Some(parent) = path.parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent).map_err(|error| AppError::Export(error.to_string()))?;
+        }
+        let mut entries = self.store.audit_entries()?;
+        if let Some(limit) = limit {
+            entries.truncate(limit);
+        }
+        let verification = self.store.verify_audit()?;
+        let document = serde_json::json!({
+            "exported_at": now.to_string(),
+            "entries": entries.len(),
+            "verification": verification,
+            "chain": entries,
+        });
+        let bytes = serde_json::to_string_pretty(&document)
+            .map_err(|error| AppError::Export(error.to_string()))?;
+        std::fs::write(path, &bytes)
+            .map_err(|error| AppError::Export(format!("write audit export: {error}")))?;
+        let size = bytes.len() as u64;
+        self.append_audit(
+            "audit.exported",
+            "system",
+            &path.display().to_string(),
+            serde_json::json!({"entries": entries.len(), "size_bytes": size}),
+            now,
+        )?;
+        Ok(size)
+    }
+
     pub fn search(&self, query: &str) -> AppResult<Vec<SearchHit>> {
         self.session.as_ref().ok_or(AppError::Unauthenticated)?;
         let mut hits = Vec::new();
@@ -2353,5 +2391,32 @@ mod tests {
         let hits = service.search("Ayu").unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].kind, "employee");
+    }
+
+    #[test]
+    fn audit_export_writes_verifiable_json() {
+        let mut service = service();
+        service.create_employee(employee_input()).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("audit.json");
+        let size = service.export_audit(&path, None).unwrap();
+        assert!(
+            size > 100,
+            "export should have real content, got {size} bytes"
+        );
+        let raw = std::fs::read_to_string(&path).unwrap();
+        let document: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert!(document.get("chain").is_some());
+        assert_eq!(
+            document["entries"].as_u64().unwrap(),
+            document["chain"].as_array().unwrap().len() as u64
+        );
+        assert!(
+            service
+                .audit_recent(20)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "audit.exported")
+        );
     }
 }

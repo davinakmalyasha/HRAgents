@@ -18,6 +18,8 @@ export function Settings({ session }: { session: SessionView }) {
   const [verifyResult, setVerifyResult] = useState<AuditVerification | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [backupPath, setBackupPath] = useState("hragents-backup.db");
+  const [exportPath, setExportPath] = useState("audit-export.json");
+  const [exportResult, setExportResult] = useState<string | null>(null);
   const [backupResult, setBackupResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -126,6 +128,38 @@ export function Settings({ session }: { session: SessionView }) {
                 </div>
               ) : null}
               {verifyError ? <ErrorBox>{verifyError}</ErrorBox> : null}
+              <div className="row" style={{ gap: 8 }}>
+                <input
+                  value={exportPath}
+                  onChange={(event) => setExportPath(event.target.value)}
+                  placeholder="audit-export.json"
+                  aria-label="Audit export path"
+                  style={{ flex: 1, height: 34, border: "1px solid var(--line)", borderRadius: 8, padding: "0 10px" }}
+                />
+                <button
+                  className="btn sm"
+                  disabled={busy || !exportPath}
+                  onClick={async () => {
+                    setBusy(true);
+                    setExportResult(null);
+                    try {
+                      const size = await command<number>("export_audit", { path: exportPath, limit: null });
+                      setExportResult(`Exported ${(size / 1024).toFixed(1)} KB to ${exportPath}`);
+                    } catch (caught) {
+                      setExportResult(
+                        typeof caught === "object" && caught && "message" in caught
+                          ? String((caught as { message: unknown }).message)
+                          : String(caught),
+                      );
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Export audit JSON
+                </button>
+              </div>
+              {exportResult ? <div className="small muted">{exportResult}</div> : null}
               <div className="small muted">
                 Each entry hashes its content and the previous hash. A changed row invalidates every
                 later hash. Audit rows survive erasure and payroll retention.

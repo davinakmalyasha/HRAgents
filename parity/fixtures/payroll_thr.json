@@ -1,0 +1,54 @@
+[
+  {
+    "absence_days": 0,
+    "base_salary": "12000000",
+    "entitlement_months": "1.0",
+    "fixed_allowances": "0",
+    "gross_sen": 1200000000,
+    "name": "thr_6m",
+    "net_sen": 1200000000,
+    "service_months": 6,
+    "thr_months": 1,
+    "thr_pay_sen": 1200000000,
+    "working_days": 22
+  },
+  {
+    "absence_days": 0,
+    "base_salary": "12000000",
+    "entitlement_months": "2.0",
+    "fixed_allowances": "0",
+    "gross_sen": 2400000000,
+    "name": "thr_12m",
+    "net_sen": 2400000000,
+    "service_months": 12,
+    "thr_months": 2,
+    "thr_pay_sen": 2400000000,
+    "working_days": 22
+  },
+  {
+    "absence_days": 0,
+    "base_salary": "12000000",
+    "entitlement_months": "3.0",
+    "fixed_allowances": "0",
+    "gross_sen": 3600000000,
+    "name": "thr_30m",
+    "net_sen": 3600000000,
+    "service_months": 30,
+    "thr_months": 3,
+    "thr_pay_sen": 3600000000,
+    "working_days": 22
+  },
+  {
+    "absence_days": 0,
+    "base_salary": "12000000",
+    "entitlement_months": "10.0",
+    "fixed_allowances": "0",
+    "gross_sen": 12000000000,
+    "name": "thr_100m",
+    "net_sen": 12000000000,
+    "service_months": 100,
+    "thr_months": 10,
+    "thr_pay_sen": 12000000000,
+    "working_days": 22
+  }
+]
