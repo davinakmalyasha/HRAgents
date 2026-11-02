@@ -46,9 +46,8 @@ actually prove, and what is still open. It is updated at every merge.
 | Typed application services (no Tauri dependency) | **Done** | `hragents-ipc/src/lib.rs` |
 | CLI demo / verify / backup | **Done** | `hragents-cli/src/main.rs` |
 | Tauri 2.12.5 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
-| NSIS installer (unsigned smoke, throwaway minisign key) | **Done locally: 5.97 MiB, SHA-256 verified** | `target/.../bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
-| Updater signing pipeline (keygen → sign → .sig) | **Done with throwaway key** | 420-byte minisign `.sig` beside the installer |
-| Updater JS client + fail-closed check UI | **Done** | `@tauri-apps/plugin-updater`, Settings → Updates |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 5.97 MiB, SHA-256 verified** | `target/.../bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. Upgrade = install a newer build. | Settings → Updates explains it |
 | Five-surface React UI + login/lock | **Done** | `rust/apps/desktop/ui` |
 | Python parity export + golden tests | **Done (money, audit, PPh 21, scoring merge)** | `scripts/parity_export.py`, `parity/fixtures` |
 | CI for Rust, UI, and fixture regeneration | **Done** | `.github/workflows/desktop.yml` |

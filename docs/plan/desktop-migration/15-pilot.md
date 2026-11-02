@@ -11,11 +11,11 @@ No pilot starts until the entry criteria in §1 are all green.
 
 | # | Criterion | Evidence |
 |---|---|---|
-| E1 | Signed installer for the pilot OS (Windows first) | Authenticode signature verifies; SHA-256 recorded; clean-VM install checklist green per `14-release-drill.md` §2 |
+| E1 | Installable free build for the pilot OS (Windows first) | Per-user NSIS installer runs without admin; SHA-256 recorded; clean-VM install checklist green. **No certificate is required** — the pilot is free. |
 | E2 | Backup/restore drill evidence | `16-restore-drill.md` run green on the release build: verify → backup → restore → re-verify, plus failure-injection and rollback rehearsal, with a signed-off table |
 | E3 | Support channel live | Office-hours channel exists (WhatsApp group or email), named support contact, response-time promise (§6); backup-verification cadence agreed |
 | E4 | Demo company + first-run wizard tested with a non-technical user | Install → first record < 5 min observed, zero terminal use |
-| E5 | Accountant-reviewed payroll packet | One XLSX review packet from demo data reviewed and accepted by an accountant |
+| E5 | Accountant-reviewed payroll packet | One XLSX review packet from demo data reviewed and accepted by an accountant (no software cost) |
 | E6 | Diagnostic-bundle PII check | Fixture test confirms `.hrdiag` contains no PII/secrets before any upload is enabled |
 
 If any row is red, recruiting does not start. Unsigned smoke builds from

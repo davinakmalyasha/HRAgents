@@ -25,7 +25,7 @@ safety thesis stays; the architecture and scope change.
 | Roles? | **One:** `hr_operator`. No employee, manager, finance, candidate, or admin roles. |
 | Multi-user? | 1–3 HR operators, same role, each named in the audit chain. No RBAC matrix. |
 | Multi-tenant? | No. One company per install. |
-| Deployment? | Signed Windows installer first, macOS second. Auto-update. |
+| Deployment? | **Free edition:** unsigned per-user Windows installer (no admin, no paid account), macOS optional, auto-update off by design. |
 | Performance? | Direct Rust IPC, SQLite, no Python/Docker/HTTP hop. Target cold start <1.5s, installer <35MB. |
 
 **Why desktop is right now:** the product is deliberately a single-operator HR

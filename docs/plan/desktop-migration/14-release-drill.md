@@ -7,21 +7,30 @@ week 32 and the public release at week 38. This document is the rehearsal
 script: clean-VM install, backup/restore drill, rollback rehearsal, and the
 honest signing/notarization status. Nothing here claims Gate 6 is passed.
 
-## 1. Signing / notarization status (honest: not yet done)
+## 1. Signing status — free edition: none, by design
+
+This edition is deliberately free and self-contained. There is **no code-signing
+certificate, no paid developer account, and no hosted update server**, and none is
+required to build, install, or run the app.
 
 | Item | Status |
 |---|---|
-| Windows Authenticode (Azure Trusted Signing or OV) + RFC 3161 timestamp | NOT DONE — no certificate enrolled |
-| Apple Developer ID, `notarytool` staple | NOT DONE — no Apple Developer account wired up |
-| AppImage minisign / `.deb` checksums | NOT DONE |
-| Updater minisign keypair (pubkey pinned in `tauri.conf.json`) | NOT DONE — `plugins.updater.pubkey` is the placeholder `REPLACE_WITH_MINISIGN_PUBKEY_UNSET` |
-| `updates.hragents.id` stable/beta `latest.json` endpoints | NOT DONE — endpoint URL is reserved in config only |
+| Windows Authenticode / Azure Trusted Signing | **Not used.** Installer is unsigned; the first run shows "unknown publisher" once and the user chooses *Run anyway*. |
+| Apple Developer ID / notarization | **Not used.** macOS build is unsigned for local/team use. |
+| Updater minisign keypair / hosted `latest.json` | **Not used.** Automatic updates are disabled; upgrading means installing a newer build. `tauri.conf.json` has no updater plugin. |
+| Installer elevation | **None.** NSIS `installMode` is `currentUser`, so no admin password is needed. |
 
-Until signing lands, `release-desktop.yml` produces **unsigned smoke builds**
-(draft release, not shippable). Unsigned dev builds refuse to self-update by
-design (§05). The workflow references placeholder secrets only
-(`TAURI_SIGNING_PRIVATE_KEY`, `APPLE_*`); real values live in GitHub repo
-secrets, never in the repo.
+What this costs the product: no one-click trusted install for strangers and no
+background auto-update. For one HR team on its own laptop — the edition's whole
+use case — neither matters. If the product is ever distributed widely, signing
+becomes a paid distribution decision, not a technical blocker.
+
+## 1b. Earlier paid-distribution notes (not part of this free edition)
+
+The following were drafted for a future paid-distribution track and are **not
+required** for this build: Authenticode enrollment, Apple notarization, a pinned
+minisign pubkey, and a staged `latest.json` rollout. They are kept below only as
+a reference for that future decision.
 
 ## 2. Clean-VM install checklist
 
@@ -56,7 +65,7 @@ Tauri cannot downgrade in place (§05). Rehearse the supported path:
 ## 5. What blocks Gate 6
 
 - [ ] Enroll signing: Authenticode (Azure Trusted Signing or OV) + Apple Developer ID; generate the updater minisign keypair in an HSM with dual control; pin the real pubkey (rotation drill per §05 risk table).
-- [ ] Stand up `https://updates.hragents.id/{stable,beta}/latest.json` with signed manifests, `rollout` staging (5% → 25% → 100%), and a signed `yanked_versions` list.
+- [ ] (Future paid track only) Host a signed `latest.json` with staged rollout if the product is ever distributed widely. Not required for the free edition.
 - [ ] Prove bad-signature rejection and staged-rollout bucketing (`SHA-256(device_id + version)`).
 - [ ] Run this drill green on all three OS targets with installer ≤35 MB and all performance budgets green.
 - [ ] Confirm diagnostic bundles (`.hrdiag`) contain no PII/secrets (fixture test) before any crash-report upload is enabled.

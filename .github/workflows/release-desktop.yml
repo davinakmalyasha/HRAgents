@@ -62,30 +62,22 @@ jobs:
           node-version: "26"
           cache: npm
           cache-dependency-path: rust/apps/desktop/ui/package-lock.json
-      - name: Build and bundle (NSIS)
+      - name: Build and bundle (NSIS, unsigned)
+        # FREE EDITION: no code-signing certificate is required or referenced.
+        # Users click "More info -> Run anyway" once on first install. No paid
+        # account, no secrets, no hosted update endpoint.
         uses: tauri-apps/tauri-action@v0
-        env:
-          # PLACEHOLDER SECRETS — real values live in GitHub repo secrets,
-          # never in this file. Unsigned dev builds refuse to self-update.
-          #
-          # Required repo secrets for signed Windows builds:
-          #   TAURI_SIGNING_PRIVATE_KEY          — minisign private key for the updater manifest
-          #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD — password for the signing key
-          #   AZURE_TENANT_ID / AZURE_CLIENT_ID / AZURE_CLIENT_SECRET
-          #                                     — Azure Trusted Signing (Authenticode + RFC 3161 timestamp)
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: rust/apps/desktop
           tagName: ${{ github.ref_name }}
           releaseName: "HRAgents ${{ github.ref_name }}"
-          releaseBody: "See the release checklist in docs/plan/desktop-migration/14-release-drill.md."
+          releaseBody: "Free unsigned desktop build. See docs/plan/desktop-migration/14-release-drill.md."
           releaseDraft: true
           prerelease: false
           args: --bundles nsis
 
   build-macos:
-    name: macOS dmg bundle (notarization placeholders)
+    name: macOS dmg bundle (unsigned, free edition)
     needs: gates
     runs-on: macos-latest
     defaults:
@@ -105,36 +97,13 @@ jobs:
           node-version: "26"
           cache: npm
           cache-dependency-path: rust/apps/desktop/ui/package-lock.json
-      - name: Import Developer ID certificate
-        # Placeholder: real certificate (base64 .p12) lives in repo secrets.
-        # Skipped until APPLE_CERTIFICATE* secrets exist; unsigned macOS
-        # builds are for smoke-testing only and are NOT shippable.
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
-        uses: apple-actions/import-codesign-certs@v3
-        with:
-          # PLACEHOLDER SECRETS — real values live in GitHub repo secrets:
-          #   APPLE_CERTIFICATE          — base64-encoded Developer ID .p12
-          #   APPLE_CERTIFICATE_PASSWORD — .p12 password
-          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
-          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       - name: Build and bundle (dmg)
         uses: tauri-apps/tauri-action@v0
-        env:
-          # PLACEHOLDER SECRETS — real values live in GitHub repo secrets:
-          #   TAURI_SIGNING_PRIVATE_KEY — minisign private key for the updater manifest
-          #   APPLE_SIGNING_IDENTITY    — e.g. "Developer ID Application: <Team> (<ID>)"
-          #   APPLE_ID / APPLE_PASSWORD (app-specific) / APPLE_TEAM_ID — notarytool
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: rust/apps/desktop
           tagName: ${{ github.ref_name }}
           releaseName: "HRAgents ${{ github.ref_name }}"
-          releaseBody: "See the release checklist in docs/plan/desktop-migration/14-release-drill.md."
+          releaseBody: "Free unsigned desktop build. See docs/plan/desktop-migration/14-release-drill.md."
           releaseDraft: true
           prerelease: false
           args: --bundles dmg --target universal-apple-darwin

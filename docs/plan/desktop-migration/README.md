@@ -32,7 +32,8 @@ HR person do repetitive, exhausting work.
 | IPC | Tauri commands via `tauri-specta`; no localhost HTTP server |
 | AI | Rust-native agent layer (`rig` 0.46.x or latest stable) |
 | Network | Only LLM, SMTP/IMAP, WhatsApp links/API, calendar ICS; no inbound webhooks |
-| Distribution | Signed Windows installer first, then macOS notarized build |
+| Distribution | **Free edition:** unsigned per-user Windows installer (no admin, no certificate, no paid account); macOS build optional. Auto-update disabled by design. |
+| Cost | **Zero.** No paid services, no subscriptions, no hosted update server, no signing certificates, no telemetry |
 | Performance | Rust core, direct IPC, SQLite, no Docker, no Python, no Redis, no Postgres |
 | Non-goals | Multi-tenant SaaS, employee self-service, manager/finance logins, candidate portal, mobile/PWA, MCP marketplace, webhooks |
 
