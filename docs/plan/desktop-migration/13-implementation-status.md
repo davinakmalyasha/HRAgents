@@ -51,12 +51,12 @@ actually prove, and what is still open. It is updated at every merge.
 ```text
 cargo test --workspace --exclude hragents-desktop
   hragents-agents  16 passed
-  hragents-core   69 passed
+  hragents-core   62 passed
   python_parity    5 passed
   payroll_parity   4 passed
-  hragents-store  11 passed
+  hragents-store  10 passed
   hragents-ipc    22 passed (1 release benchmark ignored)
-  total          127 passed
+  total          119 passed (2 ignored: live provider + release bench)
 
 uv run python scripts/check.py (Python oracle gate)
   2234 passed, 5 skipped, coverage 92.41%, invariants ok
