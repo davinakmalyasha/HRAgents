@@ -109,7 +109,7 @@ them agree.
 
 - **Scorer** (`services/scoring.py`): four axes, weights 0.40/0.30/0.20/0.10, `s_tech`
   weighted mean, every dimension evidence-backed or neutral.
-- **Policy** (`services/policy.py`, `docs/architecture/hitl-bounds.md` §4): first match
+- **Policy** (`services/policy.py`, `docs/archive/python-server/architecture/hitl-bounds.md` §4): first match
   wins — consent → flags → slots → evidence → auto band (`s ≥ 0.75 ∧ σ ≤ 0.05`) →
   soft-rejection → reject.
 - **Priority** (`services/priority.py`): `P = α·S̄ + β·e^(−λΔt) + γ·A − δ·R`, clamped

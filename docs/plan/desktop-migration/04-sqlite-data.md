@@ -1,7 +1,7 @@
 # 04 — SQLite data layer
 
 **Status:** draft · **Target:** Tauri 2.12 + Rust · **Supersedes for the desktop edition:**
-`docs/architecture/data-storage.md` §1–3 (PostgreSQL 16 + pgvector + Redis + MinIO). The
+`docs/archive/python-server/architecture/data-storage.md` §1–3 (PostgreSQL 16 + pgvector + Redis + MinIO). The
 server edition keeps that stack.
 
 ## 1. Why SQLite

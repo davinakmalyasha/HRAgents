@@ -2,8 +2,8 @@
 
 > **Desktop migration (2026-11-01):** the next edition is a Tauri 2.12 + Rust + SQLite,
 > HR-only desktop cockpit. The authoritative plan is
-> [`massive-polishment.md`](massive-polishment.md) and
-> [`desktop-migration/`](desktop-migration/README.md). The checklists below describe the
+> [`massive-polishment.md`](../../../plan/massive-polishment.md) and
+> [`desktop-migration/`](../../../plan/desktop-migration/README.md). The checklists below describe the
 > current Python/React product and remain the reference until the desktop gates pass.
 
 Status snapshot: **2026-10-31**. Everything up to and including Phase 5 (multi-department

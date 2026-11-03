@@ -242,7 +242,8 @@ def test_the_two_backends_agree_on_whether_a_consent_was_removed(
 ) -> None:
     """Both stores return the same answers, which is the property that mattered.
 
-    `docs/architecture/data-storage.md` treats the in-memory implementation as the
+    The archived `docs/archive/python-server/architecture/data-storage.md`
+    treats the in-memory implementation as the
     definition of the port and the Postgres adapter as an implementation of it.
     These two methods disagreed on exactly one question -- did anything get
     removed -- and the erasure workflow trusted the answer.

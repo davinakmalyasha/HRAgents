@@ -14,7 +14,7 @@ These are product invariants, not preferences — PRs that weaken them are decli
 - No auto-rejection, no anonymous overrides, no training on historical hiring outcomes.
 - Statutory numbers are never hardcoded; they come from operator-maintained rate tables.
 
-Read `docs/architecture/hitl-bounds.md` before touching the pipeline or decision layer.
+Read `docs/archive/python-server/architecture/hitl-bounds.md` before touching the pipeline or decision layer.
 
 ## Development setup
 
@@ -52,7 +52,7 @@ end-to-end without any API keys; live-model tests are opt-in scripts, not part o
 - [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`,
   `chore:`, `test:`, `refactor:`. Add `!` or a `BREAKING CHANGE:` footer for breaking
   changes. release-please turns these into the changelog and version bumps — see
-  `docs/plan/release-process.md`.
+  `docs/archive/python-server/plan/release-process.md`.
 - Keep PRs focused. Squash merge is the only merge method; the PR title becomes the
   commit message.
 - Sign off your commits (DCO): `git commit -s`. By signing off you certify the
@@ -71,9 +71,9 @@ end-to-end without any API keys; live-model tests are opt-in scripts, not part o
 ## Docs
 
 - Behavior changes update the docs that describe them (`docs/`, README,
-    `docs/api/openapi.json`).
+    `docs/archive/python-server/api/openapi.json`).
 - When you complete a plan item, tick it in `docs/plan/master-build-plan.md`; open work
-  lives in `docs/plan/remaining-work.md`.
+  lives in `docs/archive/python-server/plan/remaining-work.md`.
 - Hard-to-reverse decisions get an ADR in `docs/adr/`.
 
 ## Never commit
@@ -85,5 +85,5 @@ end-to-end without any API keys; live-model tests are opt-in scripts, not part o
 ## Where to start
 
 - Issues labeled `good first issue` are scoped starter tasks.
-- The README roadmap and `docs/plan/remaining-work.md` show what is next.
+- The README roadmap and `docs/archive/python-server/plan/remaining-work.md` show what is next.
 - Questions and ideas: [Discussions](https://github.com/davinakmalyasha/HRAgents/discussions).

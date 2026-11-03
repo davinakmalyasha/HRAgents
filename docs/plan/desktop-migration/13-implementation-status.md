@@ -251,7 +251,10 @@ missing evidence exists.
 ## 3. What is deliberately still missing
 
 1. **Provider live key + streaming** — the `rig` adapter and recorded replay are
-   tested; no production key is configured and there is no streaming UI. The
+   tested; OpenCode Go is wired (`provider: "opencode_go"`, catalog-routed
+   Chat-vs-Responses, low reasoning effort, key read at call time and never
+   stored) with an ignored live test on `deepseek-v4.1-flash` awaiting the
+   operator's key. No streaming UI yet. The
    offline extractor stays the default.
 2. **Python removal** — deferred to the release cut by the migration plan.
 3. **Import from the existing Postgres product** — JSON slices 1–4 (org units, employees, leave, approved payroll, audit history) are done and drilled, and `scripts/export_legacy.py` streams any reachable legacy database to the same JSON format (verified against SQLite). Only a live source with credentials to run it against is still missing.

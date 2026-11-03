@@ -10,7 +10,7 @@ the JSON file to the HR laptop, then import it with the desktop CLI::
 
 Read-only by construction: `iter_export` opens one short read transaction per
 table and never writes. Binary attachments stay in object storage (see
-`docs/deployment.md`); every database row describing them is included.
+`docs/archive/python-server/deployment.md`); every database row describing them is included.
 
 Usage:
     HRAGENTS_DATABASE_URL=postgresql://user:pass@host:5432/hr \\

@@ -21,7 +21,7 @@ number until a test passed. So the properties are structural:
 file covers whether the *bands* mean anything.
 
 The corpus is in ``evals/scoring_calibration.py`` and is synthetic. Nothing here
-moves the thresholds: ``docs/architecture/hitl-bounds.md`` records them as a
+moves the thresholds: ``docs/archive/python-server/architecture/hitl-bounds.md`` records them as a
 human-approved contract.
 """
 

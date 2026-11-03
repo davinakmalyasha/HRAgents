@@ -12,7 +12,7 @@ wish list. Read-only audit; no code changed.
 |---|---|
 | Workspaces | **10** — Approvals, Hiring, Ask HR, Onboarding, People, Leave, Payroll, Growth, Offboarding, Compliance (`workspaces.py`) |
 | Agents | **5** — resume deconstructor, code portfolio, screening coordinator, feedback writer, policy assistant (`agentset.py`) |
-| API surface | **~199 paths / 239 operations** (`docs/api/openapi.json`) |
+| API surface | **~199 paths / 239 operations** (`docs/archive/python-server/api/openapi.json`) |
 | Persistence | **45 tables · 44 migrations** per the migration brief; measured `Base.metadata` here is **55 mapped classes** (54 tenant-scoped, 89 indexes), head `0043_usage_cost` — see `04-sqlite-data.md` |
 | Backend tests | **~2,200** (2,233 in README) |
 | Web tests | **~450** (448 in README) |

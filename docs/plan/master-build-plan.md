@@ -34,7 +34,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | Agent architecture | Agents extract + communicate only; deterministic core decides; humans gate every rejection |
 | Audit | Hash-chained append-only log; every decision reconstructible |
 | Tools | Typed, least-privilege registry. **No shell/`run_command` tools — ever** |
-| Providers | Every external dependency is a capability with interchangeable providers (LLM, email, WhatsApp, calendar, storage, embeddings, vector store, queue). One file per provider; config via env/wizard/UI; UI wins, env can lock. See `docs/architecture/providers.md` |
+| Providers | Every external dependency is a capability with interchangeable providers (LLM, email, WhatsApp, calendar, storage, embeddings, vector store, queue). One file per provider; config via env/wizard/UI; UI wins, env can lock. See `docs/archive/python-server/architecture/providers.md` |
 | Queue | Provider pattern: `redis` (default, included in compose) · `postgres` (minimal installs) · `memory` (tests). One conformance suite across backends |
 | Models | Provider-agnostic: local (Ollama) / Anthropic / OpenAI / Gemini / OpenRouter / Groq / any OpenAI-compatible base URL / offline `test` model |
 | UI language | English + Bahasa Indonesia from first release |
@@ -76,7 +76,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 9. Deployment & compliance | **In progress** — Compose, migrations, previews, backups, secrets, retention/purge journal, scanning ✅; external pen test pending |
 | 10. Paper, docs & publication | **Complete** — paper ✅, versioned docs site ✅, landing ✅, 0.1.0–0.15.2 published ✅; GitHub social preview (a settings upload) pending |
 
-> **Remaining work:** `docs/plan/remaining-work.md` — detailed checklists, exit criteria,
+> **Remaining work:** `docs/archive/python-server/plan/remaining-work.md` — detailed checklists, exit criteria,
 > suggested order, and risk notes for everything still open.
 
 ---
@@ -103,7 +103,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Community health: `CONTRIBUTING`, `SECURITY`, `CODE_OF_CONDUCT`, issue forms, PR template,
       `CODEOWNERS`
 - [x] pre-commit hooks (ruff, formatting, private-key detection) + `scripts/check.py`
-- [x] ADRs (`docs/adr/`), release process (`docs/plan/release-process.md`), `CITATION.cff`,
+- [x] ADRs (`docs/adr/`), release process (`docs/archive/python-server/plan/release-process.md`), `CITATION.cff`,
       `AGENTS.md`
 
 ## Phase 2 — Contracts & data model `DONE`
@@ -182,7 +182,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [~] Agent evals (Pydantic Evals) — `evals/resume_extraction.py` + `scripts/run_evals.py`:
   - [x] Injection safety cases (prompt injection, invisible chars)
   - [x] Structural/safety evaluators (schema round-trip, guard expectations, sanitization)
-  - [x] **Live model run passing: 5/5 cases, 100% assertions on MiMo V2.5 via Command Code (ZDR on)** — results in `docs/architecture/benchmarks.md` §4
+  - [x] **Live model run passing: 5/5 cases, 100% assertions on MiMo V2.5 via Command Code (ZDR on)** — results in `docs/archive/python-server/architecture/benchmarks.md` §4
   - [x] 50-profile dataset: 18 engineering + 32 non-IT, EN/ID mixed (24/26),
         PDF+MD+JSON variants. A structured catalog (`evals/profiles.py`) renders each
         profile as Markdown for the agent, structured JSON for ATS-style imports, and a
@@ -224,7 +224,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] End-to-end integration test through the API: submit → worker → evaluation → queue (`tests/api/test_pipeline_seam.py`)
 
 ### 4.6 Provider layer (adaptive integrations) `IN PROGRESS`
-- [x] Spec written: `docs/architecture/providers.md`
+- [x] Spec written: `docs/archive/python-server/architecture/providers.md`
 - [x] `providers/base.py` — `Capability`, `ProviderConfig` (SecretStr support), `ProviderSpec`, `ProviderHealth`
 - [x] `providers/registry.py` — registration, discovery, resolution, explicit fallback chains (zero-config providers resolve first)
 - [x] Queue providers: `memory` + `redis` + `postgres` with one conformance suite
@@ -281,7 +281,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tailwind CSS + shadcn/ui component library (Tailwind v4 CSS-first tokens, `cn` merge package)
 - [x] TanStack Query (server state) + Zustand (workspace/UI state)
 - [x] API client generated from the live OpenAPI schema (`scripts/export_openapi.py` →
-      `docs/api/openapi.json` → `openapi-typescript`/`openapi-fetch`; the hand-maintained
+      `docs/archive/python-server/api/openapi.json` → `openapi-typescript`/`openapi-fetch`; the hand-maintained
       YAML fragment that used to sit beside it is gone — it described 12 of 148 paths)
 - [x] ESLint + Prettier + `tsc --noEmit` gate in CI (`web` job, drift-checked generated types)
 - [x] Static build served by FastAPI (`/app`) in self-host image; SPA fallback routing (`_mount_web_app`)
@@ -302,7 +302,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       main landmark; text contrast verified at WCAG AA across all workspaces in light and dark
       (muted ink darkened to `#667085`, status tone confined to the hidden glyph, inactive tabs
       moved off `text-foreground/60`); regression-guarded by `theme.contrast.test.ts`; the
-      axe/screen-reader sweep stays in `polish-backlog.md`
+      axe/screen-reader sweep stays in `docs/archive/python-server/plan/polish-backlog.md`
 - [x] Mobile-first check at 390px viewport (all nine workspace boards, the payroll and
       compliance queues, the command palette, dialogs and the chat transcript; a topbar
       overflow the identity chip introduced was found and fixed, the dialog primitive now
@@ -334,7 +334,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
       job filter and ranked cards; manual moves via dnd-kit drag (pointer + keyboard) validated
       against the designed transition table — named human + reason, every gate enforced
-      server-side (`docs/architecture/board-transitions.md`)
+      server-side (`docs/archive/python-server/architecture/board-transitions.md`)
 - [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
       rationales, flags, and policy decision (`/w/hiring/applications/{id}`); every number is
       inspectable — the weighted-contribution formula opens inline, and each dimension expands
@@ -382,9 +382,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       performance 88 on mobile throttling; route-level code splitting cut the entry chunk from
       891 KB to 425 KB and TBT from 190 ms to 60 ms.
 
-## Phase 7 — Integrations (all via the provider layer, `docs/architecture/providers.md`)
+## Phase 7 — Integrations (all via the provider layer, `docs/archive/python-server/architecture/providers.md`)
 
-> Detailed remaining checklist from this phase to release: `docs/plan/remaining-work.md`.
+> Detailed remaining checklist from this phase to release: `docs/archive/python-server/plan/remaining-work.md`.
 
 ### 7.1 Messaging
 - [~] `email_send`: SMTP (default) live — `messaging/smtp.py` carries queued messages and
@@ -760,7 +760,7 @@ not a style opinion.
    decisions are additionally bound to `assignee_role` (`ApprovalService._require_authority`),
    so a manager cannot decide a finance-assigned sign-off. The open policy question is
    narrower than this item: whether managers and finance should administer the employee
-   directory in a given deployment (a per-deployment decision, tracked in remaining-work).
+   directory in a given deployment (a per-deployment decision, tracked in the archived remaining-work).
 5. ~~**`money` is `float` with banker's rounding**; `round(0.125, 2) == 0.12`. A rupiah can
    be lost, and the XLSX totals row can disagree with the sum of its own lines.~~ **Fixed, and
    the audit underneath it was worse than the rounding.** `models/money.py` makes money a
@@ -797,7 +797,7 @@ not a style opinion.
     `GrowthService` gained the shaped-404 lookup they needed; `0025` closes
     `leave_requests.document_id` against the employee's own vault (checked in
     `LeaveService.request`); `0026` closes `evaluations.application_id`. One reference
-    deliberately stays loose and is named in remaining-work:
+    deliberately stays loose and is named in the archived remaining-work:
     `scheduling_availability.interviewer_id` (no interviewer table — availability
     belongs to a calendar identity the scheduling integration owns).
 7. ~~**43 of 45 list endpoints are unpaginated**~~ **Done, with deliberate Python-side
@@ -811,7 +811,7 @@ not a style opinion.
    cycles/assignments/summaries/goals, consents, retention records, erasures, breach
    incidents, offboarding assets and the workspace-handoff queue, plus the `_previous_run`
    and active-plan aggregations.
-   The bounded and computed lists stay in Python by design, named in remaining-work:
+   The bounded and computed lists stay in Python by design, named in the archived remaining-work:
    operator-managed configuration, employee-scoped records, and merged/derived lists
    (compliance calendar, overdue breach steps, ops queue, POST sweeps).
 8. ~~**No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no

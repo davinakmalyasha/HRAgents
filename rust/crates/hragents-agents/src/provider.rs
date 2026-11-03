@@ -16,23 +16,35 @@ use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProviderConfig {
-    /// "openai" or "openai_compatible". Anything else is rejected, not guessed.
+    /// "openai", "openai_compatible", or "opencode_go". Anything else is
+    /// rejected, not guessed. "opencode_go" routes through the OpenCode Go
+    /// gateway (catalog-owned Chat-vs-Responses routing, session header
+    /// handled by rig) and forbids `base_url`.
     pub provider: String,
     /// Base URL for OpenAI-compatible endpoints (Ollama, OpenRouter, ...).
-    /// None means the provider default.
+    /// None means the provider default. Must be None for "opencode_go".
     pub base_url: Option<String>,
     pub model: String,
     /// Environment variable holding the API key. The key itself is never stored.
+    /// For "opencode_go" this is the Go key (`OPENCODE_API_KEY`).
     pub api_key_env: String,
 }
 
 impl ProviderConfig {
     pub fn validate(&self) -> Result<(), AgentError> {
-        if self.provider != "openai" && self.provider != "openai_compatible" {
+        if self.provider != "openai"
+            && self.provider != "openai_compatible"
+            && self.provider != "opencode_go"
+        {
             return Err(AgentError::Provider(format!(
-                "unknown provider {:?}; use \"openai\" or \"openai_compatible\"",
+                "unknown provider {:?}; use \"openai\", \"openai_compatible\", or \"opencode_go\"",
                 self.provider
             )));
+        }
+        if self.provider == "opencode_go" && self.base_url.is_some() {
+            return Err(AgentError::Provider(
+                "opencode_go owns its routing; base_url must be None".into(),
+            ));
         }
         if self.model.trim().is_empty() {
             return Err(AgentError::Provider("model must not be empty".into()));
@@ -113,6 +125,8 @@ impl LlmClient for ReplayLlmClient {
 
 /// Live provider client backed by `rig`. Constructed from a validated
 /// `ProviderConfig`; the key is read from the environment at call time.
+/// "opencode_go" routes through the OpenCode Go gateway with the catalog's
+/// Chat-vs-Responses routing and low reasoning effort.
 pub struct RigLlmClient {
     config: ProviderConfig,
 }
@@ -127,6 +141,7 @@ impl RigLlmClient {
 impl LlmClient for RigLlmClient {
     fn complete(&self, system: &str, user: &str) -> Result<String, AgentError> {
         let api_key = self.config.api_key()?;
+        let provider = self.config.provider.clone();
         let model = self.config.model.clone();
         let base_url = self.config.base_url.clone();
         let system = system.to_owned();
@@ -139,6 +154,21 @@ impl LlmClient for RigLlmClient {
             use rig::prelude::*;
             use rig::providers::openai::{OpenAI, OpenAIConfig};
 
+            if provider == "opencode_go" {
+                let agent =
+                    AgentBuilder::new(rig::providers::opencode::go_new(api_key).completion(&model))
+                        .preamble(&system)
+                        .options(
+                            rig::completion::GenerationOptions::default()
+                                .reasoning(rig::completion::Effort::Low),
+                        )
+                        .build();
+                return agent
+                    .prompt(user)
+                    .await
+                    .map(|response| response.output())
+                    .map_err(|error| AgentError::Provider(error.to_string()));
+            }
             let client: OpenAI = match base_url {
                 Some(base_url) => {
                     let mut config = OpenAIConfig::new(api_key);
@@ -363,6 +393,26 @@ mod tests {
     }
 
     #[test]
+    fn opencode_go_accepts_key_config_and_rejects_base_url() {
+        let routed = ProviderConfig {
+            provider: "opencode_go".into(),
+            base_url: None,
+            model: "deepseek-v4.1-flash".into(),
+            api_key_env: "OPENCODE_API_KEY".into(),
+        };
+        assert!(routed.validate().is_ok());
+        assert!(RigLlmClient::new(routed).is_ok());
+        let overridden = ProviderConfig {
+            provider: "opencode_go".into(),
+            base_url: Some("https://example.invalid/v1".into()),
+            model: "deepseek-v4.1-flash".into(),
+            api_key_env: "OPENCODE_API_KEY".into(),
+        };
+        assert!(overridden.validate().is_err());
+        assert!(RigLlmClient::new(overridden).is_err());
+    }
+
+    #[test]
     fn missing_api_key_is_a_clear_error() {
         let config = ProviderConfig {
             provider: "openai".into(),
@@ -375,6 +425,42 @@ mod tests {
             client.complete("sys", "user"),
             Err(AgentError::Provider(_))
         ));
+    }
+
+    /// Live provider check against OpenCode Go. Ignored by default; run
+    /// explicitly with a Go key (the test inherits it, never prints it):
+    /// `OPENCODE_API_KEY=... cargo test -p hragents-agents -- --ignored provider_live_go`
+    /// One run keeps the cost to a fraction of a cent. DeepSeek models need
+    /// the Global region enabled in the Go console; off-peak hours are cheaper.
+    #[test]
+    #[ignore]
+    fn provider_live_go_deepseek() {
+        let key = std::env::var("OPENCODE_API_KEY").expect("OPENCODE_API_KEY must be set");
+        unsafe { std::env::set_var("HRAGENTS_LLM_KEY_TMP", key) };
+        let config = ProviderConfig {
+            provider: "opencode_go".into(),
+            base_url: None,
+            model: "deepseek-v4.1-flash".into(),
+            api_key_env: "HRAGENTS_LLM_KEY_TMP".into(),
+        };
+        let client = RigLlmClient::new(config).unwrap();
+        let extractor = ProviderExtractor::new(client).with_runs(1);
+        let result = extractor
+            .extract_structured(
+                "Built a Rust ingestion pipeline handling 2M events per day. \
+                 Reduced p99 latency from 900ms to 180ms.",
+                None,
+                &dimensions(),
+            )
+            .unwrap();
+        assert_eq!(result.runs.len(), 1);
+        assert_eq!(result.evidence.len(), 2);
+        assert!(
+            result
+                .evidence
+                .iter()
+                .any(|item| item.quote.contains("Rust"))
+        );
     }
 
     /// Live provider check. Ignored by default; run explicitly with a key:

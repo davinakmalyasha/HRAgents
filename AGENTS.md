@@ -40,7 +40,7 @@ Design tokens are law: hex colors may only appear in `web/src/styles/theme.css`
    `docs/` file before editing.
 2. When behavior changes, update the docs that describe it.
 3. Tick completed items in `docs/plan/master-build-plan.md`; keep
-   `docs/plan/remaining-work.md` accurate for open work.
+   `docs/plan/desktop-migration/13-implementation-status.md` accurate for open work.
 4. End the session with a green gate and a summary of what changed.
 
 ## Test conventions

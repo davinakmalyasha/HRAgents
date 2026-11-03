@@ -15,7 +15,9 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_TARGET = REPO_ROOT / "docs" / "api" / "openapi.json"
+# The Python API spec is archived with the server product it describes; the
+# drift gate still guards it until the release cut removes Python.
+DEFAULT_TARGET = REPO_ROOT / "docs" / "archive" / "python-server" / "api" / "openapi.json"
 
 
 def render() -> str:

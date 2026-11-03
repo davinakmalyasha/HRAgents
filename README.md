@@ -20,7 +20,7 @@ department engines, the hiring dashboard workspaces, auth screens, the MCP layer
 built, tested and running behind a worker (2,233 backend tests + 448 web tests,
 coverage enforced at 90% in CI, and the five invariant modules held at 100%
 branch coverage). Open work is tracked honestly in
-[remaining work](docs/plan/remaining-work.md) — mostly items that need the outside
+[remaining work](docs/archive/python-server/plan/remaining-work.md) — mostly items that need the outside
 world (vendor gateways, a live model, a narrated demo video).
 
 > **Desktop edition (2026):** the next edition is an HR-only desktop cockpit built with
@@ -91,7 +91,7 @@ set `HRAGENTS_LLM_MODEL` and the matching provider config — see
 
 No Docker? The API and dashboard run natively against a local PostgreSQL +
 Redis; the Windows/Laragon steps (including the pgvector extension) are in
-[deployment §7](docs/deployment.md#without-docker).
+[deployment §7](docs/archive/python-server/deployment.md#without-docker).
 
 Logs: `docker compose logs -f api worker`. Stop: `docker compose down`.
 Data survives; `docker compose down -v` deletes it.
@@ -114,7 +114,7 @@ flowchart LR
 ```
 
 The reasoning behind this split, and the exact automation bounds, are in
-[`docs/architecture/`](docs/architecture/) and the rendered
+[`docs/archive/python-server/architecture/`](docs/archive/python-server/architecture/) and the rendered
 [docs site](https://davinakmalyasha.github.io/HRAgents/).
 
 ## A look inside
@@ -170,7 +170,7 @@ Every step lands on a hash-chained audit log. Every score cites its evidence.
 > regression vector is engineering. The knowledge corpus behind "Ask HR" is a seed
 > set, not an Indonesian HR library. Live-model fairness and cost-per-application
 > are unproven: CI exercises the harness with the deterministic offline model.
-> See [remaining work](docs/plan/remaining-work.md) for the full picture.
+> See [remaining work](docs/archive/python-server/plan/remaining-work.md) for the full picture.
 
 ### Core formulas (locked)
 
@@ -240,20 +240,20 @@ reference — is at **<https://davinakmalyasha.github.io/HRAgents/>**. The same
 sources live here:
 
 - [Master build plan](docs/plan/master-build-plan.md) — the full checklist: phases, departments, progress
-- [Remaining work](docs/plan/remaining-work.md) — the honest backlog: live-model evals, vendor connectors, and deliberate deferrals
-- [Release process](docs/plan/release-process.md) — versioning, branching, how releases are cut
+- [Remaining work](docs/archive/python-server/plan/remaining-work.md) — the honest backlog: live-model evals, vendor connectors, and deliberate deferrals
+- [Release process](docs/archive/python-server/plan/release-process.md) — versioning, branching, how releases are cut
 - [Architecture decisions (ADRs)](docs/adr/README.md) — the reasoning behind the locked choices
 - [Problem statement](docs/plan/problem-statement.md) — the systemic problem this exists to solve
 - [Product concept](docs/plan/product-concept.md) — value, workspaces, dashboard UX, design system
 - [HR domain guide](docs/plan/hr-domain-guide.md) — how HR actually works, Indonesian specifics, glossary
 - [Literature review](docs/research/literature-review.md) — evidence base and design principles
-- [System architecture](docs/architecture/system-architecture.md) — pipeline, HITL flows, Mermaid diagrams
-- [Paper](docs/paper.md) — design, measured behaviour and honest limitations
-- [Deployment & operations](docs/deployment.md) — self-host with Docker Compose, backups, runbooks
-- [MCP server](docs/mcp-server.md) — `hragents-mcp` for Claude Desktop and IDE agents, read-only by default
-- [MCP connector catalog](docs/mcp-catalog.md) — ATS, HRIS, Slack and calendar templates with data-flow notes
-- [HITL bounds](docs/architecture/hitl-bounds.md) — exact automation boundaries and anti-goals
-- [Benchmarks](docs/architecture/benchmarks.md) — measured performance
+- [System architecture](docs/archive/python-server/architecture/system-architecture.md) — pipeline, HITL flows, Mermaid diagrams
+- [Paper](docs/archive/python-server/paper.md) — design, measured behaviour and honest limitations
+- [Deployment & operations](docs/archive/python-server/deployment.md) — self-host with Docker Compose, backups, runbooks
+- [MCP server](docs/archive/python-server/mcp-server.md) — `hragents-mcp` for Claude Desktop and IDE agents, read-only by default
+- [MCP connector catalog](docs/archive/python-server/mcp-catalog.md) — ATS, HRIS, Slack and calendar templates with data-flow notes
+- [HITL bounds](docs/archive/python-server/architecture/hitl-bounds.md) — exact automation boundaries and anti-goals
+- [Benchmarks](docs/archive/python-server/architecture/benchmarks.md) — measured performance
 
 ## Roadmap
 
@@ -285,7 +285,7 @@ sources live here:
       connector-template catalog); vendor-specific live connectors stay open — they
       need real gateway endpoints, not invented ones
 - [x] Evaluation dataset (50 profiles + edge cases), offline suite, live-capable fairness
-      comparison, and the [technical paper](docs/paper.md)
+      comparison, and the [technical paper](docs/archive/python-server/paper.md)
 - [x] Self-host setup script, demo dataset, docs site, and public releases (Apache-2.0)
 
 ## Technology
@@ -296,7 +296,7 @@ shadcn/ui + PWA
 
 **Storage:** PostgreSQL is the production system of record — JSONB for profiles and
 document bytes, ACID + row-level security for compliance. SQLite is only the in-memory
-test engine. Rationale: [data storage decisions](docs/architecture/data-storage.md).
+test engine. Rationale: [data storage decisions](docs/archive/python-server/architecture/data-storage.md).
 Documents currently live in Postgres (`candidate_documents`, 10 MiB cap) rather than
 S3/MinIO; the `storage` provider exists but is not yet wired to the document path.
 
@@ -318,7 +318,7 @@ npm run dev      # http://localhost:5173/app/ — proxies /v1 to localhost:8000
 ```
 
 The static build (`npm run build`) is served by FastAPI at `/app` when `web/dist`
-exists; the checked-in OpenAPI spec (`docs/api/openapi.json`) is regenerated with
+exists; the checked-in OpenAPI spec (`docs/archive/python-server/api/openapi.json`) is regenerated with
 `uv run python scripts/export_openapi.py` and the typed client with
 `npm run api:generate`.
 

@@ -1,7 +1,8 @@
 """Fully offline operation — the provider set, and that it stays credential-free.
 
-`docs/deployment.md` §8 tells an operator how to keep candidate and employee data
-on the machine. A documented configuration is one edit away from being wrong, so
+The archived server guide (`docs/archive/python-server/deployment.md` §8) tells
+an operator how to keep candidate and employee data on the machine. A
+documented configuration is one edit away from being wrong, so
 these tests hold the two halves together: every provider id the section names
 exists in the registry with the capability it claims, and the set resolves with
 no secret anywhere in it.
@@ -19,7 +20,7 @@ from hr_agents.providers.registry import default_registry
 from hr_agents.providers.settings import resolve_provider_settings
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-DEPLOYMENT_DOC = REPO_ROOT / "docs" / "deployment.md"
+DEPLOYMENT_DOC = REPO_ROOT / "docs" / "archive" / "python-server" / "deployment.md"
 
 OFFLINE_ENV = {
     "HRAGENTS_PROVIDER_LLM": "llm.ollama",
