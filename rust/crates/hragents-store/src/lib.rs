@@ -46,7 +46,7 @@ pub mod rotation;
 
 const SCHEMA: &str = include_str!("../migrations/0001_init.sql");
 const INDEXES: &str = include_str!("../migrations/0002_indexes.sql");
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -77,6 +77,16 @@ impl From<hragents_core::money::MoneyError> for StoreError {
 }
 
 pub type StoreResult<T> = Result<T, StoreError>;
+
+/// Outcome of one transactional `import_employees` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ImportReport {
+    pub inserted: usize,
+    pub skipped: usize,
+    pub managers_linked: usize,
+    pub managers_unresolved: usize,
+    pub already_imported: bool,
+}
 
 fn remove_if_exists(path: &Path) -> StoreResult<()> {
     match std::fs::remove_file(path) {
@@ -282,6 +292,36 @@ impl Store {
             tx.pragma_update(None, "user_version", 2)?;
             tx.commit()?;
         }
+        if version < 3 {
+            let tx = self
+                .conn
+                .transaction_with_behavior(TransactionBehavior::Immediate)?;
+            // The v1 `import_runs` job table predates the export importer.
+            // Evolve it in place; guards keep a re-run (e.g. a test that
+            // resets user_version) from failing on existing columns.
+            for (column, declaration) in [
+                ("source_hash", "TEXT"),
+                ("source_format", "TEXT NOT NULL DEFAULT 'hragents-export/1'"),
+                ("tables_json", "TEXT NOT NULL DEFAULT '{}'"),
+            ] {
+                if !column_exists(&tx, "import_runs", column)? {
+                    tx.execute_batch(&format!(
+                        "ALTER TABLE import_runs ADD COLUMN {column} {declaration}"
+                    ))?;
+                }
+            }
+            tx.execute_batch(
+                "CREATE UNIQUE INDEX IF NOT EXISTS import_runs_source_hash_idx
+                 ON import_runs(source_hash) WHERE source_hash IS NOT NULL;",
+            )?;
+            let now = UtcInstant::now().millis();
+            tx.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (3, ?1)",
+                params![now],
+            )?;
+            tx.pragma_update(None, "user_version", 3)?;
+            tx.commit()?;
+        }
         Ok(())
     }
 
@@ -410,6 +450,149 @@ impl Store {
             .query_row("SELECT COUNT(*) FROM operator", [], |row| row.get(0))?)
     }
 
+    /// Import employees from a `hragents-export/1` file in one transaction.
+    /// Rows are idempotent on the natural key `employee_no`: re-importing the
+    /// same file inserts nothing. Managers resolve by natural key because the
+    /// Python UUIDs are preserved as row IDs. Fails closed on the first
+    /// invalid row with nothing written.
+    pub fn import_employees(
+        &mut self,
+        rows: &[Employee],
+        actor: &AuditActor,
+        source: &str,
+        source_hash: &str,
+        source_format: &str,
+        created_at: UtcInstant,
+    ) -> StoreResult<ImportReport> {
+        for employee in rows {
+            employee.validate()?;
+        }
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let already: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM import_runs WHERE source_hash = ?1)",
+            params![source_hash],
+            |row| row.get(0),
+        )?;
+        if already {
+            return Ok(ImportReport {
+                inserted: 0,
+                skipped: rows.len(),
+                managers_linked: 0,
+                managers_unresolved: 0,
+                already_imported: true,
+            });
+        }
+        let mut inserted = 0usize;
+        let mut skipped = 0usize;
+        for employee in rows {
+            let changed = tx.execute(
+                "INSERT INTO employees
+                 (id, employee_no, full_name, preferred_name, email, phone, job_title, org_unit,
+                  manager_id, status, hire_date, end_date, birth_date, ptkp_status, dependents,
+                  jkk_risk_class, npwp, bank_name, bank_account, bpjs_kesehatan_no,
+                  bpjs_ketenagakerjaan_no, created_at, updated_at, version)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,1)
+                 ON CONFLICT(employee_no) DO NOTHING",
+                params![
+                    employee.id.to_string(),
+                    employee.employee_no,
+                    employee.full_name,
+                    employee.preferred_name,
+                    employee.email,
+                    employee.phone,
+                    employee.job_title,
+                    employee.org_unit,
+                    employee.manager_id.map(|id| id.to_string()),
+                    employee.status.as_str(),
+                    employee.hire_date.to_string(),
+                    employee.end_date.map(|date| date.to_string()),
+                    employee.birth_date.map(|date| date.to_string()),
+                    employee.ptkp_status,
+                    i64::from(employee.dependents),
+                    employee.jkk_risk_class.map(i64::from),
+                    employee.npwp,
+                    employee.bank_name,
+                    employee.bank_account,
+                    employee.bpjs_kesehatan_no,
+                    employee.bpjs_ketenagakerjaan_no,
+                    employee.created_at.millis(),
+                    employee.updated_at.millis(),
+                ],
+            )?;
+            if changed == 1 {
+                inserted += 1;
+            } else {
+                skipped += 1;
+            }
+        }
+        let mut managers_linked = 0usize;
+        let mut managers_unresolved = 0usize;
+        for employee in rows {
+            let Some(manager_id) = employee.manager_id else {
+                continue;
+            };
+            let exists: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM employees WHERE id = ?1)",
+                params![manager_id.to_string()],
+                |row| row.get(0),
+            )?;
+            if !exists {
+                managers_unresolved += 1;
+                continue;
+            }
+            let changed = tx.execute(
+                "UPDATE employees SET manager_id = ?1, updated_at = ?2 WHERE employee_no = ?3",
+                params![
+                    manager_id.to_string(),
+                    created_at.millis(),
+                    employee.employee_no
+                ],
+            )?;
+            managers_linked += changed;
+        }
+        tx.execute(
+            "INSERT INTO import_runs
+             (id, source, status, rows_read, rows_written, errors_json, started_at,
+              finished_at, source_hash, source_format, tables_json)
+             VALUES (?1, ?2, 'completed', ?3, ?4, '[]', ?5, ?5, ?6, ?7, ?8)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                source,
+                rows.len() as i64,
+                inserted as i64,
+                created_at.millis(),
+                source_hash,
+                source_format,
+                serde_json::json!({"employees": {"inserted": inserted, "skipped": skipped}})
+                    .to_string(),
+            ],
+        )?;
+        Self::append_audit_in(
+            &tx,
+            actor,
+            "employees.imported",
+            "employee",
+            source_hash,
+            &serde_json::json!({
+                "source_hash": source_hash,
+                "inserted": inserted,
+                "skipped": skipped,
+                "managers_linked": managers_linked,
+            }),
+            created_at,
+        )?;
+        tx.commit()?;
+        Ok(ImportReport {
+            inserted,
+            skipped,
+            managers_linked,
+            managers_unresolved,
+            already_imported: false,
+        })
+    }
+
     pub fn set_setting(
         &mut self,
         key: &str,
@@ -441,13 +624,15 @@ impl Store {
     // Audit chain
     // ------------------------------------------------------------------
 
-    pub fn append_audit(
-        &mut self,
+    /// Append one audit entry inside an existing transaction. The caller
+    /// owns commit/rollback; used by multi-table operations like imports.
+    pub fn append_audit_in(
+        tx: &rusqlite::Transaction<'_>,
         actor: &AuditActor,
         action: &str,
         subject_type: &str,
         subject_id: &str,
-        payload: serde_json::Value,
+        payload: &serde_json::Value,
         created_at: UtcInstant,
     ) -> StoreResult<AuditEntry> {
         // Instants persist at millisecond precision. Normalise before hashing,
@@ -455,9 +640,6 @@ impl Store {
         // reproduce and every verification after restart fails.
         let created_at = UtcInstant::from_millis(created_at.millis())
             .map_err(|error| StoreError::Corrupt(error.to_string()))?;
-        let tx = self
-            .conn
-            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let head: Option<(i64, String)> = tx
             .query_row(
                 "SELECT seq, entry_hash FROM audit_log ORDER BY seq DESC LIMIT 1",
@@ -473,7 +655,7 @@ impl Store {
             action,
             subject_type,
             subject_id,
-            &payload,
+            payload,
             created_at,
         )?;
         let entry = AuditEntry {
@@ -505,6 +687,34 @@ impl Store {
                 prev_hash,
                 entry_hash
             ],
+        )?;
+        Ok(entry)
+    }
+
+    pub fn append_audit(
+        &mut self,
+        actor: &AuditActor,
+        action: &str,
+        subject_type: &str,
+        subject_id: &str,
+        payload: serde_json::Value,
+        created_at: UtcInstant,
+    ) -> StoreResult<AuditEntry> {
+        let entry_actor = actor.clone();
+        let entry_action = action.to_owned();
+        let entry_subject_type = subject_type.to_owned();
+        let entry_subject_id = subject_id.to_owned();
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let entry = Self::append_audit_in(
+            &tx,
+            &entry_actor,
+            &entry_action,
+            &entry_subject_type,
+            &entry_subject_id,
+            &payload,
+            created_at,
         )?;
         tx.commit()?;
         Ok(entry)
@@ -3712,7 +3922,7 @@ mod tests {
     #[test]
     fn schema_migrates_and_reports_version() {
         let store = store();
-        assert_eq!(store.schema_version().unwrap(), 2);
+        assert_eq!(store.schema_version().unwrap(), 3);
         assert_eq!(store.integrity_check().unwrap(), "ok");
         assert_eq!(store.query_count("employees").unwrap(), 0);
     }
@@ -3782,13 +3992,24 @@ mod tests {
                  ALTER TABLE growth_assignments DROP COLUMN sent_at;
                  ALTER TABLE growth_assignments DROP COLUMN submitted_at;
                  ALTER TABLE offboarding_plans DROP COLUMN final_pay_run_id;
-                 DELETE FROM schema_migrations WHERE version = 2;
+                 DELETE FROM schema_migrations WHERE version IN (2, 3);
                  PRAGMA user_version = 1;",
             )
             .unwrap();
         assert_eq!(store.schema_version().unwrap(), 1);
         store.migrate().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 2);
+        assert_eq!(store.schema_version().unwrap(), 3);
+        let evolved: Vec<String> = store
+            .conn
+            .prepare("PRAGMA table_info(import_runs)")
+            .unwrap()
+            .query_map([], |row| row.get(1))
+            .unwrap()
+            .collect::<Result<Vec<String>, _>>()
+            .unwrap();
+        for column in ["source_hash", "source_format", "tables_json"] {
+            assert!(evolved.iter().any(|name| name == column), "{column}");
+        }
         for (table, column) in [
             ("growth_assignments", "reviewer_email"),
             ("growth_assignments", "created_at"),

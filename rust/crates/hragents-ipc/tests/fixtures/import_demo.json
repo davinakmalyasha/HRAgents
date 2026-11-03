@@ -1,0 +1,371 @@
+{
+  "data": {
+    "applications": {
+      "count": 0,
+      "rows": []
+    },
+    "approvals": {
+      "count": 0,
+      "rows": []
+    },
+    "audit_log": {
+      "count": 0,
+      "rows": []
+    },
+    "breach_incidents": {
+      "count": 0,
+      "rows": []
+    },
+    "candidate_communications": {
+      "count": 0,
+      "rows": []
+    },
+    "candidate_documents": {
+      "count": 0,
+      "rows": []
+    },
+    "candidate_replies": {
+      "count": 0,
+      "rows": []
+    },
+    "candidates": {
+      "count": 0,
+      "rows": []
+    },
+    "chat_conversations": {
+      "count": 0,
+      "rows": []
+    },
+    "compliance_calendar_entries": {
+      "count": 0,
+      "rows": []
+    },
+    "consent_records": {
+      "count": 0,
+      "rows": []
+    },
+    "contracts": {
+      "count": 0,
+      "rows": []
+    },
+    "conversations": {
+      "count": 0,
+      "rows": []
+    },
+    "credential_registries": {
+      "count": 0,
+      "rows": []
+    },
+    "email_application_drafts": {
+      "count": 0,
+      "rows": []
+    },
+    "employee_documents": {
+      "count": 0,
+      "rows": []
+    },
+    "employees": {
+      "count": 3,
+      "rows": [
+        {
+          "created_at": "2025-01-10T00:00:00",
+          "email": "rina@example.test",
+          "emergency_contact": null,
+          "employee_number": "E-001",
+          "full_name": "Rina Kartika",
+          "hire_date": "2024-02-01",
+          "id": "4392879a-d635-4c92-9fa2-948c6454b44c",
+          "job_title": "HR Manager",
+          "manager_id": null,
+          "offboarded_on": null,
+          "org_unit_id": "11111111-1111-4111-8111-111111111111",
+          "phone": null,
+          "probation_end_date": null,
+          "status": "active",
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "updated_at": "2025-01-10T00:00:00",
+          "version": 0,
+          "work_location": null
+        },
+        {
+          "created_at": "2025-06-01T00:00:00",
+          "email": "dimas@example.test",
+          "emergency_contact": null,
+          "employee_number": "E-002",
+          "full_name": "Dimas Pratama",
+          "hire_date": "2025-06-01",
+          "id": "f3ba0399-60ae-42fb-98b3-4afee9d16827",
+          "job_title": "Backend Engineer",
+          "manager_id": "4392879a-d635-4c92-9fa2-948c6454b44c",
+          "offboarded_on": null,
+          "org_unit_id": "11111111-1111-4111-8111-111111111111",
+          "phone": "+62 812 0000 0001",
+          "probation_end_date": null,
+          "status": "probation",
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "updated_at": "2025-06-01T00:00:00",
+          "version": 0,
+          "work_location": null
+        },
+        {
+          "created_at": "2025-01-10T00:00:00",
+          "email": null,
+          "emergency_contact": null,
+          "employee_number": "E-003",
+          "full_name": "Sari Wulandari",
+          "hire_date": "2023-03-15",
+          "id": "bd401527-4e02-4a0a-984e-66581c5a2260",
+          "job_title": "Product Designer",
+          "manager_id": "4392879a-d635-4c92-9fa2-948c6454b44c",
+          "offboarded_on": null,
+          "org_unit_id": "22222222-2222-4222-8222-222222222222",
+          "phone": null,
+          "probation_end_date": null,
+          "status": "notice_period",
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "updated_at": "2025-01-10T00:00:00",
+          "version": 0,
+          "work_location": null
+        }
+      ]
+    },
+    "erasure_requests": {
+      "count": 0,
+      "rows": []
+    },
+    "evaluation_overrides": {
+      "count": 0,
+      "rows": []
+    },
+    "evaluations": {
+      "count": 0,
+      "rows": []
+    },
+    "feedback_reports": {
+      "count": 0,
+      "rows": []
+    },
+    "goals": {
+      "count": 0,
+      "rows": []
+    },
+    "jobs": {
+      "count": 0,
+      "rows": []
+    },
+    "leave_adjustments": {
+      "count": 0,
+      "rows": []
+    },
+    "leave_holidays": {
+      "count": 0,
+      "rows": []
+    },
+    "leave_policies": {
+      "count": 0,
+      "rows": []
+    },
+    "leave_requests": {
+      "count": 0,
+      "rows": []
+    },
+    "llm_usage": {
+      "count": 0,
+      "rows": []
+    },
+    "mcp_servers": {
+      "count": 0,
+      "rows": []
+    },
+    "messages": {
+      "count": 0,
+      "rows": []
+    },
+    "offboarding_assets": {
+      "count": 0,
+      "rows": []
+    },
+    "offboarding_plans": {
+      "count": 0,
+      "rows": []
+    },
+    "offboarding_templates": {
+      "count": 0,
+      "rows": []
+    },
+    "offer_revisions": {
+      "count": 0,
+      "rows": []
+    },
+    "offers": {
+      "count": 0,
+      "rows": []
+    },
+    "onboarding_plans": {
+      "count": 0,
+      "rows": []
+    },
+    "onboarding_templates": {
+      "count": 0,
+      "rows": []
+    },
+    "org_units": {
+      "count": 2,
+      "rows": [
+        {
+          "cost_center": "CC-100",
+          "created_at": "2025-01-10T00:00:00",
+          "id": "11111111-1111-4111-8111-111111111111",
+          "name": "Product",
+          "parent_id": null,
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "version": 0
+        },
+        {
+          "cost_center": null,
+          "created_at": "2025-01-10T00:00:00",
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "Design",
+          "parent_id": null,
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "version": 0
+        }
+      ]
+    },
+    "payroll_lines": {
+      "count": 0,
+      "rows": []
+    },
+    "payroll_runs": {
+      "count": 0,
+      "rows": []
+    },
+    "pending_approval_syncs": {
+      "count": 0,
+      "rows": []
+    },
+    "provider_settings": {
+      "count": 0,
+      "rows": []
+    },
+    "purge_jobs": {
+      "count": 0,
+      "rows": []
+    },
+    "push_subscriptions": {
+      "count": 0,
+      "rows": []
+    },
+    "rate_tables": {
+      "count": 0,
+      "rows": []
+    },
+    "retention_policies": {
+      "count": 0,
+      "rows": []
+    },
+    "retention_records": {
+      "count": 0,
+      "rows": []
+    },
+    "review_assignments": {
+      "count": 0,
+      "rows": []
+    },
+    "review_cycles": {
+      "count": 0,
+      "rows": []
+    },
+    "review_summaries": {
+      "count": 0,
+      "rows": []
+    },
+    "rubric_versions": {
+      "count": 0,
+      "rows": []
+    },
+    "schedule_proposals": {
+      "count": 0,
+      "rows": []
+    },
+    "scheduling_availability": {
+      "count": 0,
+      "rows": []
+    },
+    "tasks": {
+      "count": 0,
+      "rows": []
+    },
+    "workspace_requests": {
+      "count": 0,
+      "rows": []
+    }
+  },
+  "manifest": {
+    "excluded": [
+      "binary attachments in object storage (export the bucket separately)",
+      "provider-side data held by the integrations the operator configured"
+    ],
+    "exported_at": "2026-01-15T09:00:00",
+    "exported_by": "fixture-generator",
+    "format": "hragents-export/1",
+    "snapshot": "one read transaction per table; the export is not a single point in time",
+    "tables": [
+      "applications",
+      "approvals",
+      "audit_log",
+      "breach_incidents",
+      "candidate_communications",
+      "candidate_documents",
+      "candidate_replies",
+      "candidates",
+      "chat_conversations",
+      "compliance_calendar_entries",
+      "consent_records",
+      "contracts",
+      "conversations",
+      "credential_registries",
+      "email_application_drafts",
+      "employee_documents",
+      "employees",
+      "erasure_requests",
+      "evaluation_overrides",
+      "evaluations",
+      "feedback_reports",
+      "goals",
+      "jobs",
+      "leave_adjustments",
+      "leave_holidays",
+      "leave_policies",
+      "leave_requests",
+      "llm_usage",
+      "mcp_servers",
+      "messages",
+      "offboarding_assets",
+      "offboarding_plans",
+      "offboarding_templates",
+      "offer_revisions",
+      "offers",
+      "onboarding_plans",
+      "onboarding_templates",
+      "org_units",
+      "payroll_lines",
+      "payroll_runs",
+      "pending_approval_syncs",
+      "provider_settings",
+      "purge_jobs",
+      "push_subscriptions",
+      "rate_tables",
+      "retention_policies",
+      "retention_records",
+      "review_assignments",
+      "review_cycles",
+      "review_summaries",
+      "rubric_versions",
+      "schedule_proposals",
+      "scheduling_availability",
+      "tasks",
+      "workspace_requests"
+    ]
+  }
+}

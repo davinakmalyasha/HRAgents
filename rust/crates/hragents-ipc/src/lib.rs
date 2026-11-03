@@ -31,6 +31,7 @@ pub mod backup_set;
 mod compliance_services;
 mod growth_services;
 mod hiring_services;
+pub mod import;
 pub mod scheduler;
 
 pub use compliance_services::RetentionDueItem;
@@ -3289,6 +3290,124 @@ mod tests {
 
     #[cfg(feature = "sqlcipher")]
     #[test]
+    fn import_employees_dry_run_then_commit_is_idempotent() {
+        use crate::import;
+        use std::io::Write;
+
+        let fixture = include_str!("../tests/fixtures/import_demo.json");
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("export.json");
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(fixture.as_bytes())
+            .unwrap();
+
+        // Dry-run validates and reports without touching the database.
+        let outcome = import::dry_run(&file).unwrap();
+        assert!(!outcome.committed);
+        assert!(outcome.tables.iter().all(|table| table.errors.is_empty()));
+        let employees = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "employees")
+            .unwrap();
+        assert_eq!(employees.rows, 3);
+        assert!(
+            outcome
+                .skipped_tables
+                .iter()
+                .any(|table| table.table == "approvals")
+        );
+
+        // Commit into a fresh encrypted database.
+        let db = dir.path().join("hragents.db");
+        let key = hragents_store::keyfile::generate_key().unwrap();
+        let mut service = AppService::open_encrypted(&db, &key).unwrap();
+        let outcome = import::commit(service.store_mut(), &file, "test-fixture").unwrap();
+        assert!(outcome.committed);
+        assert_eq!(outcome.managers_linked, 2);
+        assert_eq!(outcome.managers_unresolved, 0);
+        assert!(!outcome.already_imported);
+
+        let list = service.store().list_employees().unwrap();
+        assert_eq!(list.len(), 3);
+        let by_no: std::collections::BTreeMap<_, _> = list
+            .iter()
+            .map(|employee| (employee.employee_no.as_str(), employee))
+            .collect();
+        assert_eq!(by_no["E-001"].full_name, "Rina Kartika");
+        assert_eq!(by_no["E-001"].org_unit, "Product");
+        assert_eq!(by_no["E-002"].org_unit, "Product");
+        assert_eq!(by_no["E-003"].org_unit, "Design");
+        assert!(by_no["E-001"].manager_id.is_none());
+        assert_eq!(by_no["E-002"].manager_id, Some(by_no["E-001"].id));
+        assert_eq!(by_no["E-003"].manager_id, Some(by_no["E-001"].id));
+        assert!(
+            service
+                .store()
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "employees.imported")
+        );
+
+        // Re-running the same file is a no-op.
+        let again = import::commit(service.store_mut(), &file, "test-fixture").unwrap();
+        assert!(again.already_imported);
+        assert!(!again.committed);
+        assert_eq!(service.store().list_employees().unwrap().len(), 3);
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn import_rejects_bad_rows_without_writing() {
+        use crate::import;
+        use std::io::Write;
+
+        let fixture = include_str!("../tests/fixtures/import_demo.json");
+        let mut document: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let employees = document
+            .get_mut("data")
+            .unwrap()
+            .get_mut("employees")
+            .unwrap()
+            .get_mut("rows")
+            .unwrap()
+            .as_array_mut()
+            .unwrap();
+        employees[0]["status"] = serde_json::Value::String("superstar".into());
+        employees[1]["org_unit_id"] =
+            serde_json::Value::String("00000000-0000-4000-8000-000000000099".into());
+        employees[2].as_object_mut().unwrap().remove("hire_date");
+
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("bad-export.json");
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(serde_json::to_string(&document).unwrap().as_bytes())
+            .unwrap();
+
+        let outcome = import::dry_run(&file).unwrap();
+        assert!(!outcome.committed);
+        let table = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "employees")
+            .unwrap();
+        assert_eq!(table.errors.len(), 3);
+
+        let db = dir.path().join("hragents.db");
+        let key = hragents_store::keyfile::generate_key().unwrap();
+        let mut service = AppService::open_encrypted(&db, &key).unwrap();
+        let before = service.store().query_count("employees").unwrap();
+        let refused = import::commit(service.store_mut(), &file, "bad-fixture").unwrap();
+        assert!(!refused.committed);
+        assert!(!refused.tables.is_empty());
+        assert_eq!(service.store().query_count("employees").unwrap(), before);
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
     fn key_rotation_rekeys_database_and_documents() {
         let dir = tempfile::tempdir().unwrap();
         let db = dir.path().join("hragents.db");
@@ -3453,7 +3572,7 @@ mod tests {
             service.company_name().unwrap().as_deref(),
             Some("Nusantara Labs")
         );
-        assert_eq!(service.store().schema_version().unwrap(), 2);
+        assert_eq!(service.store().schema_version().unwrap(), 3);
         assert!(AppService::open_encrypted(&db, "wrong key").is_err());
 
         assert!(service.recovery_key("wrong password").is_err());

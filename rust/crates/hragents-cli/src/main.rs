@@ -25,6 +25,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("restore") => restore(&args[1..]),
         Some("rewrap") => rewrap(&args[1..]),
         Some("backup-set") => backup_set(&args[1..]),
+        Some("import") => import(&args[1..]),
         Some("bench") => bench(&args[1..]),
         Some("restore-set") => restore_set(&args[1..]),
         Some("--version") | Some("-V") => {
@@ -47,6 +48,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "  hragents-cli restore-set <archive.hrbackup> <data-dir> [--key <recovery-key>]"
             );
+            println!("  hragents-cli import <export.json> [--commit]");
+            println!("    dry-run by default; --commit writes in one transaction");
             println!("  hragents-cli rewrap <data-dir> --key <recovery-key>");
             println!("    verify the encrypted database, then re-protect the key for this OS user");
             println!("    verify-first; refuse to overwrite a newer live DB without --force;");
@@ -414,6 +417,62 @@ fn bench(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         )
     );
     Ok(())
+}
+
+fn import(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let file = positional(args, 0)?;
+    let commit = args.iter().any(|arg| arg == "--commit");
+    if commit {
+        let db = std::env::var("HRAGENTS_DB")
+            .map(PathBuf::from)
+            .map_err(|_| "--commit needs HRAGENTS_DB set to the target database")?;
+        let data_dir = db.parent().unwrap_or_else(|| Path::new("."));
+        let key = match parse_key(args)? {
+            Some(key) => key,
+            // Same rule as the desktop shell: create the install key when the
+            // database is new or plaintext, fail closed otherwise.
+            None => hragents_store::keyfile::unlock_key_for(data_dir, &db)?,
+        };
+        let mut store = open_store(&db, Some(&key))?;
+        let outcome = hragents_ipc::import::commit(&mut store, &file, &file.display().to_string())?;
+        print_import_outcome(&outcome);
+    } else {
+        let outcome = hragents_ipc::import::dry_run(&file)?;
+        print_import_outcome(&outcome);
+    }
+    Ok(())
+}
+
+fn print_import_outcome(outcome: &hragents_ipc::import::ImportOutcome) {
+    let mode = if outcome.committed {
+        "committed"
+    } else if outcome.already_imported {
+        "already imported, no changes"
+    } else {
+        "dry-run"
+    };
+    println!("import {} ({mode})", outcome.source_hash);
+    for table in &outcome.tables {
+        println!(
+            "  {}: {} rows, {} inserted, {} skipped",
+            table.table, table.rows, table.inserted, table.skipped
+        );
+        for error in &table.errors {
+            println!("    error: {error}");
+        }
+    }
+    for skipped in &outcome.skipped_tables {
+        println!(
+            "  {}: {} rows (not imported in this slice)",
+            skipped.table, skipped.rows
+        );
+    }
+    if outcome.already_imported {
+        println!("  already imported: no changes");
+    }
+    if outcome.managers_unresolved > 0 {
+        println!("  managers unresolved: {}", outcome.managers_unresolved);
+    }
 }
 
 fn backup_set(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {

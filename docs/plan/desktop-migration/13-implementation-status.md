@@ -51,6 +51,8 @@ actually prove, and what is still open. It is updated at every merge.
 | WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
 | SQLCipher database encryption | **Enabled in the desktop build** | `Store::open_encrypted`, `apps/desktop` enables the feature |
 | Per-install key | **32 random bytes; DPAPI-wrapped on Windows, mode 0600 elsewhere** | `hragents-store/src/keyfile.rs` |
+| Python export import (slice 1) | **Done: org_units + employees, dry-run default, idempotent commit** | `hragents-ipc/src/import.rs`, `hragents-cli import` |
+| Export fixture | **Done: real `hragents-export/1` from seeded SQLite, 55 tables** | `scripts/make_import_fixture.py`, `import_demo.json` |
 | Recovery-key export | **Reauth + password gated, audited, no key in audit payload** | `AppService::recovery_key` |
 | Pre-login recovery screen | **Accepts the 64-hex key, verifies the DB + operator, rewraps, audits** | `screens/Recovery.tsx`, `recover_encrypted_database` |
 | Key rewrap / recovery | **Rewrap the same key for the current OS user; CLI `rewrap` for another machine** | `AppService::rewrap_install_key`, CLI |
@@ -91,10 +93,10 @@ cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
 cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl transplant)
   24 passed, including encrypted reopen, wrong-key rejection, raw 256-bit key,
   plaintext-to-encrypted migration, encrypted backup round-trip, key rewrap,
-  full rotation, and both crash-resume scenarios
+  full rotation, both crash-resume scenarios, and the v3 import_runs evolution
 
 cargo test -p hragents-ipc --features sqlcipher
-  28 passed, 1 ignored; the encryption/recovery tests cover:
+  30 passed, 1 ignored; the encryption/recovery/import tests cover:
   plaintext DB + document -> key file -> encrypted reopen -> login ->
   encrypted document read -> encrypted backup -> reopen backup
 
@@ -118,6 +120,8 @@ recovery and full-set CLI drill:
   key rotation: old key fails, new key opens, document re-encrypted, audited
   interrupted rotation: DB rekeyed + documents old + key old -> resume finishes;
   corrupted rekey -> pre-rotation backup restored and rekeyed
+  import: dry-run validates 3 employees + reports 50+ skipped tables; commit inserts
+  3 with 2 manager links and 1 audit entry; re-run is a no-op; bad rows fail closed
   payslip: earnings/deductions/employer shares reconcile to the stored line;
   unknown employee rejected; payslip.viewed audited
 
@@ -210,6 +214,7 @@ the same gates; it is a review surface, not a second implementation.
 | **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction (TXT/PDF/DOCX), recorded provider replay, 4-dimension score/σ parity, evidence, gate, rejection, scheduling, offers, messaging, and candidate-safe feedback pass core/store/IPC/Tauri/UI tests. A live provider key is optional and untested. |
 | **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export; payslip | **Pass on the dev slice.** Monthly, THR, BPJS, overtime, PPh 21, and absence cases match the Python oracle to the sen, including a deterministic 1,000-line run. Python does not model severance or leave payout; Rust matches its final wage component and tests the additive extension separately. Tables gate, anomalies, sign-off, immutability, XLSX export, and payslips are covered. |
 | **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval pass core/store/IPC/Tauri/UI tests. |
+| **G4** data migration | `hragents-export/1` JSON → SQLite, dry-run first | **Slice 1 done.** org_units + employees import with natural-key manager links, one transaction, idempotent re-runs, audited. Leave, payroll, and audit-history tables are future slices; direct Postgres stays out of scope until a live source exists. |
 | **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started by design.** The migration plan forbids removing Python until the first release cut; the free edition changes distribution, not the parity contract. |
 | **G6** installable free build + recovery | Per-user installer, backup/restore drill, rollback, no paid dependency | **Pass for the free edition.** NSIS installs per-user without admin, data survives uninstall, backup/restore drill is green, audit exports, and nothing requires a certificate, paid account, hosted update server, or telemetry. Commercial signing/notarization is a future paid-distribution decision, not a gate. Pilot remains a human step. |
 
@@ -229,7 +234,7 @@ missing evidence exists.
    tested; no production key is configured and there is no streaming UI. The
    offline extractor stays the default.
 2. **Python removal** — deferred to the release cut by the migration plan.
-3. **Import from the existing Postgres product** — not implemented.
+3. **Import from the existing Postgres product** — JSON slice 1 (org_units + employees) is done and drilled; leave/payroll/audit tables and the direct-Postgres path are still missing.
 4. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
    signed auto-update feed are out of scope for this free edition.
 5. **Pilot** — needs real companies and a named human reviewer.
