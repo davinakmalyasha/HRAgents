@@ -51,6 +51,21 @@ outside those slices are reported with their row counts, never silently
 dropped. Details: `scripts/export_legacy.py` and the
 [implementation status](plan/desktop-migration/13-implementation-status.md).
 
+## 6. Live provider key (optional)
+
+Extraction works offline out of the box. To use a hosted model (any
+OpenAI-compatible endpoint, including OpenCode Go), put the key in the
+**shell's** environment — `.env` files are not read automatically:
+
+```bash
+export OPENCODE_API_KEY='paste-key-here'
+```
+
+(`set -a; source .env; set +a` loads the repo `.env` for the session instead.
+The desktop app and `cargo` never read `.env` themselves; docker compose and
+the Python provider layer do, which is the whole confusion — see
+`.env.example`.)
+
 ## Next
 
 - [Product scope](plan/desktop-migration/00-product-scope.md) — who it serves
