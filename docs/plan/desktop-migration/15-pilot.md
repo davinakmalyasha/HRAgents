@@ -16,7 +16,7 @@ No pilot starts until the entry criteria in §1 are all green.
 | E3 | Support channel live | Office-hours channel exists (WhatsApp group or email), named support contact, response-time promise (§6); backup-verification cadence agreed |
 | E4 | Demo company + first-run wizard tested with a non-technical user | Install → first record < 5 min observed, zero terminal use |
 | E5 | Accountant-reviewed payroll packet | One XLSX review packet from demo data reviewed and accepted by an accountant (no software cost) |
-| E6 | Diagnostic-bundle PII check | Fixture test confirms `.hrdiag` contains no PII/secrets before any upload is enabled |
+| E6 | Diagnostic-bundle PII check | Fixture test confirms `hragents-cli diag` output contains no PII/secrets (names, emails, account numbers, company) before any bundle is pasted into support |
 
 If any row is red, recruiting does not start. Unsigned smoke builds from
 `release-desktop.yml` are never pilot builds.
@@ -76,9 +76,9 @@ output, payroll timestamps). A target with no recorded evidence counts as missed
   never sent over the support channel.
 - Backups: daily automatic (keep 7) plus manual `.hrbackup` export before any
   update, restore, rekey, or erasure. Each backup is verified at creation.
-- Support never asks for the database password or recovery key. Diagnostic
-  bundles (`.hrdiag`) are PII-free by fixture test before upload; nothing
-  uploads without operator consent.
+- Support never asks for the database password or recovery key. `diag` bundles
+  are PII-free by fixture test; nothing is pasted into support without
+  operator consent.
 - **At pilot exit:** the company chooses — (a) keep running on the pilot build
   with continued backup cadence, or (b) verified export of their data plus
   witnessed deletion of the local DB and all backup copies held for the pilot.
@@ -93,7 +93,7 @@ output, payroll timestamps). A target with no recorded evidence counts as missed
   one-line result; support checks daily automatic backups exist (keep 7) at
   each weekly check-in. Any failed verification is a stop-work event until
   resolved.
-- **Incident triage:** (1) capture `.hrdiag` (PII-free); (2) `verify` the live
+- **Incident triage:** (1) paste the `hragents-cli diag <db>` bundle (PII-free by fixture test); (2) `verify` the live
   DB and the latest backup; (3) do not touch the live DB until both results
   are recorded.
 - **Rollback = reinstall + restore verified backup.** There is no in-place

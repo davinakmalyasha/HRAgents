@@ -177,9 +177,10 @@ recommended for shared USB.
   content, CV text, or keys. OS crash dumps are disabled where policy allows.
 - On unclean start: `quick_check`, audit verify, orphaned-job recovery, banner offering diagnostics
   or restore.
-- **Diagnostic bundle** (`.hrdiag`): logs, OS/WebView/app versions, schema and migration history,
-  audit head + last 100 event hashes, redacted config, integrity result, disk space. The user
-  reviews the file list before export; upload is opt-in.
+- **Diagnostic bundle** (`hragents-cli diag`, PII-free by fixture test): app
+  version, schema version, per-table row counts, audit entries + head hash,
+  integrity result, encrypted flag. The user reviews the JSON before pasting
+  it into support. OS/WebView versions and log capture remain planned.
 
 ## 9. Acceptance criteria and risks
 

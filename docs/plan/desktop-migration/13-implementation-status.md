@@ -53,6 +53,10 @@ actually prove, and what is still open. It is updated at every merge.
 | Per-install key | **32 random bytes; DPAPI-wrapped on Windows, mode 0600 elsewhere** | `hragents-store/src/keyfile.rs` |
 | Python export import (slice 1) | **Done: org_units + employees, dry-run default, idempotent commit** | `hragents-ipc/src/import.rs`, `hragents-cli import` |
 | Python export import (slice 2) | **Done: leave policies + leave requests, same guarantees** | `hragents-ipc/src/import.rs`, schema v4 |
+| Python export import (slice 3) | **Done: approved payroll runs with reconciled lines, drafts skipped** | `hragents-ipc/src/import.rs`, schema v4 |
+| Python export import (slice 4) | **Done: audit history re-chained with original hashes preserved** | `hragents-ipc/src/import.rs`, `Store::import_audit` |
+| Legacy database bridge | **Done: read-only `HRAGENTS_DATABASE_URL` → `hragents-export/1` JSON** | `scripts/export_legacy.py` |
+| PII-free diagnostics | **Done: `diag` prints versions, counts, audit head, integrity — no PII** | `AppService::diagnostic_bundle`, `hragents-cli diag` |
 | Export fixture | **Done: real `hragents-export/1` from seeded SQLite, 55 tables** | `scripts/make_import_fixture.py`, `import_demo.json` |
 | Recovery-key export | **Reauth + password gated, audited, no key in audit payload** | `AppService::recovery_key` |
 | Pre-login recovery screen | **Accepts the 64-hex key, verifies the DB + operator, rewraps, audits** | `screens/Recovery.tsx`, `recover_encrypted_database` |
@@ -84,9 +88,9 @@ cargo test --workspace --exclude hragents-desktop
   hragents-core    67 passed
   payroll_parity    8 passed
   python_parity     6 passed
-  hragents-ipc     25 passed, 1 ignored (release benchmark)
+  hragents-ipc     26 passed, 1 ignored (release benchmark)
   hragents-store   18 passed (includes key-file and document-crypto tests)
-  total           141 passed, 2 ignored
+  total           142 passed, 2 ignored
 
 cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
   Finished (no warnings)
@@ -97,7 +101,7 @@ cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl
   full rotation, both crash-resume scenarios, and the v3 import_runs evolution
 
 cargo test -p hragents-ipc --features sqlcipher
-  33 passed, 1 ignored; the encryption/recovery/import tests cover:
+  34 passed, 1 ignored; the encryption/recovery/import/diag tests cover:
   plaintext DB + document -> key file -> encrypted reopen -> login ->
   encrypted document read -> encrypted backup -> reopen backup
 
@@ -123,6 +127,15 @@ recovery and full-set CLI drill:
   corrupted rekey -> pre-rotation backup restored and rekeyed
   import: dry-run validates 3 employees + reports 50+ skipped tables; commit inserts
   3 with 2 manager links and 1 audit entry; re-run is a no-op; bad rows fail closed
+  import slice 4: 3 audit entries re-chained with original hashes preserved;
+  chain verifies natively; bad actor/timestamp/entry-id rows fail closed
+  legacy bridge: `export_legacy.py` against a schema-created SQLite file writes
+  valid `hragents-export/1` (55 tables, 0 rows); the Rust dry-run accepts it
+  with every slice at 0 rows — script output and importer agree on the format
+  without a live Postgres source
+  diagnostics: `diag` on a PII-rich demo DB prints versions, 12 table counts,
+  audit head, and integrity ok; a fixture test asserts none of the seeded
+  names, emails, account numbers, or company names appear in the bundle
   payslip: earnings/deductions/employer shares reconcile to the stored line;
   leave import: 2 policies + 2 requests committed with manager-linked employees;
   drafts skipped, dangling refs and bad enums fail closed with nothing written
@@ -169,6 +182,10 @@ first-paint pass, same 1,000-employee encrypted database, new build:
   down from 1,642 ms on the previous build; a first cold-binary run measured
   3,930 ms and is attributed to OS scan/cache warmup, not the app
   budget 500 ms still not met; WebView2 cold start remains the dominant cost
+  shell fallback: `index.html` now paints a static branded "Opening HRAgents…"
+  inside `#root` (inline styles only, no JS) before the bundle parses, so a
+  cold start shows the brand instead of a blank window; React replaces it on
+  first render. UI build unchanged: index 319.77 kB / 97.31 kB gzip
   packaged app with hragents.key temporarily removed: UI Automation reads
   "Recover this installation", the 64-hex hint, username/password fields, and
   "Recover and sign in"; the DB still verifies encrypted after the key returns
@@ -217,7 +234,7 @@ the same gates; it is a review surface, not a second implementation.
 | **G2** hiring case file | CV → extraction → score → evidence → review → rejection sign-off | **Pass on the dev slice.** Import, offline text extraction (TXT/PDF/DOCX), recorded provider replay, 4-dimension score/σ parity, evidence, gate, rejection, scheduling, offers, messaging, and candidate-safe feedback pass core/store/IPC/Tauri/UI tests. A live provider key is optional and untested. |
 | **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export; payslip | **Pass on the dev slice.** Monthly, THR, BPJS, overtime, PPh 21, and absence cases match the Python oracle to the sen, including a deterministic 1,000-line run. Python does not model severance or leave payout; Rust matches its final wage component and tests the additive extension separately. Tables gate, anomalies, sign-off, immutability, XLSX export, and payslips are covered. |
 | **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval pass core/store/IPC/Tauri/UI tests. |
-| **G4** data migration | `hragents-export/1` JSON → SQLite, dry-run first | **Slices 1–2 done.** Org units + employees, then leave policies + requests, each in one transaction, idempotent re-runs, audited. Payroll and audit-history tables are future slices; direct Postgres stays out of scope until a live source exists. |
+| **G4** data migration | `hragents-export/1` JSON → SQLite, dry-run first | **Slices 1–4 done.** Org units + employees, leave, approved payroll, and audit history (re-chained with original hashes preserved) — each in one transaction, idempotent re-runs, audited. The direct-database path is a read-only bridge: `scripts/export_legacy.py` streams any reachable legacy database (`HRAGENTS_DATABASE_URL`, Postgres in production) to the same JSON format, verified against SQLite; only a live source to run it against is still missing. |
 | **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started by design.** The migration plan forbids removing Python until the first release cut; the free edition changes distribution, not the parity contract. |
 | **G6** installable free build + recovery | Per-user installer, backup/restore drill, rollback, no paid dependency | **Pass for the free edition.** NSIS installs per-user without admin, data survives uninstall, backup/restore drill is green, audit exports, and nothing requires a certificate, paid account, hosted update server, or telemetry. Commercial signing/notarization is a future paid-distribution decision, not a gate. Pilot remains a human step. |
 
@@ -237,7 +254,7 @@ missing evidence exists.
    tested; no production key is configured and there is no streaming UI. The
    offline extractor stays the default.
 2. **Python removal** — deferred to the release cut by the migration plan.
-3. **Import from the existing Postgres product** — JSON slices 1–4 (org units, employees, leave, approved payroll, audit history) are done and drilled; the direct-Postgres path is still missing.
+3. **Import from the existing Postgres product** — JSON slices 1–4 (org units, employees, leave, approved payroll, audit history) are done and drilled, and `scripts/export_legacy.py` streams any reachable legacy database to the same JSON format (verified against SQLite). Only a live source with credentials to run it against is still missing.
 4. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
    signed auto-update feed are out of scope for this free edition.
 5. **Pilot** — needs real companies and a named human reviewer.

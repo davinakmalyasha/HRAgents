@@ -26,6 +26,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("rewrap") => rewrap(&args[1..]),
         Some("backup-set") => backup_set(&args[1..]),
         Some("import") => import(&args[1..]),
+        Some("diag") => diag(&args[1..]),
         Some("bench") => bench(&args[1..]),
         Some("restore-set") => restore_set(&args[1..]),
         Some("--version") | Some("-V") => {
@@ -53,6 +54,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!("    --commit writes employees then leave, each in one transaction");
             println!("  hragents-cli rewrap <data-dir> --key <recovery-key>");
             println!("    verify the encrypted database, then re-protect the key for this OS user");
+            println!("  hragents-cli diag <db-path> [--key <key> | --key-file <path>]");
+            println!("    PII-free support bundle: versions, row counts, audit head, integrity");
             println!("    verify-first; refuse to overwrite a newer live DB without --force;");
             println!("    snapshot live DB to <db-path>.pre-restore-<epoch> before swap");
             println!(
@@ -290,6 +293,20 @@ fn verify(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         "encrypted: {}",
         if store.is_encrypted() { "yes" } else { "no" }
     );
+    Ok(())
+}
+
+/// PII-free diagnostic bundle for the support channel (pilot entry E6).
+///
+/// Only versions, row counts, the audit head hash, and integrity status cross
+/// the support boundary — never names, emails, payloads, documents, or keys.
+/// The operator pastes this into the support channel instead of the database.
+fn diag(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let path = positional(args, 0)?;
+    let key = parse_key(args)?;
+    let store = open_store(&path, key.as_deref())?;
+    let bundle = hragents_ipc::AppService::diagnostic_bundle(&store)?;
+    println!("{}", serde_json::to_string_pretty(&bundle)?);
     Ok(())
 }
 

@@ -94,6 +94,7 @@ Tauri cannot downgrade in place (§05). Rehearse the supported path:
   `restore-set` verifies every hash and the audit count before swapping.
 - [ ] Run this drill green on a clean Windows 11 machine (install, first run,
   second-instance focus, backup/restore, uninstall-keeps-data).
-- [ ] Confirm diagnostic bundles (`.hrdiag`) contain no PII/secrets (fixture test)
-  before any crash-report upload is enabled.
+- [x] Confirm diagnostic bundles contain no PII/secrets: `hragents-cli diag`
+  output is versions, counts, and hashes only, covered by the
+  `diagnostic_bundle_carries_no_pii` fixture test.
 - [ ] Legal/licensing review (Phase 5 exit dependency per `09-sequence.md`).

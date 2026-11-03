@@ -1998,6 +1998,46 @@ impl AppService {
         Ok(self.store.verify_audit()?)
     }
 
+    /// PII-free diagnostic bundle for the support channel (pilot entry E6).
+    ///
+    /// Only versions, row counts, the audit head hash, and integrity status cross
+    /// the support boundary — never names, emails, payloads, documents, or keys.
+    /// Takes `&Store` directly so the CLI can build it without a login session.
+    pub fn diagnostic_bundle(store: &Store) -> AppResult<serde_json::Value> {
+        let verification = store.verify_audit()?;
+        let mut tables = serde_json::Map::new();
+        for table in [
+            "employees",
+            "candidates",
+            "applications",
+            "documents",
+            "onboarding_plans",
+            "leave_requests",
+            "payroll_runs",
+            "audit_log",
+            "approvals",
+            "rate_tables",
+            "consents",
+            "jobs",
+        ] {
+            tables.insert(
+                table.to_owned(),
+                serde_json::json!(store.query_count(table)?),
+            );
+        }
+        Ok(serde_json::json!({
+            "app": format!("hragents {}", env!("CARGO_PKG_VERSION")),
+            "schema_version": store.schema_version()?,
+            "encrypted": store.is_encrypted(),
+            "integrity": store.integrity_check()?,
+            "audit": {
+                "entries": verification.entries,
+                "head": verification.head_hash,
+            },
+            "tables": tables,
+        }))
+    }
+
     pub fn audit_recent(&self, limit: usize) -> AppResult<Vec<AuditEntry>> {
         self.session.as_ref().ok_or(AppError::Unauthenticated)?;
         Ok(self.store.audit_recent(limit)?)
@@ -3611,6 +3651,29 @@ mod tests {
         let refused = import::commit(service.store_mut(), &file, "bad-audit").unwrap();
         assert!(!refused.committed);
         assert_eq!(service.store().query_count("audit_log").unwrap(), 0);
+    }
+
+    #[test]
+    fn diagnostic_bundle_carries_no_pii() {
+        let mut service = service();
+        service.create_employee(employee_input()).unwrap();
+        let bundle = AppService::diagnostic_bundle(service.store()).unwrap();
+        let text = serde_json::to_string(&bundle).unwrap();
+        // The fixture data above contains real-looking PII; none of it may
+        // cross the support boundary.
+        for secret in [
+            "Ayu Lestari",
+            "ayu@example.com",
+            "1234567890",
+            "Rina",
+            "Nusantara Labs",
+        ] {
+            assert!(!text.contains(secret), "bundle leaks {secret:?}");
+        }
+        assert_eq!(bundle["tables"]["employees"], serde_json::Value::from(1));
+        assert_eq!(bundle["schema_version"], serde_json::Value::from(4));
+        assert_eq!(bundle["integrity"], serde_json::Value::from("ok"));
+        assert!(bundle["audit"]["entries"].as_u64().unwrap() >= 2);
     }
 
     #[cfg(feature = "sqlcipher")]
