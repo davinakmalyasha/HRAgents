@@ -125,6 +125,30 @@ pub struct PayrollImportBatch<'a> {
     pub created_at: UtcInstant,
 }
 
+/// One audit entry imported from a `hragents-export/1` file. The entry is
+/// re-chained onto the live log with a fresh hash while the original hashes
+/// travel inside the payload for cross-referencing the source system.
+pub struct ImportedAuditEntry {
+    pub entry_id: String,
+    pub created_at: UtcInstant,
+    pub original_created_at: String,
+    pub actor: AuditActor,
+    pub action: String,
+    pub subject_type: String,
+    pub subject_id: String,
+    pub payload: serde_json::Value,
+    pub original_prev_hash: Option<String>,
+    pub original_entry_hash: String,
+}
+
+/// Outcome of one transactional `import_audit` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AuditImportReport {
+    pub entries_imported: usize,
+    pub entries_skipped: usize,
+    pub already_imported: bool,
+}
+
 /// Outcome of one transactional `import_payroll` call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PayrollImportReport {
@@ -953,6 +977,106 @@ impl Store {
             lines_skipped: runs.iter().map(|(_, lines)| lines.len()).sum::<usize>()
                 - lines_inserted,
             non_final_skipped,
+            already_imported: false,
+        })
+    }
+
+    /// Import audit history by re-chaining it onto the live log. The live
+    /// chain must verify with the implementation that owns it, so imported
+    /// events get fresh hashes while every original fact — action, subject,
+    /// actor, timestamp, payload, and both original hashes — travels inside
+    /// the new payload for cross-referencing the export. One transaction;
+    /// re-running the same file is a no-op.
+    pub fn import_audit(
+        &mut self,
+        entries: &[ImportedAuditEntry],
+        actor: &AuditActor,
+        source: &str,
+        source_hash: &str,
+        source_format: &str,
+        created_at: UtcInstant,
+    ) -> StoreResult<AuditImportReport> {
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let already: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM import_runs WHERE source_hash = ?1 AND source_format = ?2 AND tables_json LIKE '%audit_log%')",
+            params![source_hash, source_format],
+            |row| row.get(0),
+        )?;
+        if already {
+            return Ok(AuditImportReport {
+                entries_imported: 0,
+                entries_skipped: entries.len(),
+                already_imported: true,
+            });
+        }
+        let mut imported = 0usize;
+        for entry in entries {
+            let entry_id: hragents_core::ids::AuditId = parse_id(&entry.entry_id, "audit_entry")?;
+            let exists: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM audit_log WHERE entry_id = ?1)",
+                params![entry_id.to_string()],
+                |row| row.get(0),
+            )?;
+            if exists {
+                continue;
+            }
+            Self::append_audit_in(
+                &tx,
+                &entry.actor,
+                &entry.action,
+                &entry.subject_type,
+                &entry.subject_id,
+                &serde_json::json!({
+                    "audit_import": {
+                        "original_entry_id": entry.entry_id,
+                        "original_entry_hash": entry.original_entry_hash,
+                        "original_prev_hash": entry.original_prev_hash,
+                        "original_action": entry.action,
+                        "original_subject_type": entry.subject_type,
+                        "original_subject_id": entry.subject_id,
+                        "original_created_at": entry.original_created_at,
+                        "original_actor": entry.actor,
+                        "original_payload": entry.payload,
+                    }
+                }),
+                entry.created_at,
+            )?;
+            imported += 1;
+        }
+        tx.execute(
+            "INSERT INTO import_runs
+             (id, source, status, rows_read, rows_written, errors_json, started_at,
+              finished_at, source_hash, source_format, tables_json)
+             VALUES (?1, ?2, 'completed', ?3, ?4, '[]', ?5, ?5, ?6, ?7, ?8)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                source,
+                entries.len() as i64,
+                imported as i64,
+                created_at.millis(),
+                source_hash,
+                source_format,
+                serde_json::json!({"audit_log": {"inserted": imported}}).to_string(),
+            ],
+        )?;
+        Self::append_audit_in(
+            &tx,
+            actor,
+            "audit.imported",
+            "system",
+            source_hash,
+            &serde_json::json!({
+                "source_hash": source_hash,
+                "entries_imported": imported,
+            }),
+            created_at,
+        )?;
+        tx.commit()?;
+        Ok(AuditImportReport {
+            entries_imported: imported,
+            entries_skipped: entries.len() - imported,
             already_imported: false,
         })
     }

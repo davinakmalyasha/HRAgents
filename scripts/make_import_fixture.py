@@ -333,6 +333,76 @@ def main() -> int:
             ],
         )
 
+    from hr_agents.models.audit import AuditActor, AuditEntry
+
+    audit_actor = AuditActor(
+        actor_type="human",
+        actor_id="11111111-1111-4111-8111-111111111111",
+        display_name="Rina Kartika",
+        provenance="authenticated",
+        role="hr_operator",
+    )
+    audit_rows = []
+    prev_hash = None
+    for index, (action, subject_type, subject_id, payload) in enumerate(
+        [
+            (
+                "employee.created",
+                "employee",
+                "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaa1",
+                {"employee_no": "E-001", "name": "Rina Kartika"},
+            ),
+            (
+                "leave.recorded",
+                "leave_request",
+                "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbb2",
+                {"employee_no": "E-002", "days": 2.0},
+            ),
+            (
+                "payroll.computed",
+                "payroll_run",
+                "cccccccc-cccc-4ccc-cccc-ccccccccccc3",
+                {"period": "2025-06", "net_sen": 1978000000},
+            ),
+        ]
+    ):
+        moment = datetime(2025, 7, 1, 9, 0, index, tzinfo=UTC)
+        entry_hash = AuditEntry.compute_hash(
+            prev_hash=prev_hash,
+            actor=audit_actor,
+            action=action,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            payload=payload,
+            created_at=moment,
+        )
+        audit_rows.append(
+            {
+                "tenant": TENANT_ID,
+                "seq": index,
+                "entry_id": str(uuid4()),
+                "created_at": moment,
+                "actor": _json.dumps(audit_actor.model_dump(mode="json")),
+                "action": action,
+                "subject_type": subject_type,
+                "subject_id": subject_id,
+                "payload": _json.dumps(payload),
+                "prev_hash": prev_hash,
+                "entry_hash": entry_hash,
+            }
+        )
+        prev_hash = entry_hash
+    with engine.begin() as audit_connection:
+        audit_connection.execute(
+            text(
+                "INSERT INTO audit_log (tenant_id, seq, entry_id, created_at, actor,"
+                " action, subject_type, subject_id, payload, prev_hash, entry_hash)"
+                " VALUES (:tenant, :seq, :entry_id, :created_at, :actor, :action,"
+                " :subject_type, :subject_id, :payload, :prev_hash, :entry_hash)"
+            ),
+            audit_rows,
+        )
+
     chunks = list(
         iter_export(
             factory,

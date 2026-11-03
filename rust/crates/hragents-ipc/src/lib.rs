@@ -3339,6 +3339,12 @@ mod tests {
             .unwrap();
         assert_eq!(payroll.rows, 4);
         assert_eq!(outcome.non_final_skipped, 1);
+        let audit_table = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "audit_log")
+            .unwrap();
+        assert_eq!(audit_table.rows, 3);
         assert!(
             outcome
                 .skipped_tables
@@ -3427,6 +3433,49 @@ mod tests {
                 .unwrap()
                 .iter()
                 .any(|entry| entry.action == "payroll.imported")
+        );
+        let entries = service.store().audit_entries().unwrap();
+        let imported: Vec<_> = entries
+            .iter()
+            .filter(|entry| {
+                entry.action != "audit.imported"
+                    && entry.action != "payroll.imported"
+                    && entry.action != "leave.imported"
+                    && entry.action != "employees.imported"
+            })
+            .collect();
+        assert_eq!(imported.len(), 3);
+        // Re-chained history verifies natively and keeps every original fact.
+        assert!(service.store().verify_audit().is_ok());
+        assert_eq!(imported[0].action, "employee.created");
+        assert_eq!(imported[0].subject_type, "employee");
+        assert_eq!(
+            imported[0].actor.display_name.as_deref(),
+            Some("Rina Kartika")
+        );
+        assert_eq!(
+            imported[0].created_at.to_string(),
+            "2025-07-01T09:00:00.000Z"
+        );
+        let original = &imported[0].payload["audit_import"];
+        assert_eq!(
+            original["original_action"],
+            serde_json::Value::String("employee.created".into())
+        );
+        assert_eq!(
+            original["original_entry_hash"],
+            serde_json::Value::String(
+                "12249772cebb63142aecdb2c3299a637a7209c3fe1bf216164e293b2a4d2cdc4".into()
+            )
+        );
+        assert_eq!(original["original_prev_hash"], serde_json::Value::Null);
+        assert!(
+            service
+                .store()
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "audit.imported")
         );
         assert!(
             service
@@ -3517,6 +3566,51 @@ mod tests {
         }
         assert_eq!(service.store().query_count("payroll_runs").unwrap(), 0);
         assert_eq!(service.store().query_count("employees").unwrap(), 0);
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn import_rejects_audit_rows_with_bad_actor_or_timestamp() {
+        use crate::import;
+        use std::io::Write;
+
+        let fixture = include_str!("../tests/fixtures/import_demo.json");
+        let mut document: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let rows = document
+            .get_mut("data")
+            .unwrap()
+            .get_mut("audit_log")
+            .unwrap()
+            .get_mut("rows")
+            .unwrap()
+            .as_array_mut()
+            .unwrap();
+        rows[0]["actor"] = serde_json::Value::String("not-an-actor".into());
+        rows[1]["created_at"] = serde_json::Value::String("yesterday".into());
+        rows[2]["entry_id"] = serde_json::Value::String("not-a-uuid".into());
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("bad-audit.json");
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(serde_json::to_string(&document).unwrap().as_bytes())
+            .unwrap();
+
+        let probe = AppService::open_in_memory().unwrap();
+        let outcome = import::dry_run(probe.store(), &file).unwrap();
+        assert!(!outcome.committed);
+        let table = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "audit_log")
+            .unwrap();
+        assert_eq!(table.errors.len(), 3);
+
+        let db = dir.path().join("hragents.db");
+        let key = hragents_store::keyfile::generate_key().unwrap();
+        let mut service = AppService::open_encrypted(&db, &key).unwrap();
+        let refused = import::commit(service.store_mut(), &file, "bad-audit").unwrap();
+        assert!(!refused.committed);
+        assert_eq!(service.store().query_count("audit_log").unwrap(), 0);
     }
 
     #[cfg(feature = "sqlcipher")]

@@ -97,7 +97,7 @@ cargo test -p hragents-store --features sqlcipher  (Windows GNU, Strawberry-perl
   full rotation, both crash-resume scenarios, and the v3 import_runs evolution
 
 cargo test -p hragents-ipc --features sqlcipher
-  32 passed, 1 ignored; the encryption/recovery/import tests cover:
+  33 passed, 1 ignored; the encryption/recovery/import tests cover:
   plaintext DB + document -> key file -> encrypted reopen -> login ->
   encrypted document read -> encrypted backup -> reopen backup
 
@@ -237,7 +237,7 @@ missing evidence exists.
    tested; no production key is configured and there is no streaming UI. The
    offline extractor stays the default.
 2. **Python removal** — deferred to the release cut by the migration plan.
-3. **Import from the existing Postgres product** — JSON slices 1–3 (org units, employees, leave, approved payroll) are done and drilled; audit-history tables and the direct-Postgres path are still missing.
+3. **Import from the existing Postgres product** — JSON slices 1–4 (org units, employees, leave, approved payroll, audit history) are done and drilled; the direct-Postgres path is still missing.
 4. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
    signed auto-update feed are out of scope for this free edition.
 5. **Pilot** — needs real companies and a named human reviewer.

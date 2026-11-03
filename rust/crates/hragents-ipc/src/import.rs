@@ -16,7 +16,8 @@ use hragents_core::payroll::{
 use hragents_core::people::{Employee, EmploymentStatus};
 use hragents_core::time::{BusinessDate, UtcInstant};
 use hragents_store::{
-    ImportReport, LeaveImportBatch, LeaveImportReport, PayrollImportBatch, Store,
+    ImportReport, ImportedAuditEntry, LeaveImportBatch, LeaveImportReport, PayrollImportBatch,
+    Store,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -30,6 +31,7 @@ pub const KNOWN_TABLES: &[&str] = &[
     "leave_requests",
     "payroll_runs",
     "payroll_lines",
+    "audit_log",
 ];
 
 #[derive(Debug, Clone, Deserialize)]
@@ -180,6 +182,7 @@ struct PreparedImport {
     drafts_skipped: usize,
     payroll: Vec<(PayrollRun, Vec<PayrollLine>)>,
     non_final_skipped: usize,
+    audit: Vec<ImportedAuditEntry>,
     tables: Vec<TableOutcome>,
     skipped_tables: Vec<TableSkipped>,
     source_hash: String,
@@ -437,6 +440,7 @@ fn prepare(store: &Store, path: &Path) -> AppResult<PreparedImport> {
             drafts_skipped: 0,
             payroll: Vec::new(),
             non_final_skipped: 0,
+            audit: Vec::new(),
             tables: outcomes,
             skipped_tables,
             source_hash,
@@ -589,6 +593,41 @@ fn prepare(store: &Store, path: &Path) -> AppResult<PreparedImport> {
             errors: request_errors,
         });
     }
+    let mut audit = Vec::new();
+    let mut audit_errors = Vec::new();
+    if let Some(table) = file.data.get("audit_log") {
+        let mut ordered: Vec<(i64, ImportedAuditEntry)> = Vec::new();
+        let mut seen_seq = std::collections::BTreeSet::new();
+        let mut seen_ids = std::collections::BTreeSet::new();
+        for row in &table.rows {
+            match map_audit_row(row) {
+                Ok((seq, entry)) => {
+                    if !seen_seq.insert(seq) {
+                        audit_errors.push(format!("audit log has two rows with seq {seq}"));
+                        continue;
+                    }
+                    if !seen_ids.insert(entry.entry_id.clone()) {
+                        audit_errors.push(format!(
+                            "audit log references entry {} twice",
+                            entry.entry_id
+                        ));
+                        continue;
+                    }
+                    ordered.push((seq, entry));
+                }
+                Err(error) => audit_errors.push(error),
+            }
+        }
+        ordered.sort_by_key(|(seq, _)| *seq);
+        audit = ordered.into_iter().map(|(_, entry)| entry).collect();
+        outcomes.push(TableOutcome {
+            table: "audit_log".into(),
+            rows: table.rows.len(),
+            inserted: 0,
+            skipped: 0,
+            errors: audit_errors,
+        });
+    }
     Ok(PreparedImport {
         employees,
         leave_types,
@@ -596,10 +635,92 @@ fn prepare(store: &Store, path: &Path) -> AppResult<PreparedImport> {
         drafts_skipped,
         payroll,
         non_final_skipped,
+        audit,
         tables: outcomes,
         skipped_tables,
         source_hash,
     })
+}
+
+fn as_object_or_parsed(value: &serde_json::Value, what: &str) -> Result<serde_json::Value, String> {
+    match value {
+        serde_json::Value::Object(_) => Ok(value.clone()),
+        serde_json::Value::String(raw) => {
+            serde_json::from_str(raw).map_err(|_| format!("{what} is a string but not valid JSON"))
+        }
+        _ => Err(format!("{what} must be a JSON object")),
+    }
+}
+
+fn map_audit_row(value: &serde_json::Value) -> Result<(i64, ImportedAuditEntry), String> {
+    let seq = value
+        .get("seq")
+        .and_then(serde_json::Value::as_i64)
+        .ok_or_else(|| {
+            "audit row without an integer seq cannot be ordered for import".to_owned()
+        })?;
+    let entry_id = value
+        .get("entry_id")
+        .and_then(|item| item.as_str())
+        .unwrap_or("");
+    if entry_id.parse::<hragents_core::ids::AuditId>().is_err() {
+        return Err(format!("audit row {seq}: entry_id is not a UUID"));
+    }
+    let created_raw = value
+        .get("created_at")
+        .and_then(|item| item.as_str())
+        .unwrap_or("");
+    let created_at = UtcInstant::from_rfc3339(created_raw)
+        .map_err(|_| format!("audit row {seq}: created_at {created_raw:?} is not RFC 3339"))?;
+    let actor_value = value
+        .get("actor")
+        .ok_or_else(|| format!("audit row {seq}: actor is missing"))?;
+    let actor_value = as_object_or_parsed(actor_value, &format!("audit row {seq} actor"))?;
+    let actor: hragents_core::audit::AuditActor = serde_json::from_value(actor_value)
+        .map_err(|_| format!("audit row {seq}: actor is not a known actor shape"))?;
+    let payload_value = value
+        .get("payload")
+        .ok_or_else(|| format!("audit row {seq}: payload is missing"))?;
+    let payload = as_object_or_parsed(payload_value, &format!("audit row {seq} payload"))?;
+    let need = |key: &str| {
+        value
+            .get(key)
+            .and_then(|item| item.as_str())
+            .filter(|text| !text.is_empty())
+            .map(str::to_owned)
+            .ok_or_else(|| format!("audit row {seq}: {key} is missing or empty"))
+    };
+    let (action, subject_type, subject_id) =
+        (need("action")?, need("subject_type")?, need("subject_id")?);
+    let entry_hash = need("entry_hash")?;
+    let original_prev_hash = value.get("prev_hash").and_then(|item| match item {
+        serde_json::Value::Null => None,
+        serde_json::Value::String(text) => Some(text.clone()),
+        _ => None,
+    });
+    if value
+        .get("prev_hash")
+        .is_some_and(|item| !item.is_null() && item.as_str().is_none())
+    {
+        return Err(format!(
+            "audit row {seq}: prev_hash must be a string or null"
+        ));
+    }
+    Ok((
+        seq,
+        ImportedAuditEntry {
+            entry_id: entry_id.to_owned(),
+            created_at,
+            original_created_at: created_raw.to_owned(),
+            actor,
+            action,
+            subject_type,
+            subject_id,
+            payload,
+            original_prev_hash,
+            original_entry_hash: entry_hash,
+        },
+    ))
 }
 
 fn parse_sen(value: &serde_json::Value, what: &str) -> Result<Money, String> {
@@ -844,6 +965,7 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
         drafts_skipped,
         payroll,
         non_final_skipped,
+        audit,
         mut tables,
         skipped_tables,
         source_hash,
@@ -868,6 +990,7 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
         .iter()
         .any(|table| table.table == "leave_policies" || table.table == "leave_requests");
     let want_payroll = tables.iter().any(|table| table.table == "payroll_runs");
+    let want_audit = tables.iter().any(|table| table.table == "audit_log");
     let report: ImportReport = if want_employees {
         store.import_employees(
             &employees,
@@ -950,11 +1073,27 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
             table.skipped = table.rows.saturating_sub(inserted);
         }
     }
+    let audit_report = if want_audit {
+        store.import_audit(&audit, &actor, source, &source_hash, SUPPORTED_FORMAT, now)?
+    } else {
+        hragents_store::AuditImportReport {
+            entries_imported: 0,
+            entries_skipped: 0,
+            already_imported: true,
+        }
+    };
+    for table in &mut tables {
+        if table.table == "audit_log" {
+            table.inserted = audit_report.entries_imported;
+            table.skipped = table.rows.saturating_sub(audit_report.entries_imported);
+        }
+    }
     Ok(ImportOutcome {
         source_hash,
         committed: !report.already_imported
             || !leave_report.already_imported
-            || !payroll_report.already_imported,
+            || !payroll_report.already_imported
+            || !audit_report.already_imported,
         tables,
         skipped_tables,
         managers_linked: report.managers_linked,
@@ -963,6 +1102,7 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
         non_final_skipped,
         already_imported: report.already_imported
             && leave_report.already_imported
-            && payroll_report.already_imported,
+            && payroll_report.already_imported
+            && audit_report.already_imported,
     })
 }
