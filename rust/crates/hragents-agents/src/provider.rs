@@ -427,6 +427,47 @@ mod tests {
         ));
     }
 
+    /// Offline canary for the Go gateway: no key, no network. Resolves
+    /// `deepseek-v4.1-flash` in rig's bundled catalog and pins it to the
+    /// `opencode-go` vendor. If a rig upgrade renames or drops the row, this
+    /// fails here with a name — not mysteriously at 2 a.m. in the live test.
+    /// Routing (Chat vs Responses) and the `x-opencode-session` header are
+    /// rig's tested behavior (`a_client_reaches_each_model_on_the_api_its_
+    /// catalog_row_names`, `go_names_the_session_on_every_wire`); our code
+    /// never touches headers or URLs, it only picks the client.
+    #[test]
+    fn go_catalog_lists_deepseek_flash_on_the_go_vendor() {
+        let resolved = rig::catalog::Catalog::builtin()
+            .resolve("opencode-go/deepseek-v4.1-flash")
+            .expect("rig catalog lists deepseek-v4.1-flash");
+        assert_eq!(resolved.spec.provider.vendor(), "opencode-go");
+        assert!(
+            resolved.spec.id.contains("deepseek"),
+            "unexpected catalog row: {}",
+            resolved.spec.id
+        );
+    }
+
+    /// Live connectivity smoke test against OpenCode Go. Ignored by default;
+    /// run explicitly with a Go key (the test inherits it, never prints it):
+    /// `OPENCODE_API_KEY=... cargo test -p hragents-agents -- --ignored provider_live_go_hello`
+    /// One cheap call; asserts the gateway answers, nothing more.
+    #[test]
+    #[ignore]
+    fn provider_live_go_hello() {
+        let config = ProviderConfig {
+            provider: "opencode_go".into(),
+            base_url: None,
+            model: "deepseek-v4.1-flash".into(),
+            api_key_env: "OPENCODE_API_KEY".into(),
+        };
+        let client = RigLlmClient::new(config).unwrap();
+        let reply = client
+            .complete("Reply with exactly one word.", "hello")
+            .unwrap();
+        assert!(!reply.trim().is_empty(), "gateway answered with empty text");
+    }
+
     /// Live provider check against OpenCode Go. Ignored by default; run
     /// explicitly with a Go key (the test inherits it, never prints it):
     /// `OPENCODE_API_KEY=... cargo test -p hragents-agents -- --ignored provider_live_go`
