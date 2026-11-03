@@ -256,7 +256,8 @@ missing evidence exists.
    at call time, never stored; `reasoning_effort: low` via additional
    params). The live run caught and fixed a real prompt bug — the rubric
    dimension keys were never sent to the model, so it invented its own. No
-   streaming UI yet. The
+   streaming UI yet. DeepSeek V4.1 Flash is the only live model, by operator
+   decision — no other model is configured or tested. The
    offline extractor stays the default.
 2. **Python removal** — deferred to the release cut by the migration plan.
 3. **Import from the existing Postgres product** — JSON slices 1–4 (org units, employees, leave, approved payroll, audit history) are done and drilled, and `scripts/export_legacy.py` streams any reachable legacy database to the same JSON format (verified against SQLite). Only a live source with credentials to run it against is still missing.
