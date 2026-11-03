@@ -41,6 +41,7 @@ actually prove, and what is still open. It is updated at every merge.
 | 4-dimension scoring parity | **Done: 11 cases across run counts, weights, ties, sigma flags** | `scoring_dimensions.json`, `python_parity.rs` |
 | Provider replay | **Done: captured 3-run response sequence, no network, CI step** | `hragents-agents/tests/provider_replay.rs` |
 | Release profile (1,000 employees) | **Done: query medians + packaged first paint** | `hragents-cli bench`, 2026-11-03 run |
+| Startup contention | **Deferred: scheduler no longer fires on launch; Today/Recovery lazy** | `hragents-ipc/src/scheduler.rs`, `App.tsx` |
 | Growth cycles, review forms, goals | **Done across core/store/IPC/UI** | `hragents-core/src/growth.rs` |
 | Offboarding checklist + final-pay gate | **Done across core/store/IPC/UI** | `hragents-core/src/offboarding.rs` |
 | Document requests + vault upload/preview/verify | **Done** | `hragents-core/src/documents.rs`, `screens/Documents.tsx` |
@@ -66,7 +67,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
 | NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.20 MiB with SQLCipher + payslip UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
 | Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
-| Five-surface React UI + login/lock | **Done; screens code-split** | `rust/apps/desktop/ui` |
+| Five-surface React UI + login/lock | **Done; all seven screens lazy, shell-first paint** | `rust/apps/desktop/ui` |
 | UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
 | Python parity export + golden tests | **Done (money, audit, PPh 21, scoring merge)** | `scripts/parity_export.py`, `parity/fixtures` |
 | CI for Rust, UI, and fixture regeneration | **Done** | `.github/workflows/desktop.yml` |
@@ -151,6 +152,16 @@ release profile, 1,000 encrypted employees, Windows GNU, 8 logical cores:
   packaged desktop first paint 1,642 ms (window handle 2,137 ms cold)
   (first-paint budget is 500 ms; WebView2 cold start dominates, not the DB.
    The live data directory was restored and still verifies encrypted.)
+
+first-paint pass, same 1,000-employee encrypted database, new build:
+  initial bundle 331.61 kB / 99.60 kB gzip -> 319.77 kB / 97.31 kB gzip
+  (Today 8.28 kB and Recovery 3.57 kB now load on demand)
+  scheduler: retention/offer/reminder/outbox/inbox/backup plus the audit verify
+  no longer run at launch; first work happens after their intervals
+  packaged desktop first paint 1,324 ms / 1,433 ms warm (window handle 522/657 ms),
+  down from 1,642 ms on the previous build; a first cold-binary run measured
+  3,930 ms and is attributed to OS scan/cache warmup, not the app
+  budget 500 ms still not met; WebView2 cold start remains the dominant cost
   packaged app with hragents.key temporarily removed: UI Automation reads
   "Recover this installation", the 64-hex hint, username/password fields, and
   "Recover and sign in"; the DB still verifies encrypted after the key returns
@@ -227,8 +238,8 @@ missing evidence exists.
 
 ## 4. Next tasks, in order
 
-1. Reduce packaged first paint: profile WebView2 cold start and defer non-critical
-   shell work; the current 1.64 s is above the 500 ms aspiration.
+1. Reduce packaged first paint further: the current 1.32 s warm is above the 500 ms
+   aspiration; WebView2 cold start remains the dominant cost.
 2. Run the pilot entry checklist in `15-pilot.md` with a real HR operator.
 3. Decide the live-provider path (key, streaming, cost); offline remains default.
 4. At the release cut: freeze the corpus, remove Python from the runtime, and run G5.

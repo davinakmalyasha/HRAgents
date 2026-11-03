@@ -17,8 +17,14 @@ import { command, isDesktop } from "./api";
 import type { AppInfo, SearchHit, SessionView, TodayView } from "./types";
 import type { Surface } from "./nav";
 import { Login } from "./screens/Login";
-import { Today } from "./screens/Today";
-import { Recovery } from "./screens/Recovery";
+
+// Today is the landing surface but it is only needed after login, so it loads
+// on demand like the other surfaces. Login stays in the main bundle because a
+// logged-out first paint needs it immediately.
+const Today = lazy(() => import("./screens/Today").then((module) => ({ default: module.Today })));
+const Recovery = lazy(() =>
+  import("./screens/Recovery").then((module) => ({ default: module.Recovery })),
+);
 import { Avatar, ErrorBox, Field, Modal } from "./components/ui";
 
 // Landing screens stay in the main bundle; the rest load on first visit.
@@ -29,6 +35,7 @@ const Ask = lazy(() => import("./screens/Ask").then((module) => ({ default: modu
 const Settings = lazy(() => import("./screens/Settings").then((module) => ({ default: module.Settings })));
 
 const PRELOAD: Partial<Record<Surface, () => void>> = {
+  today: () => void import("./screens/Today"),
   hire: () => void import("./screens/Hire"),
   people: () => void import("./screens/People"),
   pay: () => void import("./screens/Pay"),
@@ -144,15 +151,17 @@ export function App() {
 
   if (info.data?.recovery_required) {
     return (
-      <Recovery
-        onRecovered={(recovered) => {
-          queryClient.setQueryData(["session"], recovered);
-          queryClient.setQueryData<AppInfo>(["app-info"], (current) =>
-            current ? { ...current, recovery_required: false } : current,
-          );
-          void queryClient.invalidateQueries({ queryKey: ["today"] });
-        }}
-      />
+      <Suspense fallback={<div className="empty" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>Opening HRAgents…</div>}>
+        <Recovery
+          onRecovered={(recovered) => {
+            queryClient.setQueryData(["session"], recovered);
+            queryClient.setQueryData<AppInfo>(["app-info"], (current) =>
+              current ? { ...current, recovery_required: false } : current,
+            );
+            void queryClient.invalidateQueries({ queryKey: ["today"] });
+          }}
+        />
+      </Suspense>
     );
   }
 

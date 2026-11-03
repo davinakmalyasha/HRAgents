@@ -204,6 +204,21 @@ async fn run_loop(
     ] {
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     }
+    // Defer the first run of every job past first paint. `interval` ticks
+    // immediately, which would run retention/offer/reminder/outbox/inbox and a
+    // full audit verify against the single SQLite connection while the window
+    // is still opening. Consuming that tick schedules real work after the
+    // configured interval instead.
+    for tick in [
+        &mut retention,
+        &mut offers,
+        &mut backup,
+        &mut reminders,
+        &mut outbox,
+        &mut inbox,
+    ] {
+        tick.tick().await;
+    }
     loop {
         tokio::select! {
             result = shutdown.changed() => {
