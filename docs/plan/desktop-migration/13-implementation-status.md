@@ -190,11 +190,17 @@ copy-parity release (attendance, reports, hiring flow, share-out, e2e):
   -- -D warnings: clean. cargo fmt --check: clean.
   UI tsc --noEmit clean; vite build ok (Attendance 3.16 kB, Reports 2.37 kB).
   uv run python scripts/check.py: 2234 passed, 5 skipped, 92.41%.
-  hragents-desktop check: blocked by a pre-existing environmental openssl-sys
-  build-script failure (dependency stage, before any workspace code; the crate
-  is excluded from every gate for this reason). The 11 new Tauri commands
-  follow the existing with_service/parse patterns and every callee is compiled
-  and covered by the e2e test.
+  hragents-desktop check: green after fixing the two environment issues found
+  along the way. `cargo check -p hragents-desktop` passes with zero errors
+  (EXIT=0), so all 11 new Tauri commands are compiler-verified. Environment
+  notes: the vendored OpenSSL build needs the perl transplant
+  (`PERL5LIB=/tmp/perllib`, which supplies the missing
+  `Locale::Maketext::Simple`) and must run uninterrupted (a full OpenSSL
+  compile takes many minutes; interrupted attempts restart it and look like
+  a silent early exit). The same run caught and fixed 9 real E0277 errors in
+  the new commands: `?` inside `with_service` closures must yield `AppError`,
+  so every ID/date parse moved outside, using the existing `parse_id` helper
+  like `candidate` and `list_leave_requests` do.
 
 first-paint pass, same 1,000-employee encrypted database, new build:
   initial bundle 331.61 kB / 99.60 kB gzip -> 319.77 kB / 97.31 kB gzip

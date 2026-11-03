@@ -651,20 +651,22 @@ fn record_checkin(
     source: String,
     note: Option<String>,
 ) -> CmdResult<hragents_core::attendance::Checkin> {
+    let employee_id: hragents_core::ids::EmployeeId = parse_id(&employee_id)?;
+    let date: hragents_core::time::BusinessDate = date.parse().map_err(|error| CommandError {
+        code: "E_DATE".into(),
+        message: format!("date must be YYYY-MM-DD: {error}"),
+    })?;
+    let source = match source.as_str() {
+        "import" => hragents_core::attendance::CheckinSource::Import,
+        "manual" => hragents_core::attendance::CheckinSource::Manual,
+        other => {
+            return Err(CommandError {
+                code: "E_SOURCE".into(),
+                message: format!("unknown check-in source {other}"),
+            });
+        }
+    };
     with_service(&state, |service| {
-        let employee_id: hragents_core::ids::EmployeeId =
-            employee_id.parse().map_err(|_| CommandError {
-                code: "E_EMPLOYEE".into(),
-                message: "invalid employee id".into(),
-            })?;
-        let date: hragents_core::time::BusinessDate = date.parse().map_err(|_| CommandError {
-            code: "E_DATE".into(),
-            message: "date must be YYYY-MM-DD".into(),
-        })?;
-        let source = match source.as_str() {
-            "import" => hragents_core::attendance::CheckinSource::Import,
-            _ => hragents_core::attendance::CheckinSource::Manual,
-        };
         service.record_checkin(employee_id, date, in_minute, out_minute, source, note)
     })
 }
@@ -677,19 +679,12 @@ fn attendance_summary(
     year: i32,
     month: u32,
 ) -> CmdResult<hragents_core::attendance::AttendanceSummary> {
+    let employee_id: hragents_core::ids::EmployeeId = parse_id(&employee_id)?;
+    let shift_id = shift_id
+        .as_deref()
+        .map(parse_id::<hragents_core::ids::ShiftId>)
+        .transpose()?;
     with_service(&state, |service| {
-        let employee_id: hragents_core::ids::EmployeeId =
-            employee_id.parse().map_err(|_| CommandError {
-                code: "E_EMPLOYEE".into(),
-                message: "invalid employee id".into(),
-            })?;
-        let shift_id: Option<hragents_core::ids::ShiftId> = shift_id
-            .map(|raw| raw.parse())
-            .transpose()
-            .map_err(|_| CommandError {
-                code: "E_SHIFT".into(),
-                message: "invalid shift id".into(),
-            })?;
         service.attendance_summary(employee_id, shift_id, year, month)
     })
 }
@@ -710,13 +705,8 @@ fn set_job_status(
     job_id: String,
     status: String,
 ) -> CmdResult<hragents_core::hiring::Job> {
-    with_service(&state, |service| {
-        let job_id: hragents_core::ids::JobId = job_id.parse().map_err(|_| CommandError {
-            code: "E_JOB".into(),
-            message: "invalid job id".into(),
-        })?;
-        service.set_job_status(job_id, &status)
-    })
+    let job_id: hragents_core::ids::JobId = parse_id(&job_id)?;
+    with_service(&state, |service| service.set_job_status(job_id, &status))
 }
 
 #[tauri::command]
@@ -725,50 +715,28 @@ fn advance_application(
     application_id: String,
     stage: String,
 ) -> CmdResult<hragents_core::hiring::Application> {
+    let application_id: hragents_core::ids::ApplicationId = parse_id(&application_id)?;
     with_service(&state, |service| {
-        let application_id: hragents_core::ids::ApplicationId =
-            application_id.parse().map_err(|_| CommandError {
-                code: "E_APPLICATION".into(),
-                message: "invalid application id".into(),
-            })?;
         service.advance_application(application_id, &stage)
     })
 }
 
 #[tauri::command]
 fn message_mailto(state: State<'_, AppState>, message_id: String) -> CmdResult<String> {
-    with_service(&state, |service| {
-        let message_id: hragents_core::ids::MessageId =
-            message_id.parse().map_err(|_| CommandError {
-                code: "E_MESSAGE".into(),
-                message: "invalid message id".into(),
-            })?;
-        service.message_mailto(message_id)
-    })
+    let message_id: hragents_core::ids::MessageId = parse_id(&message_id)?;
+    with_service(&state, |service| service.message_mailto(message_id))
 }
 
 #[tauri::command]
 fn interview_ics(state: State<'_, AppState>, proposal_id: String) -> CmdResult<String> {
-    with_service(&state, |service| {
-        let proposal_id: hragents_core::ids::ScheduleId =
-            proposal_id.parse().map_err(|_| CommandError {
-                code: "E_SCHEDULE".into(),
-                message: "invalid schedule id".into(),
-            })?;
-        service.interview_ics(proposal_id)
-    })
+    let proposal_id: hragents_core::ids::ScheduleId = parse_id(&proposal_id)?;
+    with_service(&state, |service| service.interview_ics(proposal_id))
 }
 
 #[tauri::command]
 fn employee_file(state: State<'_, AppState>, employee_id: String) -> CmdResult<serde_json::Value> {
-    with_service(&state, |service| {
-        let employee_id: hragents_core::ids::EmployeeId =
-            employee_id.parse().map_err(|_| CommandError {
-                code: "E_EMPLOYEE".into(),
-                message: "invalid employee id".into(),
-            })?;
-        service.employee_file(employee_id)
-    })
+    let employee_id: hragents_core::ids::EmployeeId = parse_id(&employee_id)?;
+    with_service(&state, |service| service.employee_file(employee_id))
 }
 
 #[tauri::command]
