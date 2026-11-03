@@ -31,6 +31,8 @@ import { Avatar, ErrorBox, Field, Modal } from "./components/ui";
 const Hire = lazy(() => import("./screens/Hire").then((module) => ({ default: module.Hire })));
 const People = lazy(() => import("./screens/People").then((module) => ({ default: module.People })));
 const Pay = lazy(() => import("./screens/Pay").then((module) => ({ default: module.Pay })));
+const Attendance = lazy(() => import("./screens/Attendance").then((module) => ({ default: module.Attendance })));
+const Reports = lazy(() => import("./screens/Reports").then((module) => ({ default: module.Reports })));
 const Ask = lazy(() => import("./screens/Ask").then((module) => ({ default: module.Ask })));
 const Settings = lazy(() => import("./screens/Settings").then((module) => ({ default: module.Settings })));
 
@@ -39,6 +41,8 @@ const PRELOAD: Partial<Record<Surface, () => void>> = {
   hire: () => void import("./screens/Hire"),
   people: () => void import("./screens/People"),
   pay: () => void import("./screens/Pay"),
+  attendance: () => void import("./screens/Attendance"),
+  reports: () => void import("./screens/Reports"),
   ask: () => void import("./screens/Ask"),
   settings: () => void import("./screens/Settings"),
 };
@@ -48,6 +52,8 @@ const NAV: { id: Surface; label: string; icon: typeof Sun }[] = [
   { id: "hire", label: "Hire", icon: Briefcase },
   { id: "people", label: "People", icon: Users },
   { id: "pay", label: "Pay", icon: Wallet },
+  { id: "attendance", label: "Attendance", icon: Users },
+  { id: "reports", label: "Reports", icon: Wallet },
   { id: "ask", label: "Ask", icon: MessageSquare },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -320,6 +326,8 @@ export function App() {
             {surface === "hire" ? <Hire session={session.data} /> : null}
             {surface === "people" ? <People /> : null}
             {surface === "pay" ? <Pay session={session.data} /> : null}
+            {surface === "attendance" ? <Attendance /> : null}
+            {surface === "reports" ? <Reports /> : null}
             {surface === "ask" ? <Ask onNavigate={navigate} /> : null}
             {surface === "settings" ? <Settings session={session.data} /> : null}
           </Suspense>

@@ -6,6 +6,7 @@
 //! other way round.
 
 pub mod approvals;
+pub mod attendance;
 pub mod audit;
 pub mod auth;
 pub mod compliance;
@@ -23,6 +24,7 @@ pub mod payroll;
 pub mod people;
 pub mod policy;
 pub mod reminders;
+pub mod reports;
 pub mod time;
 
 pub use error::{DomainError, DomainResult};

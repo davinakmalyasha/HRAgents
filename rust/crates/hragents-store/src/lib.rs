@@ -47,7 +47,8 @@ pub mod rotation;
 const SCHEMA: &str = include_str!("../migrations/0001_init.sql");
 const INDEXES: &str = include_str!("../migrations/0002_indexes.sql");
 const IMPORT_SLICE: &str = include_str!("../migrations/0004_import_slice.sql");
-const SCHEMA_VERSION: i64 = 4;
+const ATTENDANCE: &str = include_str!("../migrations/0005_attendance.sql");
+const SCHEMA_VERSION: i64 = 5;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -405,6 +406,19 @@ impl Store {
                 params![now],
             )?;
             tx.pragma_update(None, "user_version", 4)?;
+            tx.commit()?;
+        }
+        if version < 5 {
+            let tx = self
+                .conn
+                .transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch(ATTENDANCE)?;
+            let now = UtcInstant::now().millis();
+            tx.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (5, ?1)",
+                params![now],
+            )?;
+            tx.pragma_update(None, "user_version", 5)?;
             tx.commit()?;
         }
         Ok(())
@@ -3896,6 +3910,124 @@ impl Store {
     }
 
     // ------------------------------------------------------------------
+    // Attendance: shifts and daily check-ins
+    // ------------------------------------------------------------------
+
+    pub fn save_shift(&mut self, shift: &hragents_core::attendance::Shift) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO attendance_shifts (id, name, start_minute, end_minute, grace_minutes, workdays_mask, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(id) DO UPDATE SET name=excluded.name, start_minute=excluded.start_minute,
+                end_minute=excluded.end_minute, grace_minutes=excluded.grace_minutes,
+                workdays_mask=excluded.workdays_mask",
+            params![
+                shift.id.to_string(),
+                shift.name,
+                shift.start_minute,
+                shift.end_minute,
+                shift.grace_minutes,
+                i64::from(shift.workdays_mask),
+                shift.created_at.millis()
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_shifts(&self) -> StoreResult<Vec<hragents_core::attendance::Shift>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, start_minute, end_minute, grace_minutes, workdays_mask, created_at
+             FROM attendance_shifts ORDER BY name",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok(hragents_core::attendance::Shift {
+                id: parse_id(&row.get::<_, String>(0)?, "shift")?,
+                name: row.get(1)?,
+                start_minute: row.get(2)?,
+                end_minute: row.get(3)?,
+                grace_minutes: row.get(4)?,
+                workdays_mask: row.get::<_, i64>(5)? as u8,
+                created_at: instant(row.get(6)?)?,
+            })
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn save_checkin(
+        &mut self,
+        checkin: &hragents_core::attendance::Checkin,
+    ) -> StoreResult<()> {
+        self.conn.execute(
+            "INSERT INTO attendance_checkins (id, employee_id, date, in_minute, out_minute, source, note, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+             ON CONFLICT(employee_id, date) DO UPDATE SET in_minute=excluded.in_minute,
+                out_minute=excluded.out_minute, source=excluded.source, note=excluded.note",
+            params![
+                checkin.id.to_string(),
+                checkin.employee_id.to_string(),
+                checkin.date.to_string(),
+                checkin.in_minute,
+                checkin.out_minute,
+                match checkin.source {
+                    hragents_core::attendance::CheckinSource::Manual => "manual",
+                    hragents_core::attendance::CheckinSource::Import => "import",
+                },
+                checkin.note,
+                checkin.created_at.millis()
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_checkins(
+        &self,
+        employee_id: &EmployeeId,
+        start: BusinessDate,
+        end: BusinessDate,
+    ) -> StoreResult<Vec<hragents_core::attendance::Checkin>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, employee_id, date, in_minute, out_minute, source, note, created_at
+             FROM attendance_checkins WHERE employee_id = ?1 AND date >= ?2 AND date <= ?3 ORDER BY date",
+        )?;
+        let rows = stmt.query_map(
+            params![employee_id.to_string(), start.to_string(), end.to_string()],
+            |row| {
+                let source = match row.get::<_, String>(5)?.as_str() {
+                    "import" => hragents_core::attendance::CheckinSource::Import,
+                    _ => hragents_core::attendance::CheckinSource::Manual,
+                };
+                Ok(hragents_core::attendance::Checkin {
+                    id: parse_id(&row.get::<_, String>(0)?, "checkin")?,
+                    employee_id: parse_id(&row.get::<_, String>(1)?, "employee")?,
+                    date: parse_date(&row.get::<_, String>(2)?)?,
+                    in_minute: row.get(3)?,
+                    out_minute: row.get(4)?,
+                    source,
+                    note: row.get(6)?,
+                    created_at: instant(row.get(7)?)?,
+                })
+            },
+        )?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn org_tree(&self) -> StoreResult<Vec<(String, String, String)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT e.employee_no, e.full_name, COALESCE(e.org_unit, '') FROM employees e
+             WHERE e.id IN (SELECT DISTINCT employee_id FROM contracts WHERE status = 'active')
+                OR e.id NOT IN (SELECT employee_id FROM contracts)
+             ORDER BY e.org_unit, e.full_name",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    // ------------------------------------------------------------------
     // Backup and integrity
     // ------------------------------------------------------------------
 
@@ -4410,7 +4542,7 @@ mod tests {
     #[test]
     fn schema_migrates_and_reports_version() {
         let store = store();
-        assert_eq!(store.schema_version().unwrap(), 4);
+        assert_eq!(store.schema_version().unwrap(), 5);
         assert_eq!(store.integrity_check().unwrap(), "ok");
         assert_eq!(store.query_count("employees").unwrap(), 0);
     }
@@ -4480,13 +4612,13 @@ mod tests {
                  ALTER TABLE growth_assignments DROP COLUMN sent_at;
                  ALTER TABLE growth_assignments DROP COLUMN submitted_at;
                  ALTER TABLE offboarding_plans DROP COLUMN final_pay_run_id;
-                 DELETE FROM schema_migrations WHERE version IN (2, 3, 4);
+                 DELETE FROM schema_migrations WHERE version IN (2, 3, 4, 5);
                  PRAGMA user_version = 1;",
             )
             .unwrap();
         assert_eq!(store.schema_version().unwrap(), 1);
         store.migrate().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 4);
+        assert_eq!(store.schema_version().unwrap(), 5);
         let evolved: Vec<String> = store
             .conn
             .prepare("PRAGMA table_info(import_runs)")

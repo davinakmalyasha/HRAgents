@@ -2094,6 +2094,46 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       return "fedcba9876543210".repeat(4) as T;
     case "evaluate_input_schema":
       return {} as T;
+    case "list_shifts":
+      requireSession();
+      return [{ id: "shift-1", name: "Pagi", start_minute: 480, end_minute: 1020, grace_minutes: 10, workdays_mask: 31 }] as T;
+    case "record_checkin":
+      requireSession();
+      return { id: uuid(), employee_id: String(args.employee_id), date: String(args.date), in_minute: Number(args.in_minute), out_minute: Number(args.out_minute), source: "manual", note: null, created_at: now() } as T;
+    case "attendance_summary":
+      requireSession();
+      return { employee_id: String(args.employee_id), year: Number(args.year), month: Number(args.month), workdays: 22, present_days: 20, absent_days: 2, late_minutes: 15, overtime_minutes: 60, worked_minutes: 9600 } as T;
+    case "company_report":
+      requireSession();
+      return { headcount: [{ org_unit: "Product", active: 1 }, { org_unit: "Design", active: 1 }], total_active: 2, payroll_cost: [], leave_recap: [], hiring_funnel: state.jobs.map((job) => ({ job_id: job.id, title: job.title, applied: 1, interviewed: 0, offered: 0, hired: 0 })) } as T;
+    case "org_tree":
+      requireSession();
+      return state.employees.map((e) => [e.employee_no, e.full_name, e.org_unit]) as T;
+    case "set_job_status": {
+      requireSession();
+      const job = state.jobs.find((item) => item.id === String(args.job_id));
+      if (!job) throw { code: "E_NOT_FOUND", message: "Job not found" };
+      job.status = String(args.status) as Job["status"];
+      return job as T;
+    }
+    case "advance_application": {
+      requireSession();
+      const application = state.applications.find((item) => item.id === String(args.application_id));
+      if (!application) throw { code: "E_NOT_FOUND", message: "Application not found" };
+      application.stage = String(args.stage) as Application["stage"];
+      return application as T;
+    }
+    case "message_mailto":
+      requireSession();
+      return "mailto:candidate@example.com?subject=Interview" as T;
+    case "interview_ics":
+      requireSession();
+      return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n" as T;
+    case "employee_file": {
+      requireSession();
+      const employee = findEmployee(String(args.employee_id));
+      return { employee, contracts: [] } as T;
+    }
     default:
       throw { code: "E_UNKNOWN_COMMAND", message: `Unknown command: ${name}` };
   }

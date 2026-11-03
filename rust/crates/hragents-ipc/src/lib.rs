@@ -27,6 +27,7 @@ use hragents_core::policy::PolicyCorpus;
 use hragents_core::time::{BusinessDate, UtcInstant};
 use hragents_store::{Store, StoreError, document_crypto};
 
+mod attendance_reports;
 pub mod backup_set;
 mod compliance_services;
 mod growth_services;
@@ -3671,7 +3672,7 @@ mod tests {
             assert!(!text.contains(secret), "bundle leaks {secret:?}");
         }
         assert_eq!(bundle["tables"]["employees"], serde_json::Value::from(1));
-        assert_eq!(bundle["schema_version"], serde_json::Value::from(4));
+        assert_eq!(bundle["schema_version"], serde_json::Value::from(5));
         assert_eq!(bundle["integrity"], serde_json::Value::from("ok"));
         assert!(bundle["audit"]["entries"].as_u64().unwrap() >= 2);
     }
@@ -3978,7 +3979,7 @@ mod tests {
             service.company_name().unwrap().as_deref(),
             Some("Nusantara Labs")
         );
-        assert_eq!(service.store().schema_version().unwrap(), 4);
+        assert_eq!(service.store().schema_version().unwrap(), 5);
         assert!(AppService::open_encrypted(&db, "wrong key").is_err());
 
         assert!(service.recovery_key("wrong password").is_err());

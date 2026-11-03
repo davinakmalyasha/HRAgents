@@ -91,3 +91,5 @@ id_type!(ScheduleId, "SCH");
 id_type!(OfferId, "O");
 id_type!(MessageId, "M");
 id_type!(FeedbackId, "F");
+id_type!(ShiftId, "SH");
+id_type!(CheckinId, "CI");

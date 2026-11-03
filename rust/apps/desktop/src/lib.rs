@@ -617,6 +617,161 @@ fn list_approvals(state: State<'_, AppState>, open_only: bool) -> CmdResult<Vec<
 }
 
 #[tauri::command]
+fn create_shift(
+    state: State<'_, AppState>,
+    name: String,
+    start_minute: i64,
+    end_minute: i64,
+    grace_minutes: i64,
+    workdays_mask: u8,
+) -> CmdResult<hragents_core::attendance::Shift> {
+    with_service(&state, |service| {
+        service.create_shift(
+            &name,
+            start_minute,
+            end_minute,
+            grace_minutes,
+            workdays_mask,
+        )
+    })
+}
+
+#[tauri::command]
+fn list_shifts(state: State<'_, AppState>) -> CmdResult<Vec<hragents_core::attendance::Shift>> {
+    with_service(&state, |service| service.list_shifts())
+}
+
+#[tauri::command]
+fn record_checkin(
+    state: State<'_, AppState>,
+    employee_id: String,
+    date: String,
+    in_minute: i64,
+    out_minute: i64,
+    source: String,
+    note: Option<String>,
+) -> CmdResult<hragents_core::attendance::Checkin> {
+    with_service(&state, |service| {
+        let employee_id: hragents_core::ids::EmployeeId =
+            employee_id.parse().map_err(|_| CommandError {
+                code: "E_EMPLOYEE".into(),
+                message: "invalid employee id".into(),
+            })?;
+        let date: hragents_core::time::BusinessDate = date.parse().map_err(|_| CommandError {
+            code: "E_DATE".into(),
+            message: "date must be YYYY-MM-DD".into(),
+        })?;
+        let source = match source.as_str() {
+            "import" => hragents_core::attendance::CheckinSource::Import,
+            _ => hragents_core::attendance::CheckinSource::Manual,
+        };
+        service.record_checkin(employee_id, date, in_minute, out_minute, source, note)
+    })
+}
+
+#[tauri::command]
+fn attendance_summary(
+    state: State<'_, AppState>,
+    employee_id: String,
+    shift_id: Option<String>,
+    year: i32,
+    month: u32,
+) -> CmdResult<hragents_core::attendance::AttendanceSummary> {
+    with_service(&state, |service| {
+        let employee_id: hragents_core::ids::EmployeeId =
+            employee_id.parse().map_err(|_| CommandError {
+                code: "E_EMPLOYEE".into(),
+                message: "invalid employee id".into(),
+            })?;
+        let shift_id: Option<hragents_core::ids::ShiftId> = shift_id
+            .map(|raw| raw.parse())
+            .transpose()
+            .map_err(|_| CommandError {
+                code: "E_SHIFT".into(),
+                message: "invalid shift id".into(),
+            })?;
+        service.attendance_summary(employee_id, shift_id, year, month)
+    })
+}
+
+#[tauri::command]
+fn company_report(state: State<'_, AppState>) -> CmdResult<hragents_core::reports::CompanyReport> {
+    with_service(&state, |service| service.company_report())
+}
+
+#[tauri::command]
+fn org_tree(state: State<'_, AppState>) -> CmdResult<Vec<(String, String, String)>> {
+    with_service(&state, |service| service.org_tree())
+}
+
+#[tauri::command]
+fn set_job_status(
+    state: State<'_, AppState>,
+    job_id: String,
+    status: String,
+) -> CmdResult<hragents_core::hiring::Job> {
+    with_service(&state, |service| {
+        let job_id: hragents_core::ids::JobId = job_id.parse().map_err(|_| CommandError {
+            code: "E_JOB".into(),
+            message: "invalid job id".into(),
+        })?;
+        service.set_job_status(job_id, &status)
+    })
+}
+
+#[tauri::command]
+fn advance_application(
+    state: State<'_, AppState>,
+    application_id: String,
+    stage: String,
+) -> CmdResult<hragents_core::hiring::Application> {
+    with_service(&state, |service| {
+        let application_id: hragents_core::ids::ApplicationId =
+            application_id.parse().map_err(|_| CommandError {
+                code: "E_APPLICATION".into(),
+                message: "invalid application id".into(),
+            })?;
+        service.advance_application(application_id, &stage)
+    })
+}
+
+#[tauri::command]
+fn message_mailto(state: State<'_, AppState>, message_id: String) -> CmdResult<String> {
+    with_service(&state, |service| {
+        let message_id: hragents_core::ids::MessageId =
+            message_id.parse().map_err(|_| CommandError {
+                code: "E_MESSAGE".into(),
+                message: "invalid message id".into(),
+            })?;
+        service.message_mailto(message_id)
+    })
+}
+
+#[tauri::command]
+fn interview_ics(state: State<'_, AppState>, proposal_id: String) -> CmdResult<String> {
+    with_service(&state, |service| {
+        let proposal_id: hragents_core::ids::ScheduleId =
+            proposal_id.parse().map_err(|_| CommandError {
+                code: "E_SCHEDULE".into(),
+                message: "invalid schedule id".into(),
+            })?;
+        service.interview_ics(proposal_id)
+    })
+}
+
+#[tauri::command]
+fn employee_file(state: State<'_, AppState>, employee_id: String) -> CmdResult<serde_json::Value> {
+    with_service(&state, |service| {
+        let employee_id: hragents_core::ids::EmployeeId =
+            employee_id.parse().map_err(|_| CommandError {
+                code: "E_EMPLOYEE".into(),
+                message: "invalid employee id".into(),
+            })?;
+        service.employee_file(employee_id)
+    })
+}
+
+#[tauri::command]
 fn audit_verify(state: State<'_, AppState>) -> CmdResult<hragents_core::audit::AuditVerification> {
     with_service(&state, |service| service.audit_verify())
 }
@@ -917,6 +1072,17 @@ pub fn run() {
             payroll_run,
             payslip,
             list_approvals,
+            create_shift,
+            list_shifts,
+            record_checkin,
+            attendance_summary,
+            company_report,
+            org_tree,
+            set_job_status,
+            advance_application,
+            message_mailto,
+            interview_ics,
+            employee_file,
             reminders,
             outbox_pending,
             poll_replies,

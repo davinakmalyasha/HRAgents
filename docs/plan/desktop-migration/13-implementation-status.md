@@ -47,6 +47,12 @@ actually prove, and what is still open. It is updated at every merge.
 | Document requests + vault upload/preview/verify | **Done** | `hragents-core/src/documents.rs`, `screens/Documents.tsx` |
 | Audit export (JSON) | **Done** | `export_audit`, Settings screen |
 | SQLite schema v2 (47 tables, 5 FTS5, 37 named indexes) | **Done; v1 databases upgrade in place** | `hragents-store/migrations/{0001_init,0002_indexes}.sql` |
+| Attendance: shifts, check-ins, monthly summary | **Done; fail-closed, overtime feeds payroll** | `hragents-core/src/attendance.rs`, `migrations/0005_attendance.sql` |
+| Company reports + org tree + employee file | **Done; read-only aggregates** | `hragents-core/src/reports.rs`, `AppService::company_report/org_tree/employee_file` |
+| Hiring flow completion | **Done; job draft/open/paused/closed, application advance** | `AppService::set_job_status/advance_application` |
+| Share-out helpers (mailto + calendar file) | **Done; no network, human sends** | `AppService::message_mailto/interview_ics` |
+| Attendance + Reports UI + preview mocks | **Done; lazy screens** | `screens/Attendance.tsx`, `screens/Reports.tsx` |
+| E2E HR journey test | **Done** | `hragents-ipc/tests/e2e_hr_journey.rs` |
 | N+1 removal on Today/reminders | **Done** | `list_onboarding_plans` (two queries, not one per employee) |
 | WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
 | SQLCipher database encryption | **Enabled in the desktop build** | `Store::open_encrypted`, `apps/desktop` enables the feature |
@@ -173,6 +179,23 @@ release profile, 1,000 encrypted employees, Windows GNU, 8 logical cores:
   (first-paint budget is 500 ms; WebView2 cold start dominates, not the DB.
    The live data directory was restored and still verifies encrypted.)
 
+copy-parity release (attendance, reports, hiring flow, share-out, e2e):
+  cargo test --workspace --exclude hragents-desktop
+    total 151 passed, 0 failed (agents 18, core 73, payroll_parity 8,
+    python_parity 6, ipc 26, e2e_hr_journey 1, store 18, replay 1)
+    e2e covers employee -> shift -> check-ins -> summary -> job
+    pause/resume/close gate -> application advance -> mailto ->
+    reports/org/file -> audit verify
+  cargo clippy --workspace --exclude hragents-desktop --all-targets
+  -- -D warnings: clean. cargo fmt --check: clean.
+  UI tsc --noEmit clean; vite build ok (Attendance 3.16 kB, Reports 2.37 kB).
+  uv run python scripts/check.py: 2234 passed, 5 skipped, 92.41%.
+  hragents-desktop check: blocked by a pre-existing environmental openssl-sys
+  build-script failure (dependency stage, before any workspace code; the crate
+  is excluded from every gate for this reason). The 11 new Tauri commands
+  follow the existing with_service/parse patterns and every callee is compiled
+  and covered by the e2e test.
+
 first-paint pass, same 1,000-employee encrypted database, new build:
   initial bundle 331.61 kB / 99.60 kB gzip -> 319.77 kB / 97.31 kB gzip
   (Today 8.28 kB and Recovery 3.57 kB now load on demand)
@@ -264,6 +287,22 @@ missing evidence exists.
 4. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
    signed auto-update feed are out of scope for this free edition.
 5. **Pilot** — needs real companies and a named human reviewer.
+6. **Bank disbursement file** — deliberately absent. `export_payroll_xlsx` is a
+   review packet, never a payment instruction, and the hard rule keeps payroll
+   at prepare/verify/export only. The operator carries the approved numbers to
+   the bank through the bank's own channel; the app never writes a transfer file.
+7. **SMTP auto-send** — deliberately absent. The human-gate rule requires a named
+   operator to approve every candidate-facing message; `message_mailto` and
+   `interview_ics` prepare the exact text and calendar file, and the operator
+   sends through their own mail app. `mark_sent` records that act.
+8. **Employee self-service login** — out of scope for the HR-only cockpit. This
+   edition ships one role (`hr_operator`), one local operator, and a per-install
+   DPAPI-wrapped key. Employee access would need a second credential store, a
+   second session model, and a reworked threat model. The read-only
+   `employee_file` view lets HR answer "what does my file look like" instead.
+9. **E-sign** — out of scope for the free offline edition. Legal validity needs
+   an external certificate authority; the document-request verify flow plus the
+   audit chain is the edition's evidence mechanism.
 
 ---
 
