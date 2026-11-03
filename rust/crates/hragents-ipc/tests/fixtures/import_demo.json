@@ -74,7 +74,7 @@
           "employee_number": "E-001",
           "full_name": "Rina Kartika",
           "hire_date": "2024-02-01",
-          "id": "4392879a-d635-4c92-9fa2-948c6454b44c",
+          "id": "5a85382d-7519-419b-94f4-abe70291fea8",
           "job_title": "HR Manager",
           "manager_id": null,
           "offboarded_on": null,
@@ -94,9 +94,9 @@
           "employee_number": "E-002",
           "full_name": "Dimas Pratama",
           "hire_date": "2025-06-01",
-          "id": "f3ba0399-60ae-42fb-98b3-4afee9d16827",
+          "id": "61307170-34dd-4728-b13f-5bfd4357fd15",
           "job_title": "Backend Engineer",
-          "manager_id": "4392879a-d635-4c92-9fa2-948c6454b44c",
+          "manager_id": "5a85382d-7519-419b-94f4-abe70291fea8",
           "offboarded_on": null,
           "org_unit_id": "11111111-1111-4111-8111-111111111111",
           "phone": "+62 812 0000 0001",
@@ -114,9 +114,9 @@
           "employee_number": "E-003",
           "full_name": "Sari Wulandari",
           "hire_date": "2023-03-15",
-          "id": "bd401527-4e02-4a0a-984e-66581c5a2260",
+          "id": "43e55a95-ef75-4d87-9325-b90e3e482a84",
           "job_title": "Product Designer",
-          "manager_id": "4392879a-d635-4c92-9fa2-948c6454b44c",
+          "manager_id": "5a85382d-7519-419b-94f4-abe70291fea8",
           "offboarded_on": null,
           "org_unit_id": "22222222-2222-4222-8222-222222222222",
           "phone": null,
@@ -162,12 +162,78 @@
       "rows": []
     },
     "leave_policies": {
-      "count": 0,
-      "rows": []
+      "count": 2,
+      "rows": [
+        {
+          "created_at": "2025-01-10T00:00:00",
+          "id": "071427bd-b9de-4858-80a4-74e09dd8b37b",
+          "leave_type": "annual",
+          "policy": {
+            "carryover_allowed": true,
+            "carryover_max_days": 6.0,
+            "days_per_year": 12.0,
+            "leave_type": "annual",
+            "name": "Annual leave",
+            "requires_document": false
+          },
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "updated_at": "2025-01-10T00:00:00",
+          "version": 0
+        },
+        {
+          "created_at": "2025-01-10T00:00:00",
+          "id": "23b74932-524d-4efe-a238-ad8a8b352b5e",
+          "leave_type": "sick",
+          "policy": {
+            "carryover_allowed": false,
+            "carryover_max_days": null,
+            "days_per_year": null,
+            "leave_type": "sick",
+            "name": "Sick leave",
+            "requires_document": true
+          },
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "updated_at": "2025-01-10T00:00:00",
+          "version": 0
+        }
+      ]
     },
     "leave_requests": {
-      "count": 0,
-      "rows": []
+      "count": 2,
+      "rows": [
+        {
+          "approval_id": null,
+          "created_at": "2025-06-20T00:00:00",
+          "days": 2.0,
+          "document_id": null,
+          "employee_id": "61307170-34dd-4728-b13f-5bfd4357fd15",
+          "end_date": "2025-07-08",
+          "id": "201fe78d-3089-4e22-b15f-dbbd6d188eb2",
+          "leave_type": "annual",
+          "reason": "Family trip",
+          "start_date": "2025-07-07",
+          "status": "approved",
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "updated_at": "2025-06-20T00:00:00",
+          "version": 0
+        },
+        {
+          "approval_id": null,
+          "created_at": "2025-08-04T00:00:00",
+          "days": 1.0,
+          "document_id": null,
+          "employee_id": "43e55a95-ef75-4d87-9325-b90e3e482a84",
+          "end_date": "2025-08-04",
+          "id": "ccea735a-7d25-4483-8f32-3842383467e8",
+          "leave_type": "sick",
+          "reason": null,
+          "start_date": "2025-08-04",
+          "status": "pending",
+          "tenant_id": "00000000-0000-4000-8000-000000000000",
+          "updated_at": "2025-08-04T00:00:00",
+          "version": 0
+        }
+      ]
     },
     "llm_usage": {
       "count": 0,

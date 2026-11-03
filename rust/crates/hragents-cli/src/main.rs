@@ -48,8 +48,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!(
                 "  hragents-cli restore-set <archive.hrbackup> <data-dir> [--key <recovery-key>]"
             );
-            println!("  hragents-cli import <export.json> [--commit]");
-            println!("    dry-run by default; --commit writes in one transaction");
+            println!("  HRAGENTS_DB=<db> hragents-cli import <export.json> [--commit]");
+            println!("    dry-run by default (validates against the target DB, writes no rows);");
+            println!("    --commit writes employees then leave, each in one transaction");
             println!("  hragents-cli rewrap <data-dir> --key <recovery-key>");
             println!("    verify the encrypted database, then re-protect the key for this OS user");
             println!("    verify-first; refuse to overwrite a newer live DB without --force;");
@@ -422,22 +423,22 @@ fn bench(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
 fn import(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let file = positional(args, 0)?;
     let commit = args.iter().any(|arg| arg == "--commit");
+    let db = std::env::var("HRAGENTS_DB")
+        .map(PathBuf::from)
+        .map_err(|_| "import needs HRAGENTS_DB set to the target database")?;
+    let data_dir = db.parent().unwrap_or_else(|| Path::new("."));
+    let key = match parse_key(args)? {
+        Some(key) => key,
+        // Same rule as the desktop shell: create the install key when the
+        // database is new or plaintext, fail closed otherwise.
+        None => hragents_store::keyfile::unlock_key_for(data_dir, &db)?,
+    };
+    let mut store = open_store(&db, Some(&key))?;
     if commit {
-        let db = std::env::var("HRAGENTS_DB")
-            .map(PathBuf::from)
-            .map_err(|_| "--commit needs HRAGENTS_DB set to the target database")?;
-        let data_dir = db.parent().unwrap_or_else(|| Path::new("."));
-        let key = match parse_key(args)? {
-            Some(key) => key,
-            // Same rule as the desktop shell: create the install key when the
-            // database is new or plaintext, fail closed otherwise.
-            None => hragents_store::keyfile::unlock_key_for(data_dir, &db)?,
-        };
-        let mut store = open_store(&db, Some(&key))?;
         let outcome = hragents_ipc::import::commit(&mut store, &file, &file.display().to_string())?;
         print_import_outcome(&outcome);
     } else {
-        let outcome = hragents_ipc::import::dry_run(&file)?;
+        let outcome = hragents_ipc::import::dry_run(&store, &file)?;
         print_import_outcome(&outcome);
     }
     Ok(())

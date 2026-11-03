@@ -46,7 +46,8 @@ pub mod rotation;
 
 const SCHEMA: &str = include_str!("../migrations/0001_init.sql");
 const INDEXES: &str = include_str!("../migrations/0002_indexes.sql");
-const SCHEMA_VERSION: i64 = 3;
+const IMPORT_SLICE: &str = include_str!("../migrations/0004_import_slice.sql");
+const SCHEMA_VERSION: i64 = 4;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
@@ -85,6 +86,30 @@ pub struct ImportReport {
     pub skipped: usize,
     pub managers_linked: usize,
     pub managers_unresolved: usize,
+    pub already_imported: bool,
+}
+
+/// One transactional leave import: types plus requests plus the slice
+/// metadata the audit entry needs.
+pub struct LeaveImportBatch<'a> {
+    pub types: &'a [LeaveType],
+    pub requests: &'a [LeaveRequest],
+    pub drafts_skipped: usize,
+    pub actor: &'a AuditActor,
+    pub source: &'a str,
+    pub source_hash: &'a str,
+    pub source_format: &'a str,
+    pub created_at: UtcInstant,
+}
+
+/// Outcome of one transactional `import_leave` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LeaveImportReport {
+    pub types_inserted: usize,
+    pub types_skipped: usize,
+    pub requests_inserted: usize,
+    pub requests_skipped: usize,
+    pub drafts_skipped: usize,
     pub already_imported: bool,
 }
 
@@ -320,6 +345,19 @@ impl Store {
                 params![now],
             )?;
             tx.pragma_update(None, "user_version", 3)?;
+            tx.commit()?;
+        }
+        if version < 4 {
+            let tx = self
+                .conn
+                .transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch(IMPORT_SLICE)?;
+            let now = UtcInstant::now().millis();
+            tx.execute(
+                "INSERT INTO schema_migrations (version, applied_at) VALUES (4, ?1)",
+                params![now],
+            )?;
+            tx.pragma_update(None, "user_version", 4)?;
             tx.commit()?;
         }
         Ok(())
@@ -589,6 +627,153 @@ impl Store {
             skipped,
             managers_linked,
             managers_unresolved,
+            already_imported: false,
+        })
+    }
+
+    /// Import leave types and requests from a `hragents-export/1` file in one
+    /// transaction. Types are idempotent on their preserved IDs; requests are
+    /// idempotent the same way. A request whose employee is absent from both
+    /// the database and this import fails the whole import with nothing
+    /// written. Drafts never reach this method; the importer counts them as
+    /// skipped instead.
+    pub fn import_leave(&mut self, batch: LeaveImportBatch<'_>) -> StoreResult<LeaveImportReport> {
+        let LeaveImportBatch {
+            types,
+            requests,
+            drafts_skipped,
+            actor,
+            source,
+            source_hash,
+            source_format,
+            created_at,
+        } = batch;
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // The same file hash is reused across slices (employees, then leave),
+        // so slice identity comes from the recorded per-table outcome.
+        let already: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM import_runs WHERE source_hash = ?1 AND source_format = ?2 AND tables_json LIKE '%leave_requests%')",
+            params![source_hash, source_format],
+            |row| row.get(0),
+        )?;
+        if already {
+            return Ok(LeaveImportReport {
+                types_inserted: 0,
+                types_skipped: types.len(),
+                requests_inserted: 0,
+                requests_skipped: requests.len(),
+                drafts_skipped,
+                already_imported: true,
+            });
+        }
+        let mut types_inserted = 0usize;
+        for leave_type in types {
+            let changed = tx.execute(
+                "INSERT INTO leave_types (id, name, annual_quota_x2, carry_over_max_x2, requires_attachment, active)
+                 VALUES (?1, ?2, ?3, ?4, ?5, 1)
+                 ON CONFLICT(id) DO NOTHING",
+                params![
+                    leave_type.id.to_string(),
+                    leave_type.name,
+                    leave_type.annual_quota_x2,
+                    leave_type.carry_over_max_x2,
+                    i64::from(leave_type.requires_attachment),
+                ],
+            )?;
+            types_inserted += changed;
+        }
+        let mut requests_inserted = 0usize;
+        for request in requests {
+            let employee_exists: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM employees WHERE id = ?1)",
+                params![request.employee_id.to_string()],
+                |row| row.get(0),
+            )?;
+            if !employee_exists {
+                return Err(StoreError::Corrupt(format!(
+                    "leave request {} references unknown employee {}",
+                    request.id, request.employee_id
+                )));
+            }
+            let type_exists: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM leave_types WHERE id = ?1)",
+                params![request.leave_type_id.to_string()],
+                |row| row.get(0),
+            )?;
+            if !type_exists {
+                return Err(StoreError::Corrupt(format!(
+                    "leave request {} references unknown leave type {}",
+                    request.id, request.leave_type_id
+                )));
+            }
+            let changed = tx.execute(
+                "INSERT INTO leave_requests
+                 (id, employee_id, leave_type_id, start_date, end_date, days_x2, half_day_start,
+                  half_day_end, reason, status, recorded_by, decided_by, decided_at, decision_note,
+                  attachment_document_id, created_at)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)
+                 ON CONFLICT(id) DO NOTHING",
+                params![
+                    request.id.to_string(),
+                    request.employee_id.to_string(),
+                    request.leave_type_id.to_string(),
+                    request.start_date.to_string(),
+                    request.end_date.to_string(),
+                    request.days_x2,
+                    i64::from(request.half_day_start),
+                    i64::from(request.half_day_end),
+                    request.reason,
+                    leave_status(request.status),
+                    request.recorded_by.to_string(),
+                    request.decided_by.map(|id| id.to_string()),
+                    request.decided_at.map(|instant| instant.millis()),
+                    request.decision_note,
+                    request.attachment_document_id,
+                    request.created_at.millis(),
+                ],
+            )?;
+            requests_inserted += changed;
+        }
+        tx.execute(
+            "INSERT INTO import_runs
+             (id, source, status, rows_read, rows_written, errors_json, started_at,
+              finished_at, source_hash, source_format, tables_json)
+             VALUES (?1, ?2, 'completed', ?3, ?4, '[]', ?5, ?5, ?6, ?7, ?8)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                source,
+                (types.len() + requests.len()) as i64,
+                (types_inserted + requests_inserted) as i64,
+                created_at.millis(),
+                source_hash,
+                source_format,
+                serde_json::json!({"leave_types": {"inserted": types_inserted}, "leave_requests": {"inserted": requests_inserted}})
+                    .to_string(),
+            ],
+        )?;
+        Self::append_audit_in(
+            &tx,
+            actor,
+            "leave.imported",
+            "leave_request",
+            source_hash,
+            &serde_json::json!({
+                "source_hash": source_hash,
+                "types_inserted": types_inserted,
+                "requests_inserted": requests_inserted,
+                "drafts_skipped": drafts_skipped,
+            }),
+            created_at,
+        )?;
+        tx.commit()?;
+        Ok(LeaveImportReport {
+            types_inserted,
+            types_skipped: types.len() - types_inserted,
+            requests_inserted,
+            requests_skipped: requests.len() - requests_inserted,
+            drafts_skipped,
             already_imported: false,
         })
     }
@@ -3922,7 +4107,7 @@ mod tests {
     #[test]
     fn schema_migrates_and_reports_version() {
         let store = store();
-        assert_eq!(store.schema_version().unwrap(), 3);
+        assert_eq!(store.schema_version().unwrap(), 4);
         assert_eq!(store.integrity_check().unwrap(), "ok");
         assert_eq!(store.query_count("employees").unwrap(), 0);
     }
@@ -3992,13 +4177,13 @@ mod tests {
                  ALTER TABLE growth_assignments DROP COLUMN sent_at;
                  ALTER TABLE growth_assignments DROP COLUMN submitted_at;
                  ALTER TABLE offboarding_plans DROP COLUMN final_pay_run_id;
-                 DELETE FROM schema_migrations WHERE version IN (2, 3);
+                 DELETE FROM schema_migrations WHERE version IN (2, 3, 4);
                  PRAGMA user_version = 1;",
             )
             .unwrap();
         assert_eq!(store.schema_version().unwrap(), 1);
         store.migrate().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 3);
+        assert_eq!(store.schema_version().unwrap(), 4);
         let evolved: Vec<String> = store
             .conn
             .prepare("PRAGMA table_info(import_runs)")

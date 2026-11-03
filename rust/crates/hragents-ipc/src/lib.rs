@@ -3303,7 +3303,8 @@ mod tests {
             .unwrap();
 
         // Dry-run validates and reports without touching the database.
-        let outcome = import::dry_run(&file).unwrap();
+        let probe = AppService::open_in_memory().unwrap();
+        let outcome = import::dry_run(probe.store(), &file).unwrap();
         assert!(!outcome.committed);
         assert!(outcome.tables.iter().all(|table| table.errors.is_empty()));
         let employees = outcome
@@ -3312,6 +3313,18 @@ mod tests {
             .find(|table| table.table == "employees")
             .unwrap();
         assert_eq!(employees.rows, 3);
+        let policies = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "leave_policies")
+            .unwrap();
+        assert_eq!(policies.rows, 2);
+        let requests = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "leave_requests")
+            .unwrap();
+        assert_eq!(requests.rows, 2);
         assert!(
             outcome
                 .skipped_tables
@@ -3342,6 +3355,39 @@ mod tests {
         assert!(by_no["E-001"].manager_id.is_none());
         assert_eq!(by_no["E-002"].manager_id, Some(by_no["E-001"].id));
         assert_eq!(by_no["E-003"].manager_id, Some(by_no["E-001"].id));
+        assert_eq!(outcome.drafts_skipped, 0);
+        let stored_types = service.store().list_leave_types().unwrap();
+        assert_eq!(stored_types.len(), 2);
+        let annual = stored_types
+            .iter()
+            .find(|leave_type| leave_type.name == "Annual leave")
+            .unwrap();
+        assert_eq!(annual.annual_quota_x2, 24);
+        assert_eq!(annual.carry_over_max_x2, 12);
+        assert!(!annual.requires_attachment);
+        let sick = stored_types
+            .iter()
+            .find(|leave_type| leave_type.name == "Sick leave")
+            .unwrap();
+        assert_eq!(sick.annual_quota_x2, 0);
+        assert!(sick.requires_attachment);
+        let stored_requests = service.store().list_leave_requests(None).unwrap();
+        assert_eq!(stored_requests.len(), 2);
+        let approved = stored_requests
+            .iter()
+            .find(|request| request.status == hragents_core::leave::LeaveStatus::Approved)
+            .unwrap();
+        assert_eq!(approved.days_x2, 4);
+        assert_eq!(approved.leave_type_id, annual.id);
+        assert_eq!(approved.employee_id, by_no["E-002"].id);
+        assert!(
+            service
+                .store()
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "leave.imported")
+        );
         assert!(
             service
                 .store()
@@ -3356,6 +3402,61 @@ mod tests {
         assert!(again.already_imported);
         assert!(!again.committed);
         assert_eq!(service.store().list_employees().unwrap().len(), 3);
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn import_rejects_employee_with_dangling_org_unit() {
+        use crate::import;
+        use std::io::Write;
+
+        let document = serde_json::json!({
+            "manifest": {"format": "hragents-export/1"},
+            "data": {
+                "org_units": {
+                    "count": 1,
+                    "rows": [{"id": "11111111-1111-4111-8111-111111111111", "name": "Product"}],
+                },
+                "employees": {
+                    "count": 1,
+                    "rows": [{
+                        "id": "22222222-2222-4222-8222-222222222222",
+                        "employee_number": "E-900",
+                        "full_name": "No Org Nora",
+                        "job_title": "Analyst",
+                        "org_unit_id": "00000000-0000-4000-8000-000000000099",
+                        "status": "active",
+                        "hire_date": "2024-05-01",
+                    }],
+                },
+            },
+        });
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("no-org.json");
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(serde_json::to_string(&document).unwrap().as_bytes())
+            .unwrap();
+
+        let probe = AppService::open_in_memory().unwrap();
+        let outcome = import::dry_run(probe.store(), &file).unwrap();
+        let table = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "employees")
+            .unwrap();
+        assert_eq!(table.errors.len(), 1);
+        assert!(
+            table.errors[0].contains("org unit"),
+            "unexpected error: {}",
+            table.errors[0]
+        );
+        let db = dir.path().join("hragents.db");
+        let key = hragents_store::keyfile::generate_key().unwrap();
+        let mut service = AppService::open_encrypted(&db, &key).unwrap();
+        let refused = import::commit(service.store_mut(), &file, "no-org").unwrap();
+        assert!(!refused.committed);
+        assert_eq!(service.store().query_count("employees").unwrap(), 0);
     }
 
     #[cfg(feature = "sqlcipher")]
@@ -3376,9 +3477,17 @@ mod tests {
             .as_array_mut()
             .unwrap();
         employees[0]["status"] = serde_json::Value::String("superstar".into());
-        employees[1]["org_unit_id"] =
-            serde_json::Value::String("00000000-0000-4000-8000-000000000099".into());
         employees[2].as_object_mut().unwrap().remove("hire_date");
+        let requests = document
+            .get_mut("data")
+            .unwrap()
+            .get_mut("leave_requests")
+            .unwrap()
+            .get_mut("rows")
+            .unwrap()
+            .as_array_mut()
+            .unwrap();
+        requests[0]["status"] = serde_json::Value::String("eventually".into());
 
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("bad-export.json");
@@ -3387,14 +3496,39 @@ mod tests {
             .write_all(serde_json::to_string(&document).unwrap().as_bytes())
             .unwrap();
 
-        let outcome = import::dry_run(&file).unwrap();
+        let probe = AppService::open_in_memory().unwrap();
+        let outcome = import::dry_run(probe.store(), &file).unwrap();
         assert!(!outcome.committed);
         let table = outcome
             .tables
             .iter()
             .find(|table| table.table == "employees")
             .unwrap();
-        assert_eq!(table.errors.len(), 3);
+        assert_eq!(table.errors.len(), 2);
+        let leave_table = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "leave_requests")
+            .unwrap();
+        assert_eq!(leave_table.errors.len(), 2);
+        eprintln!(
+            "leave errors: {leave_table_errors:?}",
+            leave_table_errors = leave_table.errors
+        );
+        assert!(
+            leave_table
+                .errors
+                .iter()
+                .any(|error| error.contains("unknown status")),
+            "bogus status must be reported"
+        );
+        assert!(
+            leave_table
+                .errors
+                .iter()
+                .any(|error| error.contains("neither the database nor this import")),
+            "dangling employee reference must be reported"
+        );
 
         let db = dir.path().join("hragents.db");
         let key = hragents_store::keyfile::generate_key().unwrap();
@@ -3572,7 +3706,7 @@ mod tests {
             service.company_name().unwrap().as_deref(),
             Some("Nusantara Labs")
         );
-        assert_eq!(service.store().schema_version().unwrap(), 3);
+        assert_eq!(service.store().schema_version().unwrap(), 4);
         assert!(AppService::open_encrypted(&db, "wrong key").is_err());
 
         assert!(service.recovery_key("wrong password").is_err());

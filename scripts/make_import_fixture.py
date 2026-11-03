@@ -134,6 +134,84 @@ def main() -> int:
                 },
             ],
         )
+        import json as _json
+
+        annual_policy, sick_policy = str(uuid4()), str(uuid4())
+        connection.execute(
+            text(
+                "INSERT INTO leave_policies (id, tenant_id, leave_type, policy,"
+                " created_at, updated_at)"
+                " VALUES (:id, :tenant, :type, :policy, :now, :now)"
+            ),
+            [
+                {
+                    "id": annual_policy,
+                    "tenant": TENANT_ID,
+                    "type": "annual",
+                    "policy": _json.dumps(
+                        {
+                            "leave_type": "annual",
+                            "name": "Annual leave",
+                            "requires_document": False,
+                            "days_per_year": 12.0,
+                            "carryover_allowed": True,
+                            "carryover_max_days": 6.0,
+                        }
+                    ),
+                    "now": datetime(2025, 1, 10),
+                },
+                {
+                    "id": sick_policy,
+                    "tenant": TENANT_ID,
+                    "type": "sick",
+                    "policy": _json.dumps(
+                        {
+                            "leave_type": "sick",
+                            "name": "Sick leave",
+                            "requires_document": True,
+                            "days_per_year": None,
+                            "carryover_allowed": False,
+                            "carryover_max_days": None,
+                        }
+                    ),
+                    "now": datetime(2025, 1, 10),
+                },
+            ],
+        )
+        connection.execute(
+            text(
+                "INSERT INTO leave_requests (id, tenant_id, employee_id, leave_type, start_date,"
+                " end_date, days, reason, status, created_at, updated_at)"
+                " VALUES (:id, :tenant, :employee, :type, :start, :end, :days, :reason,"
+                " :status, :now, :now)"
+            ),
+            [
+                {
+                    "id": str(uuid4()),
+                    "tenant": TENANT_ID,
+                    "employee": dimas,
+                    "type": "annual",
+                    "start": date(2025, 7, 7),
+                    "end": date(2025, 7, 8),
+                    "days": 2.0,
+                    "reason": "Family trip",
+                    "status": "approved",
+                    "now": datetime(2025, 6, 20),
+                },
+                {
+                    "id": str(uuid4()),
+                    "tenant": TENANT_ID,
+                    "employee": sari,
+                    "type": "sick",
+                    "start": date(2025, 8, 4),
+                    "end": date(2025, 8, 4),
+                    "days": 1.0,
+                    "reason": None,
+                    "status": "pending",
+                    "now": datetime(2025, 8, 4),
+                },
+            ],
+        )
 
     chunks = list(
         iter_export(
