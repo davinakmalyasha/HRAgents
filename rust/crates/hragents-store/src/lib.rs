@@ -113,6 +113,29 @@ pub struct LeaveImportReport {
     pub already_imported: bool,
 }
 
+/// One transactional payroll import: approved runs with reconciled lines plus
+/// the slice metadata the audit entry needs.
+pub struct PayrollImportBatch<'a> {
+    pub runs: &'a [(PayrollRun, Vec<PayrollLine>)],
+    pub non_final_skipped: usize,
+    pub actor: &'a AuditActor,
+    pub source: &'a str,
+    pub source_hash: &'a str,
+    pub source_format: &'a str,
+    pub created_at: UtcInstant,
+}
+
+/// Outcome of one transactional `import_payroll` call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PayrollImportReport {
+    pub runs_inserted: usize,
+    pub runs_skipped: usize,
+    pub lines_inserted: usize,
+    pub lines_skipped: usize,
+    pub non_final_skipped: usize,
+    pub already_imported: bool,
+}
+
 fn remove_if_exists(path: &Path) -> StoreResult<()> {
     match std::fs::remove_file(path) {
         Ok(()) => Ok(()),
@@ -774,6 +797,162 @@ impl Store {
             requests_inserted,
             requests_skipped: requests.len() - requests_inserted,
             drafts_skipped,
+            already_imported: false,
+        })
+    }
+
+    /// Import approved payroll runs with their lines in one transaction.
+    /// Only immutable final states transfer: Python `approved`/`exported`
+    /// become `approved`; `cancelled` stays cancelled; `superseded` stays
+    /// superseded. Anything else (drafts, pending sign-off, rejected) is
+    /// source-system workflow and is counted as skipped, never silently
+    /// converted. Rows are idempotent on their preserved IDs; a missing
+    /// employee or a line that fails reconciliation aborts the whole import
+    /// with nothing written.
+    pub fn import_payroll(
+        &mut self,
+        batch: PayrollImportBatch<'_>,
+    ) -> StoreResult<PayrollImportReport> {
+        let PayrollImportBatch {
+            runs,
+            non_final_skipped,
+            actor,
+            source,
+            source_hash,
+            source_format,
+            created_at,
+        } = batch;
+        for (run, lines) in runs {
+            for line in lines {
+                line.check_invariants().map_err(|error| {
+                    StoreError::Corrupt(format!(
+                        "imported line for {} fails reconciliation: {error}",
+                        line.employee_id
+                    ))
+                })?;
+            }
+            let _ = run;
+        }
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let already: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM import_runs WHERE source_hash = ?1 AND source_format = ?2 AND tables_json LIKE '%payroll_runs%')",
+            params![source_hash, source_format],
+            |row| row.get(0),
+        )?;
+        if already {
+            let mut line_count = 0usize;
+            for (_, lines) in runs {
+                line_count += lines.len();
+            }
+            return Ok(PayrollImportReport {
+                runs_inserted: 0,
+                runs_skipped: runs.len(),
+                lines_inserted: 0,
+                lines_skipped: line_count,
+                non_final_skipped,
+                already_imported: true,
+            });
+        }
+        let mut runs_inserted = 0usize;
+        let mut lines_inserted = 0usize;
+        for (run, lines) in runs {
+            for line in lines {
+                let employee_exists: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM employees WHERE id = ?1)",
+                    params![line.employee_id.to_string()],
+                    |row| row.get(0),
+                )?;
+                if !employee_exists {
+                    return Err(StoreError::Corrupt(format!(
+                        "payroll run {} references unknown employee {}",
+                        run.id, line.employee_id
+                    )));
+                }
+            }
+            let changed = tx.execute(
+                "INSERT INTO payroll_runs
+                 (id, kind, period, status, anomalies_json, totals_json, rate_table_ids_json,
+                  created_at, computed_at, approved_at, approved_by, supersede_reason)
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)
+                 ON CONFLICT(id) DO NOTHING",
+                params![
+                    run.id.to_string(),
+                    payroll_kind(run.kind),
+                    run.period.to_string(),
+                    run_status(run.status),
+                    serde_json::to_string(&run.anomalies)?,
+                    serde_json::to_string(&run.totals)?,
+                    serde_json::to_string(
+                        &run.rate_table_ids
+                            .iter()
+                            .map(|id| id.to_string())
+                            .collect::<Vec<_>>()
+                    )?,
+                    run.created_at.millis(),
+                    run.computed_at.map(|instant| instant.millis()),
+                    run.approved_at.map(|instant| instant.millis()),
+                    run.approved_by.map(|id| id.to_string()),
+                    run.supersede_reason,
+                ],
+            )?;
+            runs_inserted += changed;
+            for line in lines {
+                let changed = tx.execute(
+                    "INSERT INTO payroll_lines
+                     (run_id, employee_id, employee_name, line_json, position)
+                     VALUES (?1,?2,?3,?4,?5)
+                     ON CONFLICT(run_id, employee_id) DO NOTHING",
+                    params![
+                        run.id.to_string(),
+                        line.employee_id.to_string(),
+                        line.employee_name,
+                        serde_json::to_string(&line)?,
+                        0,
+                    ],
+                )?;
+                lines_inserted += changed;
+            }
+        }
+        tx.execute(
+            "INSERT INTO import_runs
+             (id, source, status, rows_read, rows_written, errors_json, started_at,
+              finished_at, source_hash, source_format, tables_json)
+             VALUES (?1, ?2, 'completed', ?3, ?4, '[]', ?5, ?5, ?6, ?7, ?8)",
+            params![
+                uuid::Uuid::new_v4().to_string(),
+                source,
+                (runs.len() + lines_inserted) as i64,
+                (runs_inserted + lines_inserted) as i64,
+                created_at.millis(),
+                source_hash,
+                source_format,
+                serde_json::json!({"payroll_runs": {"inserted": runs_inserted}, "payroll_lines": {"inserted": lines_inserted}}).to_string(),
+            ],
+        )?;
+        Self::append_audit_in(
+            &tx,
+            actor,
+            "payroll.imported",
+            "payroll_run",
+            source_hash,
+            &serde_json::json!({
+                "source_hash": source_hash,
+                "runs_inserted": runs_inserted,
+                "lines_inserted": lines_inserted,
+                "non_final_skipped": non_final_skipped,
+            }),
+            created_at,
+        )?;
+        tx.commit()?;
+        Ok(PayrollImportReport {
+            runs_inserted,
+            runs_skipped: runs.len() - runs_inserted,
+            lines_inserted,
+            lines_skipped: runs.iter().map(|(_, lines)| lines.len()).sum::<usize>()
+                - lines_inserted,
+            non_final_skipped,
             already_imported: false,
         })
     }

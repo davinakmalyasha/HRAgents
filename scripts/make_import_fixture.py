@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -69,14 +69,14 @@ def main() -> int:
                     "tenant": TENANT_ID,
                     "name": "Product",
                     "cost": "CC-100",
-                    "now": datetime(2025, 1, 10),
+                    "now": datetime(2025, 1, 10, tzinfo=UTC),
                 },
                 {
                     "id": DESIGN_ID,
                     "tenant": TENANT_ID,
                     "name": "Design",
                     "cost": None,
-                    "now": datetime(2025, 1, 10),
+                    "now": datetime(2025, 1, 10, tzinfo=UTC),
                 },
             ],
         )
@@ -102,7 +102,7 @@ def main() -> int:
                     "manager": None,
                     "status": "active",
                     "hire": date(2024, 2, 1),
-                    "now": datetime(2025, 1, 10),
+                    "now": datetime(2025, 1, 10, tzinfo=UTC),
                 },
                 {
                     "id": dimas,
@@ -116,7 +116,7 @@ def main() -> int:
                     "manager": rina,
                     "status": "probation",
                     "hire": date(2025, 6, 1),
-                    "now": datetime(2025, 6, 1),
+                    "now": datetime(2025, 6, 1, tzinfo=UTC),
                 },
                 {
                     "id": sari,
@@ -130,7 +130,7 @@ def main() -> int:
                     "manager": rina,
                     "status": "notice_period",
                     "hire": date(2023, 3, 15),
-                    "now": datetime(2025, 1, 10),
+                    "now": datetime(2025, 1, 10, tzinfo=UTC),
                 },
             ],
         )
@@ -158,7 +158,7 @@ def main() -> int:
                             "carryover_max_days": 6.0,
                         }
                     ),
-                    "now": datetime(2025, 1, 10),
+                    "now": datetime(2025, 1, 10, tzinfo=UTC),
                 },
                 {
                     "id": sick_policy,
@@ -174,7 +174,7 @@ def main() -> int:
                             "carryover_max_days": None,
                         }
                     ),
-                    "now": datetime(2025, 1, 10),
+                    "now": datetime(2025, 1, 10, tzinfo=UTC),
                 },
             ],
         )
@@ -196,7 +196,7 @@ def main() -> int:
                     "days": 2.0,
                     "reason": "Family trip",
                     "status": "approved",
-                    "now": datetime(2025, 6, 20),
+                    "now": datetime(2025, 6, 20, tzinfo=UTC),
                 },
                 {
                     "id": str(uuid4()),
@@ -208,7 +208,127 @@ def main() -> int:
                     "days": 1.0,
                     "reason": None,
                     "status": "pending",
-                    "now": datetime(2025, 8, 4),
+                    "now": datetime(2025, 8, 4, tzinfo=UTC),
+                },
+            ],
+        )
+
+        from decimal import Decimal as _D
+
+        run_approved, run_draft = str(uuid4()), str(uuid4())
+        connection.execute(
+            text(
+                "INSERT INTO payroll_runs (id, tenant_id, period_year, period_month, kind,"
+                " status, inputs, anomalies, rate_table_ids, signed_off_by, created_at)"
+                " VALUES (:id, :tenant, :year, :month, :kind, :status, :inputs,"
+                " :anomalies, :tables, :signed, :now)"
+            ),
+            [
+                {
+                    "id": run_approved,
+                    "tenant": TENANT_ID,
+                    "year": 2025,
+                    "month": 6,
+                    "kind": "monthly",
+                    "status": "approved",
+                    "inputs": "[]",
+                    "anomalies": _json.dumps(
+                        [
+                            {
+                                "code": "overtime_excessive",
+                                "severity": "warning",
+                                "employee_id": None,
+                                "detail": "3 overtime hours need a manager check.",
+                            }
+                        ]
+                    ),
+                    "tables": "{}",
+                    "signed": "Rina Kartika",
+                    "now": datetime(2025, 7, 1, tzinfo=UTC),
+                },
+                {
+                    "id": run_draft,
+                    "tenant": TENANT_ID,
+                    "year": 2025,
+                    "month": 7,
+                    "kind": "monthly",
+                    "status": "draft",
+                    "inputs": "[]",
+                    "anomalies": "[]",
+                    "tables": "{}",
+                    "signed": None,
+                    "now": datetime(2025, 7, 20, tzinfo=UTC),
+                },
+            ],
+        )
+        line_columns = (
+            "id, tenant_id, run_id, employee_id, employee_name, base_salary, allowances,"
+            " overtime_pay, bonus, gross, bpjs_kesehatan_employee, bpjs_jht_employee,"
+            " bpjs_jp_employee, pph21, other_deductions, total_deductions, net,"
+            " bpjs_kesehatan_employer, bpjs_jht_employer, bpjs_jp_employer,"
+            " bpjs_jkk_employer, bpjs_jkm_employer, employer_cost, thr_months, notes"
+        )
+        line_placeholders = (
+            ":id, :tenant, :run, :employee, :name, :base, :allow, :ot, :bonus, :gross,"
+            " :kes, :jht, :jp, :pph21, :other, :total, :net, :keser, :jhther, :jper,"
+            " :jkker, :jkmer, :cost, :thr, :notes"
+        )
+        connection.execute(
+            text(f"INSERT INTO payroll_lines ({line_columns}) VALUES ({line_placeholders})"),
+            [
+                {
+                    "id": str(uuid4()),
+                    "tenant": TENANT_ID,
+                    "run": run_approved,
+                    "employee": dimas,
+                    "name": "Dimas Pratama",
+                    "base": str(str(_D("10000000"))),
+                    "allow": str(_D("2000000")),
+                    "ot": str(_D("0")),
+                    "bonus": str(_D("0")),
+                    "gross": str(_D("12000000")),
+                    "kes": str(_D("120000")),
+                    "jht": str(_D("240000")),
+                    "jp": str(_D("120000")),
+                    "pph21": str(_D("0")),
+                    "other": str(_D("0")),
+                    "total": str(_D("480000")),
+                    "net": str(_D("11520000")),
+                    "keser": str(_D("480000")),
+                    "jhther": str(_D("444000")),
+                    "jper": str(_D("240000")),
+                    "jkker": str(_D("28800")),
+                    "jkmer": str(_D("36000")),
+                    "cost": str(_D("1228800")),
+                    "thr": 0,
+                    "notes": "[]",
+                },
+                {
+                    "id": str(uuid4()),
+                    "tenant": TENANT_ID,
+                    "run": run_approved,
+                    "employee": sari,
+                    "name": "Sari Wulandari",
+                    "base": str(_D("8000000")),
+                    "allow": str(_D("500000")),
+                    "ot": str(_D("150000")),
+                    "bonus": str(_D("0")),
+                    "gross": str(_D("8650000")),
+                    "kes": str(_D("85000")),
+                    "jht": str(_D("170000")),
+                    "jp": str(_D("85000")),
+                    "pph21": str(_D("0")),
+                    "other": str(_D("50000")),
+                    "total": str(_D("390000")),
+                    "net": str(_D("8260000")),
+                    "keser": str(_D("340000")),
+                    "jhther": str(_D("314500")),
+                    "jper": str(_D("170000")),
+                    "jkker": str(_D("20400")),
+                    "jkmer": str(_D("25500")),
+                    "cost": str(_D("870400")),
+                    "thr": 0,
+                    "notes": "[]",
                 },
             ],
         )
@@ -216,7 +336,7 @@ def main() -> int:
     chunks = list(
         iter_export(
             factory,
-            exported_at=datetime(2026, 1, 15, 9, 0, 0),
+            exported_at=datetime(2026, 1, 15, 9, 0, 0, tzinfo=UTC),
             exported_by="fixture-generator",
         )
     )

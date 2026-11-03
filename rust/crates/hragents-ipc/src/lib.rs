@@ -3306,7 +3306,14 @@ mod tests {
         let probe = AppService::open_in_memory().unwrap();
         let outcome = import::dry_run(probe.store(), &file).unwrap();
         assert!(!outcome.committed);
-        assert!(outcome.tables.iter().all(|table| table.errors.is_empty()));
+        for table in &outcome.tables {
+            assert!(
+                table.errors.is_empty(),
+                "{}: {:?}",
+                table.table,
+                table.errors
+            );
+        }
         let employees = outcome
             .tables
             .iter()
@@ -3325,6 +3332,13 @@ mod tests {
             .find(|table| table.table == "leave_requests")
             .unwrap();
         assert_eq!(requests.rows, 2);
+        let payroll = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "payroll_runs")
+            .unwrap();
+        assert_eq!(payroll.rows, 4);
+        assert_eq!(outcome.non_final_skipped, 1);
         assert!(
             outcome
                 .skipped_tables
@@ -3388,6 +3402,32 @@ mod tests {
                 .iter()
                 .any(|entry| entry.action == "leave.imported")
         );
+        let stored_runs = service.store().list_payroll_runs().unwrap();
+        assert_eq!(stored_runs.len(), 1);
+        assert_eq!(
+            stored_runs[0].status,
+            hragents_core::payroll::RunStatus::Approved
+        );
+        assert_eq!(stored_runs[0].lines.len(), 2);
+        assert_eq!(
+            stored_runs[0].totals.net,
+            hragents_core::money::Money::from_rupiah(8260000 + 11520000).unwrap()
+        );
+        let names: Vec<&str> = stored_runs[0]
+            .lines
+            .iter()
+            .map(|line| line.employee_name.as_str())
+            .collect();
+        assert!(names.contains(&"Dimas Pratama"));
+        assert!(names.contains(&"Sari Wulandari"));
+        assert!(
+            service
+                .store()
+                .audit_recent(50)
+                .unwrap()
+                .iter()
+                .any(|entry| entry.action == "payroll.imported")
+        );
         assert!(
             service
                 .store()
@@ -3402,6 +3442,81 @@ mod tests {
         assert!(again.already_imported);
         assert!(!again.committed);
         assert_eq!(service.store().list_employees().unwrap().len(), 3);
+    }
+
+    #[cfg(feature = "sqlcipher")]
+    #[test]
+    fn import_rejects_tampered_totals_and_dangling_lines() {
+        use crate::import;
+        use std::io::Write;
+
+        let fixture = include_str!("../tests/fixtures/import_demo.json");
+        // Tamper with a line amount so the stored total no longer reconciles.
+        let mut document: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let lines = document
+            .get_mut("data")
+            .unwrap()
+            .get_mut("payroll_lines")
+            .unwrap()
+            .get_mut("rows")
+            .unwrap()
+            .as_array_mut()
+            .unwrap();
+        lines[0]["gross"] = serde_json::Value::String("99999999".into());
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("tampered.json");
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(serde_json::to_string(&document).unwrap().as_bytes())
+            .unwrap();
+        let probe = AppService::open_in_memory().unwrap();
+        let outcome = import::dry_run(probe.store(), &file).unwrap();
+        assert!(!outcome.committed);
+        let table = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "payroll_runs")
+            .unwrap();
+        assert_eq!(table.errors.len(), 1);
+        assert!(table.errors[0].contains("fails reconciliation"));
+
+        // Lines pointing at a run that is not in the export.
+        let mut document: serde_json::Value = serde_json::from_str(fixture).unwrap();
+        let lines = document
+            .get_mut("data")
+            .unwrap()
+            .get_mut("payroll_lines")
+            .unwrap()
+            .get_mut("rows")
+            .unwrap()
+            .as_array_mut()
+            .unwrap();
+        lines[0]["run_id"] =
+            serde_json::Value::String("00000000-0000-4000-8000-000000000099".into());
+        let file = dir.path().join("dangling.json");
+        std::fs::File::create(&file)
+            .unwrap()
+            .write_all(serde_json::to_string(&document).unwrap().as_bytes())
+            .unwrap();
+        let outcome = import::dry_run(probe.store(), &file).unwrap();
+        let table = outcome
+            .tables
+            .iter()
+            .find(|table| table.table == "payroll_runs")
+            .unwrap();
+        assert_eq!(table.errors.len(), 1);
+        assert!(table.errors[0].contains("unknown run"));
+
+        let db = dir.path().join("hragents.db");
+        let key = hragents_store::keyfile::generate_key().unwrap();
+        let mut service = AppService::open_encrypted(&db, &key).unwrap();
+        for name in ["tampered.json", "dangling.json"] {
+            let refused =
+                import::commit(service.store_mut(), &dir.path().join(name), "bad").unwrap();
+            assert!(!refused.committed);
+        }
+        assert_eq!(service.store().query_count("payroll_runs").unwrap(), 0);
+        assert_eq!(service.store().query_count("employees").unwrap(), 0);
     }
 
     #[cfg(feature = "sqlcipher")]

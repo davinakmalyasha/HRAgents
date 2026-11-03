@@ -9,15 +9,28 @@
 use crate::{AppError, AppResult};
 use hragents_core::ids::{EmployeeId, LeaveRequestId, LeaveTypeId, OperatorId};
 use hragents_core::leave::{LeaveRequest, LeaveStatus, LeaveType};
+use hragents_core::money::Money;
+use hragents_core::payroll::{
+    PayrollAnomaly, PayrollKind, PayrollLine, PayrollRun, RunStatus, Severity,
+};
 use hragents_core::people::{Employee, EmploymentStatus};
 use hragents_core::time::{BusinessDate, UtcInstant};
-use hragents_store::{ImportReport, LeaveImportBatch, LeaveImportReport, Store};
+use hragents_store::{
+    ImportReport, LeaveImportBatch, LeaveImportReport, PayrollImportBatch, Store,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
 
 pub const SUPPORTED_FORMAT: &str = "hragents-export/1";
-pub const KNOWN_TABLES: &[&str] = &["org_units", "employees", "leave_policies", "leave_requests"];
+pub const KNOWN_TABLES: &[&str] = &[
+    "org_units",
+    "employees",
+    "leave_policies",
+    "leave_requests",
+    "payroll_runs",
+    "payroll_lines",
+];
 
 #[derive(Debug, Clone, Deserialize)]
 struct ExportFile {
@@ -54,6 +67,7 @@ pub struct ImportOutcome {
     pub managers_linked: usize,
     pub managers_unresolved: usize,
     pub drafts_skipped: usize,
+    pub non_final_skipped: usize,
     pub already_imported: bool,
 }
 
@@ -164,13 +178,13 @@ struct PreparedImport {
     leave_types: Vec<LeaveType>,
     leave_requests: Vec<LeaveRequest>,
     drafts_skipped: usize,
+    payroll: Vec<(PayrollRun, Vec<PayrollLine>)>,
+    non_final_skipped: usize,
     tables: Vec<TableOutcome>,
     skipped_tables: Vec<TableSkipped>,
     source_hash: String,
 }
 
-/// Parse and validate an export file. Returns the mapped employees, per-table
-/// outcomes for the dry-run report, and skipped tables. Writes nothing.
 fn round_days_x2(days: f64, what: &str) -> Result<i32, String> {
     if !days.is_finite() || days <= 0.0 {
         return Err(format!("{what} must be positive, got {days}"));
@@ -421,6 +435,8 @@ fn prepare(store: &Store, path: &Path) -> AppResult<PreparedImport> {
             leave_types: Vec::new(),
             leave_requests: Vec::new(),
             drafts_skipped: 0,
+            payroll: Vec::new(),
+            non_final_skipped: 0,
             tables: outcomes,
             skipped_tables,
             source_hash,
@@ -491,15 +507,73 @@ fn prepare(store: &Store, path: &Path) -> AppResult<PreparedImport> {
         });
     }
 
+    let mut known_employees: std::collections::BTreeSet<EmployeeId> =
+        employees.iter().map(|employee| employee.id).collect();
+    for existing in store.list_employees()? {
+        known_employees.insert(existing.id);
+    }
+
+    let mut payroll: Vec<(PayrollRun, Vec<PayrollLine>)> = Vec::new();
+    let mut non_final_skipped = 0usize;
+    let mut payroll_errors = Vec::new();
+    if let Some(table) = file.data.get("payroll_runs") {
+        let mut runs = BTreeMap::new();
+        for row in &table.rows {
+            match map_payroll_run(row, now) {
+                Ok(Some(run)) => {
+                    runs.insert(run.id.to_string(), run);
+                }
+                Ok(None) => non_final_skipped += 1,
+                Err(error) => payroll_errors.push(error),
+            }
+        }
+        if let Some(table) = file.data.get("payroll_lines") {
+            let mut by_run: BTreeMap<String, Vec<PayrollLine>> = BTreeMap::new();
+            for row in &table.rows {
+                let run_id = row
+                    .get("run_id")
+                    .and_then(|item| item.as_str())
+                    .unwrap_or("")
+                    .to_owned();
+                match map_payroll_line(row, &run_id, &known_employees) {
+                    Ok(line) => by_run.entry(run_id).or_default().push(line),
+                    Err(error) => payroll_errors.push(error),
+                }
+            }
+            for (run_id, lines) in by_run {
+                match runs.remove(&run_id) {
+                    Some(mut run) => {
+                        run.totals = hragents_core::payroll::PayrollTotals::from_lines(&lines)
+                            .map_err(|error| {
+                                AppError::Export(format!(
+                                    "payroll run {run_id}: totals do not reconcile: {error}"
+                                ))
+                            })?;
+                        payroll.push((run, lines));
+                    }
+                    None => {
+                        payroll_errors.push(format!("payroll lines reference unknown run {run_id}"))
+                    }
+                }
+            }
+        }
+        let mut rows = table.rows.len();
+        if let Some(lines) = file.data.get("payroll_lines") {
+            rows += lines.rows.len();
+        }
+        outcomes.push(TableOutcome {
+            table: "payroll_runs".into(),
+            rows,
+            inserted: 0,
+            skipped: 0,
+            errors: payroll_errors,
+        });
+    }
+
     let mut leave_requests = Vec::new();
     let mut request_errors = Vec::new();
     let mut drafts_skipped = 0usize;
     if let Some(table) = file.data.get("leave_requests") {
-        let mut known_employees: std::collections::BTreeSet<EmployeeId> =
-            employees.iter().map(|employee| employee.id).collect();
-        for existing in store.list_employees()? {
-            known_employees.insert(existing.id);
-        }
         for row in &table.rows {
             match map_leave_request(row, &policy_ids, &known_employees, now) {
                 Ok(Some(request)) => leave_requests.push(request),
@@ -520,10 +594,223 @@ fn prepare(store: &Store, path: &Path) -> AppResult<PreparedImport> {
         leave_types,
         leave_requests,
         drafts_skipped,
+        payroll,
+        non_final_skipped,
         tables: outcomes,
         skipped_tables,
         source_hash,
     })
+}
+
+fn parse_sen(value: &serde_json::Value, what: &str) -> Result<Money, String> {
+    match value {
+        serde_json::Value::String(raw) => {
+            Money::parse(raw).map_err(|_| format!("{what} {raw:?} is not a decimal amount"))
+        }
+        serde_json::Value::Number(number) => {
+            let amount = number
+                .as_f64()
+                .ok_or_else(|| format!("{what} {number} is not a finite number"))?;
+            Ok(Money::from_sen((amount * 100.0).round() as i64))
+        }
+        _ => Err(format!("{what} is missing or not a number")),
+    }
+}
+
+fn parse_optional_datetime(
+    value: Option<&serde_json::Value>,
+    what: &str,
+) -> Result<Option<UtcInstant>, String> {
+    match value {
+        None | Some(serde_json::Value::Null) => Ok(None),
+        Some(serde_json::Value::String(raw)) => UtcInstant::from_rfc3339(raw)
+            .map(Some)
+            .map_err(|_| format!("{what} {raw:?} is not RFC 3339")),
+        Some(other) => Err(format!("{what} {other} is not a datetime string")),
+    }
+}
+
+fn map_payroll_run(
+    value: &serde_json::Value,
+    now: UtcInstant,
+) -> Result<Option<PayrollRun>, String> {
+    let id = value.get("id").and_then(|item| item.as_str()).unwrap_or("");
+    let year = value.get("period_year").and_then(serde_json::Value::as_i64);
+    let month = value
+        .get("period_month")
+        .and_then(serde_json::Value::as_i64);
+    let (year, month) = match (year, month) {
+        (Some(year), Some(month)) => (year, month),
+        _ => {
+            return Err(format!(
+                "payroll run {id}: period_year/month must be integers"
+            ));
+        }
+    };
+    let period = BusinessDate::parse(&format!("{year:04}-{month:02}-01"))
+        .map_err(|_| format!("payroll run {id}: invalid period {year}-{month}"))?;
+    let kind = match value
+        .get("kind")
+        .and_then(|item| item.as_str())
+        .unwrap_or("")
+    {
+        "monthly" => PayrollKind::Monthly,
+        "thr" => PayrollKind::Thr,
+        "final" => PayrollKind::Final,
+        "adjustment" => PayrollKind::Adjustment,
+        other => return Err(format!("payroll run {id}: unknown kind {other:?}")),
+    };
+    // Only immutable final states transfer. Drafts, pending sign-off, and
+    // rejections are source-system workflow: re-export after sign-off.
+    let status = match value
+        .get("status")
+        .and_then(|item| item.as_str())
+        .unwrap_or("")
+    {
+        "approved" | "exported" => RunStatus::Approved,
+        "cancelled" => RunStatus::Cancelled,
+        "superseded" => RunStatus::Superseded,
+        _ => return Ok(None),
+    };
+    let anomalies = match value.get("anomalies") {
+        None | Some(serde_json::Value::Null) => Vec::new(),
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .map(|item| {
+                let severity = match item.get("severity").and_then(|entry| entry.as_str()) {
+                    Some("info") => Severity::Info,
+                    Some("warning") => Severity::Warning,
+                    Some("error") => Severity::Error,
+                    other => {
+                        return Err(format!(
+                            "payroll run {id}: unknown anomaly severity {other:?}"
+                        ));
+                    }
+                };
+                Ok(PayrollAnomaly {
+                    code: item
+                        .get("code")
+                        .and_then(|entry| entry.as_str())
+                        .unwrap_or("imported")
+                        .to_owned(),
+                    severity,
+                    employee_id: None,
+                    detail: item
+                        .get("detail")
+                        .and_then(|entry| entry.as_str())
+                        .unwrap_or("")
+                        .to_owned(),
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?,
+        Some(_) => {
+            return Err(format!("payroll run {id}: anomalies must be a list"));
+        }
+    };
+    let created_at = parse_optional_datetime(value.get("created_at"), "created_at")?.unwrap_or(now);
+    Ok(Some(PayrollRun {
+        id: id
+            .parse()
+            .map_err(|_| format!("payroll run {id}: id is not a UUID"))?,
+        kind,
+        period,
+        status,
+        lines: Vec::new(),
+        anomalies,
+        totals: hragents_core::payroll::PayrollTotals::default(),
+        rate_table_ids: Vec::new(),
+        created_at,
+        computed_at: Some(created_at),
+        approved_at: parse_optional_datetime(value.get("signed_off_at"), "signed_off_at")?,
+        approved_by: None,
+        supersede_reason: value
+            .get("cancel_reason")
+            .and_then(|item| item.as_str())
+            .map(str::to_owned),
+    }))
+}
+
+fn map_payroll_line(
+    value: &serde_json::Value,
+    run_id: &str,
+    known_employees: &std::collections::BTreeSet<EmployeeId>,
+) -> Result<PayrollLine, String> {
+    let get = |key: &str| {
+        value
+            .get(key)
+            .ok_or_else(|| format!("payroll line in run {run_id}: {key} is missing"))
+    };
+    let employee_id: EmployeeId = value
+        .get("employee_id")
+        .and_then(|item| item.as_str())
+        .unwrap_or("")
+        .parse()
+        .map_err(|_| format!("payroll line in run {run_id}: employee_id is not a UUID"))?;
+    if !known_employees.contains(&employee_id) {
+        return Err(format!(
+            "payroll line in run {run_id}: employee {employee_id} is in neither the database nor this import"
+        ));
+    }
+    let money = |key: &str| parse_sen(get(key)?, &format!("payroll line {key}"));
+    let thr_months = value
+        .get("thr_months")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    if !(0..=24).contains(&thr_months) {
+        return Err(format!(
+            "payroll line in run {run_id}: thr_months {thr_months} out of range"
+        ));
+    }
+    let notes = match value.get("notes") {
+        None | Some(serde_json::Value::Null) => Vec::new(),
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .map(|item| match item {
+                serde_json::Value::String(text) => text.clone(),
+                other => other.to_string(),
+            })
+            .collect(),
+        Some(_) => {
+            return Err(format!(
+                "payroll line in run {run_id}: notes must be a list"
+            ));
+        }
+    };
+    let line = PayrollLine {
+        employee_id,
+        employee_name: value
+            .get("employee_name")
+            .and_then(|item| item.as_str())
+            .unwrap_or("")
+            .to_owned(),
+        base_salary: money("base_salary")?,
+        allowances: money("allowances")?,
+        overtime_pay: money("overtime_pay")?,
+        bonus: money("bonus")?,
+        gross: money("gross")?,
+        bpjs_kesehatan_employee: money("bpjs_kesehatan_employee")?,
+        bpjs_jht_employee: money("bpjs_jht_employee")?,
+        bpjs_jp_employee: money("bpjs_jp_employee")?,
+        pph21: money("pph21")?,
+        other_deductions: money("other_deductions")?,
+        total_deductions: money("total_deductions")?,
+        net: money("net")?,
+        bpjs_kesehatan_employer: money("bpjs_kesehatan_employer")?,
+        bpjs_jht_employer: money("bpjs_jht_employer")?,
+        bpjs_jp_employer: money("bpjs_jp_employer")?,
+        bpjs_jkk_employer: money("bpjs_jkk_employer")?,
+        bpjs_jkm_employer: money("bpjs_jkm_employer")?,
+        employer_cost: money("employer_cost")?,
+        thr_months_bp: Some(thr_months * 10_000),
+        severance_pay: Money::ZERO,
+        leave_payout: Money::ZERO,
+        notes,
+    };
+    // Reconcile on the way in so a dry-run already catches a tampered export;
+    // the store re-checks at commit time.
+    line.check_invariants()
+        .map_err(|error| format!("payroll line in run {run_id} fails reconciliation: {error}"))?;
+    Ok(line)
 }
 
 /// Dry-run: validate everything, report counts and errors, write nothing.
@@ -539,6 +826,7 @@ pub fn dry_run(store: &Store, path: &Path) -> AppResult<ImportOutcome> {
         managers_linked: 0,
         managers_unresolved: 0,
         drafts_skipped: prepared.drafts_skipped,
+        non_final_skipped: prepared.non_final_skipped,
         already_imported: false,
     })
 }
@@ -554,6 +842,8 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
         leave_types,
         leave_requests,
         drafts_skipped,
+        payroll,
+        non_final_skipped,
         mut tables,
         skipped_tables,
         source_hash,
@@ -567,6 +857,7 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
             managers_linked: 0,
             managers_unresolved: 0,
             drafts_skipped,
+            non_final_skipped,
             already_imported: false,
         });
     }
@@ -576,6 +867,7 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
     let want_leave = tables
         .iter()
         .any(|table| table.table == "leave_policies" || table.table == "leave_requests");
+    let want_payroll = tables.iter().any(|table| table.table == "payroll_runs");
     let report: ImportReport = if want_employees {
         store.import_employees(
             &employees,
@@ -631,14 +923,46 @@ pub fn commit(store: &mut Store, path: &Path, source: &str) -> AppResult<ImportO
             table.skipped = leave_report.requests_skipped;
         }
     }
+    let payroll_report = if want_payroll {
+        store.import_payroll(PayrollImportBatch {
+            runs: &payroll,
+            non_final_skipped,
+            actor: &actor,
+            source,
+            source_hash: &source_hash,
+            source_format: SUPPORTED_FORMAT,
+            created_at: now,
+        })?
+    } else {
+        hragents_store::PayrollImportReport {
+            runs_inserted: 0,
+            runs_skipped: 0,
+            lines_inserted: 0,
+            lines_skipped: 0,
+            non_final_skipped,
+            already_imported: true,
+        }
+    };
+    for table in &mut tables {
+        if table.table == "payroll_runs" {
+            let inserted = payroll_report.runs_inserted + payroll_report.lines_inserted;
+            table.inserted = inserted;
+            table.skipped = table.rows.saturating_sub(inserted);
+        }
+    }
     Ok(ImportOutcome {
         source_hash,
-        committed: !report.already_imported || !leave_report.already_imported,
+        committed: !report.already_imported
+            || !leave_report.already_imported
+            || !payroll_report.already_imported,
         tables,
         skipped_tables,
         managers_linked: report.managers_linked,
         managers_unresolved: report.managers_unresolved,
         drafts_skipped,
-        already_imported: report.already_imported && leave_report.already_imported,
+        non_final_skipped,
+        already_imported: report.already_imported
+            && leave_report.already_imported
+            && payroll_report.already_imported,
     })
 }
