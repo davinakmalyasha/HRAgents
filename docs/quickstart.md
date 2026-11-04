@@ -66,6 +66,22 @@ The desktop app and `cargo` never read `.env` themselves; docker compose and
 the Python provider layer do, which is the whole confusion — see
 `.env.example`.)
 
+## 7. Agent helpers
+
+Every screen has a helper that reads and explains — never decides:
+
+- **Today** opens with a morning briefing: approvals, queued messages,
+  payroll awaiting sign-off, expiring documents.
+- **Reports** ranks applicants per job with scores and flags.
+- **Pay** shows a plain-words readiness checklist per run.
+- **People** shows attendance findings and document attention items.
+- **Ask** answers policy questions with citations, offline by default.
+  With a provider key, DeepSeek V4.1 Flash may rephrase the answer;
+  citations never change.
+
+Draft, preview, then **you** check with your password and send, approve,
+or lock. Nothing sends, approves, or pays on its own.
+
 ## Next
 
 - [Product scope](plan/desktop-migration/00-product-scope.md) — who it serves

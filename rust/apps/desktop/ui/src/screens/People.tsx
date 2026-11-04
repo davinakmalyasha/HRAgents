@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { businessToday, command, formatDate, formatDays } from "../api";
 import type {
+  AttendanceFinding,
+  DocumentHealth,
   Employee,
   LeaveBalance,
   LeaveRequest,
@@ -194,6 +196,19 @@ export function People() {
 }
 
 function Overview({ employee }: { employee: Employee }) {
+  const month = businessToday().slice(0, 7);
+  const findings = useQuery({
+    queryKey: ["attendance-findings", employee.id, month],
+    queryFn: () => command<AttendanceFinding[]>("attendance_findings", {
+      employee_id: employee.id,
+      year: Number(month.slice(0, 4)),
+      month: Number(month.slice(5, 7)),
+    }),
+  });
+  const health = useQuery({
+    queryKey: ["document-health"],
+    queryFn: () => command<DocumentHealth>("document_health"),
+  });
   return (
     <div className="grid" style={{ gap: 18 }}>
       <div className="detail-grid">
@@ -208,6 +223,29 @@ function Overview({ employee }: { employee: Employee }) {
         <Fact k="BPJS Kesehatan" v={employee.bpjs_kesehatan_no ?? "Not set"} />
         <Fact k="BPJS Ketenagakerjaan" v={employee.bpjs_ketenagakerjaan_no ?? "Not set"} />
       </div>
+      {(findings.data ?? []).length > 0 ? (
+        <section className="card card-pad">
+          <div style={{ fontWeight: 620, marginBottom: 6 }}>Attendance this month</div>
+          <ul className="small muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+            {findings.data!.map((finding, index) => (
+              <li key={index}>{finding.detail}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {(health.data && (health.data.expiring.length > 0 || health.data.overdue_requests.length > 0)) ? (
+        <section className="card card-pad">
+          <div style={{ fontWeight: 620, marginBottom: 6 }}>Documents need attention</div>
+          <ul className="small muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+            {health.data.expiring.slice(0, 5).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+            {health.data.overdue_requests.slice(0, 5).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <div className="notice">
         <FileText size={15} />
         <div>

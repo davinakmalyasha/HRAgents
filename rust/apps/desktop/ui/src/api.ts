@@ -2134,6 +2134,84 @@ async function mock<T>(name: string, args: Record<string, unknown>): Promise<T> 
       const employee = findEmployee(String(args.employee_id));
       return { employee, contracts: [] } as T;
     }
+    case "rank_applications":
+      requireSession();
+      return state.applications
+        .filter((item) => item.job_id === String(args.job_id))
+        .map((item) => {
+          const evaluation = state.evaluations.find((e) => e.application_id === item.id);
+          const candidate = state.candidates.find((c) => c.id === item.candidate_id);
+          return {
+            application_id: item.id,
+            candidate_name: candidate?.full_name ?? "Candidate",
+            stage: item.stage,
+            overall_bp: evaluation?.overall_bp ?? null,
+            sigma_bp: evaluation?.sigma_bp ?? null,
+            flags: evaluation?.flags ?? [],
+            has_evaluation: Boolean(evaluation),
+          };
+        })
+        .sort((a, b) => (b.overall_bp ?? -1) - (a.overall_bp ?? -1)) as T;
+    case "payroll_readiness":
+      requireSession();
+      return {
+        run_id: String(args.run_id),
+        blocking: 0,
+        warnings: 0,
+        lines: 1,
+        ready: true,
+        sentences: ["1 person, preview data."],
+      } as T;
+    case "attendance_findings":
+      requireSession();
+      return [{ kind: "clean", date: null, detail: "Preview data: full attendance." }] as T;
+    case "document_health":
+      requireSession();
+      return { expiring: [], overdue_requests: [] } as T;
+    case "daily_briefing":
+      requireSession();
+      return {
+        sentences: [
+          `${state.approvals.filter((a) => a.status === "open").length} open approvals.`,
+          "Nothing else needs attention.",
+        ],
+      } as T;
+    case "ask_assistant": {
+      requireSession();
+      const q = String(args.question ?? "").toLowerCase();
+      const pick = (words: string[], body: string, citation: string) =>
+        words.some((w) => q.includes(w)) ? { body, citation } : null;
+      const answer = pick(
+        ["probation", "contract"],
+        "The standard probation period is three months, with one extension of up to three months only in writing.",
+        "Probation and fixed-term contracts",
+      ) ?? pick(
+        ["leave", "annual", "balance"],
+        "Employees receive 12 days of annual leave per year. Leave is recorded by HR on the person's behalf.",
+        "Annual leave policy",
+      ) ?? pick(
+        ["reject", "merit"],
+        "A rejection at or above the merit floor is a gated decision: an authenticated HR operator, a reason of at least 10 characters, and a fresh password.",
+        "Hiring policy: gated rejection",
+      ) ?? pick(
+        ["payroll", "sign-off", "signoff", "tax"],
+        "Payroll needs seven verified statutory tables, a complete profile for each employee, and no blocking anomalies. Sign-off freezes the run.",
+        "Payroll runbook: pre-flight and sign-off",
+      ) ?? pick(
+        ["consent", "erase", "withdraw"],
+        "Withdrawing consent stops processing immediately. Erasure is a separate gated action; audit rows and statutory payroll records survive.",
+        "Data governance: consent and erasure",
+      );
+      if (!answer) {
+        return { body: "I could not find a policy source for that question. I will not guess.", citations: [], matched: false, provider_used: false } as T;
+      }
+      return {
+        body: answer.body,
+        citations: [{ slug: "preview", title: answer.citation, excerpt: answer.body, score: 6 }],
+        matched: true,
+        provider_used: false,
+      } as T;
+    }
     default:
       throw { code: "E_UNKNOWN_COMMAND", message: `Unknown command: ${name}` };
   }

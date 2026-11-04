@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3 } from "lucide-react";
 import { command, formatIdr } from "../api";
+import type { Job, RankedApplication } from "../types";
 
 interface CompanyReport {
   headcount: { org_unit: string; active: number }[];
@@ -13,6 +15,13 @@ interface CompanyReport {
 export function Reports() {
   const report = useQuery({ queryKey: ["company-report"], queryFn: () => command<CompanyReport>("company_report") });
   const org = useQuery({ queryKey: ["org-tree"], queryFn: () => command<[string, string, string][]>("org_tree") });
+  const jobs = useQuery({ queryKey: ["jobs"], queryFn: () => command<Job[]>("list_jobs") });
+  const [jobId, setJobId] = useState("");
+  const shortlist = useQuery({
+    queryKey: ["shortlist", jobId],
+    queryFn: () => command<RankedApplication[]>("rank_applications", { job_id: jobId }),
+    enabled: Boolean(jobId),
+  });
   const data = report.data;
 
   return (
@@ -55,6 +64,25 @@ export function Reports() {
               {data.hiring_funnel.map((row) => (
                 <li key={row.job_id}>{row.title}: {row.applied} applied · {row.interviewed} interviewed · {row.offered} offered · {row.hired} hired</li>
               ))}
+            </ul>
+            <h2>Ranked shortlist</h2>
+            <label className="small">Job
+              <select value={jobId} onChange={(e) => setJobId(e.target.value)}>
+                <option value="">Select…</option>
+                {(jobs.data ?? []).map((job) => (
+                  <option key={job.id} value={job.id}>{job.title}</option>
+                ))}
+              </select>
+            </label>
+            <ul className="small">
+              {(shortlist.data ?? []).map((row, index) => (
+                <li key={row.application_id}>
+                  #{index + 1} {row.candidate_name} · {row.stage}
+                  {row.overall_bp != null ? ` · ${(row.overall_bp / 100).toFixed(1)}%` : " · not scored"}
+                  {row.flags.length > 0 ? ` · flags: ${row.flags.join(", ")}` : null}
+                </li>
+              ))}
+              {jobId && (shortlist.data ?? []).length === 0 ? <li className="faint">No applications yet.</li> : null}
             </ul>
             <h2>Leave</h2>
             <ul className="small">

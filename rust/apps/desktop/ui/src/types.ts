@@ -664,3 +664,51 @@ export interface ConsentRecord {
   expires_on: string | null;
   note: string | null;
 }
+
+export interface RankedApplication {
+  application_id: string;
+  candidate_name: string;
+  stage: string;
+  overall_bp: number | null;
+  sigma_bp: number | null;
+  flags: string[];
+  has_evaluation: boolean;
+}
+
+export interface PayrollReadiness {
+  run_id: string;
+  blocking: number;
+  warnings: number;
+  lines: number;
+  ready: boolean;
+  sentences: string[];
+}
+
+export interface AttendanceFinding {
+  kind: string;
+  date: string | null;
+  detail: string;
+}
+
+export interface DocumentHealth {
+  expiring: string[];
+  overdue_requests: string[];
+}
+
+export interface DailyBriefing {
+  sentences: string[];
+}
+
+export interface PolicyHit {
+  slug: string;
+  title: string;
+  excerpt: string;
+  score: number;
+}
+
+export interface AskResponse {
+  body: string;
+  citations: PolicyHit[];
+  matched: boolean;
+  provider_used: boolean;
+}

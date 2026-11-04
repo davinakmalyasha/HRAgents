@@ -1,87 +1,61 @@
 import { useRef, useState } from "react";
-import { ArrowRight, BookOpen, CornerDownLeft, MessageSquare, ShieldCheck } from "lucide-react";
-import type { Surface } from "../nav";
+import { ArrowRight, BookOpen, CornerDownLeft, MessageSquare, ShieldCheck, Sparkles } from "lucide-react";
+import { command } from "../api";
+import type { AskResponse } from "../types";
+import type { Surface as NavSurface } from "../nav";
+import { ErrorBox } from "../components/ui";
 
 interface Message {
   role: "operator" | "assistant";
   body: string;
   citation?: string;
-  handoff?: { label: string; surface: Surface };
+  providerUsed?: boolean;
 }
 
 const SUGGESTIONS = [
-  "How many annual leave days does Ayu have left?",
   "What is the probation period for a new hire?",
   "Can we reject a candidate above the merit floor?",
   "What does payroll need before sign-off?",
+  "What happens when consent is withdrawn?",
 ];
 
-const ANSWERS: { match: RegExp; body: string; citation: string; handoff?: { label: string; surface: Surface } }[] = [
-  {
-    match: /leave|annual|balance/i,
-    body:
-      "Ayu Lestari has 10 of 12 annual-leave days left for 2026: 12 entitled, 2 approved and used, 0 pending. Leave is recorded by HR on the person's behalf; there is no employee login in this edition.",
-    citation: "Annual leave policy · §3 Accrual and carry-over · verified 2026-01-01",
-    handoff: { label: "Open Ayu's leave record", surface: "people" },
-  },
-  {
-    match: /probation|new hire|contract/i,
-    body:
-      "The standard probation period is three months, with one extension of up to three months only in writing. A fixed-term contract must state its end date and the reason for the term; expiry reminders are generated 30 days ahead.",
-    citation: "Employment contract policy · §2 Probation and fixed-term contracts",
-    handoff: { label: "Open People", surface: "people" },
-  },
-  {
-    match: /reject|merit|floor|candidate/i,
-    body:
-      "Yes, but never automatically. A rejection at or above the merit floor is a gated decision: it needs an authenticated HR operator, a reason of at least 10 characters, and a fresh password. The audit chain stores the operator, reason, and payload hash. Consent must still be granted.",
-    citation: "Hiring policy · §6 Gated rejection · ADR-0002 and ADR-0011",
-    handoff: { label: "Open the candidate case file", surface: "hire" },
-  },
-  {
-    match: /payroll|salary|sign.?off|bpjs|tax/i,
-    body:
-      "Payroll needs seven verified statutory tables (BPJS Kesehatan, JHT, JP, JKK, JKM, PPh 21 TER, PTKP), a complete payroll profile for each employee, and no blocking anomalies. Sign-off requires a fresh password and freezes the run. The app never executes a payment; it exports a review packet.",
-    citation: "Payroll runbook · §1 Pre-flight and §4 Sign-off",
-    handoff: { label: "Open Pay", surface: "pay" },
-  },
-  {
-    match: /consent|withdraw|gdpr|pdpa|erase/i,
-    body:
-      "Withdrawing consent stops processing immediately: scoring, messaging, and offers are blocked, and the withdrawal is audited. Erasure is a separate gated action: approval and execution are both named, retention holds block it, and audit rows and statutory payroll records survive.",
-    citation: "Data governance · §2 Consent and §5 Erasure",
-    handoff: { label: "Open Settings", surface: "settings" },
-  },
-];
-
-export function Ask({ onNavigate }: { onNavigate: (surface: Surface) => void }) {
+export function Ask({ onNavigate }: { onNavigate: (surface: NavSurface) => void }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
       body:
-        "Ask about policy, leave balances, payroll readiness, or a decision. I answer from the local policy corpus and cite the source. I never decide, send, or change a record on my own.",
-      citation: "Local policy corpus · 4 documents indexed",
+        "Ask about policy, leave, probation, payroll readiness, or a decision. I answer from the local policy corpus and cite the source. I never decide, send, or change a record on my own.",
+      citation: "Local policy corpus · 5 documents indexed",
     },
   ]);
   const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  void onNavigate;
 
-  function ask(question: string) {
+  async function ask(question: string) {
     const value = question.trim();
-    if (!value) return;
-    const answer: { body: string; citation: string; handoff?: { label: string; surface: Surface } } =
-      ANSWERS.find((item) => item.match.test(value)) ?? {
-        body:
-          "I could not find a policy source for that question. Try asking about leave, probation, rejection gates, payroll sign-off, or consent. I will not guess a statutory figure.",
-        citation: "No matching source in the local corpus",
-      };
-    setMessages((current) => [
-      ...current,
-      { role: "operator", body: value },
-      { role: "assistant", body: answer.body, citation: answer.citation, handoff: answer.handoff },
-    ]);
+    if (!value || busy) return;
+    setBusy(true);
+    setError(null);
+    setMessages((current) => [...current, { role: "operator", body: value }]);
     setInput("");
-    requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 99999, behavior: "smooth" }));
+    try {
+      const answer = await command<AskResponse>("ask_assistant", { question: value });
+      const citation = answer.citations.length > 0
+        ? answer.citations.map((hit) => hit.title).join(" · ")
+        : "No matching source in the local corpus";
+      setMessages((current) => [
+        ...current,
+        { role: "assistant", body: answer.body, citation, providerUsed: answer.provider_used },
+      ]);
+    } catch (caught) {
+      setError(typeof caught === "object" && caught && "message" in caught ? String((caught as { message: unknown }).message) : String(caught));
+    } finally {
+      setBusy(false);
+      requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 99999, behavior: "smooth" }));
+    }
   }
 
   return (
@@ -108,14 +82,8 @@ export function Ask({ onNavigate }: { onNavigate: (surface: Surface) => void }) 
               <div key={`${message.role}-${index}`}>
                 <div className={`bubble ${message.role}`}>{message.body}</div>
                 {message.citation ? <div className="citation">{message.citation}</div> : null}
-                {message.handoff ? (
-                  <button
-                    className="btn sm"
-                    style={{ marginTop: 7 }}
-                    onClick={() => onNavigate(message.handoff!.surface)}
-                  >
-                    {message.handoff.label} <ArrowRight size={13} />
-                  </button>
+                {message.providerUsed ? (
+                  <div className="citation"><Sparkles size={11} /> phrased with DeepSeek V4.1 Flash · citations unchanged</div>
                 ) : null}
               </div>
             ))}
@@ -150,10 +118,11 @@ export function Ask({ onNavigate }: { onNavigate: (surface: Surface) => void }) 
               placeholder="Ask about leave, probation, payroll, or a decision…"
               aria-label="Ask a policy question"
             />
-            <button className="btn primary" type="submit" disabled={!input.trim()}>
-              Ask <CornerDownLeft size={13} />
+            <button className="btn primary" type="submit" disabled={!input.trim() || busy}>
+              {busy ? "Asking…" : <>Ask <CornerDownLeft size={13} /></>}
             </button>
           </form>
+          {error ? <ErrorBox>{error}</ErrorBox> : null}
         </section>
 
         <aside className="grid" style={{ alignContent: "start" }}>
@@ -182,10 +151,10 @@ export function Ask({ onNavigate }: { onNavigate: (surface: Surface) => void }) 
           <section className="card card-pad">
             <div style={{ fontWeight: 620 }}>What Ask can see</div>
             <ul className="small muted" style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.7 }}>
-              <li>Policy documents imported into this company's local database.</li>
+              <li>Policy rules built into this company's local corpus, with citations.</li>
               <li>Counts and balances returned by a read-only tool.</li>
               <li>No payroll amounts beyond what your session can already open.</li>
-              <li>No network call unless you configured a provider; the offline test provider works without one.</li>
+              <li>Offline by default; with a provider key, DeepSeek V4.1 Flash may rephrase the answer — citations never change.</li>
             </ul>
           </section>
 

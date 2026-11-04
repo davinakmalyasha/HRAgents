@@ -27,6 +27,7 @@ use hragents_core::policy::PolicyCorpus;
 use hragents_core::time::{BusinessDate, UtcInstant};
 use hragents_store::{Store, StoreError, document_crypto};
 
+pub mod agent_helpers;
 mod attendance_reports;
 pub mod backup_set;
 mod compliance_services;
@@ -478,7 +479,7 @@ impl AppService {
     }
 
     pub fn logout(&mut self) -> AppResult<()> {
-        if let Some(session) = self.session.take() {
+        if let Some(session) = self.session.as_ref() {
             let now = UtcInstant::now();
             self.append_audit(
                 "session.logout",
@@ -488,6 +489,7 @@ impl AppService {
                 now,
             )?;
         }
+        self.session = None;
         self.operator = None;
         Ok(())
     }

@@ -53,6 +53,15 @@ actually prove, and what is still open. It is updated at every merge.
 | Share-out helpers (mailto + calendar file) | **Done; no network, human sends** | `AppService::message_mailto/interview_ics` |
 | Attendance + Reports UI + preview mocks | **Done; lazy screens** | `screens/Attendance.tsx`, `screens/Reports.tsx` |
 | E2E HR journey test | **Done** | `hragents-ipc/tests/e2e_hr_journey.rs` |
+| Agent helpers (read-only, human gates all acts) | **Done** | `hragents-ipc/src/agent_helpers.rs` |
+| Hire shortlist ranking | **Done; evaluated first, flags travel** | `AppService::rank_applications`, Reports UI |
+| Payroll readiness explainer | **Done; plain sentences, ready flag** | `AppService::payroll_readiness`, Pay UI |
+| Attendance findings | **Done; late/overtime/absent sentences** | `AppService::attendance_findings`, People UI |
+| Document health | **Done; expiring + overdue** | `AppService::document_health`, People UI |
+| Daily briefing | **Done; one morning list** | `AppService::daily_briefing`, Today UI |
+| Ask backend (offline + optional DeepSeek) | **Done; citations immutable** | `AppService::ask_assistant`, Ask UI |
+| Logout audit ordering | **Fixed; audit before session take** | `AppService::logout` |
+| Agent e2e (5 tests) | **Done** | `hragents-ipc/tests/e2e_agents.rs` |
 | N+1 removal on Today/reminders | **Done** | `list_onboarding_plans` (two queries, not one per employee) |
 | WAL, FTS5, backup + integrity check | **Done** | `hragents-store/src/lib.rs` |
 | SQLCipher database encryption | **Enabled in the desktop build** | `Store::open_encrypted`, `apps/desktop` enables the feature |
@@ -190,6 +199,23 @@ copy-parity release (attendance, reports, hiring flow, share-out, e2e):
   -- -D warnings: clean. cargo fmt --check: clean.
   UI tsc --noEmit clean; vite build ok (Attendance 3.16 kB, Reports 2.37 kB).
   uv run python scripts/check.py: 2234 passed, 5 skipped, 92.41%.
+
+agent-helper release (this cut):
+  cargo test --workspace --exclude hragents-desktop
+    total 156 passed, 0 failed (agents 18, core 73, payroll_parity 8,
+    python_parity 6, ipc 26, e2e_agents 5, e2e_hr_journey 1, store 18,
+    replay 1)
+    e2e_agents covers shortlist ranking (incl. unknown-job refusal),
+    payroll readiness sentences, attendance late findings + no-shift path,
+    document health + briefing read-only shape, ask matched/refusal plus
+    gating after logout. The run also exposed and fixed a real bug:
+    logout audited after taking the session, so it always failed.
+  cargo clippy --all-targets -- -D warnings: clean, incl. hragents-desktop.
+  cargo fmt --check: clean. UI tsc --noEmit clean; vite build ok.
+  Pending at write time: uv run python scripts/check.py re-run (untouched
+  Python tree; last green 2234 passed, 5 skipped, 92.41%).
+  cargo check -p hragents-desktop for the 6 new Tauri commands: green
+  (EXIT=0, zero errors).
   hragents-desktop check: green after fixing the two environment issues found
   along the way. `cargo check -p hragents-desktop` passes with zero errors
   (EXIT=0), so all 11 new Tauri commands are compiler-verified. Environment

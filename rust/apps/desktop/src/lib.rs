@@ -740,6 +740,59 @@ fn employee_file(state: State<'_, AppState>, employee_id: String) -> CmdResult<s
 }
 
 #[tauri::command]
+fn rank_applications(
+    state: State<'_, AppState>,
+    job_id: String,
+) -> CmdResult<Vec<hragents_ipc::agent_helpers::RankedApplication>> {
+    let job_id: hragents_core::ids::JobId = parse_id(&job_id)?;
+    with_service(&state, |service| service.rank_applications(job_id))
+}
+
+#[tauri::command]
+fn payroll_readiness(
+    state: State<'_, AppState>,
+    run_id: String,
+) -> CmdResult<hragents_ipc::agent_helpers::PayrollReadiness> {
+    let run_id: hragents_core::ids::PayrollRunId = parse_id(&run_id)?;
+    with_service(&state, |service| service.payroll_readiness(run_id))
+}
+
+#[tauri::command]
+fn attendance_findings(
+    state: State<'_, AppState>,
+    employee_id: String,
+    year: i32,
+    month: u32,
+) -> CmdResult<Vec<hragents_ipc::agent_helpers::AttendanceFinding>> {
+    let employee_id: hragents_core::ids::EmployeeId = parse_id(&employee_id)?;
+    with_service(&state, |service| {
+        service.attendance_findings(employee_id, year, month)
+    })
+}
+
+#[tauri::command]
+fn document_health(
+    state: State<'_, AppState>,
+) -> CmdResult<hragents_ipc::agent_helpers::DocumentHealth> {
+    with_service(&state, |service| service.document_health())
+}
+
+#[tauri::command]
+fn daily_briefing(
+    state: State<'_, AppState>,
+) -> CmdResult<hragents_ipc::agent_helpers::DailyBriefing> {
+    with_service(&state, |service| service.daily_briefing())
+}
+
+#[tauri::command]
+fn ask_assistant(
+    state: State<'_, AppState>,
+    question: String,
+) -> CmdResult<hragents_ipc::agent_helpers::AskResponse> {
+    with_service(&state, |service| service.ask_assistant(&question))
+}
+
+#[tauri::command]
 fn audit_verify(state: State<'_, AppState>) -> CmdResult<hragents_core::audit::AuditVerification> {
     with_service(&state, |service| service.audit_verify())
 }
@@ -1051,6 +1104,12 @@ pub fn run() {
             message_mailto,
             interview_ics,
             employee_file,
+            rank_applications,
+            payroll_readiness,
+            attendance_findings,
+            document_health,
+            daily_briefing,
+            ask_assistant,
             reminders,
             outbox_pending,
             poll_replies,

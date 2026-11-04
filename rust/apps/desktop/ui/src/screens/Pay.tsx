@@ -14,6 +14,7 @@ import { businessMonthStart, command, formatIdr } from "../api";
 import type {
   Employee,
   PayrollInput,
+  PayrollReadiness,
   PayrollRun,
   PayrollView,
   PayslipView,
@@ -283,6 +284,10 @@ function RunDetail({
 }) {
   const blocking = run.anomalies.filter((anomaly) => anomaly.severity === "error").length;
   const [payslipFor, setPayslipFor] = useState<string | null>(null);
+  const readiness = useQuery({
+    queryKey: ["payroll-readiness", run.id],
+    queryFn: () => command<PayrollReadiness>("payroll_readiness", { run_id: run.id }),
+  });
   return (
     <>
       <div className="card-pad" style={{ borderBottom: "1px solid var(--line)" }}>
@@ -316,7 +321,11 @@ function RunDetail({
             Export review packet
           </button>
           <span className="small faint" style={{ marginLeft: "auto" }}>
-            {blocking > 0 ? `${blocking} blocking anomaly(ies)` : "No blocking anomalies"}
+            {readiness.data
+              ? readiness.data.ready
+                ? "Ready to sign off"
+                : `${readiness.data.blocking} must-fix item(s)`
+              : blocking > 0 ? `${blocking} blocking anomaly(ies)` : "No blocking anomalies"}
           </span>
         </div>
       </div>

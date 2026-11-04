@@ -30,6 +30,7 @@ export function Today({
   const today = useQuery({ queryKey: ["today"], queryFn: () => command<TodayView>("today") });
   const reminders = useQuery({ queryKey: ["reminders"], queryFn: () => command<Reminder[]>("reminders") });
   const outbox = useQuery({ queryKey: ["outbox"], queryFn: () => command<CandidateMessage[]>("outbox_pending") });
+  const briefing = useQuery({ queryKey: ["briefing"], queryFn: () => command<{ sentences: string[] }>("daily_briefing") });
   const data = today.data;
   const approvals = data?.approvals ?? [];
   const payrollApproval = approvals.find((approval) => approval.kind === "payroll_sign_off");
@@ -196,6 +197,16 @@ export function Today({
         </div>
 
         <aside className="grid" style={{ alignContent: "start" }}>
+          {briefing.data ? (
+            <section className="card card-pad">
+              <div style={{ fontWeight: 620, marginBottom: 6 }}>Morning briefing</div>
+              <ul className="small muted" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+                {briefing.data.sentences.map((sentence, index) => (
+                  <li key={index}>{sentence}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
           {(reminderList.length > 0 || outboxList.length > 0) && (
             <section className="card">
               <div className="card-head">
