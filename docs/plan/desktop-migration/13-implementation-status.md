@@ -87,7 +87,7 @@ actually prove, and what is still open. It is updated at every merge.
 | Tauri 2.12 shell, typed commands, SQLite state | **Done; binary launches** | `rust/apps/desktop` |
 | Single-instance guard | **Done** | `tauri-plugin-single-instance` focuses the running window |
 | Strict CSP split (production vs dev) | **Done** | `tauri.conf.json` `security.csp` / `devCsp` |
-| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.20 MiB with SQLCipher + payslip UI** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
+| NSIS installer (free edition: unsigned, per-user, no admin) | **Done locally: 7.27 MiB rebuild 2026-11-04, launch + single-instance + encrypted-DB verified** | `bundle/nsis/HRAgents_0.1.0_x64-setup.exe` |
 | Auto-update | **Intentionally absent.** No paid account, no hosted server, no phone-home. | Settings → Updates explains it |
 | Five-surface React UI + login/lock | **Done; all seven screens lazy, shell-first paint** | `rust/apps/desktop/ui` |
 | UI refinement pass | **Done: focus trap/restore, skip link, reduced motion, scoped table headers, associated labels, keyboard shortcuts, neutral count/status colour, loading skeleton** | `App.tsx`, `components/ui.tsx`, `styles.css`, `theme.css` |
@@ -124,6 +124,17 @@ NSIS (free edition, unsigned, per-user, SQLCipher)
   HRAgents_0.1.0_x64-setup.exe, 7,553,267 bytes (7.20 MiB)
   SHA-256 27c03f24f52ddd69b1e6a6c977859266396cadd2afef3b913590a5363192a218
   built binary launches; a second launch exits 0 while the first keeps running
+
+NSIS rebuild 2026-11-04 (attendance, agents, Ask backend included)
+  HRAgents_0.1.0_x64-setup.exe, 7,618,273 bytes (7.27 MiB)
+  SHA-256 29e68c2b9b23b03a32e38e334bf263a5d675b18553d5f291d55acf274cec7510
+  silent per-user install EXIT=0; data dir untouched by the installer
+  first instance runs and stays up; second launch exits 0 immediately
+  (single-instance guard holds); app closed cleanly
+  live DB after launch: CLI verify --key-file -> encrypted: yes,
+  integrity: ok (pre-launch backup kept at packagetest-backup)
+  build note: one benign linker warning (ld.exe .rsrc merge of
+  non-default manifests); NSIS installed via winget for the build
 
 live upgrade of the real local database (not a fixture):
   before: header "SQLite format 3" magic, 679,936 bytes
