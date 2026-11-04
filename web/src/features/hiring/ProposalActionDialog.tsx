@@ -16,7 +16,12 @@ import { detailText, problemMessage, type ProblemDetail } from '@/lib/problem'
 
 import { decideProposal } from './schedulingApi'
 import { shortId } from './pipeline'
-import { type ProposalAction, type SchedulingProposal } from './scheduling'
+import {
+  formatSlot,
+  type ProposalAction,
+  type SchedulingProposal,
+  type TimeSlot,
+} from './scheduling'
 
 const fieldClass = 'flex flex-col gap-1.5'
 const labelClass = 'text-xs font-medium text-ink-strong'
@@ -37,14 +42,17 @@ export function ProposalActionDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const [reason, setReason] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const slots = proposal.payload.slots
+  const [slot, setSlot] = useState<TimeSlot | null>(slots.length === 1 ? slots[0] : null)
 
   const candidateLabel = shortId(proposal.payload.candidate_id)
   const reasonRequired = action !== 'confirm'
+  const slotRequired = action === 'confirm' && slots.length > 1
 
   function close(next: boolean) {
     if (!next) {
@@ -80,12 +88,17 @@ export function ProposalActionDialog({
       setProblem(t('scheduling.errors.reasonRequired'))
       return
     }
+    if (slotRequired && slot === null) {
+      setProblem(t('scheduling.errors.slotRequired'))
+      return
+    }
     setProblem(null)
     setBusy(true)
 
     const result = await decideProposal(proposal.id, {
       decision: action,
       reason: reason.trim(),
+      ...(action === 'confirm' && slot !== null ? { slot } : {}),
     })
 
     setBusy(false)
@@ -113,6 +126,24 @@ export function ProposalActionDialog({
               <span aria-hidden="true">●</span>
               {problem}
             </p>
+          ) : null}
+
+          {slotRequired ? (
+            <fieldset className={fieldClass}>
+              <legend className={labelClass}>{t('scheduling.fields.confirmedSlot')}</legend>
+              <p className="text-ink-muted text-2xs">{t('scheduling.fields.confirmedSlotHint')}</p>
+              {slots.map((option) => (
+                <label key={option.start_utc} className="flex items-center gap-2 text-xs">
+                  <input
+                    type="radio"
+                    name={`proposal-slot-${proposal.id}`}
+                    checked={slot?.start_utc === option.start_utc}
+                    onChange={() => setSlot(option)}
+                  />
+                  {formatSlot(option, proposal.payload.timezone, i18n.language)}
+                </label>
+              ))}
+            </fieldset>
           ) : null}
 
           <div className={fieldClass}>

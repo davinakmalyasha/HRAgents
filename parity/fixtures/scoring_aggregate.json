@@ -1,0 +1,36 @@
+{
+  "dimension_scores_bp": {
+    "stack_alignment": 7000,
+    "systems_literacy": 6000,
+    "technical_depth": 8000,
+    "verifiable_certifications": 5000
+  },
+  "overall_bp": 7000,
+  "runs": [
+    {
+      "stack_alignment": 7000,
+      "systems_literacy": 6000,
+      "technical_depth": 8000,
+      "verifiable_certifications": 5000
+    },
+    {
+      "stack_alignment": 6000,
+      "systems_literacy": 7000,
+      "technical_depth": 9000,
+      "verifiable_certifications": 4000
+    },
+    {
+      "stack_alignment": 8000,
+      "systems_literacy": 5000,
+      "technical_depth": 7000,
+      "verifiable_certifications": 6000
+    }
+  ],
+  "sigma_bp": 163,
+  "weights_bp": {
+    "stack_alignment": 3000,
+    "systems_literacy": 2000,
+    "technical_depth": 4000,
+    "verifiable_certifications": 1000
+  }
+}

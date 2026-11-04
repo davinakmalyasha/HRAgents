@@ -13,46 +13,56 @@ These are product invariants, not preferences — PRs that weaken them are decli
 - No payment execution: payroll is prepare, verify, export — never send.
 - No auto-rejection, no anonymous overrides, no training on historical hiring outcomes.
 - Statutory numbers are never hardcoded; they come from operator-maintained rate tables.
+- DeepSeek V4.1 Flash is the only live model — no other model is configured or tested.
 
-Read `docs/architecture/hitl-bounds.md` before touching the pipeline or decision layer.
+Read `docs/archive/python-server/architecture/hitl-bounds.md` before touching the pipeline or decision layer.
 
 ## Development setup
 
-Prerequisites: [uv](https://docs.astral.sh/uv/) (it installs Python 3.14 automatically)
-and Git. Docker Desktop is optional — the test suite runs fully in memory with SQLite
-and `fakeredis`.
+Prerequisites: Rust 1.99 (see `rust/rust-toolchain.toml`), Node 26 (see
+`rust/apps/desktop/ui`), and Git. No Python, no Docker, no database server —
+everything runs locally against SQLite.
 
 ```bash
 git clone https://github.com/davinakmalyasha/HRAgents.git
 cd HRAgents
-uv sync --all-groups
-uv run pre-commit install
+cd rust && cargo test --workspace --exclude hragents-desktop
 ```
 
-Run the API locally:
+Run the desktop app:
 
 ```bash
-uv run uvicorn hr_agents.main:app --reload
+cd rust
+cargo run -p hragents-cli -- demo target/demo.db
+cargo run -p hragents-cli -- verify target/demo.db
 ```
+
+The UI preview (`rust/apps/desktop/ui`, `npm install && npm run dev`) uses the
+same typed command names as Tauri and the same gates; it is a review surface,
+not a second implementation.
 
 ## The verified gate
 
 Every change must pass — CI enforces the same commands:
 
 ```bash
-uv run python scripts/check.py
+cd rust
+cargo test --workspace --exclude hragents-desktop
+cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
+cargo fmt --all -- --check
 ```
 
-That runs `ruff check`, `ruff format --check`, `mypy`, and `pytest`. The system runs
-end-to-end without any API keys; live-model tests are opt-in scripts, not part of the gate.
+When you touch `rust/apps/desktop/ui`, also run `npm run typecheck` and
+`npm run build` there. Docs changes must pass `mkdocs build --strict`.
+Live-provider tests are ignored by default and never run in CI; the offline
+extractor and the recorded replay are the gate.
 
 ## Branches, commits, PRs
 
 - Trunk-based: `main` is protected; branch as `feat/...`, `fix/...`, `docs/...`, `chore/...`.
 - [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `docs:`,
   `chore:`, `test:`, `refactor:`. Add `!` or a `BREAKING CHANGE:` footer for breaking
-  changes. release-please turns these into the changelog and version bumps — see
-  `docs/plan/release-process.md`.
+  changes.
 - Keep PRs focused. Squash merge is the only merge method; the PR title becomes the
   commit message.
 - Sign off your commits (DCO): `git commit -s`. By signing off you certify the
@@ -60,20 +70,19 @@ end-to-end without any API keys; live-model tests are opt-in scripts, not part o
 
 ## Tests
 
-- Never hit the network. Stub providers (`respx`, fake adapters) or use the offline
-  `test` model.
-- Never hardcode dates: anchor them relative to `date.today()`.
-- Use in-memory stores and SQLite; Postgres-only behavior is covered by the CI
-  `migrations` job.
+- Never hit the network. The offline keyword extractor and the recorded provider
+  replay are the test doubles; live tests are `#[ignore]`d and keyed.
+- Never hardcode dates: anchor to `business_today()` (never `date.today()` — the
+  host is UTC while the business day is `Asia/Jakarta`).
+- In-memory stores and SQLite in tests; SQLCipher paths are covered with the
+  `sqlcipher` feature.
 - New behavior needs tests. Prefer negative tests for anything involving approvals,
-  gates, or destructive actions.
+  gates, retention/purge, or destructive actions.
 
 ## Docs
 
-- Behavior changes update the docs that describe them (`docs/`, README,
-    `docs/api/openapi.json`).
-- When you complete a plan item, tick it in `docs/plan/master-build-plan.md`; open work
-  lives in `docs/plan/remaining-work.md`.
+- Behavior changes update the docs that describe them (`docs/`, README).
+- When you complete a plan item, tick it in `docs/plan/desktop-migration/13-implementation-status.md`.
 - Hard-to-reverse decisions get an ADR in `docs/adr/`.
 
 ## Never commit
@@ -81,9 +90,11 @@ end-to-end without any API keys; live-model tests are opt-in scripts, not part o
 - `.env` or any real credential — CI scans the full history with gitleaks and GitHub
   push protection is enabled.
 - Real candidate or employee data, or customer documents. Use synthetic fixtures.
+- The live database (`hragents.db`) or the install key (`hragents.key`).
 
 ## Where to start
 
 - Issues labeled `good first issue` are scoped starter tasks.
-- The README roadmap and `docs/plan/remaining-work.md` show what is next.
+- The [implementation status](docs/plan/desktop-migration/13-implementation-status.md)
+  shows what is done and what is deliberately still missing.
 - Questions and ideas: [Discussions](https://github.com/davinakmalyasha/HRAgents/discussions).

@@ -1,0 +1,42 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/hragents-core",
+    "crates/hragents-store",
+    "crates/hragents-ipc",
+    "crates/hragents-agents",
+    "crates/hragents-cli",
+    "apps/desktop",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+repository = "https://github.com/hragents/hragents"
+
+[workspace.dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = { version = "0.10", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+sha2 = "0.11"
+argon2 = { version = "0.6", features = ["rand_core"] }
+password-hash = { version = "0.6", features = ["phc", "rand_core"] }
+rand = "0.9"
+rusqlite = { version = "0.41", features = ["bundled", "backup", "functions", "serde_json"] }
+tempfile = "3"
+schemars = { version = "1", features = ["chrono04", "uuid1"] }
+rust_xlsxwriter = "0.102"
+base64 = "0.23"
+tokio = { version = "1", features = ["rt-multi-thread", "time", "macros", "sync"] }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+opt-level = 3

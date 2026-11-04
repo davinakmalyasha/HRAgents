@@ -1,70 +1,87 @@
 # Quickstart
 
-Docker Desktop, five minutes, no cloud keys.
+Fifteen minutes, one Windows laptop, no cloud keys, no admin rights.
 
-## 1. Configure
+## 1. Install
 
-```bash
-git clone https://github.com/davinakmalyasha/HRAgents
-cd HRAgents
-uv run python scripts/setup.py
-```
+Run the per-user installer (`HRAgents_0.1.0_x64-setup.exe`). It installs for
+the current Windows user only — no administrator prompt, no system-wide
+changes. Data survives uninstall; the installer never touches it.
 
-`scripts/setup.py` writes `.env` (gitignored) with the operator's name, one
-role-bound admin key, the business timezone and the offline model default. It
-prints the key once. No `uv` on the host? Copy `.env.example` to `.env` and set
-the same values by hand.
+## 2. First run
 
-## 2. Start
+The first-run wizard asks for three things:
 
-```bash
-docker compose up --build -d
-```
+1. The company name.
+2. The HR operator's name and username.
+3. A password (Argon2id-hashed; it also unlocks the idle lock).
 
-Nine containers come up: Postgres (pgvector), Redis, MinIO, Mailpit, a one-shot
-migration, the API, the evaluation worker, the scheduler and the messaging
-bridge. Migrations run before the API serves.
+## 3. File the recovery key
 
-Prefer the published image over a local build?
+Open **Settings → recovery** and print the 64-hex recovery key on paper, then
+file it where the company keeps important documents. If the Windows key
+wrapper is ever lost, the pre-login recovery screen re-opens the installation
+with this key — and nothing else will. Support never asks for it.
 
-```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose up -d --no-build
-```
+## 4. Make the first backup
 
-## 3. Sign in
+Run **Settings → backup** (or `hragents-cli backup-set`) and store the
+`.hrbackup` file off the machine. Then run verify: a green integrity result
+plus a passing audit chain is the definition of "it works".
 
-Open **<http://localhost:8000/app>** and paste the key from step 1.
+## 5. Bring existing data (optional)
 
-The first-run card offers starter checklists and the empty statutory-table
-shells. Want something to look at instead?
+If you have a `hragents-export/1` JSON file produced by the legacy bridge
+before the Gate 5 cut, dry-run first, then commit on the HR laptop:
 
 ```bash
-docker compose exec api uv run python scripts/seed_demo.py
+hragents-cli import hragents-export.json           # validates, writes nothing
+hragents-cli import hragents-export.json --commit  # one transaction per slice
 ```
 
-The demo seeds five employees, a hiring pipeline, a pending leave approval and a
-payroll run — through the real services, so the audit trail and queues are
-populated. The statutory rate tables arrive **unverified on purpose**: payroll
-refuses to compute until a named human enters and verifies the numbers against a
-real source.
+Org units, employees, leave, approved payroll runs, and audit history import
+slice by slice; every slice is idempotent, and a re-run is a no-op. Tables
+outside those slices are reported with their row counts, never silently
+dropped. The legacy export bridge itself was removed at the cut — no new
+export files can be produced — but files generated earlier still import.
+Details: [implementation status](plan/desktop-migration/13-implementation-status.md).
 
-## 4. Check it is actually working
+## 6. Live provider key (optional)
+
+Extraction works offline out of the box. To use a hosted model (any
+OpenAI-compatible endpoint, including OpenCode Go), put the key in the
+**shell's** environment — `.env` files are not read automatically:
 
 ```bash
-curl -s localhost:8000/readyz | python -m json.tool   # queue + skills must be "ok"
-curl -s localhost:8000/metrics | grep stuck_queued   # non-zero = the worker is down
+export OPENCODE_API_KEY='paste-key-here'
 ```
 
-The worker is not optional: the API accepts and publishes an application, and
-only the worker evaluates it. Without it, submissions sit in `queued` forever
-and everything looks fine.
+(`set -a; source .env; set +a` loads the repo `.env` for the session instead.
+The desktop app and `cargo` never read `.env` themselves; docker compose and
+the Python provider layer do, which is the whole confusion — see
+`.env.example`.)
+
+## 7. Agent helpers
+
+Every screen has a helper that reads and explains — never decides:
+
+- **Today** opens with a morning briefing: approvals, queued messages,
+  payroll awaiting sign-off, expiring documents.
+- **Reports** ranks applicants per job with scores and flags.
+- **Pay** shows a plain-words readiness checklist per run.
+- **People** shows attendance findings and document attention items.
+- **Ask** answers policy questions with citations, offline by default.
+  With a provider key, DeepSeek V4.1 Flash may rephrase the answer;
+  citations never change.
+
+Draft, preview, then **you** check with your password and send, approve,
+or lock. Nothing sends, approves, or pays on its own.
 
 ## Next
 
-- [Deployment & operations](deployment.md) — backups, upgrades, runbooks,
-  provider configuration, offline mode.
-- [Architecture](architecture/system-architecture.md) — the pipeline and the
-  nine departments.
-- [Human-in-the-loop bounds](architecture/hitl-bounds.md) — what runs
-  automatically and what never will.
+- [Product scope](plan/desktop-migration/00-product-scope.md) — who it serves
+  and what it deliberately does not do.
+- [Pilot plan](plan/desktop-migration/15-pilot.md) — entry criteria, the
+  six-week schedule, and the support runbook.
+- [Restore drill](plan/desktop-migration/16-restore-drill.md) — the rehearsal
+  that makes backups trustworthy.

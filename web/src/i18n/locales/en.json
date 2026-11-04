@@ -55,7 +55,10 @@
     "loadFailed": "Some queues could not be loaded.",
     "retry": "Retry",
     "queueLimited": "Showing {{shown}} of {{total}} {{queue}}.",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "updatedAt": "Updated {{when}}"
   },
   "rooms": {
     "board": "Board",
@@ -68,8 +71,10 @@
     "done": "Verified"
   },
   "workspace": {
-    "boardPlaceholder": "The {name} board lands in a later slice.",
-    "queuePlaceholder": "Decisions waiting on you will appear here."
+    "boardPlaceholder": "The {{name}} board lands in a later slice.",
+    "queuePlaceholder": "Decisions waiting on you will appear here.",
+    "chatOnlyBoard": "Ask HR is a conversation space; it has no process board.",
+    "chatOnlyQueue": "Ask HR has no queue. Ask your question in Chat."
   },
   "hiring": {
     "allJobs": "All jobs",
@@ -329,6 +334,7 @@
     "thinking": "Thinking…",
     "error": "Something went wrong. Please try again.",
     "citations": "Sources",
+    "toolsUsed": "Read with: {{tools}}",
     "escalated": "A human will follow up.",
     "newSubject": "New subject — started a fresh conversation.",
     "handoff": {
@@ -401,6 +407,7 @@
     "transport": "the mail transport",
     "dispatchedVia": "Dispatched via {{provider}} · {{attempts}} attempt(s)",
     "dispatchFailed": "Still queued — {{provider}} could not send it: {{error}}",
+    "lastAttempt": "last attempt {{when}}",
     "repliesTitle": "Candidate replies",
     "repliesHint": "Captured from the connected mailbox. A reply is evidence only — accepting an offer or moving a stage stays a human decision.",
     "repliesEmpty": "No replies captured yet.",
@@ -438,7 +445,10 @@
       "toEmailHint": "Optional. With an email transport connected, the queued message is carried to this address; leave it blank to keep sending it yourself.",
       "toPhone": "Send to (WhatsApp number)",
       "toPhonePlaceholder": "0812-3456-7890",
-      "toPhoneHint": "Optional. Used to build a wa.me link you open in WhatsApp; the system never sends on its own."
+      "toPhoneHint": "Optional. Used to build a wa.me link you open in WhatsApp; the system never sends on its own.",
+      "toTelegramChatId": "Send to (Telegram chat id)",
+      "toTelegramChatIdPlaceholder": "55501",
+      "toTelegramChatIdHint": "Optional. Used to address a queued Telegram message; the dispatcher sends it only after a human queues it, and an unknown chat is never guessed onto a candidate."
     },
     "dialogs": {
       "rejectionTitle": "Queue rejection message",
@@ -503,10 +513,13 @@
     "fields": {
       "by": "Decided by",
       "reason": "Reason",
-      "reasonPlaceholder": "Recorded in the audit log"
+      "reasonPlaceholder": "Recorded in the audit log",
+      "confirmedSlot": "Which time was agreed?",
+      "confirmedSlotHint": "Only the agreed slot is held; the others stay available to other candidates."
     },
     "errors": {
       "reasonRequired": "A reason is required to cancel or reschedule.",
+      "slotRequired": "Choose the time that was agreed with the candidate.",
       "approvalRejected": "The linked approval was rejected; create a new proposal instead.",
       "forbidden": "Your role cannot decide scheduling proposals.",
       "notFound": "The proposal no longer exists.",
@@ -554,6 +567,7 @@
       "rateLimited": "Too many requests. Wait a moment and try again."
     },
     "skipToContent": "Skip to content",
+    "offline": "You are offline. Requests cannot reach the server; nothing is sent until the connection returns.",
     "loading": "Loading…"
   },
   "onboarding": {
@@ -831,7 +845,34 @@
     "supersedeReasonPlaceholder": "What changed since the review?",
     "supersedeReasonRequired": "The reviewed run stays frozen, so the re-run needs a reason.",
     "confirmSupersede": "Start the re-run",
-    "supersedes": "Re-run of run {{id}}"
+    "supersedes": "Re-run of run {{id}}",
+    "attendance": {
+      "open": "Import attendance",
+      "title": "Import attendance",
+      "hint": "Fill overtime and absence from the fingerprint export. Preview first — nothing is written until you commit.",
+      "file": "Workbook or CSV",
+      "fileHint": "XLSX/XLSM from the machine, or a CSV with the four columns. Max 10 MiB.",
+      "paste": "Or paste CSV",
+      "pastePlaceholder": "employee_number,date,clock_in,clock_out",
+      "columns": "Column names (and header row)",
+      "columnEmployee": "Employee number",
+      "columnDate": "Date",
+      "columnIn": "Clock in",
+      "columnOut": "Clock out",
+      "headerRow": "Header row",
+      "preview": "Preview",
+      "commit": "Apply to run",
+      "resultTitle": "Working days: {{working}} · overtime above {{threshold}} h/day",
+      "employee": "Employee",
+      "daysPresent": "Days present",
+      "overtime": "Overtime (h)",
+      "absence": "Absence (days)",
+      "rowError": "Row {{row}} · {{code}}: {{detail}}",
+      "errors": {
+        "previewFailed": "The file could not be previewed ({{status}}).",
+        "commitFailed": "The attendance was refused ({{status}}). Nothing was changed."
+      }
+    }
   },
   "offboarding": {
     "boardTitle": "Departing",

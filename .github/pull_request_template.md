@@ -4,12 +4,11 @@
 
 ## Checklist
 
-- [ ] Conventional Commit title (`feat:`, `fix:`, `docs:`, `chore:`, …)
-- [ ] `uv run ruff check .` and `uv run ruff format --check .` pass
-- [ ] `uv run mypy` passes
-- [ ] `uv run pytest` passes
-- [ ] Docs updated where behavior changed (`docs/`, README, and the
-      `docs/plan/master-build-plan.md` checkbox if a phase item is done)
+- [ ] Conventional Commit title (`feat:`, `fix:`, `docs:`, `chore:`, …), signed off (`git commit -s`)
+- [ ] Rust gate green: `cargo test`, `clippy -D warnings`, `fmt --check`
+      (plus `npm run typecheck` + `npm run build` for UI changes)
+- [ ] Docs updated where behavior changed (`docs/`, README,
+      and the `13-implementation-status.md` entry if a plan item is done)
 - [ ] No secrets, no `.env`, no real candidate or employee data
 - [ ] Human-in-the-loop rules unchanged — or the change is discussed below
 

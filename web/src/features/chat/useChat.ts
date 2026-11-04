@@ -24,6 +24,7 @@ export function useChat(scope: string, workspace?: WorkspaceId) {
 
     const callbacks = {
       onRouting: (decision: { workspace: WorkspaceId }) => setRouting(decision.workspace),
+      onDelta: (text: string) => chatThreadActions.appendDelta(scope, text),
     }
     let result = await streamHr(
       { message, workspace, conversationId: current.conversationId },

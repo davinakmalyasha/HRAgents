@@ -40,6 +40,7 @@ const REPLY: ChatReply = {
   answer: 'Saldo cuti Anda 12 hari.',
   citations: ['leave-policy.md#saldo'],
   escalate: false,
+  tools_used: ['policy_assistant.search_knowledge'],
 }
 
 beforeEach(() => {
@@ -60,6 +61,9 @@ describe('ChatPanel', () => {
     expect(screen.getByRole('list', { name: i18n.t('chat.citations') })).toHaveTextContent(
       'leave-policy.md#saldo',
     )
+    expect(
+      screen.getByText(i18n.t('chat.toolsUsed', { tools: 'policy_assistant.search_knowledge' })),
+    ).toBeInTheDocument()
     expect(streamMock).toHaveBeenCalledWith(
       { message: 'cuti?', workspace: undefined, conversationId: null },
       expect.objectContaining({ onRouting: expect.any(Function) }),

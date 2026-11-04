@@ -55,7 +55,10 @@
     "loadFailed": "Sebagian antrean tidak bisa dimuat.",
     "retry": "Coba lagi",
     "queueLimited": "Menampilkan {{shown}} dari {{total}} {{queue}}.",
-    "viewAll": "Lihat semua"
+    "viewAll": "Lihat semua",
+    "refresh": "Muat ulang",
+    "refreshing": "Memuat ulang…",
+    "updatedAt": "Diperbarui {{when}}"
   },
   "rooms": {
     "board": "Papan",
@@ -68,8 +71,10 @@
     "done": "Terverifikasi"
   },
   "workspace": {
-    "boardPlaceholder": "Papan {name} hadir pada tahap berikutnya.",
-    "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini."
+    "boardPlaceholder": "Papan {{name}} hadir pada tahap berikutnya.",
+    "queuePlaceholder": "Keputusan yang menunggu Anda akan muncul di sini.",
+    "chatOnlyBoard": "Tanya HR adalah ruang obrolan; tidak ada papan proses.",
+    "chatOnlyQueue": "Tanya HR tidak memiliki antrean. Ajukan pertanyaan di Obrolan."
   },
   "hiring": {
     "allJobs": "Semua lowongan",
@@ -329,6 +334,7 @@
     "thinking": "Sedang berpikir…",
     "error": "Terjadi kesalahan. Silakan coba lagi.",
     "citations": "Sumber",
+    "toolsUsed": "Dibaca dengan: {{tools}}",
     "escalated": "Seorang manusia akan menindaklanjuti.",
     "newSubject": "Topik baru — percakapan dimulai ulang.",
     "handoff": {
@@ -401,6 +407,7 @@
     "transport": "transport email",
     "dispatchedVia": "Dikirim melalui {{provider}} · {{attempts}} kali percobaan",
     "dispatchFailed": "Masih di antrean — {{provider}} gagal mengirim: {{error}}",
+    "lastAttempt": "percobaan terakhir {{when}}",
     "repliesTitle": "Balasan kandidat",
     "repliesHint": "Diambil dari kotak surat yang terhubung. Balasan hanya bukti — menerima tawaran atau memindahkan tahap tetap keputusan manusia.",
     "repliesEmpty": "Belum ada balasan yang diambil.",
@@ -438,7 +445,10 @@
       "toEmailHint": "Opsional. Jika transport email tersambung, pesan diantrean dikirim ke alamat ini; biarkan kosong bila Anda ingin mengirim sendiri.",
       "toPhone": "Kirim ke (nomor WhatsApp)",
       "toPhonePlaceholder": "0812-3456-7890",
-      "toPhoneHint": "Opsional. Dipakai untuk membuat tautan wa.me yang Anda buka di WhatsApp; sistem tidak pernah mengirim sendiri."
+      "toPhoneHint": "Opsional. Dipakai untuk membuat tautan wa.me yang Anda buka di WhatsApp; sistem tidak pernah mengirim sendiri.",
+      "toTelegramChatId": "Kirim ke (id obrolan Telegram)",
+      "toTelegramChatIdPlaceholder": "55501",
+      "toTelegramChatIdHint": "Opsional. Dipakai untuk mengalamatkan pesan Telegram yang diantrekan; pengirim hanya mengirim setelah manusia mengantrekannya, dan obrolan yang tidak dikenal tidak pernah ditebak ke kandidat."
     },
     "dialogs": {
       "rejectionTitle": "Antrekan pesan penolakan",
@@ -503,10 +513,13 @@
     "fields": {
       "by": "Diputuskan oleh",
       "reason": "Alasan",
-      "reasonPlaceholder": "Tercatat di log audit"
+      "reasonPlaceholder": "Tercatat di log audit",
+      "confirmedSlot": "Waktu mana yang disepakati?",
+      "confirmedSlotHint": "Hanya slot yang disepakati yang ditahan; sisanya tetap tersedia untuk kandidat lain."
     },
     "errors": {
       "reasonRequired": "Alasan wajib diisi untuk membatalkan atau menjadwalkan ulang.",
+      "slotRequired": "Pilih waktu yang disepakati dengan kandidat.",
       "approvalRejected": "Persetujuan tertaut ditolak; buat usulan baru.",
       "forbidden": "Peran Anda tidak boleh memutuskan usulan penjadwalan.",
       "notFound": "Usulan sudah tidak ada.",
@@ -554,6 +567,7 @@
       "rateLimited": "Terlalu banyak permintaan. Tunggu sebentar lalu coba lagi."
     },
     "skipToContent": "Lompat ke konten",
+    "offline": "Anda sedang offline. Permintaan tidak dapat mencapai server; tidak ada yang dikirim sampai koneksi kembali.",
     "loading": "Memuat…"
   },
   "onboarding": {
@@ -831,7 +845,34 @@
     "supersedeReasonPlaceholder": "Apa yang berubah sejak peninjauan?",
     "supersedeReasonRequired": "Perhitungan yang ditinjau tetap terkunci, jadi hitung ulang perlu alasan.",
     "confirmSupersede": "Mulai hitung ulang",
-    "supersedes": "Hitung ulang dari proses {{id}}"
+    "supersedes": "Hitung ulang dari proses {{id}}",
+    "attendance": {
+      "open": "Impor kehadiran",
+      "title": "Impor kehadiran",
+      "hint": "Isi lembur dan ketidakhadiran dari ekspor mesin absensi. Pratinjau dulu — tidak ada yang ditulis sebelum Anda terapkan.",
+      "file": "Berkas kerja atau CSV",
+      "fileHint": "XLSX/XLSM dari mesin, atau CSV dengan empat kolom. Maks 10 MiB.",
+      "paste": "Atau tempel CSV",
+      "pastePlaceholder": "employee_number,date,clock_in,clock_out",
+      "columns": "Nama kolom (dan baris header)",
+      "columnEmployee": "Nomor karyawan",
+      "columnDate": "Tanggal",
+      "columnIn": "Jam masuk",
+      "columnOut": "Jam keluar",
+      "headerRow": "Baris header",
+      "preview": "Pratinjau",
+      "commit": "Terapkan ke proses",
+      "resultTitle": "Hari kerja: {{working}} · lembur di atas {{threshold}} jam/hari",
+      "employee": "Karyawan",
+      "daysPresent": "Hari hadir",
+      "overtime": "Lembur (jam)",
+      "absence": "Absen (hari)",
+      "rowError": "Baris {{row}} · {{code}}: {{detail}}",
+      "errors": {
+        "previewFailed": "Berkas tidak bisa dipratinjau ({{status}}).",
+        "commitFailed": "Kehadiran ditolak ({{status}}). Tidak ada yang berubah."
+      }
+    }
   },
   "offboarding": {
     "boardTitle": "Sedang keluar",

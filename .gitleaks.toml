@@ -11,3 +11,8 @@ regexes = [
   '''sk-ant-\.\.\.''',
   '''cmd-\.\.\.''',
 ]
+
+[[allowlists]]
+description = "sqlcipher unit-test dummy key (test vector, not a credential)"
+regexTarget = "line"
+regexes = ['''0123456789abcdef"\.repeat\(4\)''']

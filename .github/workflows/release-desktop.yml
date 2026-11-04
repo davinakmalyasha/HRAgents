@@ -1,0 +1,109 @@
+name: release-desktop
+
+# Gate 6 preparation: free, unsigned desktop distribution track.
+# Trigger: push a version tag like `desktop-v0.1.0`.
+# Tags are the release gate — no tag, no bundles, no draft release.
+
+on:
+  push:
+    tags:
+      - "desktop-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  gates:
+    name: Release gates (tests + UI build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      # Workspace tests EXCLUDING the Tauri shell crate (same gate as desktop.yml).
+      - name: Rust workspace tests
+        run: cargo test --workspace --exclude hragents-desktop
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: rust/apps/desktop/ui/package-lock.json
+      - name: UI install
+        run: npm ci
+        working-directory: rust/apps/desktop/ui
+      - name: UI build
+        run: npm run build
+        working-directory: rust/apps/desktop/ui
+
+  build-windows:
+    name: Windows NSIS bundle
+    needs: gates
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: rust/apps/desktop/ui/package-lock.json
+      - name: Build and bundle (NSIS, unsigned)
+        # FREE EDITION: no code-signing certificate is required or referenced.
+        # Users click "More info -> Run anyway" once on first install. No paid
+        # account, no secrets, no hosted update endpoint.
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: rust/apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "HRAgents ${{ github.ref_name }}"
+          releaseBody: "Free unsigned desktop build. See docs/plan/desktop-migration/14-release-drill.md."
+          releaseDraft: true
+          prerelease: false
+          args: --bundles nsis
+
+  build-macos:
+    name: macOS dmg bundle (unsigned, free edition)
+    needs: gates
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: rust/apps/desktop/ui/package-lock.json
+      - name: Build and bundle (dmg)
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: rust/apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "HRAgents ${{ github.ref_name }}"
+          releaseBody: "Free unsigned desktop build. See docs/plan/desktop-migration/14-release-drill.md."
+          releaseDraft: true
+          prerelease: false
+          args: --bundles dmg --target universal-apple-darwin

@@ -1,0 +1,62 @@
+[
+  {
+    "absence_days": 0,
+    "base_salary": "8650000",
+    "first_multiplier": "1.5",
+    "fixed_allowances": "0",
+    "gross_sen": 865000000,
+    "monthly_hours": "173.0",
+    "name": "ot_0h",
+    "net_sen": 830400000,
+    "overtime_hours": 0,
+    "overtime_minutes": 0,
+    "overtime_pay_sen": 0,
+    "rest_multiplier": "2.0",
+    "working_days": 22
+  },
+  {
+    "absence_days": 0,
+    "base_salary": "8650000",
+    "first_multiplier": "1.5",
+    "fixed_allowances": "0",
+    "gross_sen": 872500000,
+    "monthly_hours": "173.0",
+    "name": "ot_1h",
+    "net_sen": 837900000,
+    "overtime_hours": 1,
+    "overtime_minutes": 60,
+    "overtime_pay_sen": 7500000,
+    "rest_multiplier": "2.0",
+    "working_days": 22
+  },
+  {
+    "absence_days": 0,
+    "base_salary": "8650000",
+    "first_multiplier": "1.5",
+    "fixed_allowances": "0",
+    "gross_sen": 902500000,
+    "monthly_hours": "173.0",
+    "name": "ot_5h",
+    "net_sen": 867900000,
+    "overtime_hours": 5,
+    "overtime_minutes": 300,
+    "overtime_pay_sen": 37500000,
+    "rest_multiplier": "2.0",
+    "working_days": 22
+  },
+  {
+    "absence_days": 0,
+    "base_salary": "8650000",
+    "first_multiplier": "1.5",
+    "fixed_allowances": "0",
+    "gross_sen": 1060000000,
+    "monthly_hours": "173.0",
+    "name": "ot_25h",
+    "net_sen": 1025400000,
+    "overtime_hours": 25,
+    "overtime_minutes": 1500,
+    "overtime_pay_sen": 195000000,
+    "rest_multiplier": "2.0",
+    "working_days": 22
+  }
+]

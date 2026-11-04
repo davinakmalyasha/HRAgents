@@ -1,0 +1,26 @@
+[
+  {
+    "exemption": "0",
+    "gross": "20000000",
+    "name": "20m_no_ptkp",
+    "sen": 15000000
+  },
+  {
+    "exemption": "58500000",
+    "gross": "20000000",
+    "name": "below_ptkp",
+    "sen": 0
+  },
+  {
+    "exemption": "54000000",
+    "gross": "200000000",
+    "name": "200m_with_ptkp",
+    "sen": 187000000
+  },
+  {
+    "exemption": "0",
+    "gross": "100000000",
+    "name": "exact_bracket_top",
+    "sen": 95000000
+  }
+]

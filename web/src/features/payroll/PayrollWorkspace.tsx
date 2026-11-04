@@ -6,6 +6,7 @@ import { StatusBadge } from '@/components/status/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { AttendanceImportDialog } from './AttendanceImportDialog'
 import {
   RUN_KIND_LABELS,
   amount,
@@ -238,6 +239,7 @@ function RunDetail({ run, onRunCreated }: { run: RunView; onRunCreated: (runId: 
   const [askingToSupersede, setAskingToSupersede] = useState(false)
   const [supersedeReason, setSupersedeReason] = useState('')
   const blankSupersedeReason = supersedeReason.trim() === ''
+  const [importingAttendance, setImportingAttendance] = useState(false)
 
   return (
     <div className="flex flex-col gap-4">
@@ -293,6 +295,12 @@ function RunDetail({ run, onRunCreated }: { run: RunView; onRunCreated: (runId: 
 
       <div className="flex flex-wrap items-center gap-2">
         {isComputable(run.status) ? (
+          <Button variant="outline" disabled={busy} onClick={() => setImportingAttendance(true)}>
+            {t('payroll.attendance.open')}
+          </Button>
+        ) : null}
+
+        {isComputable(run.status) ? (
           <Button disabled={busy} onClick={() => compute.mutate(run.id)}>
             {t('payroll.compute')}
           </Button>
@@ -330,6 +338,12 @@ function RunDetail({ run, onRunCreated }: { run: RunView; onRunCreated: (runId: 
           </Button>
         ) : null}
       </div>
+
+      <AttendanceImportDialog
+        run={run}
+        open={importingAttendance}
+        onOpenChange={setImportingAttendance}
+      />
 
       {isCancellable(run.status) && askingToCancel ? (
         <div className="flex flex-col gap-2">

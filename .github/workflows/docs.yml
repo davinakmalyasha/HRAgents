@@ -28,11 +28,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: actions/setup-python@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          enable-cache: true
-      - run: uv python install 3.14
-      - run: uv sync --locked --group docs
+          python-version: "3.14"
+      # Post-cut: no pyproject remains, so docs tooling installs straight from
+      # pip instead of `uv sync --group docs`. This is build tooling only; no
+      # Python source ships in the repo.
+      - run: pip install mkdocs-material mkdocs-swagger-ui-tag pymdown-extensions mike
 
       - name: Configure git for the gh-pages branch
         run: |
@@ -44,10 +46,10 @@ jobs:
       # addressable at /HRAgents/<version>/.
       - name: Deploy main as dev
         if: inputs.version == ''
-        run: uv run mike deploy --push dev
+        run: mike deploy --push dev
 
       - name: Deploy a release and move latest
         if: inputs.version != ''
         run: |
-          uv run mike deploy --push --update-aliases "${{ inputs.version }}" latest
-          uv run mike set-default --push latest
+          mike deploy --push --update-aliases "${{ inputs.version }}" latest
+          mike set-default --push latest

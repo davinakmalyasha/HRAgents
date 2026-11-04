@@ -1,0 +1,46 @@
+[
+  {
+    "absence_days": 0,
+    "allowances_sen": 200000000,
+    "base_paid_sen": 1000000000,
+    "base_salary": "10000000",
+    "fixed_allowances": "2000000",
+    "gross_sen": 1200000000,
+    "name": "absence_0",
+    "net_sen": 1152000000,
+    "working_days": 22
+  },
+  {
+    "absence_days": 2,
+    "allowances_sen": 181818182,
+    "base_paid_sen": 909090909,
+    "base_salary": "10000000",
+    "fixed_allowances": "2000000",
+    "gross_sen": 1090909091,
+    "name": "absence_2",
+    "net_sen": 1047272727,
+    "working_days": 22
+  },
+  {
+    "absence_days": 11,
+    "allowances_sen": 100000000,
+    "base_paid_sen": 500000000,
+    "base_salary": "10000000",
+    "fixed_allowances": "2000000",
+    "gross_sen": 600000000,
+    "name": "absence_11",
+    "net_sen": 576000000,
+    "working_days": 22
+  },
+  {
+    "absence_days": 22,
+    "allowances_sen": 0,
+    "base_paid_sen": 0,
+    "base_salary": "10000000",
+    "fixed_allowances": "2000000",
+    "gross_sen": 0,
+    "name": "absence_22",
+    "net_sen": 0,
+    "working_days": 22
+  }
+]

@@ -42,10 +42,12 @@ function communication(overrides: Partial<CommunicationView>): CommunicationView
     sent_at: null,
     recipient: null,
     recipient_phone: null,
+    recipient_telegram_chat_id: null,
     provider: null,
     provider_message_id: null,
     send_attempts: 0,
     last_error: null,
+    last_attempt_at: null,
     created_at: '2026-09-20T03:00:00Z',
     ...overrides,
   }
@@ -122,6 +124,7 @@ describe('dispatchEvidence', () => {
       provider: null,
       attempts: 0,
       error: null,
+      lastAttemptAt: null,
     })
   })
 
@@ -131,6 +134,7 @@ describe('dispatchEvidence', () => {
         provider: 'email.smtp',
         send_attempts: 3,
         last_error: 'mailbox unavailable',
+        last_attempt_at: '2026-09-20T04:00:00Z',
       }),
     )
 
@@ -138,6 +142,7 @@ describe('dispatchEvidence', () => {
       provider: 'email.smtp',
       attempts: 3,
       error: 'mailbox unavailable',
+      lastAttemptAt: '2026-09-20T04:00:00Z',
     })
   })
 
@@ -147,5 +152,6 @@ describe('dispatchEvidence', () => {
     )
 
     expect(evidence.error).toBeNull()
+    expect(evidence.lastAttemptAt).toBeNull()
   })
 })

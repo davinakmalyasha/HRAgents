@@ -3,6 +3,15 @@
 **Purpose:** the single source of truth for everything to build. Nothing is out of scope — items are
 ordered by dependency, and checkboxes track reality so nothing is missed or forgotten.
 
+> **Direction change (2026-11-01):** the next edition is a **desktop-first, HR-only cockpit**
+> built with Tauri 2.12, a Rust backend, and SQLite. The plan is
+> [`docs/plan/massive-polishment.md`](massive-polishment.md) and its detailed
+> [`desktop-migration/`](desktop-migration/README.md) folder. The Python/FastAPI +
+> React/PostgreSQL phases below remain the reference implementation and the running product
+> until the desktop gates pass; do not treat this file as the target architecture for the new
+> edition. Implementation evidence so far is in
+> [`desktop-migration/13-implementation-status.md`](desktop-migration/13-implementation-status.md).
+
 **Legend:** `[ ]` not started · `[~]` in progress · `[x]` done · `[-]` explicitly deferred
 
 **Update rule:** every work session ends by updating this file. An item is `[x]` only when its tests
@@ -25,7 +34,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | Agent architecture | Agents extract + communicate only; deterministic core decides; humans gate every rejection |
 | Audit | Hash-chained append-only log; every decision reconstructible |
 | Tools | Typed, least-privilege registry. **No shell/`run_command` tools — ever** |
-| Providers | Every external dependency is a capability with interchangeable providers (LLM, email, WhatsApp, calendar, storage, embeddings, vector store, queue). One file per provider; config via env/wizard/UI; UI wins, env can lock. See `docs/architecture/providers.md` |
+| Providers | Every external dependency is a capability with interchangeable providers (LLM, email, WhatsApp, calendar, storage, embeddings, vector store, queue). One file per provider; config via env/wizard/UI; UI wins, env can lock. See `docs/archive/python-server/architecture/providers.md` |
 | Queue | Provider pattern: `redis` (default, included in compose) · `postgres` (minimal installs) · `memory` (tests). One conformance suite across backends |
 | Models | Provider-agnostic: local (Ollama) / Anthropic / OpenAI / Gemini / OpenRouter / Groq / any OpenAI-compatible base URL / offline `test` model |
 | UI language | English + Bahasa Indonesia from first release |
@@ -67,7 +76,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 | 9. Deployment & compliance | **In progress** — Compose, migrations, previews, backups, secrets, retention/purge journal, scanning ✅; external pen test pending |
 | 10. Paper, docs & publication | **Complete** — paper ✅, versioned docs site ✅, landing ✅, 0.1.0–0.15.2 published ✅; GitHub social preview (a settings upload) pending |
 
-> **Remaining work:** `docs/plan/remaining-work.md` — detailed checklists, exit criteria,
+> **Remaining work:** `docs/archive/python-server/plan/remaining-work.md` — detailed checklists, exit criteria,
 > suggested order, and risk notes for everything still open.
 
 ---
@@ -94,7 +103,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Community health: `CONTRIBUTING`, `SECURITY`, `CODE_OF_CONDUCT`, issue forms, PR template,
       `CODEOWNERS`
 - [x] pre-commit hooks (ruff, formatting, private-key detection) + `scripts/check.py`
-- [x] ADRs (`docs/adr/`), release process (`docs/plan/release-process.md`), `CITATION.cff`,
+- [x] ADRs (`docs/adr/`), release process (`docs/archive/python-server/plan/release-process.md`), `CITATION.cff`,
       `AGENTS.md`
 
 ## Phase 2 — Contracts & data model `DONE`
@@ -173,7 +182,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [~] Agent evals (Pydantic Evals) — `evals/resume_extraction.py` + `scripts/run_evals.py`:
   - [x] Injection safety cases (prompt injection, invisible chars)
   - [x] Structural/safety evaluators (schema round-trip, guard expectations, sanitization)
-  - [x] **Live model run passing: 5/5 cases, 100% assertions on MiMo V2.5 via Command Code (ZDR on)** — results in `docs/architecture/benchmarks.md` §4
+  - [x] **Live model run passing: 5/5 cases, 100% assertions on MiMo V2.5 via Command Code (ZDR on)** — results in `docs/archive/python-server/architecture/benchmarks.md` §4
   - [x] 50-profile dataset: 18 engineering + 32 non-IT, EN/ID mixed (24/26),
         PDF+MD+JSON variants. A structured catalog (`evals/profiles.py`) renders each
         profile as Markdown for the agent, structured JSON for ATS-style imports, and a
@@ -215,7 +224,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] End-to-end integration test through the API: submit → worker → evaluation → queue (`tests/api/test_pipeline_seam.py`)
 
 ### 4.6 Provider layer (adaptive integrations) `IN PROGRESS`
-- [x] Spec written: `docs/architecture/providers.md`
+- [x] Spec written: `docs/archive/python-server/architecture/providers.md`
 - [x] `providers/base.py` — `Capability`, `ProviderConfig` (SecretStr support), `ProviderSpec`, `ProviderHealth`
 - [x] `providers/registry.py` — registration, discovery, resolution, explicit fallback chains (zero-config providers resolve first)
 - [x] Queue providers: `memory` + `redis` + `postgres` with one conformance suite
@@ -228,7 +237,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Vector providers: `vector.in_memory` + `vector.pgvector`
 - [x] Settings resolution: env layer (`HRAGENTS_PROVIDER_*`, `.env` loaded) with fail-fast validation
 - [x] `health_check` declared on every provider + masked-secret contract (`mask_secrets`)
-- [x] **Complete matrix: 20 providers across 9 capabilities** — every capability has a zero-config default
+- [x] **Complete matrix: 21 providers across 10 capabilities** — every capability the
+      zero-config stack uses has a default; the opt-in `telegram.bot` capability has none
+      and says so (a channel that cannot send is not a channel)
 - [ ] Provider settings audit entries (field names only, values redacted) — Phase 5
 - [~] Live adapter implementations: email is live (SMTP send + IMAP poll under `hr_agents.messaging`,
       driven by `scripts/run_messaging.py`); whatsapp/calendar/storage remain config-only
@@ -270,7 +281,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Tailwind CSS + shadcn/ui component library (Tailwind v4 CSS-first tokens, `cn` merge package)
 - [x] TanStack Query (server state) + Zustand (workspace/UI state)
 - [x] API client generated from the live OpenAPI schema (`scripts/export_openapi.py` →
-      `docs/api/openapi.json` → `openapi-typescript`/`openapi-fetch`; the hand-maintained
+      `docs/archive/python-server/api/openapi.json` → `openapi-typescript`/`openapi-fetch`; the hand-maintained
       YAML fragment that used to sit beside it is gone — it described 12 of 148 paths)
 - [x] ESLint + Prettier + `tsc --noEmit` gate in CI (`web` job, drift-checked generated types)
 - [x] Static build served by FastAPI (`/app`) in self-host image; SPA fallback routing (`_mount_web_app`)
@@ -291,7 +302,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       main landmark; text contrast verified at WCAG AA across all workspaces in light and dark
       (muted ink darkened to `#667085`, status tone confined to the hidden glyph, inactive tabs
       moved off `text-foreground/60`); regression-guarded by `theme.contrast.test.ts`; the
-      axe/screen-reader sweep stays in `polish-backlog.md`
+      axe/screen-reader sweep stays in `docs/archive/python-server/plan/polish-backlog.md`
 - [x] Mobile-first check at 390px viewport (all nine workspace boards, the payroll and
       compliance queues, the command palette, dialogs and the chat transcript; a topbar
       overflow the identity chip introduced was found and fixed, the dialog primitive now
@@ -309,9 +320,13 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 ### 6.2 Chat front door
 - [x] Chat UI with workspace quick-switch (sidebar rail; every workspace's Chat room, Ask HR runs
       the front door with routing and handoff suggestions)
-- [~] SSE streaming from FastAPI — the client uses `POST /v1/chat` (status codes drive the
-      409 conversation-split); upgrade to event streaming once the backend emits progressive events
-- [ ] Tool-call visibility (which agent is acting, what it read)
+- [~] SSE streaming from FastAPI — `/v1/chat/stream` now emits `routing`, `delta` (answer
+      growth) and the final `reply`, and the client renders the deltas into one placeholder
+      that the grounded answer replaces; `POST /v1/chat` remains for clients that want a
+      single response. Per-tool-call events remain (tool usage is on the final reply)
+- [x] Tool-call visibility (which agent is acting, what it read) — `AgentDeps.call_tool`
+      records each attempted call for the turn, the reply and audit entry carry the unique
+      `agent.tool` pairs, and the chat panel renders them
 - [~] Workspace-scoped conversation history — client threads are per-workspace and server-pinned
       (409 on cross-workspace continuation, visible restart); Postgres store with the UI phase
 
@@ -319,7 +334,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Pipeline board (five stages: intake → screened → needs decision → interview → closed) with
       job filter and ranked cards; manual moves via dnd-kit drag (pointer + keyboard) validated
       against the designed transition table — named human + reason, every gate enforced
-      server-side (`docs/architecture/board-transitions.md`)
+      server-side (`docs/archive/python-server/architecture/board-transitions.md`)
 - [x] Candidate detail: status + timeline, score/sigma/priority, evaluation breakdown with
       rationales, flags, and policy decision (`/w/hiring/applications/{id}`); every number is
       inspectable — the weighted-contribution formula opens inline, and each dimension expands
@@ -367,9 +382,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
       performance 88 on mobile throttling; route-level code splitting cut the entry chunk from
       891 KB to 425 KB and TBT from 190 ms to 60 ms.
 
-## Phase 7 — Integrations (all via the provider layer, `docs/architecture/providers.md`)
+## Phase 7 — Integrations (all via the provider layer, `docs/archive/python-server/architecture/providers.md`)
 
-> Detailed remaining checklist from this phase to release: `docs/plan/remaining-work.md`.
+> Detailed remaining checklist from this phase to release: `docs/archive/python-server/plan/remaining-work.md`.
 
 ### 7.1 Messaging
 - [~] `email_send`: SMTP (default) live — `messaging/smtp.py` carries queued messages and
@@ -387,24 +402,65 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] `whatsapp` providers: Meta Cloud API + manual `wa.me` links fallback (default until connected) —
       the manual-links transport is live (`messaging/whatsapp.py`: deterministic E.164 link
       composition, `POST /v1/communications/{id}/dispatch-link`, phone captured at queue time);
-      the human opens the link, sends, and records dispatch. Meta Cloud stays config-only
-- [ ] Telegram bridge (optional provider)
+      the human opens the link, sends, and records dispatch. **Meta Cloud sending and
+      inbound are live** (`messaging/whatsapp_cloud.py`, `/v1/webhooks/whatsapp/meta`):
+      text messages through the Graph API (4096-character limit, Graph errors as
+      refusals), and `X-Hub-Signature-256`-verified inbound replies stored once and
+      attributed by the normalized number the outbound message carried. Inbound needs
+      `app_secret`; the handshake answers `hub.challenge` with the configured token
+- [x] Telegram provider (`telegram.bot`): Bot API send with the same refusal semantics;
+      registered as its own capability, with an honest health check (no token, no channel;
+      send only without a webhook secret).
+      **Channel dispatch is live**: `candidate_communications.recipient_telegram_chat_id`
+      (migration `0040`) addresses a queued Telegram message, and the dispatcher reuses the
+      outbox's lease/backoff/evidence contract (`run_messaging.py --telegram`).
+      **Inbound is live**: `POST /v1/webhooks/telegram` verifies
+      `X-Telegram-Bot-Api-Secret-Token` in constant time and attributes a text reply by the
+      chat id, deduplicating Telegram's retried updates on the message id. The dashboard's
+      queue form offers all three addressed channels and asks for the Telegram chat id
 - [x] Response SLA timers (anti-ghosting): the `reply-sla` scheduler job flags a dispatched
       message with no reply after 72h as a recruiter follow-up task (deduplicated, never a
       chase message)
-- [ ] Webhook signature verification + replay protection
+- [x] Webhook signature verification + replay protection — `messaging/webhooks.py`:
+      Svix/Resend (`svix-id`/`svix-timestamp`/`svix-signature`, signed over the raw
+      bytes, five-minute tolerance) and Meta (`X-Hub-Signature-256`), constant-time
+      comparison, and a bounded `ReplayGuard` (`tests/messaging/test_webhooks.py`).
+      The public inbound route that uses it is still open below
 - [ ] Deployed behind Cloudflare Tunnel instructions for self-host webhooks
 
 ### 7.2 Google Workspace / Microsoft 365
-- [ ] Gmail send + thread sync
-- [ ] Google Calendar: free/busy, slot proposal, invites, reschedules
-- [ ] Google Drive: document import (CVs, policies)
-- [ ] Google Sheets: candidate/employee import-export
-- [ ] Microsoft Graph (Outlook/Calendar/OneDrive) — same adapter interface
+- [~] Gmail: **send is live** (`integrations/gmail.py`: refresh-token OAuth shared with
+      calendar, RFC 2822 composition with threading headers, `users.messages.send`; pinned
+      over respx and selectable as `HRAGENTS_PROVIDER_EMAIL_SEND=email.gmail`). Remaining:
+      thread sync / inbound history (the IMAP poller already receives replies)
+- [~] Google Calendar: **free/busy is live and feeds the interviewer directory**
+      (`integrations/google_calendar.py`: refresh-token OAuth, cached access token,
+      `freeBusy` lookup returning UTC `TimeSlot`s, optional per-call `calendar_id`; pinned
+      over respx, operator probe `scripts/check_calendar.py`). An interviewer maps to a
+      calendar through `PUT /v1/scheduling/availability/{id}/calendar` (migration `0042`),
+      and the `calendar-sync` job subtracts the provider's busy blocks from the operator's
+      work window (`services/scheduling_calendar.py:free_slots`) to refresh availability.
+      Remaining: invites, reschedules, and writing interviews back to the calendar
+- [ ] Google Drive: document import (CVs, policies) — **credential-blocked for live work**:
+      it needs its own OAuth scopes (`drive.readonly`, and `drive.file` for uploads) plus a
+      folder picker contract, none of which this deployment has. The adapter shape is the
+      same as Gmail/Calendar; it is not written because an untested Drive integration would
+      claim a capability no one can exercise
+- [ ] Google Sheets: candidate/employee import-export — **credential-blocked for live work**:
+      same OAuth app and the `spreadsheets` scope; the CSV/XLSX import paths already cover
+      the operator need today
+- [ ] Microsoft Graph (Outlook/Calendar/OneDrive) — **credential-blocked for live work**:
+      needs an Azure app registration and either the client-credentials grant (tenant admin
+      consent) or a delegated refresh token. The adapter interface is the provider layer;
+      no Graph endpoint is invented here
 
 ### 7.3 Files & office reality
-- [ ] XLSX/CSV import with column-mapping UI
-- [ ] Export: XLSX reports, PDF feedback letters
+- [x] XLSX/CSV import with column-mapping UI (attendance: workbook or pasted CSV, explicit
+      column map, per-row refusal; `AttendanceImportDialog`)
+- [x] Export: XLSX reports (payroll review packet) and PDF candidate feedback letters
+      (`services/feedback_pdf.py`, `GET /v1/candidates/{id}/feedback.pdf`). The PDF carries only
+      the candidate-facing sections, uses the report's EN/ID labels, and escapes user text before
+      ReportLab sees it.
 - [ ] Office Connector: local folder sync agent for NAS/shared drives (only if demand)
 
 ### 7.4 MCP layer
@@ -499,7 +555,9 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] XLSX review packet (per-employee lines, totals, run info, explicit "no payments executed" notice); GET packet endpoint with notice header
 - [x] API: 10 endpoints (runs, inputs, compute, submit, decision sync, export, packet.xlsx, cancel)
 - [x] Tests: 23 new (service computations with exact expected values + API integration flows); audit chain covers every transition
-- [ ] Attendance/overtime import (CSV/XLSX) from office machines — Phase 7 files work
+- [~] Attendance/overtime import (CSV/XLSX) from office machines — Phase 7 files work
+      (fingerprint CSV with preview/commit ships, holidays excluded and the daily threshold
+      stated; XLSX and the dashboard column-mapping UI remain)
 - [ ] Payslip distribution coordination (human-approved) — Phase 7 messaging
 - [x] Payroll workspace UI (Phase 6) - runs board, run detail with blocking vs advisory anomalies, lifecycle-gated compute/submit/cancel, review-packet link (XLSX is review only, never payment execution)
 
@@ -575,7 +633,7 @@ ordered by dependency, and checkboxes track reality so nothing is missed or forg
 - [x] Scheduled job wiring (retention sweep, breach overdue, review reminders, expiries, offer expiry,
       overdue tasks, audit verify, reply SLA) — all through `scripts/run_scheduler.py`, composed into
       Compose as a 15-minute loop. Each tick writes a JSON report to a shared volume and every loop
-      container has a `HEALTHCHECK`, so a job failing inside `while true` is visible. Alert rules
+      container has a `HEALTHCHECK`, so a job failing inside the scheduler loop is visible. Alert rules
       ship in `ops/alerts/hragents.rules.yml` (stuck queue, scheduler stale/failing, dead
       letters, backlog, API error/latency), guarded by a test against the metrics actually
       rendered; the dead-letter dashboard (`/app/ops`, metadata-only with a reason-gated
@@ -690,10 +748,19 @@ not a style opinion.
    The name-swap fairness harness still cannot catch this class of defect — swapping a name does not
    change the distribution's shape. `tests/services/test_scoring_families.py` is the new guard, built on
    realistic per-occupation evidence the calibration corpus does not contain.
-4. **68 write endpoints are guarded by a READ permission**, and 6 of 17 permissions are
+4. ~~**68 write endpoints are guarded by a READ permission**, and 6 of 17 permissions are
    dead code (`PEOPLE_WRITE`, `PAYROLL_WRITE`, `COMPLIANCE_WRITE`, `RATES_VERIFY`,
    `AUDIT_READ`, `ADMIN_MANAGE`). A `manager` can waive offboarding steps and finalize an
-   employee exit.
+   employee exit.~~ **Fixed.** Every mutating route names a write or self-service
+   permission, and the dead permissions are wired: `PEOPLE_WRITE`, `PAYROLL_WRITE`,
+   `COMPLIANCE_WRITE`, `RATES_VERIFY`, `RUBRICS_VERIFY`, `AUDIT_READ` (audit trail) and
+   `ADMIN_MANAGE` (ops dead letters) all guard routers now.
+   `tests/test_route_inventory.py` asserts the read-guarded write set is empty, walks all
+   27 router modules, and requires each to contribute routes to the fence. Approval
+   decisions are additionally bound to `assignee_role` (`ApprovalService._require_authority`),
+   so a manager cannot decide a finance-assigned sign-off. The open policy question is
+   narrower than this item: whether managers and finance should administer the employee
+   directory in a given deployment (a per-deployment decision, tracked in the archived remaining-work).
 5. ~~**`money` is `float` with banker's rounding**; `round(0.125, 2) == 0.12`. A rupiah can
    be lost, and the XLSX totals row can disagree with the sum of its own lines.~~ **Fixed, and
    the audit underneath it was worse than the rounding.** `models/money.py` makes money a
@@ -730,7 +797,7 @@ not a style opinion.
     `GrowthService` gained the shaped-404 lookup they needed; `0025` closes
     `leave_requests.document_id` against the employee's own vault (checked in
     `LeaveService.request`); `0026` closes `evaluations.application_id`. One reference
-    deliberately stays loose and is named in remaining-work:
+    deliberately stays loose and is named in the archived remaining-work:
     `scheduling_availability.interviewer_id` (no interviewer table — availability
     belongs to a calendar identity the scheduling integration owns).
 7. ~~**43 of 45 list endpoints are unpaginated**~~ **Done, with deliberate Python-side
@@ -742,28 +809,65 @@ not a style opinion.
    window, approvals, the document vault, audit entries, payroll runs, applications,
    communications and replies, offers, scheduling proposals, tasks, contracts, review
    cycles/assignments/summaries/goals, consents, retention records, erasures, breach
-   incidents and offboarding assets, plus the `_previous_run` and active-plan aggregations.
-   The bounded and computed lists stay in Python by design, named in remaining-work:
-   operator-managed configuration, employee-scoped records, merged/derived lists (compliance
-   calendar, overdue breach steps, ops queue, POST sweeps), and handoffs (no database adapter
-   yet).
-8. **No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
+   incidents, offboarding assets and the workspace-handoff queue, plus the `_previous_run`
+   and active-plan aggregations.
+   The bounded and computed lists stay in Python by design, named in the archived remaining-work:
+   operator-managed configuration, employee-scoped records, and merged/derived lists
+   (compliance calendar, overdue breach steps, ops queue, POST sweeps).
+8. ~~**No optimistic concurrency anywhere.** `db/mapping.py` read-modify-writes with no
    version predicate and no unit of work, so two concurrent `complete_step` calls
-   silently lose one. A mid-loop erasure failure leaves a half-erased state.
-9. **Feedback and screening validators substring-match** `"age"`, so "message",
+   silently lose one. A mid-loop erasure failure leaves a half-erased state.~~
+   **Fixed for every persist path that has a model to carry a version.** Migration `0020`
+   adds `version` to every tenant table; `save_model` and the custom adapters refuse to
+   overwrite a row that moved since it was read, and the refusal leaves as
+   `409 stale_write` through one global handler. The erasure sweep journals each attempt
+   (`purge_jobs`, migration `0033`), isolates a failing handler, leaves the record
+   unpurged for the next sweep, and reports the failure on the compliance screen and the
+   audit chain. Three set-whole writes (leave balance adjustments, the holiday calendar,
+   interviewer availability) are deliberately last-write-wins and say so. **A real
+   transaction now covers the approval pair**: the decision and its subject-sync outbox
+   row (`pending_approval_syncs`, migration `0039`) commit together, and the reconcile
+   job consumes the row idempotently, so a crash cannot lose the subject update. A stale
+   decision rolls the outbox row back with it. Offers and scheduling replay through the
+   same job — a rejected offer is withdrawn, a single-slot proposal confirmed, a rejected
+   proposal cancelled, and a multi-slot approval is recorded `needs_human` rather than
+   inventing a time. **Still open:** the same treatment for erasure, and one unit of work
+   spanning arbitrary services — recoverability exists for those, distributed atomicity
+   does not.
+9. ~~**Feedback and screening validators substring-match** `"age"`, so "message",
    "average", "language", "coverage", and "manager" are false positives. Latent only
-   because the screening agent is not yet on the live path.
-10. **The knowledge corpus is 5 documents** with no Indonesian leave, payroll, or
-    termination content, and the hash-embedding provider makes retrieval 100% lexical
-    with a 60% weight on the noisier half of the "hybrid" score. A leave question returns
-    an empty template.
-11. **The frontend has no refresh affordance and never invalidates the attention queries**,
-    so a phone user cannot force fresh data and the home page can show a stale board.
-12. **`toLocaleString(undefined)` in `web/src/lib/dates.ts`** means the language switcher
+   because the screening agent is not yet on the live path.~~ **Fixed.**
+   Both validators now match on word boundaries (`\bterm\b` precompiled patterns in
+   `feedback_writer.py`/`screening_coordinator.py`), so "message" no longer fires on
+   "age" while "Berapa usia Anda?" still does. Indonesian gaps closed (`umur`,
+   `kehamilan`, `ras`, `etnis`). Regression-tested with substring negatives.
+10. **The knowledge corpus is thin and retrieval is lexical by default.** The statutory pack
+    now ships 12 sourced notes under `skills/platform/labor-law/` (annual/sick/personal/maternity
+    leave, probation, working time and overtime, minimum wage, BPJS, PPh 21, THR timing,
+    public holidays, termination and final pay), guarded by
+    `tests/skills/test_labor_law_pack.py`. What remains: wider statutory coverage beyond
+    those notes, and the zero-config `embeddings.hash` provider makes the hybrid score
+    lexical — a client with no embedding provider gets keyword recall rather than semantic
+    recall. An API embedding provider is the fix, not a bigger corpus.
+11. ~~**The frontend has no refresh affordance and never invalidates the attention queries**,
+    so a phone user cannot force fresh data and the home page can show a stale board.~~
+    **Fixed.** The home has a manual refresh with an "updated at" line, its three queue
+    queries always re-read one page on mount, and the global mutation defaults invalidate
+    the shared `['attention']` prefix after every write, so a decision taken anywhere is
+    reflected without a reload.
+12. ~~**`toLocaleString(undefined)` in `web/src/lib/dates.ts`** means the language switcher
     does not control date formatting, and the app shows `2026-02-01` next to `Feb 1, 2026`
-    on one screen.
-13. **An undeclared transitive dependency installs a global import hook.** `beartype` (pulled
-    in by `pydantic-ai`, not declared here) patches `importlib`; on a developer Windows
-    machine it made `import hr_agents.models` take ~35 s and the suite 7-10× slower. A
-    hazard for contributors, a security-review question for a self-hosted product: pin it
-    explicitly or assert it away.
+    on one screen.~~ **Fixed.** `formatDate`/`formatDateTime` now resolve the locale
+    from the active i18n language (`id` → `id-ID`, else `en-US`), guarded by
+    `web/src/lib/dates.test.ts`.
+13. **An undeclared transitive dependency installs a global import hook.** `beartype`
+    (pulled in by `py-key-value-aio` ← `fastmcp-slim[client]` ← `pydantic-ai[mcp]`) is called
+    as `beartype_this_package()` on import of `key_value.aio`, which installs a meta-path
+    finder. **Measured on this checkout (2026-10-31):** `import hr_agents.models` takes
+    **2.8 s** with the hook and **2.6 s** with `PY_KEY_VALUE_DISABLE_BEARTYPE=true`, so the
+    35 s figure recorded earlier was an outlier, not the steady state — but the hook is
+    still process-global. It stays a security-review question for a self-hosted product
+    (an unvetted import-time mutation of the interpreter) and a contributor hazard on
+    Windows. The version is pinned in `uv.lock` with hashes; a future dependency sweep
+    should either vendor the value store or set `PY_KEY_VALUE_DISABLE_BEARTYPE=true` in
+    the test environment and re-measure.

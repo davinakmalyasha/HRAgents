@@ -1,5 +1,12 @@
 name: CI
 
+# Post-cut (Gate 5): the Python server product is deleted — source, tests,
+# migrations, packaging, and its CI. What remains is the desktop free edition
+# (rust/, gated by desktop.yml), the docs site (docs.yml), and the
+# server-independent surfaces below: the web dashboard's own gates, the
+# landing site, and the secrets scan. The OpenAPI drift check is gone with
+# the server; web/src/api/schema.d.ts is frozen.
+
 on:
   push:
     branches: [main]
@@ -13,125 +20,17 @@ permissions:
   contents: read
 
 jobs:
-  quality:
-    name: quality
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: true
-      - run: uv python install 3.14
-      - run: uv sync --locked --all-groups
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy
-      - run: uv run pytest --cov --cov-report=term-missing --cov-fail-under=90
-
-  migrations:
-    name: migrations
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: hragents
-          POSTGRES_PASSWORD: hragents
-          POSTGRES_DB: hragents
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U hragents -d hragents"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      HRAGENTS_DATABASE_URL: postgresql+asyncpg://hragents:hragents@localhost:5432/hragents
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: true
-      - run: uv python install 3.14
-      - run: uv sync --locked --all-groups
-      - name: Apply migrations
-        run: uv run alembic upgrade head
-      - name: Check for model/migration drift
-        run: uv run alembic check
-      - name: Round-trip downgrade and upgrade
-        run: |
-          uv run alembic downgrade base
-          uv run alembic upgrade head
-
-  postgres-adapters:
-    name: postgres-adapters
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: hragents
-          POSTGRES_PASSWORD: hragents
-          POSTGRES_DB: hragents
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U hragents -d hragents"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      HRAGENTS_TEST_DB_URL: postgresql+psycopg://app_test:app_test@localhost:5432/hragents
-      HRAGENTS_TEST_DB_ADMIN_URL: postgresql://hragents:hragents@localhost:5432/hragents
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: true
-      - run: uv python install 3.14
-      - run: uv sync --locked --all-groups
-      - name: Prepare non-superuser test role (RLS applies under FORCE)
-        run: uv run python scripts/prepare_test_db.py
-      - run: uv run pytest tests/db -q
-
-  windows:
-    name: windows
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: true
-      - run: uv python install 3.14
-      - run: uv sync --locked --all-groups
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy
-      - run: uv run pytest
-
   web:
     name: web
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-        with:
-          enable-cache: true
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: web/.nvmrc
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: uv python install 3.14
-      - run: uv sync --locked --all-groups
-      - name: OpenAPI spec drift check
-        run: uv run python scripts/export_openapi.py --check
       - run: npm ci
-        working-directory: web
-      - name: Generated API types drift check
-        run: |
-          npm run api:generate
-          git diff --exit-code -- src/api/schema.d.ts
         working-directory: web
       - run: npm run lint
         working-directory: web
@@ -142,6 +41,10 @@ jobs:
       - run: npm run test
         working-directory: web
       - run: npm run build
+        working-directory: web
+      - run: npm run size
+        working-directory: web
+      - run: npm run build-storybook
         working-directory: web
 
   landing:

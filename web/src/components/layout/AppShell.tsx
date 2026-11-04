@@ -1,3 +1,4 @@
+import { WifiOff } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router'
@@ -8,6 +9,41 @@ import { isAuthRequired, onUnauthorized } from '@/lib/auth'
 import { CommandPalette } from './CommandPalette'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+
+/**
+ * The connection is a status, not an error: the shell says it once, every
+ * workspace inherits it, and the label is always text (the icon is decorative).
+ */
+export function OfflineNotice() {
+  const { t } = useTranslation()
+  const [offline, setOffline] = useState(
+    () => typeof navigator !== 'undefined' && navigator.onLine === false,
+  )
+
+  useEffect(() => {
+    const update = () => setOffline(navigator.onLine === false)
+    window.addEventListener('online', update)
+    window.addEventListener('offline', update)
+    update()
+    return () => {
+      window.removeEventListener('online', update)
+      window.removeEventListener('offline', update)
+    }
+  }, [])
+
+  if (!offline) {
+    return null
+  }
+  return (
+    <div
+      role="status"
+      className="border-line bg-surface-subtle text-ink flex items-center gap-2 border-b px-4 py-1.5 text-xs"
+    >
+      <WifiOff aria-hidden="true" className="text-error size-3.5" />
+      <span>{t('common.offline')}</span>
+    </div>
+  )
+}
 
 export function AppShell() {
   const { t } = useTranslation()
@@ -80,6 +116,7 @@ export function AppShell() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar onOpenPalette={() => setPaletteOpen(true)} />
+        <OfflineNotice />
         <main
           id="main-content"
           tabIndex={-1}

@@ -353,6 +353,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/candidates/{candidate_id}/feedback.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidate-facing feedback report as a PDF */
+        get: operations["get_feedback_pdf_v1_candidates__candidate_id__feedback_pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/candidates/{candidate_id}/replies": {
         parameters: {
             query?: never;
@@ -2754,6 +2771,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/ops/usage/applications/{application_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One application's token and cost rollup */
+        get: operations["application_usage_v1_ops_usage_applications__application_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/ops/usage/candidates/{candidate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A candidate's token and cost rollup across applications */
+        get: operations["candidate_usage_v1_ops_usage_candidates__candidate_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/org-units": {
         parameters: {
             query?: never;
@@ -2839,7 +2890,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fill overtime/absence on an editable run from fingerprint CSV */
+        /** Fill overtime/absence on an editable run from fingerprint CSV/XLSX */
         post: operations["commit_attendance_v1_payroll_runs__run_id__attendance_commit_post"];
         delete?: never;
         options?: never;
@@ -2856,7 +2907,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Preview fingerprint CSV aggregation without writing */
+        /** Preview fingerprint CSV/XLSX aggregation without writing */
         post: operations["preview_attendance_v1_payroll_runs__run_id__attendance_preview_post"];
         delete?: never;
         options?: never;
@@ -3355,6 +3406,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/scheduling/availability/{interviewer_id}/calendar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ops: read the calendar mapped to an interviewer */
+        get: operations["get_calendar_mapping_v1_scheduling_availability__interviewer_id__calendar_get"];
+        /** Ops: map an interviewer to the calendar the sync job reads */
+        put: operations["set_calendar_mapping_v1_scheduling_availability__interviewer_id__calendar_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/scheduling/proposals": {
         parameters: {
             query?: never;
@@ -3501,6 +3570,67 @@ export interface paths {
         put?: never;
         /** Complete Task */
         post: operations["complete_task_v1_tasks__task_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/email/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend inbound email (Svix-signed)
+         * @description Verify, then store the reply. The signature check happens before parsing.
+         */
+        post: operations["resend_inbound_v1_webhooks_email_resend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Telegram inbound messages (X-Telegram-Bot-Api-Secret-Token)
+         * @description Telegram does not sign bodies; the secret token is the credential.
+         */
+        post: operations["telegram_inbound_v1_webhooks_telegram_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/webhooks/whatsapp/meta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Meta WhatsApp webhook verification (hub.challenge)
+         * @description Answer Meta's subscription handshake with the challenge, or refuse.
+         */
+        get: operations["verify_whatsapp_webhook_v1_webhooks_whatsapp_meta_get"];
+        put?: never;
+        /** Meta WhatsApp inbound messages (X-Hub-Signature-256) */
+        post: operations["whatsapp_inbound_v1_webhooks_whatsapp_meta_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3663,6 +3793,29 @@ export interface components {
             s_tech?: number | null;
             /** Status */
             status: string;
+        };
+        /**
+         * ApplicationUsage
+         * @description One application's evaluation spend.
+         */
+        ApplicationUsage: {
+            /** Application Id */
+            application_id: string;
+            /** By Model */
+            by_model?: components["schemas"]["LlmUsage"][];
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /**
+             * Entries
+             * @default 0
+             */
+            entries: number;
+            totals: components["schemas"]["UsageTotals"];
+            /**
+             * Uncosted Entries
+             * @default 0
+             */
+            uncosted_entries: number;
         };
         /** ApprovalCreate */
         ApprovalCreate: {
@@ -3902,10 +4055,30 @@ export interface components {
              */
             updated_at: string;
         };
-        /** AttendanceCommit */
+        /**
+         * AttendanceCommit
+         * @description One attendance source: pasted/small CSV text, or an uploaded workbook.
+         *
+         *     Exactly one of ``csv_text`` and ``file_base64`` must be present. The
+         *     workbook path carries a mapping because machine exports name their columns
+         *     whatever the installer chose; the base64 is validated here so a corrupt
+         *     upload is a 422 rather than a 500 inside the parser.
+         */
         AttendanceCommit: {
             /** Csv Text */
-            csv_text: string;
+            csv_text?: string | null;
+            /** File Base64 */
+            file_base64?: string | null;
+            /** Filename */
+            filename?: string | null;
+            /**
+             * Header Row
+             * @default 1
+             */
+            header_row: number;
+            mapping?: components["schemas"]["ColumnMapping"] | null;
+            /** Sheet */
+            sheet?: string | null;
         };
         /** AttendanceErrorView */
         AttendanceErrorView: {
@@ -3930,6 +4103,11 @@ export interface components {
             period_year: number;
             /** Rows */
             rows: components["schemas"]["AttendanceRowView"][];
+            /**
+             * Standard Hours Per Day
+             * @default 8
+             */
+            standard_hours_per_day: number;
             /** Working Days */
             working_days: number;
         };
@@ -4280,6 +4458,24 @@ export interface components {
             /** Title */
             title?: string | null;
         };
+        /**
+         * CalendarMappingRequest
+         * @description Point an interviewer at the calendar the sync job should read.
+         */
+        CalendarMappingRequest: {
+            /** Calendar Id */
+            calendar_id: string;
+        };
+        /** CalendarMappingView */
+        CalendarMappingView: {
+            /** Calendar Id */
+            calendar_id: string;
+            /**
+             * Interviewer Id
+             * Format: uuid
+             */
+            interviewer_id: string;
+        };
         /** CandidateInput */
         CandidateInput: {
             /** Emails */
@@ -4297,11 +4493,39 @@ export interface components {
             phones?: string[];
         };
         /**
+         * CandidateUsage
+         * @description Every application a candidate has, summed; the answer to "what did this cost".
+         */
+        CandidateUsage: {
+            /** Application Ids */
+            application_ids?: string[];
+            /** By Model */
+            by_model?: components["schemas"]["LlmUsage"][];
+            /**
+             * Candidate Id
+             * Format: uuid
+             */
+            candidate_id: string;
+            /** Cost Usd */
+            cost_usd?: number | null;
+            /**
+             * Entries
+             * @default 0
+             */
+            entries: number;
+            totals: components["schemas"]["UsageTotals"];
+            /**
+             * Uncosted Entries
+             * @default 0
+             */
+            uncosted_entries: number;
+        };
+        /**
          * Capability
          * @description External capabilities the platform consumes.
          * @enum {string}
          */
-        Capability: "llm" | "embeddings" | "email_send" | "email_receive" | "whatsapp" | "calendar" | "storage" | "vector_store" | "queue";
+        Capability: "llm" | "embeddings" | "email_send" | "email_receive" | "whatsapp" | "telegram" | "calendar" | "storage" | "vector_store" | "queue";
         /**
          * Channel
          * @enum {string}
@@ -4325,6 +4549,8 @@ export interface components {
             /** Matched Keywords */
             matched_keywords: string[];
             route_reason: components["schemas"]["RouteReason"];
+            /** Tools Used */
+            tools_used?: string[];
             workspace: components["schemas"]["WorkspaceId"];
         };
         /** ChatRequest */
@@ -4346,6 +4572,37 @@ export interface components {
             role: string;
             /** Text */
             text: string;
+        };
+        /**
+         * ColumnMapping
+         * @description Which spreadsheet column carries each required field.
+         *
+         *     Fingerprint exports are named by whoever installed the machine, so the
+         *     canonical header cannot be assumed. The mapping is matched case-insensitively
+         *     after trimming, and a name that is not in the sheet is a header error — never
+         *     a silent zero.
+         */
+        ColumnMapping: {
+            /**
+             * Clock In
+             * @default clock_in
+             */
+            clock_in: string;
+            /**
+             * Clock Out
+             * @default clock_out
+             */
+            clock_out: string;
+            /**
+             * Date
+             * @default date
+             */
+            date: string;
+            /**
+             * Employee Number
+             * @default employee_number
+             */
+            employee_number: string;
         };
         /**
          * CommunicationKind
@@ -4434,6 +4691,8 @@ export interface components {
              * @enum {string}
              */
             language: "en" | "id";
+            /** Last Attempt At */
+            last_attempt_at: string | null;
             /** Last Error */
             last_error: string | null;
             /** Provider */
@@ -4444,6 +4703,8 @@ export interface components {
             recipient: string | null;
             /** Recipient Phone */
             recipient_phone: string | null;
+            /** Recipient Telegram Chat Id */
+            recipient_telegram_chat_id: string | null;
             /** Send Attempts */
             send_attempts: number;
             /** Sent At */
@@ -5523,6 +5784,37 @@ export interface components {
             /** Holidays */
             holidays: string[];
         };
+        /**
+         * InboundWebhookResult
+         * @description What one delivery did; the provider only needs a 2xx to stop retrying.
+         */
+        InboundWebhookResult: {
+            /**
+             * Accepted
+             * @default true
+             */
+            accepted: boolean;
+            /**
+             * Duplicates
+             * @default 0
+             */
+            duplicates: number;
+            /**
+             * Event
+             * @default
+             */
+            event: string;
+            /**
+             * Stored
+             * @default 0
+             */
+            stored: number;
+            /**
+             * Unmatched
+             * @default 0
+             */
+            unmatched: number;
+        };
         /** InputLine */
         InputLine: {
             /**
@@ -6127,6 +6419,8 @@ export interface components {
             to_email?: string | null;
             /** To Phone */
             to_phone?: string | null;
+            /** To Telegram Chat Id */
+            to_telegram_chat_id?: string | null;
         };
         /** OfferReviseRequest */
         OfferReviseRequest: {
@@ -6886,7 +7180,7 @@ export interface components {
          * @description Machine-readable error kinds. Switch on this rather than on the prose in `title`, which may be reworded.
          * @enum {string}
          */
-        ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
+        ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "webhook_refused" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
         /**
          * ProblemDetail
          * @description The response body. Documents the contract in the OpenAPI document.
@@ -6942,7 +7236,7 @@ export interface components {
                  *     so add a new one instead, and keep the retired value reserved.
                  * @enum {string}
                  */
-                ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
+                ProblemCode: "auth_required" | "auth_invalid" | "permission_denied" | "named_human_required" | "not_found" | "conflict" | "validation_failed" | "reason_required" | "payload_too_large" | "rate_limited" | "scanner_unavailable" | "service_unavailable" | "internal" | "webhook_refused" | "unknown_record" | "state_conflict" | "stale_write" | "insufficient_balance" | "template_unavailable" | "rate_table_unusable" | "blocking_anomalies" | "approval_already_decided" | "ownership_required" | "workspace_mismatch";
             };
         };
         /**
@@ -6960,6 +7254,7 @@ export interface components {
              * @default
              */
             reason: string;
+            slot?: components["schemas"]["TimeSlot"] | null;
         };
         /**
          * ProposalDecisionResponse
@@ -7576,6 +7871,8 @@ export interface components {
             to_email?: string | null;
             /** To Phone */
             to_phone?: string | null;
+            /** To Telegram Chat Id */
+            to_telegram_chat_id?: string | null;
         };
         /** ReminderView */
         ReminderView: {
@@ -7873,6 +8170,7 @@ export interface components {
         };
         /** SchedulingProposalView */
         SchedulingProposalView: {
+            confirmed_slot?: components["schemas"]["TimeSlot"] | null;
             /**
              * Created At
              * Format: date-time
@@ -10921,6 +11219,110 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FeedbackView"];
                 };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_feedback_pdf_v1_candidates__candidate_id__feedback_pdf_get: {
+        parameters: {
+            query?: {
+                language?: string;
+            };
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description The request could not be understood. */
             400: {
@@ -28099,6 +28501,214 @@ export interface operations {
             };
         };
     };
+    application_usage_v1_ops_usage_applications__application_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationUsage"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    candidate_usage_v1_ops_usage_candidates__candidate_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                candidate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateUsage"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_org_units_v1_org_units_get: {
         parameters: {
             query?: {
@@ -32141,6 +32751,218 @@ export interface operations {
             };
         };
     };
+    get_calendar_mapping_v1_scheduling_availability__interviewer_id__calendar_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                interviewer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarMappingView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    set_calendar_mapping_v1_scheduling_availability__interviewer_id__calendar_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                interviewer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarMappingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarMappingView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_proposals_v1_scheduling_proposals_get: {
         parameters: {
             query?: {
@@ -33108,6 +33930,414 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskView"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    resend_inbound_v1_webhooks_email_resend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboundWebhookResult"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    telegram_inbound_v1_webhooks_telegram_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboundWebhookResult"];
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    verify_whatsapp_webhook_v1_webhooks_whatsapp_meta_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description The request could not be understood. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Credentials are missing (`auth_required`) or refused (`auth_invalid`). */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Refused. `permission_denied` means the role may not do this; `named_human_required` means an agent may not, and a person must. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The record is not in a state that allows this. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Request body exceeded the configured ceiling. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The body failed schema validation, or a domain rule required a value it did not get. `detail` is the per-field error list for a schema violation. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limited. `Retry-After` carries the interval in seconds. */
+            429: {
+                headers: {
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A dependency the request needs is not running. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    whatsapp_inbound_v1_webhooks_whatsapp_meta_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboundWebhookResult"];
                 };
             };
             /** @description The request could not be understood. */

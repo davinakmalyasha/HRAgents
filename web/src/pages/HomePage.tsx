@@ -1,3 +1,5 @@
+import { cn } from 'cn'
+import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 
@@ -10,10 +12,21 @@ import type { AttentionFailure } from '@/features/attention/attention'
 import { useAttention } from '@/features/attention/useAttention'
 import { SetupCard } from '@/features/setup/SetupCard'
 import { useSetup } from '@/features/setup/useSetup'
+import { formatDateTime } from '@/lib/dates'
 
 export function HomePage() {
   const { t } = useTranslation()
-  const { needsYou, watching, isLoading, failures, retry, limitedQueues } = useAttention()
+  const {
+    needsYou,
+    watching,
+    isLoading,
+    isRefreshing,
+    updatedAt,
+    refresh,
+    failures,
+    retry,
+    limitedQueues,
+  } = useAttention()
   const setup = useSetup()
   const restricted = failures.filter((failure) => failure.kind === 'forbidden')
   const failed = failures.filter((failure) => failure.kind === 'failed')
@@ -65,9 +78,32 @@ export function HomePage() {
       ) : null}
 
       <section aria-labelledby="needs-you" className="flex flex-col gap-3">
-        <h1 id="needs-you" className="text-ink-strong text-2xl font-semibold">
-          {t('home.needsYou')}
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 id="needs-you" className="text-ink-strong text-2xl font-semibold">
+            {t('home.needsYou')}
+          </h1>
+          <div className="flex items-center gap-2">
+            {updatedAt > 0 ? (
+              <span className="text-ink-muted text-xs">
+                {t('home.updatedAt', {
+                  when: formatDateTime(new Date(updatedAt).toISOString()),
+                })}
+              </span>
+            ) : null}
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={() => void refresh()}
+              disabled={isRefreshing}
+            >
+              <RefreshCw
+                aria-hidden="true"
+                className={cn('size-3.5', isRefreshing && 'animate-spin')}
+              />
+              {isRefreshing ? t('home.refreshing') : t('home.refresh')}
+            </Button>
+          </div>
+        </div>
         {isLoading ? (
           <Skeleton className="h-20 w-full" />
         ) : needsYou.length === 0 ? (

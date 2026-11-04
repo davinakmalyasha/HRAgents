@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import axe from 'axe-core'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -19,16 +20,22 @@ vi.mock('@/features/setup/useSetup', () => ({
 const attention = vi.hoisted(() => ({
   current: {
     isLoading: false,
+    isRefreshing: false,
+    updatedAt: 0,
     needsYou: [],
     watching: [],
     failures: [],
+    refresh: vi.fn(),
     retry: vi.fn(),
     limitedQueues: [],
   } as {
     isLoading: boolean
+    isRefreshing: boolean
+    updatedAt: number
     needsYou: Array<Record<string, unknown>>
     watching: Array<Record<string, unknown>>
     failures: Array<{ queue: string; kind: 'forbidden' | 'failed' }>
+    refresh: () => Promise<void>
     retry: () => void
     limitedQueues: Array<{
       queue: string
@@ -48,9 +55,12 @@ import { HomePage } from './HomePage'
 beforeEach(() => {
   attention.current = {
     isLoading: false,
+    isRefreshing: false,
+    updatedAt: 0,
     needsYou: [],
     watching: [],
     failures: [],
+    refresh: vi.fn(),
     retry: vi.fn(),
     limitedQueues: [],
   }
@@ -70,7 +80,10 @@ describe('HomePage', () => {
   it('renders needs-you and watching items with workspace deep links', () => {
     attention.current = {
       isLoading: false,
+      isRefreshing: false,
+      updatedAt: 0,
       failures: [],
+      refresh: vi.fn(),
       retry: vi.fn(),
       limitedQueues: [],
       needsYou: [
@@ -117,9 +130,12 @@ describe('HomePage', () => {
   it('names a restricted queue instead of calling it empty', () => {
     attention.current = {
       isLoading: false,
+      isRefreshing: false,
+      updatedAt: 0,
       needsYou: [],
       watching: [],
       failures: [{ queue: 'approvals', kind: 'forbidden' }],
+      refresh: vi.fn(),
       retry: vi.fn(),
       limitedQueues: [],
     }
@@ -142,9 +158,12 @@ describe('HomePage', () => {
     const retry = vi.fn()
     attention.current = {
       isLoading: false,
+      isRefreshing: false,
+      updatedAt: 0,
       needsYou: [],
       watching: [],
       failures: [{ queue: 'tasks', kind: 'failed' }],
+      refresh: vi.fn(),
       retry,
       limitedQueues: [],
     }
@@ -218,12 +237,37 @@ describe('HomePage', () => {
     expect(screen.queryByText(i18n.t('setup.title'))).not.toBeInTheDocument()
   })
 
-  it('says when a queue was only partly shown, and links to the rest', () => {
+  it('offers a manual refresh that re-reads every queue', async () => {
+    const refresh = vi.fn().mockResolvedValue(undefined)
     attention.current = {
       isLoading: false,
+      isRefreshing: false,
+      updatedAt: Date.parse('2026-10-31T03:00:00Z'),
       needsYou: [],
       watching: [],
       failures: [],
+      refresh,
+      retry: vi.fn(),
+      limitedQueues: [],
+    }
+
+    renderHome()
+
+    expect(screen.getByText(/^Updated /)).toBeInTheDocument()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: i18n.t('home.refresh') }))
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
+  it('says when a queue was only partly shown, and links to the rest', () => {
+    attention.current = {
+      isLoading: false,
+      isRefreshing: false,
+      updatedAt: 0,
+      needsYou: [],
+      watching: [],
+      failures: [],
+      refresh: vi.fn(),
       retry: vi.fn(),
       limitedQueues: [{ queue: 'approvals', shown: 50, total: 143, workspace: 'approvals' }],
     }
@@ -243,5 +287,16 @@ describe('HomePage', () => {
       'href',
       '/w/approvals?room=queue',
     )
+  })
+
+  it('has no structural accessibility violations', async () => {
+    const { container } = renderHome()
+
+    const results = await axe.run(container, {
+      // jsdom has no layout or computed colors; contrast is covered separately.
+      rules: { 'color-contrast': { enabled: false } },
+    })
+
+    expect(results.violations).toEqual([])
   })
 })

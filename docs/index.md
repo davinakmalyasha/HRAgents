@@ -1,90 +1,52 @@
-# HRAgents
+# HRAgents Desktop
 
-A virtual HR team for the **HR department of one**.
-
-HRAgents is a self-hosted platform for the whole employee lifecycle — hiring,
-onboarding, records, leave, payroll **preparation**, compliance, growth and
-offboarding. Language models extract and draft; deterministic code scores and
-routes; a named human decides everything consequential. Every outcome is
-reconstructible from a tamper-evident audit chain.
+The HR department of one, in a box. One HR operator runs hiring, onboarding,
+people records, leave, payroll preparation, growth, offboarding, and compliance
+from a single local application — no server, no account, no telemetry.
 
 [Quickstart](quickstart.md){ .md-button .md-button--primary }
-[Architecture](architecture/system-architecture.md){ .md-button }
-[GitHub](https://github.com/davinakmalyasha/HRAgents){ .md-button }
+[Implementation status](plan/desktop-migration/13-implementation-status.md){ .md-button }
+[Decisions](adr/README.md){ .md-button }
 
 ## What it actually does
 
-- **Evaluates candidates with a deterministic scorer.** LLM agents deconstruct a
-  CV and portfolio into structured evidence; the score is pure Python over that
-  evidence, with the references behind every dimension. The same input scores
-  the same, every time.
-- **Bounds automation in code.** Auto-scheduling requires a high score, low
-  run-to-run variance, zero anomaly flags and evidence for every dimension.
-  Rejections above the merit floor require a named human; below it, a documented
-  rejection with a feedback report. Unevidenced scores are zeroed and can neither
-  schedule nor reject automatically.
-- **Runs the department, not just the ATS.** Onboarding plans, contracts and
-  expiry reminders, leave balances and approval queues, payroll runs with
-  operator-verified statutory tables (never hardcoded rates), growth cycles,
-  compliance deadlines and data-subject requests, offboarding and asset
-  clearance — across nine departments over one audit trail.
-- **Keeps a real record.** Every state transition is an audit entry in a hash
-  chain. Evaluations persist the exact rubric family and digest that produced
-  them; payroll runs are immutable once reviewed and a re-run supersedes rather
-  than overwrites.
-- **Degrades honestly.** No cloud keys are required. The offline test model,
-  hash embeddings, local documents and manual WhatsApp/calendar transports are
-  the defaults; each provider reports whether it is configured and answering.
+- **Evaluates candidates with a deterministic scorer.** Language models extract
+  structured evidence from CVs; pure Rust code scores it. The same input scores
+  the same, every time. An offline extractor is the default; a live provider
+  (any OpenAI-compatible endpoint, including OpenCode Go) is optional.
+- **Bounds automation in code.** Auto-scheduling needs a high score, low
+  run-to-run variance, zero anomaly flags, and evidence for every dimension.
+  Rejections above the merit floor require a named human sign-off.
+- **Keeps one company on one machine.** A desktop install is a single-company
+  SQLite database, encrypted with SQLCipher under a per-install key. There are
+  no employee, manager, or candidate logins in this edition.
+- **Keeps a real record.** Every consequential action is an entry in a SHA-256
+  hash-chained audit log, verifiable after every restart.
+- **Prepares payroll, never pays it.** Monthly, THR, and final runs with BPJS,
+  PPh 21, and overtime match the parity oracle to the sen. Rate tables are
+  operator-maintained and verified — never hardcoded. Money movement stays in
+  the company's existing payroll process.
 
-## What it deliberately does not do
+## The free edition, plainly
 
-| Not done | Why |
-|---|---|
-| Execute payments | Payroll is prepare, verify and export; bank files are a human step |
-| Auto-reject above the merit floor | A rejection is a named human's decision with a reason |
-| Run shell or arbitrary command tools | Agents read and extract; they do not operate the machine |
-| Hardcode statutory rates | Operator-maintained, source-verified rate tables gate payroll math |
-| Decide who gets hired | The system routes evidence and drafts; people decide |
-| Scrape or infer protected attributes | Scoring consumes only the four documented dimensions |
+- Per-user Windows installer, no admin required.
+- Unsigned build, no signing certificates, no hosted update server, no
+  phone-home. Updates are a fresh installer plus a verified backup restore.
+- Daily automatic backups (keep 7) plus manual encrypted `.hrbackup` sets
+  (database + documents + key + SHA-256 manifest) before any update, restore,
+  rekey, or erasure.
+- A printed recovery key unlocks the installation when the OS key wrapper is
+  lost. Support never asks for the password or the key; the `diag` bundle is
+  versions, counts, and hashes only.
 
-## How the pieces fit
+## Where to go next
 
-```mermaid
-flowchart LR
-    CV[CV / portfolio] --> EXTRACT[Extraction agents]
-    EXTRACT -->|structured evidence + refs| SCORE[Deterministic scorer]
-    SCORE -->|S, σ, evidence| POLICY[Policy engine]
-    POLICY -->|auto-schedule| SCHED[Scheduling]
-    POLICY -->|HITL| HUMAN[Named human]
-    HUMAN -->|decision + reason| AUDIT[(Audit chain)]
-    SCHED --> AUDIT
-    HUMAN --> DEPTS[Leave · Payroll · Growth · Compliance · Offboarding]
-    DEPTS --> AUDIT
-```
-
-The full pipeline, the automation bounds, and the data model are documented
-under [Architecture](architecture/system-architecture.md); the exact decision
-table is in [Human-in-the-loop bounds](architecture/hitl-bounds.md).
-
-## A look inside
-
-![A tour of the demo: home, approvals, people and records, operations](assets/screenshots/tour.gif)
-
-The demo dataset, seeded through the real services:
-
-![Home: the work that needs a human today](assets/screenshots/home.png)
-
-![Approvals: one queue for every department, with the reason a decision needs](assets/screenshots/approvals.png)
-
-![People and records: directory, org chart, probation and expiry queue](assets/screenshots/records.png)
-
-![Operations: every provider's state, masked configuration, and the dead-letter queue](assets/screenshots/operations.png)
-
-## Status
-
-Published — the core loop, ten workspaces, the PWA, payroll preparation,
-compliance, observability and a self-host compose stack are in place and published.
-Open work is tracked honestly in [Remaining work](plan/remaining-work.md).
-
-Apache-2.0. Built and tested in Jakarta; Bahasa Indonesia and English in the
-dashboard.
+- [Quickstart](quickstart.md) — install, first run, recovery key, first backup.
+- [Product scope](plan/desktop-migration/00-product-scope.md) — who it serves
+  and what it deliberately does not do.
+- [Implementation status](plan/desktop-migration/13-implementation-status.md) —
+  what is built, what the gates prove, what is still open.
+- [Pilot plan](plan/desktop-migration/15-pilot.md) — the six-week pilot with
+  entry criteria and the go/no-go template.
+- [Restore drill](plan/desktop-migration/16-restore-drill.md) — verify, backup,
+  restore, re-verify, including failure injection.

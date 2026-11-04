@@ -44,13 +44,16 @@ beforeEach(() => {
   decideMock.mockReset()
 })
 
-function renderDialog(action: 'confirm' | 'cancel' | 'reschedule') {
+function renderDialog(
+  action: 'confirm' | 'cancel' | 'reschedule',
+  overrides: Partial<SchedulingProposal> = {},
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const onOpenChange = vi.fn()
   render(
     <QueryClientProvider client={client}>
       <ProposalActionDialog
-        proposal={proposal()}
+        proposal={proposal(overrides)}
         action={action}
         open
         onOpenChange={onOpenChange}
@@ -61,6 +64,36 @@ function renderDialog(action: 'confirm' | 'cancel' | 'reschedule') {
 }
 
 describe('ProposalActionDialog', () => {
+  it('asks which slot was agreed when several were offered', async () => {
+    decideMock.mockResolvedValue({ status: 200 })
+    const slots = [
+      { start_utc: '2026-09-21T02:00:00Z', end_utc: '2026-09-21T03:00:00Z', tentative: false },
+      { start_utc: '2026-09-22T02:00:00Z', end_utc: '2026-09-22T03:00:00Z', tentative: false },
+    ]
+    const base = proposal()
+    renderDialog('confirm', {
+      payload: { ...base.payload, slots },
+    })
+
+    await userEvent.type(screen.getByLabelText(i18n.t('scheduling.fields.reason')), 'agreed')
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('scheduling.actions.confirm') }),
+    )
+    expect(decideMock).not.toHaveBeenCalled()
+    expect(screen.getByText(i18n.t('scheduling.errors.slotRequired'))).toBeInTheDocument()
+
+    await userEvent.click(screen.getAllByRole('radio')[1]!)
+    await userEvent.click(
+      screen.getByRole('button', { name: i18n.t('scheduling.actions.confirm') }),
+    )
+
+    expect(decideMock).toHaveBeenCalledWith('proposal-1', {
+      decision: 'confirm',
+      reason: 'agreed',
+      slot: slots[1],
+    })
+  })
+
   it('asks for no actor: the API attributes the decision to the API key', async () => {
     decideMock.mockResolvedValue({ status: 200 })
     renderDialog('confirm')
@@ -73,9 +106,15 @@ describe('ProposalActionDialog', () => {
     )
 
     // No `by` in the payload: the server resolves the actor before the route runs.
+    // The single proposed slot is sent because there was only one to agree.
     expect(decideMock).toHaveBeenCalledWith('proposal-1', {
       decision: 'confirm',
       reason: 'panel is free',
+      slot: {
+        start_utc: '2026-09-21T02:00:00Z',
+        end_utc: '2026-09-21T03:00:00Z',
+        tentative: false,
+      },
     })
   })
 
@@ -100,6 +139,11 @@ describe('ProposalActionDialog', () => {
     expect(decideMock).toHaveBeenCalledWith('proposal-1', {
       decision: 'confirm',
       reason: 'panel is free',
+      slot: {
+        start_utc: '2026-09-21T02:00:00Z',
+        end_utc: '2026-09-21T03:00:00Z',
+        tentative: false,
+      },
     })
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })

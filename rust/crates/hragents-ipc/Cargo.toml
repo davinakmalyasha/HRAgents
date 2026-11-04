@@ -1,0 +1,33 @@
+[package]
+name = "hragents-ipc"
+description = "Typed command DTOs and application services for HRAgents Desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hragents-core = { path = "../hragents-core" }
+hragents-store = { path = "../hragents-store" }
+hragents-agents = { path = "../hragents-agents" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+schemars.workspace = true
+rust_xlsxwriter.workspace = true
+tokio.workspace = true
+sha2.workspace = true
+chacha20poly1305 = "0.10"
+getrandom = "0.3"
+zip = "9"
+
+[features]
+default = []
+# The desktop app enables this; the Python/Rust test workspace stays plain so
+# it does not need an OpenSSL toolchain on every developer machine.
+sqlcipher = ["hragents-store/sqlcipher"]
+
+[dev-dependencies]
+tempfile.workspace = true

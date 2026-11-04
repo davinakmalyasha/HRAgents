@@ -1,0 +1,22 @@
+[package]
+name = "hragents-core"
+description = "Pure domain logic for HRAgents Desktop: money, audit, scoring, policy, payroll, people, hiring, leave, compliance"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono.workspace = true
+chrono-tz.workspace = true
+uuid.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+argon2.workspace = true
+rand.workspace = true
+schemars.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

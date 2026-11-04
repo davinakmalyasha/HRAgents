@@ -36,7 +36,11 @@ export function WorkspacePage() {
   }
 
   const requestedRoom = searchParams.get('room')
-  const defaultRoom: RoomId = isRoom(requestedRoom) ? requestedRoom : 'board'
+  const defaultRoom: RoomId = isRoom(requestedRoom)
+    ? requestedRoom
+    : workspaceId === 'policy'
+      ? 'chat'
+      : 'board'
   const Icon = WORKSPACE_ICONS[workspaceId]
   const name = workspaceName(
     workspaces,
@@ -74,6 +78,8 @@ export function WorkspacePage() {
             <GrowthBoard />
           ) : workspaceId === 'compliance' ? (
             <ComplianceBoard />
+          ) : workspaceId === 'policy' ? (
+            <EmptyState title={t('workspace.chatOnlyBoard')} />
           ) : (
             <EmptyState title={t('workspace.boardPlaceholder', { name })} />
           )
@@ -105,6 +111,8 @@ export function WorkspacePage() {
             <GrowthQueue />
           ) : workspaceId === 'compliance' ? (
             <ComplianceQueue />
+          ) : workspaceId === 'policy' ? (
+            <EmptyState title={t('workspace.chatOnlyQueue')} />
           ) : (
             <EmptyState title={t('workspace.queuePlaceholder')} />
           )

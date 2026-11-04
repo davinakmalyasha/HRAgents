@@ -1,0 +1,18 @@
+[package]
+name = "hragents-agents"
+description = "Deterministic extraction and policy-assistant contracts for HRAgents Desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hragents-core = { path = "../hragents-core" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+pdf-extract = "0.12"
+zip = "9"
+quick-xml = "0.42"
+rig = "0.46"
+tokio = { version = "1", features = ["rt", "macros"] }

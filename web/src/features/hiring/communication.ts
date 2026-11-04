@@ -9,7 +9,11 @@ export type WhatsappDispatchLinkView = components['schemas']['WhatsappDispatchLi
 
 export const REJECTION_DECISIONS: readonly PolicyDecision[] = ['hitl_soft_rejection', 'reject_auto']
 
-export const COMMUNICATION_CHANNELS = ['email', 'whatsapp'] as const satisfies readonly Channel[]
+export const COMMUNICATION_CHANNELS = [
+  'email',
+  'whatsapp',
+  'telegram',
+] as const satisfies readonly Channel[]
 
 /**
  * Mirrors the server gate (`CommunicationService._require_rejection_proof`):
@@ -46,10 +50,12 @@ export function dispatchEvidence(item: CommunicationView): {
   provider: string | null
   attempts: number
   error: string | null
+  lastAttemptAt: string | null
 } {
   return {
     provider: item.provider,
     attempts: item.send_attempts,
     error: item.status === 'queued' ? item.last_error : null,
+    lastAttemptAt: item.status === 'queued' ? item.last_attempt_at : null,
   }
 }

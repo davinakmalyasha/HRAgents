@@ -11,80 +11,36 @@ technical work — see [Work with the author](#work-with-the-author).
 [![Docs](https://github.com/davinakmalyasha/HRAgents/actions/workflows/docs.yml/badge.svg)](https://davinakmalyasha.github.io/HRAgents/)
 [![CodeQL](https://github.com/davinakmalyasha/HRAgents/actions/workflows/codeql.yml/badge.svg)](https://github.com/davinakmalyasha/HRAgents/actions/workflows/codeql.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://www.python.org/)
 
-**Status:** published under Apache-2.0; every merged batch is cut as a release.
-The platform core, all five agents, the recruitment API surface, all Wave-1
-department engines, the hiring dashboard workspaces, auth screens, the MCP layer
-(read tools plus approval-backed write tools) and the document-request flow are
-built, tested and running behind a worker (1953 tests, coverage enforced at 90%
-in CI). Open work is tracked honestly in
-[remaining work](docs/plan/remaining-work.md) — mostly items that need the outside
-world (vendor gateways, a live model, a narrated demo video).
+**Status:** desktop free edition — an HR-only cockpit (Tauri 2.12, Rust backend,
+encrypted SQLite, no accounts, no telemetry, no paid services). Install the
+per-user Windows installer, run the first-run wizard, file the recovery key,
+and work offline. The Python server product was deleted at the Gate 5 cut
+(corpus frozen, see below); its docs remain under `docs/archive/python-server/`.
+Open work is tracked honestly in
+[implementation status](docs/plan/desktop-migration/13-implementation-status.md).
 
 ---
 
 ## Quickstart
 
-Docker Desktop, five minutes, no cloud keys:
+One Windows laptop, no cloud keys, no admin rights. Full guide:
+[docs/quickstart.md](docs/quickstart.md).
+
+1. Run the per-user installer (`HRAgents_0.1.0_x64-setup.exe`).
+2. First-run wizard: company name, HR operator, password.
+3. Print the recovery key (Settings → recovery) and file it on paper.
+4. Make the first backup (Settings → backup) and store the `.hrbackup` off-machine.
+
+Extraction works offline. For a hosted model (DeepSeek V4.1 Flash via OpenCode Go
+— the only live model), put the key in the shell environment:
 
 ```bash
-git clone https://github.com/davinakmalyasha/HRAgents
-cd HRAgents
-uv run python scripts/setup.py     # operator name, admin key, timezone, offline model
-docker compose up --build -d
+export OPENCODE_API_KEY='paste-key-here'
 ```
 
-Prefer the published image over a local build? Every release is a multi-arch
-container on GHCR (pin a tag in production;  is the newest release):
-
-```bash
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose pull
-HRAGENTS_IMAGE=ghcr.io/davinakmalyasha/hragents:latest docker compose up -d --no-build
-```
-
-`scripts/setup.py` writes `.env` (gitignored), which compose loads; it prints the
-dashboard key once. (No `uv` on the host? Copy `.env.example` to `.env` and set the
-same values by hand.) Paste the key into the sign-in screen at
-**<http://localhost:8000/app>**. Nine containers come up: postgres, redis,
-minio, mailpit, `migrate`, the API, plus a **worker** that evaluates submitted
-applications, a **scheduler** for the daily department chores, and a **messaging**
-process that drains the outbound queue. Migrations run automatically before the
-API serves.
-
-Verify the pipeline is actually running before you trust anything you see:
-
-```bash
-curl -s localhost:8000/readyz | python -m json.tool   # queue + skills must be "ok"
-curl -s localhost:8000/metrics | grep stuck_queued   # non-zero = no worker draining
-```
-
-To start from a clean install instead of the demo, seed the starter checklists and
-the empty statutory-table shells from the dashboard's first-run card, or with:
-
-```bash
-docker compose exec api uv run python scripts/seed_starters.py
-```
-
-Want something to look at? Seed the demo dataset — five employees mid-onboarding,
-a hiring pipeline, a pending leave approval and a payroll run — created through the
-real services so the audit trail and queues are populated:
-
-```bash
-docker compose exec api uv run python scripts/seed_demo.py
-```
-
-The statutory rate tables arrive **unverified on purpose**: payroll refuses to
-compute until a named human checks them against a real source, which is the
-product's central safety property, not a demo bug.
-
-**Nothing leaves your machine.** Mailpit catches all email, messaging is
-sandboxed, and the LLM defaults to the offline `test` model. To use a real model,
-set `HRAGENTS_LLM_MODEL` and the matching provider config — see
-[`.env.example`](.env.example).
-
-Logs: `docker compose logs -f api worker`. Stop: `docker compose down`.
-Data survives; `docker compose down -v` deletes it.
+The desktop app never reads `.env` files; `set -a; source .env; set +a` loads
+the repo file for the session instead.
 
 ---
 
@@ -104,7 +60,7 @@ flowchart LR
 ```
 
 The reasoning behind this split, and the exact automation bounds, are in
-[`docs/architecture/`](docs/architecture/) and the rendered
+[`docs/archive/python-server/architecture/`](docs/archive/python-server/architecture/) and the rendered
 [docs site](https://davinakmalyasha.github.io/HRAgents/).
 
 ## A look inside
@@ -160,7 +116,7 @@ Every step lands on a hash-chained audit log. Every score cites its evidence.
 > regression vector is engineering. The knowledge corpus behind "Ask HR" is a seed
 > set, not an Indonesian HR library. Live-model fairness and cost-per-application
 > are unproven: CI exercises the harness with the deterministic offline model.
-> See [remaining work](docs/plan/remaining-work.md) for the full picture.
+> See [remaining work](docs/archive/python-server/plan/remaining-work.md) for the full picture.
 
 ### Core formulas (locked)
 
@@ -200,28 +156,21 @@ Details: [product concept](docs/plan/product-concept.md) · [HR domain guide](do
 
 ```
 docs/
-  plan/            master build plan, problem statement, product concept, HR guide
-  research/        verified literature review + BibTeX (13 sources)
-  architecture/    system design, HITL bounds, storage decisions, benchmarks
-  api/             OpenAPI 3.1 specification (generated from the live app)
-skills/            markdown skills + RAG knowledge — content, not code
-scripts/           run_worker (the pipeline), run_scheduler, run_messaging, backup, checks
-src/hr_agents/
-  agentset.py      composition root: builds every agent from the skills library
-  queue.py         resolves the live queue backend both the API and worker share
-  models/          Pydantic v2 domain contracts
-  services/        deterministic core: scorer, policy, priority, audit, documents
-  skills/          skill loader → PydanticAI capabilities (on-demand)
-  knowledge/       RAG: chunking, offline embeddings, namespace-scoped retriever
-  tools/           least-privilege tool registry with audited execution
-  api/             FastAPI ingestion, queue, application status, /metrics, /readyz
-  db/              SQLAlchemy tables, async sessions
-migrations/        Alembic (PostgreSQL 16)
-tests/             test suite; ruff + mypy clean
-web/               dashboard SPA (React 19 + Vite + Tailwind + shadcn/ui)
+  plan/            master build plan, desktop migration track, status evidence
+  archive/         Python-server docs (history only; the code is deleted)
+  adr/             architecture decisions for the desktop edition
+parity/
+  FROZEN.md        frozen parity corpus + SHA-256 hashes (oracle reference)
+  fixtures/        canonical JSON the Rust parity tests consume
+rust/
+  crates/          hragents-core, store, ipc, agents, cli
+  apps/desktop/    Tauri 2.12 shell + React UI
+web/               dashboard SPA (separate product track; not the desktop UI)
 landing/           public site (Next.js static export; deployed separately)
-docker/            Postgres init scripts (demote the superuser so RLS applies)
 ```
+
+The Python server (`src/`, `tests/`, `migrations/`, `scripts/`) was deleted at
+the Gate 5 cut; the frozen fixtures above are its only remains.
 
 ## Documentation
 
@@ -230,87 +179,57 @@ reference — is at **<https://davinakmalyasha.github.io/HRAgents/>**. The same
 sources live here:
 
 - [Master build plan](docs/plan/master-build-plan.md) — the full checklist: phases, departments, progress
-- [Remaining work](docs/plan/remaining-work.md) — the honest backlog: live-model evals, vendor connectors, and deliberate deferrals
-- [Release process](docs/plan/release-process.md) — versioning, branching, how releases are cut
+- [Remaining work](docs/archive/python-server/plan/remaining-work.md) — the honest backlog: live-model evals, vendor connectors, and deliberate deferrals
+- [Release process](docs/archive/python-server/plan/release-process.md) — versioning, branching, how releases are cut
 - [Architecture decisions (ADRs)](docs/adr/README.md) — the reasoning behind the locked choices
 - [Problem statement](docs/plan/problem-statement.md) — the systemic problem this exists to solve
 - [Product concept](docs/plan/product-concept.md) — value, workspaces, dashboard UX, design system
 - [HR domain guide](docs/plan/hr-domain-guide.md) — how HR actually works, Indonesian specifics, glossary
 - [Literature review](docs/research/literature-review.md) — evidence base and design principles
-- [System architecture](docs/architecture/system-architecture.md) — pipeline, HITL flows, Mermaid diagrams
-- [Paper](docs/paper.md) — design, measured behaviour and honest limitations
-- [Deployment & operations](docs/deployment.md) — self-host with Docker Compose, backups, runbooks
-- [MCP server](docs/mcp-server.md) — `hragents-mcp` for Claude Desktop and IDE agents, read-only by default
-- [MCP connector catalog](docs/mcp-catalog.md) — ATS, HRIS, Slack and calendar templates with data-flow notes
-- [HITL bounds](docs/architecture/hitl-bounds.md) — exact automation boundaries and anti-goals
-- [Benchmarks](docs/architecture/benchmarks.md) — measured performance
+- [System architecture](docs/archive/python-server/architecture/system-architecture.md) — pipeline, HITL flows, Mermaid diagrams
+- [Paper](docs/archive/python-server/paper.md) — design, measured behaviour and honest limitations
+- [Deployment & operations](docs/archive/python-server/deployment.md) — self-host with Docker Compose, backups, runbooks
+- [MCP server](docs/archive/python-server/mcp-server.md) — `hragents-mcp` for Claude Desktop and IDE agents, read-only by default
+- [MCP connector catalog](docs/archive/python-server/mcp-catalog.md) — ATS, HRIS, Slack and calendar templates with data-flow notes
+- [HITL bounds](docs/archive/python-server/architecture/hitl-bounds.md) — exact automation boundaries and anti-goals
+- [Benchmarks](docs/archive/python-server/architecture/benchmarks.md) — measured performance
 
 ## Roadmap
 
-- [x] Literature review and verified citation base
-- [x] Foundation: Python 3.14, uv, Docker Compose, CI
-- [x] Contracts: Pydantic v2 models, OpenAPI 3.1, database schema
-- [x] Deterministic core: scorer, policy engine, priority queue, audit chain
-- [x] Ingestion API (measured 36,509 req/min in-process)
-- [x] Skills system: markdown → on-demand PydanticAI capabilities, versioned + hashed
-- [x] RAG engine: chunking, offline embeddings, namespace-scoped retrieval with citations
-- [x] Tool registry: least-privilege scopes, audited execution (no shell tools, ever)
-- [x] Agents: résumé deconstruction, code/portfolio evaluation, screening, feedback, policy Q&A
-- [x] Decision layer: HITL boundaries enforced in code, fairness harness, append-only overrides
-- [x] Recruitment API surface: documents, jobs, evaluations, overrides, feedback, scheduling
-- [x] Departments: Onboarding, Records, Leave, Payroll prep, Compliance, Growth, Offboarding
-- [x] Multi-department architecture: workspaces, RBAC, front door chat, tenant RLS, handoffs
-- [x] Evaluation worker: the API publishes, a worker claims and runs the pipeline end to end
-- [x] Verified rate tables: enter, verify with a source, and unblock payroll compute
-- [x] Operability: `/readyz` per-dependency, `/metrics` with a stuck-queue canary
-- [x] Dashboard SPA + PWA (monochrome design system) — chat, attention home, hiring board,
-      review queue, batch import, onboarding, records, approvals, XLSX review packets, auth
-      screens, offline shell, install prompt, push notifications
-- [x] Scoring generalized beyond engineering — eight family rubrics, a per-family evidence
-      taxonomy, composable primitives, evidence-first calibration
-- [~] Indonesian statutory knowledge: the compliance calendar and operator-verified rate tables
-      ship; a curated statutory RAG corpus is still a content project
-- [~] Direct integration adapters (SMTP/IMAP, WhatsApp manual links, calendar manual slots,
-      storage) ship, and so does the MCP layer (read tools, approval-backed writes, a
-      connector-template catalog); vendor-specific live connectors stay open — they
-      need real gateway endpoints, not invented ones
-- [x] Evaluation dataset (50 profiles + edge cases), offline suite, live-capable fairness
-      comparison, and the [technical paper](docs/paper.md)
-- [x] Self-host setup script, demo dataset, docs site, and public releases (Apache-2.0)
+- [x] Deterministic core: extraction, scoring, policy gate, audit chain
+- [x] Desktop free edition: Tauri shell, encrypted SQLite, hiring/people/leave/
+  payroll-prep/compliance/growth/offboarding, agent helpers, Ask with citations
+- [x] Gate 5 cut: Python server source deleted, parity corpus frozen
+  (`parity/FROZEN.md`), live-model proof on DeepSeek V4.1 Flash only
+- [ ] NSIS rebuild per release, clean-machine verification
+- [ ] Human pilot with a real company and a named reviewer
+- [ ] Paid distribution track (optional): signing, notarization, auto-update
 
 ## Technology
 
-**Backend** Python 3.14 · FastAPI · Pydantic v2 · PydanticAI · PostgreSQL 16 · Redis ·
-Docker · MinIO (reserved for object storage) · Dashboards: React 19 + Vite + Tailwind +
-shadcn/ui + PWA
+**Desktop app** Rust workspace (5 crates + Tauri 2.12 shell) · SQLite with
+SQLCipher encryption, per-install DPAPI-wrapped key · local-first, no accounts,
+no telemetry, no paid services.
 
-**Storage:** PostgreSQL is the production system of record — JSONB for profiles and
-document bytes, ACID + row-level security for compliance. SQLite is only the in-memory
-test engine. Rationale: [data storage decisions](docs/architecture/data-storage.md).
-Documents currently live in Postgres (`candidate_documents`, 10 MiB cap) rather than
-S3/MinIO; the `storage` provider exists but is not yet wired to the document path.
+**Storage:** one encrypted SQLite database per company, integer-sen money, SHA-256
+append-only audit chain. Documents encrypted with ChaCha20-Poly1305; backups are
+sealed `.hrbackup` sets with a SHA-256 manifest.
 
-**Models:** provider-agnostic — local (Ollama), Anthropic, OpenAI, or a fully offline
-`test` model for development and CI. The system runs end-to-end without any API keys.
+**Models:** offline keyword extractor by default; recorded provider replay in CI;
+DeepSeek V4.1 Flash via the OpenCode Go gateway is the only live model, key read
+from the environment at call time and never stored. The system runs end-to-end
+without any API keys.
 
-**Observability:** `/readyz` reports each dependency (database, messaging, audit,
-**queue**, **skills**) and returns 503 when the product cannot actually work;
-`/metrics` exposes Prometheus text, including
-`hragents_applications_stuck_queued` — the canary for "submissions are being
-accepted but nothing is evaluating them".
-
-**Dashboard (development):**
+**Desktop UI (development preview):**
 
 ```bash
-cd web
-npm ci
-npm run dev      # http://localhost:5173/app/ — proxies /v1 to localhost:8000
+cd rust/apps/desktop/ui
+npm install
+npm run dev        # http://127.0.0.1:1420 — same typed commands as Tauri
 ```
 
-The static build (`npm run build`) is served by FastAPI at `/app` when `web/dist`
-exists; the checked-in OpenAPI spec (`docs/api/openapi.json`) is regenerated with
-`uv run python scripts/export_openapi.py` and the typed client with
-`npm run api:generate`.
+The preview uses demo data and touches no database; the packaged app opens with
+the first-run wizard.
 
 ## Work with the author
 
@@ -325,7 +244,7 @@ the author offers freelance integration services.
 
 Contributions are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md) first. The short
 version: trunk-based branches, Conventional Commits with DCO sign-off, and a green
-`uv run python scripts/check.py` before opening a PR. Security reports go through the
+Rust gate (`cargo test`, `clippy -D warnings`, `fmt --check`) before opening a PR. Security reports go through the
 [private advisory flow](SECURITY.md); everyone follows the
 [Code of Conduct](CODE_OF_CONDUCT.md). If you use HRAgents in academic work, cite it via
 [CITATION.cff](CITATION.cff).

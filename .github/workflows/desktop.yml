@@ -1,0 +1,102 @@
+name: desktop
+
+on:
+  pull_request:
+    paths:
+      - "rust/**"
+      - "parity/**"
+      - ".github/workflows/desktop.yml"
+  push:
+    branches: [main]
+    paths:
+      - "rust/**"
+      - "parity/**"
+      - ".github/workflows/desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust core, store, IPC, shell
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
+      - name: Provider replay (recorded, no network)
+        run: cargo test -p hragents-agents --test provider_replay
+      - name: Tests and parity fixtures
+        run: cargo test --workspace --exclude hragents-desktop
+      - name: Tauri shell compiles
+        run: cargo build -p hragents-desktop
+
+  sqlcipher:
+    name: SQLCipher build and reopen
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: sudo apt-get update && sudo apt-get install -y build-essential perl
+      - run: cargo test -p hragents-store --features sqlcipher
+      - run: cargo test -p hragents-ipc --features sqlcipher
+
+  ui:
+    name: Desktop UI typecheck and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust/apps/desktop/ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: npm
+          cache-dependency-path: rust/apps/desktop/ui/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  parity:
+    name: Parity fixtures frozen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Post-cut: the Python oracle is deleted, so fixtures cannot regenerate.
+      # The corpus is frozen (parity/FROZEN.md, bytes pinned LF by
+      # .gitattributes); the Rust parity suites consume these files and fail
+      # if their shape changes. This step pins the bytes: any added, removed,
+      # or modified fixture fails the build.
+      - name: Fixtures match the frozen corpus
+        run: |
+          rows=$(grep -c '^| .*\.json |' parity/FROZEN.md)
+          files=$(ls parity/fixtures/*.json | wc -l)
+          test "$rows" -eq "$files" || { echo "FROZEN.md lists $rows fixtures but $files files exist"; exit 1; }
+          grep '^| .*\.json |' parity/FROZEN.md | while read -r line; do
+            file=$(echo "$line" | cut -d'|' -f2 | tr -d ' ')
+            want=$(echo "$line" | cut -d'|' -f3 | tr -d ' `')
+            got=$(sha256sum "parity/fixtures/$file" | cut -d' ' -f1)
+            test "$want" = "$got" || { echo "hash mismatch: $file"; exit 1; }
+          done
+          echo "frozen corpus intact: $files files verified"

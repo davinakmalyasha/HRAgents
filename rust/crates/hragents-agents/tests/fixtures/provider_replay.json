@@ -1,0 +1,19 @@
+{
+  "document": "Ayu Lestari — Backend Engineer. Built a Rust ingestion pipeline handling 2M events per day. Reduced p99 latency from 900ms to 180ms. AWS Solutions Architect.",
+  "responses": [
+    "{\"dimensions\":[{\"key\":\"technical_depth\",\"score_bp\":8500,\"evidence_quote\":\"Built a Rust ingestion pipeline handling 2M events per day.\",\"confidence_bp\":9300},{\"key\":\"stack_alignment\",\"score_bp\":7800,\"evidence_quote\":\"Built a Rust ingestion pipeline handling 2M events per day.\",\"confidence_bp\":9000},{\"key\":\"systems_literacy\",\"score_bp\":7200,\"evidence_quote\":\"Reduced p99 latency from 900ms to 180ms.\",\"confidence_bp\":8800},{\"key\":\"verifiable_certifications\",\"score_bp\":6000,\"evidence_quote\":\"AWS Solutions Architect.\",\"confidence_bp\":9500}]}",
+    "```json\n{\"dimensions\":[{\"key\":\"technical_depth\",\"score_bp\":8300,\"evidence_quote\":\"Built a Rust ingestion pipeline handling 2M events per day.\",\"confidence_bp\":9100},{\"key\":\"stack_alignment\",\"score_bp\":8000,\"evidence_quote\":\"Built a Rust ingestion pipeline handling 2M events per day.\",\"confidence_bp\":9200},{\"key\":\"systems_literacy\",\"score_bp\":7000,\"evidence_quote\":\"Reduced p99 latency from 900ms to 180ms.\",\"confidence_bp\":8600},{\"key\":\"verifiable_certifications\",\"score_bp\":6500,\"evidence_quote\":\"AWS Solutions Architect.\",\"confidence_bp\":9400}]}\n```",
+    "{\"dimensions\":[{\"key\":\"technical_depth\",\"score_bp\":8400,\"evidence_quote\":\"Built a Rust ingestion pipeline handling 2M events per day.\",\"confidence_bp\":9200},{\"key\":\"stack_alignment\",\"score_bp\":7900,\"evidence_quote\":\"Built a Rust ingestion pipeline handling 2M events per day.\",\"confidence_bp\":9100},{\"key\":\"systems_literacy\",\"score_bp\":7100,\"evidence_quote\":\"Reduced p99 latency from 900ms to 180ms.\",\"confidence_bp\":8700},{\"key\":\"verifiable_certifications\",\"score_bp\":6200,\"evidence_quote\":\"AWS Solutions Architect.\",\"confidence_bp\":9300}]}"
+  ],
+  "expected": {
+    "runs": 3,
+    "dimension_scores_bp": {
+      "technical_depth": 8400,
+      "stack_alignment": 7900,
+      "systems_literacy": 7100,
+      "verifiable_certifications": 6233
+    },
+    "overall_bp": 7773,
+    "evidence_count": 4
+  }
+}

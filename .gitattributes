@@ -10,7 +10,5 @@
 *.xlsx binary
 *.docx binary
 
-uv.lock linguist-generated=true
-docs/api/openapi.json linguist-generated=true
 web/package-lock.json linguist-generated=true
 web/src/api/schema.d.ts linguist-generated=true

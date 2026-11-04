@@ -1,0 +1,20 @@
+[package]
+name = "hragents-cli"
+description = "Local operator CLI and demo harness for HRAgents Desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+hragents-core = { path = "../hragents-core" }
+hragents-store = { path = "../hragents-store" }
+hragents-ipc = { path = "../hragents-ipc" }
+chrono.workspace = true
+serde_json.workspace = true
+
+[features]
+default = []
+# `cargo run -p hragents-cli --features sqlcipher -- verify ...` can open the
+# encrypted database the desktop app creates.
+sqlcipher = ["hragents-store/sqlcipher"]
