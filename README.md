@@ -65,12 +65,14 @@ The reasoning behind this split, and the exact automation bounds, are in
 
 ## A look inside
 
-![A tour of the demo: home, approvals, people and records, operations](docs/assets/screenshots/tour.gif)
+The cockpit, running on demo data — the morning queue with the agent briefing,
+a scored candidate case file, the cited policy assistant, and read-only reports
+with the ranked shortlist:
 
-Four screens from the demo dataset — the attention-first home, the shared
-approvals queue, people and records, and the operations page with every
-provider's state. More in the
-[docs site](https://davinakmalyasha.github.io/HRAgents/latest/).
+![Today: decisions, morning briefing, onboarding, audit receipts](docs/assets/screenshots/desktop-today.png)
+![Hire: scored candidate case file with evidence and gated actions](docs/assets/screenshots/desktop-hire.png)
+![Ask: policy answers with citations, offline by default](docs/assets/screenshots/desktop-ask.png)
+![Reports: headcount, hiring funnel, and ranked shortlist](docs/assets/screenshots/desktop-reports.png)
 
 ## Why this exists
 
