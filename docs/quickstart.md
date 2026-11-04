@@ -31,14 +31,8 @@ plus a passing audit chain is the definition of "it works".
 
 ## 5. Bring existing data (optional)
 
-The legacy Python product exports everything it owns as one JSON document:
-
-```bash
-HRAGENTS_DATABASE_URL=postgresql://user:pass@host:5432/hr \
-  uv run python scripts/export_legacy.py hragents-export.json
-```
-
-On the HR laptop, dry-run first, then commit:
+If you have a `hragents-export/1` JSON file produced by the legacy bridge
+before the Gate 5 cut, dry-run first, then commit on the HR laptop:
 
 ```bash
 hragents-cli import hragents-export.json           # validates, writes nothing
@@ -48,8 +42,9 @@ hragents-cli import hragents-export.json --commit  # one transaction per slice
 Org units, employees, leave, approved payroll runs, and audit history import
 slice by slice; every slice is idempotent, and a re-run is a no-op. Tables
 outside those slices are reported with their row counts, never silently
-dropped. Details: `scripts/export_legacy.py` and the
-[implementation status](plan/desktop-migration/13-implementation-status.md).
+dropped. The legacy export bridge itself was removed at the cut — no new
+export files can be produced — but files generated earlier still import.
+Details: [implementation status](plan/desktop-migration/13-implementation-status.md).
 
 ## 6. Live provider key (optional)
 

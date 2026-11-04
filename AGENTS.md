@@ -8,20 +8,26 @@ contribute safely. Humans should read [`CONTRIBUTING.md`](CONTRIBUTING.md) inste
 Run this before claiming any task is done:
 
 ```bash
-uv run python scripts/check.py
+cd rust
+cargo test --workspace --exclude hragents-desktop
+cargo clippy --workspace --exclude hragents-desktop --all-targets -- -D warnings
+cargo fmt --all -- --check
 ```
 
-It runs `ruff check`, `ruff format --check`, `mypy`, and `pytest` (1287 tests, ≥90%
-coverage enforced in CI). Fix failures — never suppress them (`# type: ignore`,
-`noqa`, skipped tests) without an explicit reason.
+Fix failures — never suppress them without an explicit reason. When you touch
+`rust/apps/desktop/ui/`, also run `npm run typecheck` and `npm run build` there.
+Docs changes must pass `mkdocs build --strict` from the repo root.
 
-When you touch `web/`, also run the dashboard gate:
+The Tauri shell crate (`hragents-desktop`) is excluded from the workspace gate
+because its vendored OpenSSL build needs a working perl; check it explicitly
+when you touch `rust/apps/desktop/src/`:
 
 ```bash
-cd web && npm run lint && npm run format:check && npm run typecheck && npm run test && npm run build
+export PERL5LIB=/tmp/perllib MSYS2_ENV_CONV_EXCL=PERL5LIB PATH=/tmp/mkshim:$PATH
+cargo check -p hragents-desktop
 ```
 
-Design tokens are law: hex colors may only appear in `web/src/styles/theme.css`
+Design tokens are law: hex colors may only appear in the theme file
 (a guard test fails otherwise), and status colors always ship with icon + label.
 
 ## Hard rules — never weaken these
@@ -45,16 +51,19 @@ Design tokens are law: hex colors may only appear in `web/src/styles/theme.css`
 
 ## Test conventions
 
-- No network access; no real LLM calls (the offline `test` model exists for this).
+- No network access; no real LLM calls (the offline keyword extractor and the
+  recorded provider replay are the test doubles; live tests are `#[ignore]`d).
 - No hardcoded dates — anchor to `business_today()` (never `date.today()`: the host is UTC
-  while the business day is `HRAGENTS_TIMEZONE`, default `Asia/Jakarta`; a guard test enforces it).
-- In-memory stores and SQLite in tests; Postgres-only paths are covered by CI.
+  while the business day is `Asia/Jakarta`; a guard test enforces it).
+- In-memory stores and SQLite in tests; SQLCipher paths are covered with the
+  `sqlcipher` feature.
 - Negative tests first for approvals, gates, retention/purge, and overrides.
 
 ## Code conventions
 
-- Python 3.14, full type hints, Pydantic v2 models at boundaries.
-- Ruff line length 100; mathematical notation in docstrings is intentional.
+- Rust 2024 edition, full type hints via the type system; `serde` models at boundaries.
+- Ruff line length 100 still applies to any remaining Python (docs tooling only);
+  mathematical notation in docstrings is intentional.
 - Do not add comments unless they explain non-obvious decisions.
 - Commits: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`), signed off
   (`git commit -s`).

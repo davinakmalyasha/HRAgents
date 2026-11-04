@@ -301,7 +301,7 @@ the same gates; it is a review surface, not a second implementation.
 | **G3** payroll | 1,000-employee run matches Python to the sen; verified tables; sign-off; immutable; export; payslip | **Pass on the dev slice.** Monthly, THR, BPJS, overtime, PPh 21, and absence cases match the Python oracle to the sen, including a deterministic 1,000-line run. Python does not model severance or leave payout; Rust matches its final wage component and tests the additive extension separately. Tables gate, anomalies, sign-off, immutability, XLSX export, and payslips are covered. |
 | **G4** docs/compliance | Leave, document requests, retention, erasure, consent, audit export, policy chat | **Pass on the dev slice.** Retention policies/holds/sweep, erasure request→approve→execute (reauth gates, holds block, audit survives), breach report→contain→notify→close, consent grant/withdraw, audit export, and policy retrieval pass core/store/IPC/Tauri/UI tests. |
 | **G4** data migration | `hragents-export/1` JSON → SQLite, dry-run first | **Slices 1–4 done.** Org units + employees, leave, approved payroll, and audit history (re-chained with original hashes preserved) — each in one transaction, idempotent re-runs, audited. The direct-database path is a read-only bridge: `scripts/export_legacy.py` streams any reachable legacy database (`HRAGENTS_DATABASE_URL`, Postgres in production) to the same JSON format, verified against SQLite; only a live source to run it against is still missing. |
-| **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Not started by design.** The migration plan forbids removing Python until the first release cut; the free edition changes distribution, not the parity contract. |
+| **G5** no Python | Five journeys on packaged build, full parity green, no Python in bundle | **Cut executed 2026-11-04 by operator decision.** Python source deleted (534 files: `src/`, `tests/`, `migrations/`, `scripts/`, plus `pyproject.toml`, `uv.lock`, `alembic.ini`, `Dockerfile`, `docker-compose.yml`); frozen corpus kept (`parity/FROZEN.md` + `parity/fixtures/`, byte-pinned by CI hash check + LF `eol`); server workflows deleted (`release.yml`, `image.yml`, `audit.yml`, `benchmark.yml`), Python jobs removed from `ci.yml`/`desktop.yml`/`release-please.yml`/`codeql.yml`, docs publishing kept on pip-installed mkdocs. |
 | **G6** installable free build + recovery | Per-user installer, backup/restore drill, rollback, no paid dependency | **Pass for the free edition.** NSIS installs per-user without admin, data survives uninstall, backup/restore drill is green, audit exports, and nothing requires a certificate, paid account, hosted update server, or telemetry. Commercial signing/notarization is a future paid-distribution decision, not a gate. Pilot remains a human step. |
 
 **Threat model.** Encryption protects a stolen disk, a copied database, or a
@@ -309,8 +309,9 @@ backup without its key. It does not defend a process already running as the
 logged-in Windows user: DPAPI will unwrap the key for that user. OS login and
 full-disk encryption still matter, and the key file must be backed up separately.
 
-A gate is not opened by a green unit test. G5 and the pilot remain open until the
-missing evidence exists.
+A gate is not opened by a green unit test. The pilot remains open until the
+missing evidence exists; G5 is cut and now needs only the post-cut green gate
+run as its evidence.
 
 ---
 
@@ -325,7 +326,8 @@ missing evidence exists.
    streaming UI yet. DeepSeek V4.1 Flash is the only live model, by operator
    decision — no other model is configured or tested. The
    offline extractor stays the default.
-2. **Python removal** — deferred to the release cut by the migration plan.
+2. **Python removal** — executed at the release cut 2026-11-04 by operator
+   decision. See the G5 row above for the inventory.
 3. **Import from the existing Postgres product** — JSON slices 1–4 (org units, employees, leave, approved payroll, audit history) are done and drilled, and `scripts/export_legacy.py` streams any reachable legacy database to the same JSON format (verified against SQLite). Only a live source with credentials to run it against is still missing.
 4. **Paid distribution track (optional)** — Authenticode/Apple notarization and a
    signed auto-update feed are out of scope for this free edition.
@@ -355,7 +357,8 @@ missing evidence exists.
    aspiration; WebView2 cold start remains the dominant cost.
 2. Run the pilot entry checklist in `15-pilot.md` with a real HR operator.
 3. Decide the live-provider path (key, streaming, cost); offline remains default.
-4. At the release cut: freeze the corpus, remove Python from the runtime, and run G5.
+4. Release cut executed 2026-11-04 (corpus frozen, Python deleted); re-run the
+   full gate suite on the final tree as G5 evidence.
 
 ---
 

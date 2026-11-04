@@ -5,14 +5,12 @@ on:
     paths:
       - "rust/**"
       - "parity/**"
-      - "scripts/parity_export.py"
       - ".github/workflows/desktop.yml"
   push:
     branches: [main]
     paths:
       - "rust/**"
       - "parity/**"
-      - "scripts/parity_export.py"
       - ".github/workflows/desktop.yml"
 
 permissions:
@@ -81,17 +79,24 @@ jobs:
       - run: npm run build
 
   parity:
-    name: Python oracle fixtures regenerate cleanly
+    name: Parity fixtures frozen
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: "0.12.13"
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-      - name: Export fixtures from the Python implementation
-        run: uv run python scripts/parity_export.py parity/fixtures
-      - name: Fixtures are committed and current
-        run: git diff --exit-code -- parity/fixtures
+      # Post-cut: the Python oracle is deleted, so fixtures cannot regenerate.
+      # The corpus is frozen (parity/FROZEN.md, bytes pinned LF by
+      # .gitattributes); the Rust parity suites consume these files and fail
+      # if their shape changes. This step pins the bytes: any added, removed,
+      # or modified fixture fails the build.
+      - name: Fixtures match the frozen corpus
+        run: |
+          rows=$(grep -c '^| .*\.json |' parity/FROZEN.md)
+          files=$(ls parity/fixtures/*.json | wc -l)
+          test "$rows" -eq "$files" || { echo "FROZEN.md lists $rows fixtures but $files files exist"; exit 1; }
+          grep '^| .*\.json |' parity/FROZEN.md | while read -r line; do
+            file=$(echo "$line" | cut -d'|' -f2 | tr -d ' ')
+            want=$(echo "$line" | cut -d'|' -f3 | tr -d ' `')
+            got=$(sha256sum "parity/fixtures/$file" | cut -d' ' -f1)
+            test "$want" = "$got" || { echo "hash mismatch: $file"; exit 1; }
+          done
+          echo "frozen corpus intact: $files files verified"
