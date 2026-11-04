@@ -15,8 +15,7 @@
     "test:watch": "vitest",
     "size": "node scripts/check-bundle-size.mjs",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build",
-    "api:generate": "openapi-typescript ../docs/api/openapi.json -o src/api/schema.d.ts"
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
