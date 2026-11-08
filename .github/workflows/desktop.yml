@@ -24,7 +24,7 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
@@ -50,7 +50,7 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
@@ -68,8 +68,8 @@ jobs:
       run:
         working-directory: rust/apps/desktop/ui
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: npm
@@ -82,7 +82,7 @@ jobs:
     name: Parity fixtures frozen
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Post-cut: the Python oracle is deleted, so fixtures cannot regenerate.
       # The corpus is frozen (parity/FROZEN.md, bytes pinned LF by
       # .gitattributes); the Rust parity suites consume these files and fail
