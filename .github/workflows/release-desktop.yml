@@ -20,7 +20,7 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
@@ -30,7 +30,7 @@ jobs:
       # Workspace tests EXCLUDING the Tauri shell crate (same gate as desktop.yml).
       - name: Rust workspace tests
         run: cargo test --workspace --exclude hragents-desktop
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: npm
@@ -50,14 +50,14 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: npm
@@ -66,7 +66,7 @@ jobs:
         # FREE EDITION: no code-signing certificate is required or referenced.
         # Users click "More info -> Run anyway" once on first install. No paid
         # account, no secrets, no hosted update endpoint.
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         with:
           projectPath: rust/apps/desktop
           tagName: ${{ github.ref_name }}
@@ -84,7 +84,7 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.99.1
@@ -92,13 +92,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: npm
           cache-dependency-path: rust/apps/desktop/ui/package-lock.json
       - name: Build and bundle (dmg)
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         with:
           projectPath: rust/apps/desktop
           tagName: ${{ github.ref_name }}
